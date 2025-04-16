@@ -19,13 +19,20 @@ class UserInformationScreen extends StatefulWidget {
 
 class _UserInformationScreenState extends State<UserInformationScreen> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _aboutMeController = TextEditingController();
   File? finalFileImage;
   String userImage = '';
 
   @override
+  void initState() {
+    super.initState();
+    _aboutMeController.text = "Hey there, I'm using TexGB";
+  }
+
+  @override
   void dispose() {
-    //_btnController.stop();
     _nameController.dispose();
+    _aboutMeController.dispose();
     super.dispose();
   }
 
@@ -131,6 +138,20 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _aboutMeController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'About me',
+                labelText: 'About me',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(8),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 40),
             Container(
               width: double.infinity,
@@ -164,32 +185,6 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
                             letterSpacing: 1.5),
                       ),
               ),
-
-              // RoundedLoadingButton(
-              //   controller: _btnController,
-              //   onPressed: () {
-              //     if (_nameController.text.isEmpty ||
-              //         _nameController.text.length < 3) {
-              //       showSnackBar(context, 'Please enter your name');
-              //       _btnController.reset();
-              //       return;
-              //     }
-              //     // save user data to firestore
-              //     saveUserDataToFireStore();
-              //   },
-              //   successIcon: Icons.check,
-              //   successColor: Colors.green,
-              //   errorColor: Colors.red,
-              //   color: Theme.of(context).primaryColor,
-              //   child: const Text(
-              //     'Continue',
-              //     style: TextStyle(
-              //       color: Colors.white,
-              //       fontSize: 16,
-              //       fontWeight: FontWeight.w500,
-              //     ),
-              //   ),
-              // ),
             ),
           ],
         ),
@@ -207,13 +202,12 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
       phoneNumber: authProvider.phoneNumber!,
       image: '',
       token: '',
-      aboutMe: 'Hey there, I\'m using TexGB',
+      aboutMe: _aboutMeController.text.trim(),
       lastSeen: '',
       createdAt: '',
       isOnline: true,
-      friendsUIDs: [],
-      friendRequestsUIDs: [],
-      sentFriendRequestsUIDs: [],
+      contactsUIDs: [],
+      blockedUIDs: [],
     );
 
     authProvider.saveUserDataToFireStore(

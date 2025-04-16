@@ -10,10 +10,12 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/status/screens/status_create_screen.dart';
 import 'package:textgb/features/status/screens/status_view_screen.dart';
 import 'package:textgb/firebase_options.dart';
+import 'package:textgb/main_screen/add_contact_screen.dart';
+import 'package:textgb/main_screen/blocked_contacts_screen.dart';
 import 'package:textgb/main_screen/chat_screen.dart';
-import 'package:textgb/main_screen/friend_requests_screen.dart';
-import 'package:textgb/main_screen/friends_screen.dart';
+import 'package:textgb/main_screen/contacts_screen.dart';
 import 'package:textgb/main_screen/group_information_screen.dart';
+import 'package:textgb/main_screen/group_member_requests_screen.dart';
 import 'package:textgb/main_screen/group_settings_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/main_screen/profile_screen.dart';
@@ -76,10 +78,12 @@ class MyApp extends StatelessWidget {
               const UserInformationScreen(),
           Constants.homeScreen: (context) => const HomeScreen(),
           Constants.profileScreen: (context) => const ProfileScreen(),
-          Constants.friendsScreen: (context) => const FriendsScreen(),
-          Constants.friendRequestsScreen: (context) =>
-              const FriendRequestScreen(),
+          Constants.contactsScreen: (context) => const ContactsScreen(),
+          Constants.addContactScreen: (context) => const AddContactScreen(),
+          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
           Constants.chatScreen: (context) => const ChatScreen(),
+          Constants.groupMemberRequestsScreen: (context) =>
+              const GroupMemberRequestsScreen(),
           Constants.groupSettingsScreen: (context) =>
               const GroupSettingsScreen(),
           Constants.groupInformationScreen: (context) =>

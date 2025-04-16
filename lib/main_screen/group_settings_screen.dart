@@ -4,7 +4,7 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/group_provider.dart';
-import 'package:textgb/widgets/friend_widget.dart';
+import 'package:textgb/widgets/contact_widget.dart';
 import 'package:textgb/widgets/settings_list_tile.dart';
 import 'package:textgb/widgets/settings_switch_list_tile.dart';
 
@@ -22,7 +22,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   }) {
     // check if there are group members
     if (groupProvider.groupMembersList.isEmpty) {
-      return 'To asign Admin roles, Please add group members in the previous screen';
+      return 'To assign Admin roles, please add group members in the previous screen';
     } else {
       List<String> groupAdminsNames = [];
 
@@ -37,15 +37,6 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
       // add these names to the groupAdminsNames list
       groupAdminsNames.addAll(groupAdminsNamesList);
 
-      // if they are just two, seperate them with 'and', if they are more than 2
-      // seperate the last one with 'and' and the rest with comma
-      // if (groupAdminsList.length == 1) {
-      //   return groupAdminsNames.first;
-      // } else if (groupAdminsNames.length == 2) {
-      //   return groupAdminsNames.join(' and ');
-      // } else {
-      //   return '${groupAdminsNames.sublist(0, groupAdminsNames.length - 1).join(', ')} and ${groupAdminsNames.last}';
-      // }
       return groupAdminsNames.length == 2
           ? '${groupAdminsNames[0]} and ${groupAdminsNames[1]}'
           : groupAdminsNames.length > 2
@@ -194,12 +185,12 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                                               itemCount: groupProvider
                                                   .groupMembersList.length,
                                               itemBuilder: (context, index) {
-                                                final friend = groupProvider
+                                                final member = groupProvider
                                                     .groupMembersList[index];
-                                                return FriendWidget(
-                                                  friend: friend,
+                                                return ContactWidget(
+                                                  contact: member,
                                                   viewType:
-                                                      FriendViewType.groupView,
+                                                      ContactViewType.groupView,
                                                   isAdminView: true,
                                                 );
                                               },

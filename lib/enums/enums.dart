@@ -1,6 +1,6 @@
-enum FriendViewType {
-  friends,
-  friendRequests,
+enum ContactViewType {
+  contacts,
+  blocked,
   groupView,
   allUsers,
 }

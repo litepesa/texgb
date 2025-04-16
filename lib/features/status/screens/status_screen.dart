@@ -29,14 +29,20 @@ class _StatusScreenState extends State<StatusScreen> {
     final authProvider = context.read<AuthenticationProvider>();
     final statusProvider = context.read<StatusProvider>();
     
-    // Get current user and their friends
+    // Get current user and their contacts
     final currentUser = authProvider.userModel!;
-    final friendUids = currentUser.friendsUIDs;
+    
+    // Use contactsUIDs instead of friendsUIDs for the new contact system
+    final contactUids = currentUser.contactsUIDs;
+    
+    // Filter out blocked contacts
+    final blockedUids = currentUser.blockedUIDs;
+    final filteredContactUids = contactUids.where((uid) => !blockedUids.contains(uid)).toList();
     
     // Fetch statuses
     await statusProvider.fetchAllStatuses(
       currentUserUid: currentUser.uid,
-      friendUids: friendUids,
+      friendUids: filteredContactUids, // Still named friendUids in provider, but we're passing contactUids
     );
   }
 
@@ -139,7 +145,7 @@ class _StatusScreenState extends State<StatusScreen> {
                           ),
                         ),
 
-                        // Friends with status updates
+                        // Contacts with status updates
                         ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -200,7 +206,7 @@ class _StatusScreenState extends State<StatusScreen> {
                           },
                         ),
                       ] else ...[
-                        // No status updates from friends
+                        // No status updates from contacts
                         Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 32.0),

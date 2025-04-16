@@ -427,4 +427,30 @@ class GroupProvider extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+   // Get group by ID
+  Future<GroupModel?> getGroupById(String groupId) async {
+    try {
+      final doc = await _firestore.collection(Constants.groups).doc(groupId).get();
+      if (!doc.exists) return null;
+      return GroupModel.fromMap(doc.data()!);
+    } catch (e) {
+      debugPrint('Error getting group: $e');
+      return null;
+    }
+  }
+
+  // Reject request to join group
+  Future<void> rejectRequestToJoinGroup({
+    required String groupId,
+    required String userId,
+  }) async {
+    await _firestore.collection(Constants.groups).doc(groupId).update({
+      Constants.awaitingApprovalUIDs: FieldValue.arrayRemove([userId])
+    });
+  
+    _groupModel.awaitingApprovalUIDs.remove(userId);
+    notifyListeners();
+  }
+  
 }

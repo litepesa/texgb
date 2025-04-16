@@ -130,7 +130,7 @@ class StatusProvider extends ChangeNotifier {
         userName: currentUser.name,
         userImage: currentUser.image,
         statusId: statusId,
-        statusUrl: text, // For text status, the content is stored directly
+        statusUrl: text, // For text status, URL contains the text
         caption: '',
         statusType: StatusType.text,
         createdAt: DateTime.now(),
@@ -232,16 +232,17 @@ class StatusProvider extends ChangeNotifier {
     }
   }
   
-  // Get all statuses for the current user and their friends
+  // Get all statuses for the current user and their contacts
+  // Updated parameter name from friendUids to contactUids for clarity
   Future<void> fetchAllStatuses({
     required String currentUserUid,
-    required List<String> friendUids,
+    required List<String> friendUids, // Keep the parameter name for backward compatibility, but it now receives contactUids
   }) async {
     setLoading(true);
     
     try {
       final List<StatusModel> myStatus = [];
-      final Map<String, List<StatusModel>> friendsStatus = {};
+      final Map<String, List<StatusModel>> contactsStatus = {};
       
       // Fetch current user's statuses
       final myStatusDocs = await _firestore
@@ -265,18 +266,18 @@ class StatusProvider extends ChangeNotifier {
         }
       }
       
-      // Fetch friends' statuses
-      for (var friendUid in friendUids) {
-        final friendStatusDocs = await _firestore
+      // Fetch contacts' statuses
+      for (var contactUid in friendUids) { // Now this is actually contact UIDs
+        final contactStatusDocs = await _firestore
             .collection('status')
-            .doc(friendUid)
+            .doc(contactUid)
             .collection('userStatus')
             .orderBy('createdAt', descending: true)
             .get();
         
         final List<StatusModel> validStatuses = [];
         
-        for (var doc in friendStatusDocs.docs) {
+        for (var doc in contactStatusDocs.docs) {
           final status = StatusModel.fromMap(doc.data());
           final difference = now.difference(status.createdAt);
           
@@ -288,16 +289,16 @@ class StatusProvider extends ChangeNotifier {
           }
         }
         
-        // Only add friend to map if they have valid statuses
+        // Only add contact to map if they have valid statuses
         if (validStatuses.isNotEmpty) {
-          friendsStatus[friendUid] = validStatuses;
+          contactsStatus[contactUid] = validStatuses;
         }
       }
       
       // Update local lists
       updateStatusLists(
         myStatus: myStatus,
-        contactStatus: friendsStatus,
+        contactStatus: contactsStatus,
       );
       
       setLoading(false);

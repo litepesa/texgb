@@ -11,8 +11,8 @@ import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/group_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:textgb/widgets/app_bar_back_button.dart';
+import 'package:textgb/widgets/contact_list.dart';
 import 'package:textgb/widgets/display_user_image.dart';
-import 'package:textgb/widgets/friends_list.dart';
 import 'package:textgb/widgets/group_type_list_tile.dart';
 import 'package:textgb/widgets/settings_list_tile.dart';
 
@@ -31,6 +31,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       TextEditingController();
   File? finalFileImage;
   String userImage = '';
+  String _searchQuery = '';
 
   void selectImage(bool fromCamera) async {
     finalFileImage = await pickImage(
@@ -268,16 +269,28 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             ),
             const SizedBox(height: 10),
 
-            // cuppertino search bar
+            // Search bar for filtering contacts
             CupertinoSearchTextField(
-              onChanged: (value) {},
+              placeholder: 'Search contacts',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.white 
+                  : Colors.black,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
             ),
 
             const SizedBox(height: 10),
 
-            const Expanded(
-              child: FriendsList(
-                viewType: FriendViewType.groupView,
+            // List of contacts to add to the group
+            Expanded(
+              child: ContactList(
+                viewType: ContactViewType.groupView,
+                searchQuery: _searchQuery,
               ),
             ),
           ],

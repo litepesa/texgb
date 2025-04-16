@@ -5,6 +5,8 @@ import 'package:textgb/models/user_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/group_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
+import 'package:textgb/widgets/group_status_widget.dart';
+import 'package:textgb/widgets/profile_status_widget.dart';
 import 'package:textgb/widgets/profile_widgets.dart';
 
 class InfoDetailsCard extends StatelessWidget {

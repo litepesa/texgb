@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
+import 'package:textgb/main_screen/add_contact_screen.dart';
 import 'package:textgb/main_screen/create_group_screen.dart';
 import 'package:textgb/main_screen/groups_screen.dart';
 import 'package:textgb/main_screen/my_chats_screen.dart';
@@ -76,27 +77,39 @@ class _HomeScreenState extends State<HomeScreen>
         appBar: AppBar(
           title: const Text('TexGB'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                // Navigate to search screen
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const PeopleScreen(),
+                  ),
+                );
+              },
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.red.withOpacity(0.7),
-                  width: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.7),
+                    width: 2,
+                  ),
                 ),
-              ),
-              child: userImageWidget(
-                imageUrl: authProvider.userModel!.image,
-                radius: 20,
-                onTap: () {
-                  // navigate to user profile with uis as arguments
-                  Navigator.pushNamed(
-                    context,
-                    Constants.profileScreen,
-                    arguments: authProvider.userModel!.uid,
-                  );
-                },),
+                child: userImageWidget(
+                  imageUrl: authProvider.userModel!.image,
+                  radius: 20,
+                  onTap: () {
+                    // navigate to user profile with uid as arguments
+                    Navigator.pushNamed(
+                      context,
+                      Constants.profileScreen,
+                      arguments: authProvider.userModel!.uid,
+                    );
+                  },
+                ),
               ),
             )
           ],
@@ -129,14 +142,13 @@ class _HomeScreenState extends State<HomeScreen>
             : currentIndex == 0
                 ? FloatingActionButton(
                     onPressed: () {
-                      // Navigate to People screen as a new route
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const PeopleScreen(),
-                        ),
+                      // Navigate to Contacts screen
+                      Navigator.pushNamed(
+                        context,
+                        Constants.contactsScreen,
                       );
                     },
-                    child: const Icon(CupertinoIcons.bubble_left),
+                    child: const Icon(CupertinoIcons.chat_bubble_text),
                   )
                 : null,
         bottomNavigationBar: BottomNavigationBar(

@@ -27,7 +27,7 @@ class AuthenticationProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // chech authentication state
+  // check authentication state
   Future<bool> checkAuthenticationState() async {
     bool isSignedIn = false;
     await Future.delayed(const Duration(seconds: 2));
@@ -50,7 +50,7 @@ class AuthenticationProvider extends ChangeNotifier {
     return isSignedIn;
   }
 
-  // chech if user exists
+  // check if user exists
   Future<bool> checkUserExists() async {
     DocumentSnapshot documentSnapshot =
         await _firestore.collection(Constants.users).doc(_uid).get();
@@ -221,150 +221,147 @@ class AuthenticationProvider extends ChangeNotifier {
         .snapshots();
   }
 
-  // send friend request
-  Future<void> sendFriendRequest({
-    required String friendID,
+  // Add contact to user's contacts
+  Future<void> addContact({
+    required String contactID,
   }) async {
     try {
-      // add our uid to friends request list
-      await _firestore.collection(Constants.users).doc(friendID).update({
-        Constants.friendRequestsUIDs: FieldValue.arrayUnion([_uid]),
-      });
-
-      // add friend uid to our friend requests sent list
+      // Add contact to user's contacts list
       await _firestore.collection(Constants.users).doc(_uid).update({
-        Constants.sentFriendRequestsUIDs: FieldValue.arrayUnion([friendID]),
+        Constants.contactsUIDs: FieldValue.arrayUnion([contactID]),
       });
+      
+      // Update local model
+      _userModel!.contactsUIDs.add(contactID);
+      notifyListeners();
     } on FirebaseException catch (e) {
-      print(e);
+      debugPrint(e.toString());
     }
   }
 
-  Future<void> cancleFriendRequest({required String friendID}) async {
+  // Remove contact from user's contacts
+  Future<void> removeContact({required String contactID}) async {
     try {
-      // remove our uid from friends request list
-      await _firestore.collection(Constants.users).doc(friendID).update({
-        Constants.friendRequestsUIDs: FieldValue.arrayRemove([_uid]),
-      });
-
-      // remove friend uid from our friend requests sent list
+      // Remove contact from user's contacts list
       await _firestore.collection(Constants.users).doc(_uid).update({
-        Constants.sentFriendRequestsUIDs: FieldValue.arrayRemove([friendID]),
+        Constants.contactsUIDs: FieldValue.arrayRemove([contactID]),
       });
+      
+      // Update local model
+      _userModel!.contactsUIDs.remove(contactID);
+      notifyListeners();
     } on FirebaseException catch (e) {
-      print(e);
+      debugPrint(e.toString());
     }
   }
 
-  Future<void> acceptFriendRequest({required String friendID}) async {
-    // add our uid to friends list
-    await _firestore.collection(Constants.users).doc(friendID).update({
-      Constants.friendsUIDs: FieldValue.arrayUnion([_uid]),
-    });
-
-    // add friend uid to our friends list
-    await _firestore.collection(Constants.users).doc(_uid).update({
-      Constants.friendsUIDs: FieldValue.arrayUnion([friendID]),
-    });
-
-    // remove our uid from friends request list
-    await _firestore.collection(Constants.users).doc(friendID).update({
-      Constants.sentFriendRequestsUIDs: FieldValue.arrayRemove([_uid]),
-    });
-
-    // remove friend uid from our friend requests sent list
-    await _firestore.collection(Constants.users).doc(_uid).update({
-      Constants.friendRequestsUIDs: FieldValue.arrayRemove([friendID]),
-    });
+  // Block a contact
+  Future<void> blockContact({required String contactID}) async {
+    try {
+      // Add contact to blocked list
+      await _firestore.collection(Constants.users).doc(_uid).update({
+        Constants.blockedUIDs: FieldValue.arrayUnion([contactID]),
+      });
+      
+      // Update local model
+      _userModel!.blockedUIDs.add(contactID);
+      notifyListeners();
+    } on FirebaseException catch (e) {
+      debugPrint(e.toString());
+    }
   }
 
-  // remove friend
-  Future<void> removeFriend({required String friendID}) async {
-    // remove our uid from friends list
-    await _firestore.collection(Constants.users).doc(friendID).update({
-      Constants.friendsUIDs: FieldValue.arrayRemove([_uid]),
-    });
-
-    // remove friend uid from our friends list
-    await _firestore.collection(Constants.users).doc(_uid).update({
-      Constants.friendsUIDs: FieldValue.arrayRemove([friendID]),
-    });
+  // Unblock a contact
+  Future<void> unblockContact({required String contactID}) async {
+    try {
+      // Remove contact from blocked list
+      await _firestore.collection(Constants.users).doc(_uid).update({
+        Constants.blockedUIDs: FieldValue.arrayRemove([contactID]),
+      });
+      
+      // Update local model
+      _userModel!.blockedUIDs.remove(contactID);
+      notifyListeners();
+    } on FirebaseException catch (e) {
+      debugPrint(e.toString());
+    }
   }
 
-  // get a list of friends
-  Future<List<UserModel>> getFriendsList(
+  // Get a list of contacts
+  Future<List<UserModel>> getContactsList(
     String uid,
     List<String> groupMembersUIDs,
   ) async {
-    List<UserModel> friendsList = [];
+    List<UserModel> contactsList = [];
 
     DocumentSnapshot documentSnapshot =
         await _firestore.collection(Constants.users).doc(uid).get();
 
-    List<dynamic> friendsUIDs = documentSnapshot.get(Constants.friendsUIDs);
+    List<dynamic> contactsUIDs = documentSnapshot.get(Constants.contactsUIDs);
 
-    for (String friendUID in friendsUIDs) {
-      // if groupMembersUIDs list is not empty and contains the friendUID we skip this friend
-      if (groupMembersUIDs.isNotEmpty && groupMembersUIDs.contains(friendUID)) {
+    for (String contactUID in contactsUIDs) {
+      // If groupMembersUIDs list is not empty and contains the contactUID we skip this contact
+      if (groupMembersUIDs.isNotEmpty && groupMembersUIDs.contains(contactUID)) {
         continue;
       }
       DocumentSnapshot documentSnapshot =
-          await _firestore.collection(Constants.users).doc(friendUID).get();
-      UserModel friend =
+          await _firestore.collection(Constants.users).doc(contactUID).get();
+      UserModel contact =
           UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-      friendsList.add(friend);
+      contactsList.add(contact);
     }
 
-    return friendsList;
+    return contactsList;
   }
 
-  // get a list of friend requests
-  Future<List<UserModel>> getFriendRequestsList({
+  // Get a list of blocked contacts
+  Future<List<UserModel>> getBlockedContactsList({
     required String uid,
-    required String groupId,
   }) async {
-    List<UserModel> friendRequestsList = [];
-
-    if (groupId.isNotEmpty) {
-      DocumentSnapshot documentSnapshot =
-          await _firestore.collection(Constants.groups).doc(groupId).get();
-
-      List<dynamic> requestsUIDs =
-          documentSnapshot.get(Constants.awaitingApprovalUIDs);
-
-      for (String friendRequestUID in requestsUIDs) {
-        DocumentSnapshot documentSnapshot = await _firestore
-            .collection(Constants.users)
-            .doc(friendRequestUID)
-            .get();
-        UserModel friendRequest =
-            UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-        friendRequestsList.add(friendRequest);
-      }
-
-      return friendRequestsList;
-    }
+    List<UserModel> blockedContactsList = [];
 
     DocumentSnapshot documentSnapshot =
         await _firestore.collection(Constants.users).doc(uid).get();
 
-    List<dynamic> friendRequestsUIDs =
-        documentSnapshot.get(Constants.friendRequestsUIDs);
+    List<dynamic> blockedUIDs = documentSnapshot.get(Constants.blockedUIDs);
 
-    for (String friendRequestUID in friendRequestsUIDs) {
+    for (String blockedUID in blockedUIDs) {
       DocumentSnapshot documentSnapshot = await _firestore
           .collection(Constants.users)
-          .doc(friendRequestUID)
+          .doc(blockedUID)
           .get();
-      UserModel friendRequest =
+      UserModel blockedContact =
           UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-      friendRequestsList.add(friendRequest);
+      blockedContactsList.add(blockedContact);
     }
 
-    return friendRequestsList;
+    return blockedContactsList;
   }
 
-  Future logout() async {
+  // Search for users by phone number
+  Future<UserModel?> searchUserByPhoneNumber({
+    required String phoneNumber,
+  }) async {
+    try {
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(Constants.users)
+          .where(Constants.phoneNumber, isEqualTo: phoneNumber)
+          .limit(1)
+          .get();
+      
+      if (querySnapshot.docs.isEmpty) {
+        return null;
+      }
+      
+      return UserModel.fromMap(
+          querySnapshot.docs.first.data() as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('Error searching user: $e');
+      return null;
+    }
+  }
+
+  Future<void> logout() async {
     await _auth.signOut();
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     await sharedPreferences.clear();

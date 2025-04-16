@@ -8,7 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/utilities/assets_manager.dart';
-import 'package:textgb/widgets/friends_list.dart';
+import 'package:textgb/widgets/contact_list.dart';
 
 void showSnackBar(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
@@ -35,7 +35,7 @@ Widget userImageWidget({
   );
 }
 
-// picp image from gallery or camera
+// pick image from gallery or camera
 Future<File?> pickImage({
   required bool fromCamera,
   required Function(String) onFail,
@@ -163,25 +163,6 @@ Widget messageToShow({required MessageEnum type, required String message}) {
   }
 }
 
-// default list of emoji for reaction and plus sign at the end for more emoji
-// like, love, haha, wow, sad, angry and plus sign
-// List<String> reactions = [
-//   '👍',
-//   '❤️',
-//   '😂',
-//   '😮',
-//   '😢',
-//   '😠',
-//   '➕',
-// ];
-
-// // list of contexMenu for reply, copy and delete
-// List<String> contextMenu = [
-//   'Reply',
-//   'Copy',
-//   'Delete',
-// ];
-
 // store file to storage and return file url
 Future<String> storeFileToStorage({
   required File file,
@@ -291,8 +272,8 @@ void showAddMembersBottomSheet({
               color: Colors.grey,
             ),
             Expanded(
-              child: FriendsList(
-                viewType: FriendViewType.groupView,
+              child: ContactList(
+                viewType: ContactViewType.groupView,
                 groupMembersUIDs: groupMembersUIDs,
               ),
             ),

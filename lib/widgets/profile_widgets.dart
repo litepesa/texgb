@@ -1,391 +1,241 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/main_screen/friend_requests_screen.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/providers/group_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
 
-class GroupStatusWidget extends StatelessWidget {
-  const GroupStatusWidget({
+class ProfileWidget extends StatelessWidget {
+  const ProfileWidget({
     super.key,
-    required this.isAdmin,
-    required this.groupProvider,
+    required this.userModel,
+    this.onTap,
+    this.showActions = true,
   });
 
-  final bool isAdmin;
-  final GroupProvider groupProvider;
+  final UserModel userModel;
+  final Function()? onTap;
+  final bool showActions;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        InkWell(
-          onTap: !isAdmin
-              ? null
-              : () {
-                  // show dialog to change group type
-                  showMyAnimatedDialog(
-                    context: context,
-                    title: 'Change Group Type',
-                    content:
-                        'Are you sure you want to change the group type to ${groupProvider.groupModel.isPrivate ? 'Public' : 'Private'}?',
-                    textAction: 'Change',
-                    onActionTap: (value) {
-                      if (value) {
-                        // change group type
-                        groupProvider.changeGroupType();
-                      }
-                    },
-                  );
-                },
-          child: Container(
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: isAdmin ? Colors.deepPurple : Colors.grey,
-              borderRadius: BorderRadius.circular(5),
+    final currentUser = context.read<AuthenticationProvider>().userModel!;
+    final bool isCurrentUser = currentUser.uid == userModel.uid;
+    final bool isContact = currentUser.contactsUIDs.contains(userModel.uid);
+    final bool isBlocked = currentUser.blockedUIDs.contains(userModel.uid);
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: InkWell(
+        onTap: onTap ?? () {
+          Navigator.pushNamed(
+            context,
+            Constants.profileScreen,
+            arguments: userModel.uid,
+          );
+        },
+        child: Column(
+          children: [
+            // User header with image and name
+            ListTile(
+              leading: userImageWidget(
+                imageUrl: userModel.image,
+                radius: 24,
+                onTap: () {},
+              ),
+              title: Text(
+                isCurrentUser ? '${userModel.name} (You)' : userModel.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                userModel.aboutMe,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: isBlocked
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      ),
+                      child: const Text(
+                        'Blocked',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : null,
             ),
-            child: Text(
-              groupProvider.groupModel.isPrivate ? 'Private' : 'Public',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white,
+
+            // Status and last seen
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: userModel.isOnline ? Colors.green : Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    userModel.isOnline ? 'Online' : 'Last seen recently',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        GetRequestWidget(
-          groupProvider: groupProvider,
-          isAdmin: isAdmin,
-        ),
-      ],
-    );
-  }
-}
 
-class ProfileStatusWidget extends StatelessWidget {
-  const ProfileStatusWidget({
-    super.key,
-    required this.userModel,
-    required this.currentUser,
-  });
+            // Phone number info
+            if (!isBlocked)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.phone,
+                      size: 14,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      userModel.phoneNumber,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-  final UserModel userModel;
-  final UserModel currentUser;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        FriendRequestButton(
-          currentUser: currentUser,
-          userModel: userModel,
-        ),
-        const SizedBox(height: 10),
-        FriendsButton(
-          currentUser: currentUser,
-          userModel: userModel,
-        ),
-      ],
-    );
-  }
-}
-
-class FriendsButton extends StatelessWidget {
-  const FriendsButton({
-    super.key,
-    required this.userModel,
-    required this.currentUser,
-  });
-
-  final UserModel userModel;
-  final UserModel currentUser;
-
-  @override
-  Widget build(BuildContext context) {
-    // friends button
-    Widget buildFriendsButton() {
-      if (currentUser.uid == userModel.uid &&
-          userModel.friendsUIDs.isNotEmpty) {
-        return MyElevatedButton(
-          onPressed: () {
-            // navigate to friends screen
-            Navigator.pushNamed(
-              context,
-              Constants.friendsScreen,
-            );
-          },
-          label: 'Friends',
-          width: MediaQuery.of(context).size.width * 0.4,
-          backgroundColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).colorScheme.primary,
-        );
-      } else {
-        if (currentUser.uid != userModel.uid) {
-          // show cancle friend request button if the user sent us friend request
-          // else show send friend request button
-          if (userModel.friendRequestsUIDs.contains(currentUser.uid)) {
-            // show send friend request button
-            return MyElevatedButton(
-              onPressed: () async {
-                await context
-                    .read<AuthenticationProvider>()
-                    .cancleFriendRequest(friendID: userModel.uid)
-                    .whenComplete(() {
-                  showSnackBar(context, 'friend request canclled');
-                });
-              },
-              label: 'Cancle Request',
-              width: MediaQuery.of(context).size.width * 0.7,
-              backgroundColor: Theme.of(context).cardColor,
-              textColor: Theme.of(context).colorScheme.primary,
-            );
-          } else if (userModel.sentFriendRequestsUIDs
-              .contains(currentUser.uid)) {
-            return MyElevatedButton(
-              onPressed: () async {
-                await context
-                    .read<AuthenticationProvider>()
-                    .acceptFriendRequest(friendID: userModel.uid)
-                    .whenComplete(() {
-                  showSnackBar(
-                      context, 'You are now friends with ${userModel.name}');
-                });
-              },
-              label: 'Accept Friend',
-              width: MediaQuery.of(context).size.width * 0.4,
-              backgroundColor: Theme.of(context).cardColor,
-              textColor: Theme.of(context).colorScheme.primary,
-            );
-          } else if (userModel.friendsUIDs.contains(currentUser.uid)) {
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                MyElevatedButton(
-                  onPressed: () async {
-                    // show unfriend dialog to ask the user if he is sure to unfriend
-                    // create a dialog to confirm logout
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text(
-                          'Unfriend',
-                          textAlign: TextAlign.center,
-                        ),
-                        content: Text(
-                          'Are you sure you want to Unfriend ${userModel.name}?',
-                          textAlign: TextAlign.center,
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            child: const Text('Cancel'),
+            // Action buttons
+            if (showActions && !isCurrentUser)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    if (isBlocked)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await context
+                                .read<AuthenticationProvider>()
+                                .unblockContact(contactID: userModel.uid);
+                            showSnackBar(
+                                context, '${userModel.name} has been unblocked');
+                          },
+                          icon: const Icon(Icons.block),
+                          label: const Text('Unblock'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
                           ),
-                          TextButton(
-                            onPressed: () async {
-                              Navigator.pop(context);
-                              // remove friend
+                        ),
+                      )
+                    else ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pushNamed(
+                              context,
+                              Constants.chatScreen,
+                              arguments: {
+                                Constants.contactUID: userModel.uid,
+                                Constants.contactName: userModel.name,
+                                Constants.contactImage: userModel.image,
+                                Constants.groupId: '',
+                              },
+                            );
+                          },
+                          icon: const Icon(Icons.message),
+                          label: const Text('Message'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            if (isContact) {
+                              // Show confirmation dialog
+                              bool confirmed =
+                                  await _showRemoveConfirmation(context);
+                              if (confirmed) {
+                                await context
+                                    .read<AuthenticationProvider>()
+                                    .removeContact(contactID: userModel.uid);
+                                showSnackBar(context,
+                                    '${userModel.name} removed from contacts');
+                              }
+                            } else {
                               await context
                                   .read<AuthenticationProvider>()
-                                  .removeFriend(friendID: userModel.uid)
-                                  .whenComplete(() {
-                                showSnackBar(
-                                    context, 'You are no longer friends');
-                              });
-                            },
-                            child: const Text('Yes'),
+                                  .addContact(contactID: userModel.uid);
+                              showSnackBar(context,
+                                  '${userModel.name} added to contacts');
+                            }
+                          },
+                          icon: Icon(
+                              isContact ? Icons.person_remove : Icons.person_add),
+                          label: Text(isContact ? 'Remove' : 'Add Contact'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor:
+                                isContact ? Colors.red : Colors.green,
                           ),
-                        ],
+                        ),
                       ),
-                    );
-                  },
-                  label: 'Unfriend',
-                  width: MediaQuery.of(context).size.width * 0.4,
-                  backgroundColor: Colors.deepPurple,
-                  textColor: Colors.white,
+                    ],
+                  ],
                 ),
-                const SizedBox(width: 10),
-                MyElevatedButton(
-                  onPressed: () async {
-                    // navigate to chat screen
-                    // navigate to chat screen with the folowing arguments
-                    // 1. friend uid 2. friend name 3. friend image 4. groupId with an empty string
-                    Navigator.pushNamed(context, Constants.chatScreen,
-                        arguments: {
-                          Constants.contactUID: userModel.uid,
-                          Constants.contactName: userModel.name,
-                          Constants.contactImage: userModel.image,
-                          Constants.groupId: ''
-                        });
-                  },
-                  label: 'Chat',
-                  width: MediaQuery.of(context).size.width * 0.4,
-                  backgroundColor: Theme.of(context).cardColor,
-                  textColor: Theme.of(context).colorScheme.primary,
-                ),
-              ],
-            );
-          } else {
-            return MyElevatedButton(
-              onPressed: () async {
-                await context
-                    .read<AuthenticationProvider>()
-                    .sendFriendRequest(friendID: userModel.uid)
-                    .whenComplete(() {
-                  showSnackBar(context, 'friend request sent');
-                });
-              },
-              label: 'Send Request',
-              width: MediaQuery.of(context).size.width * 0.7,
-              backgroundColor: Theme.of(context).cardColor,
-              textColor: Theme.of(context).colorScheme.primary,
-            );
-          }
-        } else {
-          return const SizedBox.shrink();
-        }
-      }
-    }
-
-    return buildFriendsButton();
-  }
-}
-
-class FriendRequestButton extends StatelessWidget {
-  const FriendRequestButton({
-    super.key,
-    required this.userModel,
-    required this.currentUser,
-  });
-
-  final UserModel userModel;
-  final UserModel currentUser;
-
-  @override
-  Widget build(BuildContext context) {
-    // friend request button
-    Widget buildFriendRequestButton() {
-      if (currentUser.uid == userModel.uid &&
-          userModel.friendRequestsUIDs.isNotEmpty) {
-        return MyElevatedButton(
-          onPressed: () {
-            // navigate to friend requests screen
-            Navigator.pushNamed(
-              context,
-              Constants.friendRequestsScreen,
-            );
-          },
-          label: 'Requests',
-          width: MediaQuery.of(context).size.width * 0.4,
-          backgroundColor: Theme.of(context).cardColor,
-          textColor: Theme.of(context).colorScheme.primary,
-        );
-      } else {
-        // not in our profile
-        return const SizedBox.shrink();
-      }
-    }
-
-    return buildFriendRequestButton();
-  }
-}
-
-class GetRequestWidget extends StatelessWidget {
-  const GetRequestWidget({
-    super.key,
-    required this.groupProvider,
-    required this.isAdmin,
-  });
-
-  final GroupProvider groupProvider;
-  final bool isAdmin;
-
-  @override
-  Widget build(BuildContext context) {
-    // get requestWidget
-    Widget getRequestWidget() {
-      // check if user is admin
-      if (isAdmin) {
-        // chec if there is any request
-        if (groupProvider.groupModel.awaitingApprovalUIDs.isNotEmpty) {
-          return InkWell(
-            onTap: () {
-              // navigate to add members screen
-              // navigate to friend requests screen
-              Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-                return FriendRequestScreen(
-                  groupId: groupProvider.groupModel.groupId,
-                );
-              }));
-            },
-            child: const CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.orangeAccent,
-              child: Icon(
-                Icons.person_add,
-                color: Colors.white,
-                size: 15,
               ),
-            ),
-          );
-        } else {
-          return const SizedBox();
-        }
-      } else {
-        return const SizedBox();
-      }
-    }
-
-    return getRequestWidget();
-  }
-}
-
-class MyElevatedButton extends StatelessWidget {
-  const MyElevatedButton({
-    super.key,
-    required this.onPressed,
-    required this.label,
-    required this.width,
-    required this.backgroundColor,
-    required this.textColor,
-  });
-
-  final VoidCallback onPressed;
-  final String label;
-  final double width;
-  final Color backgroundColor;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget buildElevatedButton() {
-      return SizedBox(
-        //width: width,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            elevation: 5,
-            backgroundColor: backgroundColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-          ),
-          onPressed: onPressed,
-          child: Text(
-            label.toUpperCase(),
-            style: GoogleFonts.openSans(
-              fontWeight: FontWeight.bold,
-              color: textColor,
-            ),
-          ),
+          ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    return buildElevatedButton();
+  Future<bool> _showRemoveConfirmation(BuildContext context) async {
+    bool result = false;
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Contact'),
+        content: Text(
+          'Are you sure you want to remove ${userModel.name} from your contacts?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              result = true;
+              Navigator.pop(context);
+            },
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    return result;
   }
 }

@@ -9,16 +9,18 @@ class Constants {
   static const String profileScreen = '/profileScreen';
   static const String editProfileScreen = '/editProfileScreen';
   static const String searchScreen = '/searchScreen';
-  static const String friendRequestsScreen = '/friendRequestsScreen';
-  static const String friendsScreen = '/friendsScreen';
+  static const String contactsScreen = '/contactsScreen';
+  static const String addContactScreen = '/addContactScreen';
   static const String settingsScreen = '/settingsScreen';
   static const String aboutScreen = '/aboutScreen';
   static const String privacyPolicyScreen = '/privacyPolicyScreen';
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   static const String groupSettingsScreen = '/groupSettingsScreen';
   static const String groupInformationScreen = '/groupInformationScreen';
+  static const String groupMemberRequestsScreen = '/groupMemberRequestsScreen';  // New screen for pending group join requests
   static const String statusViewScreen = '/statusViewScreen';
   static const String statusCreateScreen = '/statusCreateScreen';
+  static const String blockedContactsScreen = '/blockedContactsScreen';
 
   static const String uid = 'uid';
   static const String name = 'name';
@@ -29,9 +31,8 @@ class Constants {
   static const String lastSeen = 'lastSeen';
   static const String createdAt = 'createdAt';
   static const String isOnline = 'isOnline';
-  static const String friendsUIDs = 'friendsUIDs';
-  static const String friendRequestsUIDs = 'friendRequestsUIDs';
-  static const String sentFriendRequestsUIDs = 'sentFriendRequestsUIDs';
+  static const String contactsUIDs = 'contactsUIDs';
+  static const String blockedUIDs = 'blockedUIDs';
   static const String lastStatusUpdate = 'lastStatusUpdate';
 
   static const String verificationId = 'verificationId';

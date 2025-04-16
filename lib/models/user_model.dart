@@ -10,9 +10,8 @@ class UserModel {
   String lastSeen;
   String createdAt;
   bool isOnline;
-  List<String> friendsUIDs;
-  List<String> friendRequestsUIDs;
-  List<String> sentFriendRequestsUIDs;
+  List<String> contactsUIDs;  // Changed from friendsUIDs
+  List<String> blockedUIDs;   // New field for blocked contacts
 
   UserModel({
     required this.uid,
@@ -24,9 +23,8 @@ class UserModel {
     required this.lastSeen,
     required this.createdAt,
     required this.isOnline,
-    required this.friendsUIDs,
-    required this.friendRequestsUIDs,
-    required this.sentFriendRequestsUIDs,
+    required this.contactsUIDs,
+    required this.blockedUIDs,
   });
 
   // from map
@@ -41,11 +39,8 @@ class UserModel {
       lastSeen: map[Constants.lastSeen] ?? '',
       createdAt: map[Constants.createdAt] ?? '',
       isOnline: map[Constants.isOnline] ?? false,
-      friendsUIDs: List<String>.from(map[Constants.friendsUIDs] ?? []),
-      friendRequestsUIDs:
-          List<String>.from(map[Constants.friendRequestsUIDs] ?? []),
-      sentFriendRequestsUIDs:
-          List<String>.from(map[Constants.sentFriendRequestsUIDs] ?? []),
+      contactsUIDs: List<String>.from(map[Constants.contactsUIDs] ?? []),
+      blockedUIDs: List<String>.from(map[Constants.blockedUIDs] ?? []),
     );
   }
 
@@ -61,9 +56,8 @@ class UserModel {
       Constants.lastSeen: lastSeen,
       Constants.createdAt: createdAt,
       Constants.isOnline: isOnline,
-      Constants.friendsUIDs: friendsUIDs,
-      Constants.friendRequestsUIDs: friendRequestsUIDs,
-      Constants.sentFriendRequestsUIDs: sentFriendRequestsUIDs,
+      Constants.contactsUIDs: contactsUIDs,
+      Constants.blockedUIDs: blockedUIDs,
     };
   }
 
