@@ -1,0 +1,2 @@
+C:/Users/Weihub/Desktop/TExGB/Final/textgb/android/app/.cxx/Debug/2961391i/x86/CMakeFiles/edit_cache.dir
+C:/Users/Weihub/Desktop/TExGB/Final/textgb/android/app/.cxx/Debug/2961391i/x86/CMakeFiles/rebuild_cache.dir

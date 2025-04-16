@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1084620693228",
+    "project_id": "texgb-50a98",
+    "storage_bucket": "texgb-50a98.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1084620693228:android:3da829b75c85d271034fc9",
+        "android_client_info": {
+          "package_name": "com.pomasoft.texgb"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB_uzTahLR1BCPZYeO2u9BWWLnQl0-BkZY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
