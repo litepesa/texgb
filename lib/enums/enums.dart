@@ -17,6 +17,12 @@ enum GroupType {
   public,
 }
 
+enum StatusType {
+  text,
+  image,
+  video,
+}
+
 // extension convertMessageEnumToString on String
 extension MessageEnumExtension on String {
   MessageEnum toMessageEnum() {

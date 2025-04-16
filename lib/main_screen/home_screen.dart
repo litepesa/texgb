@@ -136,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                       );
                     },
-                    child: const Icon(CupertinoIcons.text_bubble),
+                    child: const Icon(CupertinoIcons.bubble_left),
                   )
                 : null,
         bottomNavigationBar: BottomNavigationBar(

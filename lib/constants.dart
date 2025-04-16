@@ -17,6 +17,8 @@ class Constants {
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   static const String groupSettingsScreen = '/groupSettingsScreen';
   static const String groupInformationScreen = '/groupInformationScreen';
+  static const String statusViewScreen = '/statusViewScreen';
+  static const String statusCreateScreen = '/statusCreateScreen';
 
   static const String uid = 'uid';
   static const String name = 'name';
@@ -30,12 +32,15 @@ class Constants {
   static const String friendsUIDs = 'friendsUIDs';
   static const String friendRequestsUIDs = 'friendRequestsUIDs';
   static const String sentFriendRequestsUIDs = 'sentFriendRequestsUIDs';
+  static const String lastStatusUpdate = 'lastStatusUpdate';
 
   static const String verificationId = 'verificationId';
 
   static const String users = 'users';
   static const String userImages = 'userImages';
   static const String userModel = 'userModel';
+  static const String status = 'status';
+  static const String statusFiles = 'statusFiles';
 
   static const String contactName = 'contactName';
   static const String contactImage = 'contactImage';
