@@ -21,6 +21,7 @@ import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/main_screen/profile_screen.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/chat_provider.dart';
+import 'package:textgb/providers/contacts_provider.dart';
 import 'package:textgb/providers/group_provider.dart';
 import 'package:textgb/providers/status_provider.dart';
 import 'package:textgb/theme/dark_theme.dart';
@@ -46,6 +47,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => GroupProvider()),
         ChangeNotifierProvider(create: (_) => StatusProvider()),
+        ChangeNotifierProvider(create: (_) => ContactsProvider()),
       ],
       child: MyApp(savedThemeMode: savedThemeMode),
     ),

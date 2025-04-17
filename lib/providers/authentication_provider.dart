@@ -367,4 +367,5 @@ class AuthenticationProvider extends ChangeNotifier {
     await sharedPreferences.clear();
     notifyListeners();
   }
+
 } 
