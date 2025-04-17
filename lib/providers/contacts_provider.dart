@@ -7,28 +7,31 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
-import 'package:textgb/widgets/app_bar_back_button.dart';
-import 'package:textgb/widgets/contact_widget.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ContactsProvider extends ChangeNotifier {
   List<Contact> _deviceContacts = [];
   List<UserModel> _appContacts = [];
-  List<UserModel> _registeredContacts = [];
+  List<UserModel> _suggestedContacts = [];
   bool _isLoading = false;
   bool _hasPermission = false;
+  bool _isSyncing = false;
 
   List<Contact> get deviceContacts => _deviceContacts;
   List<UserModel> get appContacts => _appContacts;
-  List<UserModel> get registeredContacts => _registeredContacts;
+  List<UserModel> get suggestedContacts => _suggestedContacts;
   bool get isLoading => _isLoading;
   bool get hasPermission => _hasPermission;
+  bool get isSyncing => _isSyncing;
 
+  // Request contacts permission
   Future<void> requestContactsPermission() async {
     final status = await Permission.contacts.request();
     _hasPermission = status.isGranted;
     notifyListeners();
   }
 
+  // Load and sync contacts
   Future<void> loadContacts(BuildContext context) async {
     _isLoading = true;
     notifyListeners();
@@ -45,15 +48,7 @@ class ContactsProvider extends ChangeNotifier {
       // Check if we have permission to access device contacts
       if (await Permission.contacts.isGranted) {
         _hasPermission = true;
-        
-        // Load device contacts
-        _deviceContacts = await FlutterContacts.getContacts(
-          withProperties: true,
-          withThumbnail: true,
-        );
-        
-        // Match device contacts with app users
-        await _matchContactsWithAppUsers(authProvider);
+        await syncContacts(context);
       }
     } catch (e) {
       debugPrint('Error loading contacts: $e');
@@ -63,388 +58,174 @@ class ContactsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _matchContactsWithAppUsers(AuthenticationProvider authProvider) async {
-    _registeredContacts = [];
+  // Sync device contacts with app users
+  Future<void> syncContacts(BuildContext context) async {
+    _isSyncing = true;
+    notifyListeners();
     
-    for (var contact in _deviceContacts) {
-      if (contact.phones.isEmpty) continue;
+    final authProvider = context.read<AuthenticationProvider>();
+    final currentUser = authProvider.userModel!;
+    
+    try {
+      // Load device contacts
+      _deviceContacts = await FlutterContacts.getContacts(
+        withProperties: true,
+        withThumbnail: false,
+      );
       
-      for (var phone in contact.phones) {
-        // Try different phone number formats
-        final phoneFormats = _generatePhoneFormats(phone.number);
+      // Create a batch of phone numbers to check
+      List<String> phoneNumbers = [];
+      Set<String> processedNumbers = {};
+      
+      for (var contact in _deviceContacts) {
+        if (contact.phones.isEmpty) continue;
         
-        for (var formattedPhone in phoneFormats) {
-          final user = await authProvider.searchUserByPhoneNumber(
-            phoneNumber: formattedPhone,
-          );
+        for (var phone in contact.phones) {
+          // Normalize phone number (remove spaces, brackets, etc.)
+          String normalizedNumber = _normalizePhoneNumber(phone.number);
           
-          if (user != null && 
-              !_registeredContacts.any((c) => c.uid == user.uid) &&
-              !_appContacts.any((c) => c.uid == user.uid)) {
-            _registeredContacts.add(user);
-            break;
+          // Skip if we've already processed this number
+          if (processedNumbers.contains(normalizedNumber) || 
+              normalizedNumber.isEmpty) {
+            continue;
+          }
+          
+          processedNumbers.add(normalizedNumber);
+          
+          // Generate different formats of the number to check
+          final phoneFormats = _generatePhoneFormats(normalizedNumber);
+          phoneNumbers.addAll(phoneFormats);
+        }
+      }
+      
+      // Clear previous suggested contacts
+      _suggestedContacts = [];
+      
+      // Get registered users from Firebase that match these numbers
+      if (phoneNumbers.isNotEmpty) {
+        // Firebase has limits on in queries, so we might need to batch
+        const batchSize = 10;
+        List<Future<QuerySnapshot>> queries = [];
+        
+        for (int i = 0; i < phoneNumbers.length; i += batchSize) {
+          final endIndex = (i + batchSize < phoneNumbers.length) ? i + batchSize : phoneNumbers.length;
+          final batch = phoneNumbers.sublist(i, endIndex);
+          
+          queries.add(
+            FirebaseFirestore.instance
+                .collection(Constants.users)
+                .where(Constants.phoneNumber, whereIn: batch)
+                .get()
+          );
+        }
+        
+        final results = await Future.wait(queries);
+        
+        // Process all results
+        for (var snapshot in results) {
+          for (var doc in snapshot.docs) {
+            final userData = doc.data() as Map<String, dynamic>;
+            final user = UserModel.fromMap(userData);
+            
+            // Skip the current user
+            if (user.uid == currentUser.uid) continue;
+            
+            // Skip users already in contacts
+            if (_appContacts.any((contact) => contact.uid == user.uid)) continue;
+            
+            // Skip users already in suggested contacts
+            if (_suggestedContacts.any((contact) => contact.uid == user.uid)) continue;
+            
+            // Add to suggested contacts
+            _suggestedContacts.add(user);
           }
         }
       }
+    } catch (e) {
+      debugPrint('Error syncing contacts: $e');
     }
+    
+    _isSyncing = false;
+    notifyListeners();
   }
 
-  List<String> _generatePhoneFormats(String phoneNumber) {
-    // Remove all non-digit characters
+  // Normalize phone number to strip special characters and standardize format
+  String _normalizePhoneNumber(String phoneNumber) {
+    // Remove everything except digits
     final digitsOnly = phoneNumber.replaceAll(RegExp(r'\D'), '');
     
-    // Generate different possible formats for the phone number
+    if (digitsOnly.isEmpty) return '';
+    
+    // Handle different formats
+    if (digitsOnly.length < 7) return ''; // Too short to be valid
+    
+    return digitsOnly;
+  }
+
+  // Generate different possible formats of a phone number
+  List<String> _generatePhoneFormats(String phoneNumber) {
     final formats = <String>[];
     
-    // Original number
+    // Original normalized number
     formats.add(phoneNumber);
     
-    // With country code (example: +1 for US)
-    if (!digitsOnly.startsWith('+')) {
-      formats.add('+1$digitsOnly'); // Adding US code as example
+    // With country code (common formats)
+    if (phoneNumber.length >= 10) {
+      if (!phoneNumber.startsWith('+')) {
+        formats.add('+$phoneNumber');
+      }
+      
+      // Common country codes
+      final countryCodes = ['+1', '+44', '+91', '+61', '+254']; // US, UK, India, Australia, Kenya
+      
+      for (var code in countryCodes) {
+        if (!phoneNumber.startsWith(code.substring(1))) {
+          formats.add('$code$phoneNumber');
+        }
+      }
     }
-    
-    // Without any formatting
-    formats.add(digitsOnly);
     
     return formats;
   }
   
-  Future<void> addRegisteredContact(UserModel user, BuildContext context) async {
+  // Add contact from suggestions 
+  Future<void> addSuggestedContact(UserModel user, BuildContext context) async {
     try {
       final authProvider = context.read<AuthenticationProvider>();
       await authProvider.addContact(contactID: user.uid);
       
       // Update local lists
       _appContacts.add(user);
-      _registeredContacts.removeWhere((contact) => contact.uid == user.uid);
+      _suggestedContacts.removeWhere((contact) => contact.uid == user.uid);
       
       notifyListeners();
     } catch (e) {
       debugPrint('Error adding contact: $e');
     }
   }
-}
-
-class DeviceContactsScreen extends StatefulWidget {
-  const DeviceContactsScreen({Key? key}) : super(key: key);
-
-  @override
-  State<DeviceContactsScreen> createState() => _DeviceContactsScreenState();
-}
-
-class _DeviceContactsScreenState extends State<DeviceContactsScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  String _searchQuery = '';
   
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    
-    // Initialize the contacts provider when screen opens
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final contactsProvider = Provider.of<ContactsProvider>(context, listen: false);
-      contactsProvider.loadContacts(context);
-    });
-  }
-  
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: AppBarBackButton(
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Contacts'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'APP CONTACTS'),
-            Tab(text: 'PHONE CONTACTS'),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: () {
-              Navigator.pushNamed(context, Constants.addContactScreen);
-            },
-          ),
-          PopupMenuButton(
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'blocked',
-                child: Text('Blocked contacts'),
-              ),
-              const PopupMenuItem(
-                value: 'refresh',
-                child: Text('Refresh'),
-              ),
-            ],
-            onSelected: (value) {
-              if (value == 'blocked') {
-                Navigator.pushNamed(context, Constants.blockedContactsScreen);
-              } else if (value == 'refresh') {
-                Provider.of<ContactsProvider>(context, listen: false)
-                    .loadContacts(context);
-              }
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search contacts...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.toLowerCase();
-                });
-              },
-            ),
-          ),
-          
-          // Tab content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                // App Contacts Tab
-                _buildAppContactsTab(),
-                
-                // Phone Contacts Tab
-                _buildPhoneContactsTab(),
-              ],
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, Constants.addContactScreen)
-              .then((_) {
-                // Refresh contacts after returning from add screen
-                Provider.of<ContactsProvider>(context, listen: false)
-                    .loadContacts(context);
-              });
-        },
-        child: const Icon(Icons.person_add),
-      ),
-    );
-  }
-  
-  Widget _buildAppContactsTab() {
-    return Consumer<ContactsProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        
-        final filteredContacts = provider.appContacts
-            .where((contact) => 
-                contact.name.toLowerCase().contains(_searchQuery) ||
-                contact.phoneNumber.toLowerCase().contains(_searchQuery))
-            .toList();
-        
-        if (filteredContacts.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.person_outline,
-                  size: 80,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'No contacts found',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Add contacts to start chatting',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, Constants.addContactScreen);
-                  },
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Add New Contact'),
-                ),
-              ],
-            ),
-          );
-        }
-        
-        return ListView.builder(
-          itemCount: filteredContacts.length,
-          itemBuilder: (context, index) {
-            final contact = filteredContacts[index];
-            return ContactWidget(
-              contact: contact,
-              viewType: ContactViewType.contacts,
-            );
-          },
-        );
-      },
-    );
-  }
-  
-  Widget _buildPhoneContactsTab() {
-    return Consumer<ContactsProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        
-        if (!provider.hasPermission) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.perm_contact_cal,
-                  size: 80,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Contact permission needed',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'We need access to your contacts to find your friends',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () async {
-                    await provider.requestContactsPermission();
-                    if (provider.hasPermission) {
-                      provider.loadContacts(context);
-                    }
-                  },
-                  child: const Text('Grant Permission'),
-                ),
-              ],
-            ),
-          );
-        }
-        
-        // Filter registered contacts based on search
-        final filteredRegisteredContacts = provider.registeredContacts
-            .where((contact) => 
-                contact.name.toLowerCase().contains(_searchQuery) ||
-                contact.phoneNumber.toLowerCase().contains(_searchQuery))
-            .toList();
-        
-        if (filteredRegisteredContacts.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.person_search,
-                  size: 80,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'No contacts found on the app',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'We couldn\'t find any of your contacts using the app',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        
-        return ListView.builder(
-          itemCount: filteredRegisteredContacts.length,
-          itemBuilder: (context, index) {
-            final contact = filteredRegisteredContacts[index];
-            return ListTile(
-              leading: userImageWidget(
-                imageUrl: contact.image,
-                radius: 24,
-                onTap: () {},
-              ),
-              title: Text(contact.name),
-              subtitle: Text(contact.phoneNumber),
-              trailing: ElevatedButton(
-                onPressed: () {
-                  provider.addRegisteredContact(contact, context);
-                },
-                child: const Text('Add'),
-              ),
-              onTap: () {
-                Navigator.pushNamed(
-                  context,
-                  Constants.profileScreen,
-                  arguments: contact.uid,
-                );
-              },
-            );
-          },
-        );
-      },
-    );
+  // Add all suggested contacts at once
+  Future<void> addAllSuggestedContacts(BuildContext context) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      final authProvider = context.read<AuthenticationProvider>();
+      
+      for (var user in _suggestedContacts) {
+        await authProvider.addContact(contactID: user.uid);
+        _appContacts.add(user);
+      }
+      
+      _suggestedContacts = [];
+      _isLoading = false;
+      notifyListeners();
+      
+      showSnackBar(context, 'All contacts synchronized successfully');
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      showSnackBar(context, 'Error adding contacts: $e');
+    }
   }
 }
-
-// Update your main.dart to include the ContactsProvider
-// MultiProvider(
-//   providers: [
-//     ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
-//     ChangeNotifierProvider(create: (_) => ChatProvider()),
-//     ChangeNotifierProvider(create: (_) => GroupProvider()),
-//     ChangeNotifierProvider(create: (_) => StatusProvider()),
-//     ChangeNotifierProvider(create: (_) => ContactsProvider()),  // Add this line
-//   ],
-//   child: MyApp(savedThemeMode: savedThemeMode),
-// ),

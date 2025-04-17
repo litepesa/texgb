@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pinput/pinput.dart';
@@ -9,10 +10,10 @@ class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
 
   @override
-  State<OtpScreen> createState() => _OtpScreenState();
+  State<OtpScreen> createState() => _OTPScreenState();
 }
 
-class _OtpScreenState extends State<OtpScreen> {
+class _OTPScreenState extends State<OtpScreen> {
   final controller = TextEditingController();
   final focusNode = FocusNode();
   String? otpCode;
@@ -206,19 +207,20 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   void navigate({required bool userExits}) {
-    if (userExits) {
-      // navigate to home and remove all previous routes
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        Constants.homeScreen,
-        (route) => false,
-      );
-    } else {
-      // navigate to user information screen
-      Navigator.pushNamed(
-        context,
-        Constants.userInformationScreen,
-      );
-    }
+  if (userExits) {
+    // navigate to home and remove all previous routes
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      Constants.homeScreen,
+      (route) => false,
+    );
+  } else {
+    // navigate to user information screen and remove OTP screen
+    Navigator.pushReplacementNamed(
+      context,
+      Constants.userInformationScreen,
+    );
   }
+  }
+  
 }

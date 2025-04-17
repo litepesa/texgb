@@ -20,8 +20,10 @@ class UserInformationScreen extends StatefulWidget {
 class _UserInformationScreenState extends State<UserInformationScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _aboutMeController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
   File? finalFileImage;
-  String userImage = '';
+  bool isImageProcessing = false;
 
   @override
   void initState() {
@@ -36,7 +38,11 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
     super.dispose();
   }
 
-  void selectImage(bool fromCamera) async {
+  Future<void> selectImage(bool fromCamera) async {
+    setState(() {
+      isImageProcessing = true;
+    });
+
     finalFileImage = await pickImage(
       fromCamera: fromCamera,
       onFail: (String message) {
@@ -44,14 +50,17 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
       },
     );
 
-    // crop image
-    await cropImage(finalFileImage?.path);
+    if (finalFileImage != null) {
+      await cropImage(finalFileImage?.path);
+    } else {
+      showSnackBar(context, 'No image selected');
+    }
 
-    popContext();
-  }
+    setState(() {
+      isImageProcessing = false;
+    });
 
-  popContext() {
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> cropImage(filePath) async {
@@ -67,6 +76,8 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
         setState(() {
           finalFileImage = File(croppedFile.path);
         });
+      } else {
+        showSnackBar(context, 'Image cropping cancelled');
       }
     }
   }
@@ -74,21 +85,19 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
   void showBottomSheet() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SizedBox(
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              onTap: () {
-                selectImage(true);
-              },
+              onTap: () => selectImage(true),
               leading: const Icon(Icons.camera_alt),
               title: const Text('Camera'),
             ),
             ListTile(
-              onTap: () {
-                selectImage(false);
-              },
+              onTap: () => selectImage(false),
               leading: const Icon(Icons.image),
               title: const Text('Gallery'),
             ),
@@ -98,101 +107,6 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: AppBarBackButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-        centerTitle: true,
-        title: const Text('User Information'),
-      ),
-      body: Center(
-          child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 20.0,
-        ),
-        child: Column(
-          children: [
-            DisplayUserImage(
-              finalFileImage: finalFileImage,
-              radius: 60,
-              onPressed: () {
-                showBottomSheet();
-              },
-            ),
-            const SizedBox(height: 30),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                hintText: 'Enter your name',
-                labelText: 'Enter your name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(
-                    Radius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _aboutMeController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'About me',
-                labelText: 'About me',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(
-                    Radius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-            Container(
-              width: double.infinity,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: MaterialButton(
-                onPressed: context.read<AuthenticationProvider>().isLoading
-                    ? null
-                    : () {
-                        if (_nameController.text.isEmpty ||
-                            _nameController.text.length < 3) {
-                          showSnackBar(context, 'Please enter your name');
-                          return;
-                        }
-                        // save user data to firestore
-                        saveUserDataToFireStore();
-                      },
-                child: context.watch<AuthenticationProvider>().isLoading
-                    ? const CircularProgressIndicator(
-                        color: Colors.orangeAccent,
-                      )
-                    : const Text(
-                        'Continue',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 1.5),
-                      ),
-              ),
-            ),
-          ],
-        ),
-      )),
-    );
-  }
-
-  // save user data to firestore
   void saveUserDataToFireStore() async {
     final authProvider = context.read<AuthenticationProvider>();
 
@@ -214,9 +128,7 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
       userModel: userModel,
       fileImage: finalFileImage,
       onSuccess: () async {
-        // save user data to shared preferences
         await authProvider.saveUserDataToSharedPreferences();
-
         navigateToHomeScreen();
       },
       onFail: () async {
@@ -226,10 +138,161 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
   }
 
   void navigateToHomeScreen() {
-    // navigate to home screen and remove all previous screens
     Navigator.of(context).pushNamedAndRemoveUntil(
       Constants.homeScreen,
       (route) => false,
+    );
+  }
+
+  Future<bool> _onWillPop() async {
+    if (_nameController.text.isNotEmpty || finalFileImage != null) {
+      return await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Discard changes?'),
+              content: const Text('You have unsaved changes. Are you sure you want to go back?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Discard'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+    }
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLoading = context.watch<AuthenticationProvider>().isLoading;
+
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: AppBarBackButton(
+            onPressed: () async {
+              if (await _onWillPop()) Navigator.of(context).pop();
+            },
+          ),
+          centerTitle: true,
+          title: const Text('User Information'),
+        ),
+        body: SafeArea(
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 20,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        Tooltip(
+                          message: 'Tap to select image',
+                          child: DisplayUserImage(
+                            finalFileImage: finalFileImage,
+                            radius: 60,
+                            onPressed: showBottomSheet,
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        TextFormField(
+                          controller: _nameController,
+                          autofocus: true,
+                          keyboardType: TextInputType.name,
+                          validator: (value) {
+                            if (value == null || value.trim().length < 3) {
+                              return 'Enter at least 3 characters';
+                            }
+                            return null;
+                          },
+                          decoration: const InputDecoration(
+                            hintText: 'Enter your name',
+                            labelText: 'Enter your name',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _aboutMeController,
+                          keyboardType: TextInputType.multiline,
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            hintText: 'About me',
+                            labelText: 'About me',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                              backgroundColor: Theme.of(context).primaryColor,
+                            ),
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    if (_formKey.currentState?.validate() ?? false) {
+                                      saveUserDataToFireStore();
+                                    }
+                                  },
+                            child: isLoading
+                                ? const CircularProgressIndicator(
+                                    color: Colors.orangeAccent,
+                                  )
+                                : const Text(
+                                    'Continue',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (isImageProcessing)
+                  Container(
+                    color: Colors.black.withOpacity(0.5),
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
