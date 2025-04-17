@@ -24,20 +24,19 @@ class StatusCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get theme colors
     final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
     final statusCircleColor = themeExtension?.statusCircleColor ?? const Color(0xFF07C160);
     final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
     final greyColor = themeExtension?.greyColor ?? Colors.grey;
-    
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
+        InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(radius + 3),
           child: Stack(
             children: [
-              // Status ring for users with active status
               if (hasStatus && !isMyStatus)
                 Container(
                   padding: const EdgeInsets.all(2),
@@ -48,13 +47,8 @@ class StatusCircle extends StatelessWidget {
                       width: 2.5,
                     ),
                   ),
-                  child: userImageWidget(
-                    imageUrl: imageUrl,
-                    radius: radius,
-                    onTap: () {},
-                  ),
+                  child: _buildUserImage(),
                 )
-              // My Status indicator
               else if (isMyStatus)
                 Container(
                   padding: const EdgeInsets.all(2),
@@ -65,21 +59,11 @@ class StatusCircle extends StatelessWidget {
                       width: 2.5,
                     ),
                   ),
-                  child: userImageWidget(
-                    imageUrl: imageUrl,
-                    radius: radius,
-                    onTap: () {},
-                  ),
+                  child: _buildUserImage(),
                 )
-              // Regular user without status
               else
-                userImageWidget(
-                  imageUrl: imageUrl,
-                  radius: radius,
-                  onTap: () {},
-                ),
+                _buildUserImage(),
 
-              // Add button for "My Status"
               if (isMyStatus)
                 Positioned(
                   bottom: 0,
@@ -110,23 +94,34 @@ class StatusCircle extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 5),
-        // Status owner name
-        SizedBox(
-          width: radius * 2,
-          child: Text(
-            isMyStatus ? "My Status" : name,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isMyStatus ? FontWeight.bold : FontWeight.normal,
-              color: Theme.of(context).textTheme.bodyMedium?.color,
+        if (isMyStatus) ...[
+          const SizedBox(height: 5),
+          SizedBox(
+            width: radius * 2,
+            child: Text(
+              "My Status",
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
             ),
           ),
-        ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildUserImage() {
+    return CircleAvatar(
+      radius: radius,
+      backgroundImage: imageUrl.isNotEmpty
+          ? NetworkImage(imageUrl) as ImageProvider
+          : const AssetImage("assets/images/user_icon.png"),
+      backgroundColor: Colors.grey[300],
     );
   }
 }

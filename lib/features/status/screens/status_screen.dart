@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/features/status/screens/status_create_screen.dart';
 import 'package:textgb/features/status/screens/status_view_screen.dart';
 import 'package:textgb/models/user_model.dart';
