@@ -1,6 +1,6 @@
 import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chat_reactions/widgets/stacked_reactions.dart';
+import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/message_model.dart';
 import 'package:textgb/utilities/global_methods.dart';
@@ -21,114 +21,98 @@ class AlignMessageLeftWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Safely handle potentially null timestamp
+    // Get theme colors
+    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final receiverBubbleColor = themeExtension?.receiverBubbleColor ?? Colors.white;
+    final receiverTextColor = themeExtension?.receiverTextColor ?? Colors.black;
+    final greyColor = themeExtension?.greyColor ?? Colors.grey;
+    
+    // Format time
     final DateTime timeToUse = message.timeSent ?? DateTime.now();
     final time = formatDate(timeToUse, [hh, ':', nn, ' ', am]);
     
     final isReplying = message.repliedTo.isNotEmpty;
     
-    // Get the reactions from the list - handle empty values safely
-    final messageReactions = message.reactions.isNotEmpty 
-        ? message.reactions.map((e) {
-            final parts = e.split('=');
-            return parts.length > 1 ? parts[1] : '';
-          }).where((e) => e.isNotEmpty).toList()
-        : <String>[];
-    
-    // check if its dark mode
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
-    final padding = messageReactions.isNotEmpty
-        ? const EdgeInsets.only(right: 20.0, bottom: 25.0)
-        : const EdgeInsets.only(bottom: 0.0);
-        
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.7,
-          minWidth: 100, // Set minimum width to ensure layout
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min, // Add this to prevent row expansion
-          crossAxisAlignment: CrossAxisAlignment.start, // Align to top
-          children: [
-            if (isGroupChat)
-              Padding(
-                padding: const EdgeInsets.only(right: 5),
-                child: userImageWidget(
-                  imageUrl: message.senderImage,
-                  radius: 20,
-                  onTap: () {},
-                ),
-              ),
-            Flexible(
-              child: Stack(
-                clipBehavior: Clip.none, // Prevent clipping of stacked reactions
-                children: [
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0, right: 64.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0, top: 2.0),
+            child: userImageWidget(
+              imageUrl: message.senderImage,
+              radius: 18,
+              onTap: () {},
+            ),
+          ),
+          
+          // Message content column
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Show sender name if it's a group chat
+                if (isGroupChat)
                   Padding(
-                    padding: padding,
-                    child: Card(
-                      elevation: 5,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(15),
-                          topRight: Radius.circular(15),
-                          bottomRight: Radius.circular(15),
-                        ),
-                      ),
-                      color: Theme.of(context).cardColor,
-                      child: Padding(
-                        padding: message.messageType == MessageEnum.text
-                            ? const EdgeInsets.fromLTRB(10.0, 5.0, 10.0, 10.0)
-                            : const EdgeInsets.fromLTRB(5.0, 5.0, 5.0, 10.0),
-                        child: SingleChildScrollView(
-                          physics: const ClampingScrollPhysics(), // Fix scroll behavior
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min, // Add this to prevent column expansion
-                            children: [
-                              if (isReplying) ...[
-                                MessageReplyPreview(
-                                  message: message,
-                                  viewOnly: viewOnly,
-                                )
-                              ],
-                              DisplayMessageType(
-                                message: message.message,
-                                type: message.messageType,
-                                color: isDarkMode ? Colors.white : Colors.black,
-                                isReply: false,
-                                viewOnly: viewOnly,
-                              ),
-                              const SizedBox(height: 4), // Add spacing
-                              Text(
-                                time,
-                                style: TextStyle(
-                                    color: isDarkMode
-                                        ? Colors.white60
-                                        : Colors.grey.shade500,
-                                    fontSize: 10),
-                              ),
-                            ],
-                          ),
-                        ),
+                    padding: const EdgeInsets.only(left: 12.0, bottom: 2.0),
+                    child: Text(
+                      message.senderName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: greyColor,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
-                  if (messageReactions.isNotEmpty)
-                    Positioned(
-                      bottom: 0,
-                      left: 50,
-                      child: StackedReactions(
-                        reactions: messageReactions,
+                
+                // Message bubble with content
+                Container(
+                  decoration: BoxDecoration(
+                    color: receiverBubbleColor,
+                    borderRadius: BorderRadius.circular(4.0),
+                  ),
+                  padding: message.messageType == MessageEnum.text
+                    ? const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0)
+                    : const EdgeInsets.all(4.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Reply preview if applicable
+                      if (isReplying)
+                        MessageReplyPreview(
+                          message: message,
+                          viewOnly: viewOnly,
+                        ),
+                      
+                      // Message content
+                      DisplayMessageType(
+                        message: message.message,
+                        type: message.messageType,
+                        color: receiverTextColor,
+                        isReply: false,
+                        viewOnly: viewOnly,
                       ),
+                    ],
+                  ),
+                ),
+                
+                // Timestamp
+                Padding(
+                  padding: const EdgeInsets.only(left: 12.0, top: 4.0),
+                  child: Text(
+                    time,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: greyColor,
                     ),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

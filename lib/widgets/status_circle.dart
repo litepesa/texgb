@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:textgb/common/extension/custom_theme_extension.dart';
+import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/utilities/global_methods.dart';
 
 class StatusCircle extends StatelessWidget {
@@ -24,6 +24,12 @@ class StatusCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get theme colors
+    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final statusCircleColor = themeExtension?.statusCircleColor ?? const Color(0xFF07C160);
+    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
+    final greyColor = themeExtension?.greyColor ?? Colors.grey;
+    
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -31,17 +37,15 @@ class StatusCircle extends StatelessWidget {
           onTap: onTap,
           child: Stack(
             children: [
-              // Border for status indicators
+              // Status ring for users with active status
               if (hasStatus && !isMyStatus)
                 Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isViewed
-                          ? Colors.grey.withOpacity(0.5)
-                          : context.theme.circleImageColor!,
-                      width: 3,
+                      color: isViewed ? greyColor.withOpacity(0.5) : statusCircleColor,
+                      width: 2.5,
                     ),
                   ),
                   child: userImageWidget(
@@ -50,15 +54,15 @@ class StatusCircle extends StatelessWidget {
                     onTap: () {},
                   ),
                 )
-              // Add status circle 
+              // My Status indicator
               else if (isMyStatus)
                 Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: context.theme.circleImageColor!,
-                      width: 3,
+                      color: statusCircleColor,
+                      width: 2.5,
                     ),
                   ),
                   child: userImageWidget(
@@ -67,7 +71,7 @@ class StatusCircle extends StatelessWidget {
                     onTap: () {},
                   ),
                 )
-              // No border for users without status
+              // Regular user without status
               else
                 userImageWidget(
                   imageUrl: imageUrl,
@@ -80,13 +84,26 @@ class StatusCircle extends StatelessWidget {
                 Positioned(
                   bottom: 0,
                   right: 0,
-                  child: CircleAvatar(
-                    radius: 12,
-                    backgroundColor: Theme.of(context).primaryColor,
-                    child: const Icon(
-                      Icons.add,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                       color: Colors.white,
-                      size: 18,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 2,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: CircleAvatar(
+                      radius: 10,
+                      backgroundColor: accentColor,
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ),
                   ),
                 ),
@@ -105,6 +122,7 @@ class StatusCircle extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isMyStatus ? FontWeight.bold : FontWeight.normal,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
             ),
           ),
         ),

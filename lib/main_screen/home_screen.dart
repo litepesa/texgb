@@ -25,16 +25,18 @@ class _HomeScreenState extends State<HomeScreen>
   final PageController pageController = PageController(initialPage: 0);
   int currentIndex = 0;
 
-  final List<Widget> pages = const [
-    MyChatsScreen(),
-    GroupsScreen(),
-    StatusScreen(),
-  ];
+  late final List<Widget> pages;
 
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
     super.initState();
+    
+    pages = const [
+      MyChatsScreen(),
+      GroupsScreen(),
+      StatusScreen(),
+    ];
   }
 
   @override
@@ -70,112 +72,125 @@ class _HomeScreenState extends State<HomeScreen>
     super.didChangeAppLifecycleState(state);
   }
 
+  void _navigateToProfile() {
+    final authProvider = context.read<AuthenticationProvider>();
+    Navigator.pushNamed(
+      context,
+      Constants.profileScreen,
+      arguments: authProvider.userModel!.uid,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthenticationProvider>();
+    final brightness = Theme.of(context).brightness;
+    final isLightMode = brightness == Brightness.light;
+    
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('TexGB'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () {
-                // Navigate to search screen
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const PeopleScreen(),
-                  ),
-                );
-              },
+      appBar: AppBar(
+        elevation: 0.5,
+        centerTitle: false,
+        title: RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontSize: 25,
+              fontWeight: FontWeight.w600,
+              color: isLightMode ? const Color(0xFF181818) : Colors.white,
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.red.withOpacity(0.7),
-                    width: 2,
-                  ),
-                ),
-                child: userImageWidget(
-                  imageUrl: authProvider.userModel!.image,
-                  radius: 20,
-                  onTap: () {
-                    // navigate to user profile with uid as arguments
-                    Navigator.pushNamed(
-                      context,
-                      Constants.profileScreen,
-                      arguments: authProvider.userModel!.uid,
-                    );
-                  },
+            children: [
+              TextSpan(
+                text: 'Tex',
+                style: TextStyle(
+                  color: const Color(0xFF09BB07), // WeChat green color
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            )
-          ],
+              TextSpan(
+                text: 'GB',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
-        body: PageView(
-          controller: pageController,
-          onPageChanged: (index) {
+      ),
+      body: IndexedStack(
+        index: currentIndex,
+        children: [
+          const MyChatsScreen(),
+          const GroupsScreen(),
+          const StatusScreen(),
+          const SizedBox(), // Empty placeholder for profile tab
+        ],
+      ),
+      floatingActionButton: _buildFloatingActionButton(),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.chat_bubble_2, size: 28),
+            label: 'Chats',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.group, size: 28),
+            label: 'Groups',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.rays, size: 28),
+            label: 'Status',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.person, size: 28),
+            label: 'Profile',
+          ),
+        ],
+        currentIndex: currentIndex,
+        type: BottomNavigationBarType.fixed, // Ensures all 4 items are visible
+        onTap: (index) {
+          if (index == 3) {
+            // Profile tab - directly navigate to profile screen
+            _navigateToProfile();
+          } else {
+            // For other tabs, update the currentIndex
             setState(() {
               currentIndex = index;
             });
-          },
-          children: pages,
-        ),
-        floatingActionButton: currentIndex == 1
-            ? FloatingActionButton(
-                onPressed: () {
-                  context
-                      .read<GroupProvider>()
-                      .clearGroupMembersList()
-                      .whenComplete(() {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const CreateGroupScreen(),
-                      ),
-                    );
-                  });
-                },
-                child: const Icon(CupertinoIcons.add),
-              )
-            : currentIndex == 0
-                ? FloatingActionButton(
-                    onPressed: () {
-                      // Navigate to Contacts screen
-                      Navigator.pushNamed(
-                        context,
-                        Constants.contactsScreen,
-                      );
-                    },
-                    child: const Icon(CupertinoIcons.chat_bubble_text),
-                  )
-                : null,
-        bottomNavigationBar: BottomNavigationBar(
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.chat_bubble_2, size: 30),
-              label: 'Chats',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.group, size: 30),
-              label: 'Groups',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.rays, size: 30),
-              label: 'Status',
-            ),
-          ],
-          currentIndex: currentIndex,
-          onTap: (index) {
-            // animate to the page
-            pageController.animateToPage(index,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeIn);
-            setState(() {
-              currentIndex = index;
-            });
-          },
-        ));
+          }
+        },
+      ),
+    );
+  }
+
+  Widget? _buildFloatingActionButton() {
+    // Keep the original FAB functionality based on the current tab
+    if (currentIndex == 1) {
+      return FloatingActionButton(
+        onPressed: () {
+          context
+              .read<GroupProvider>()
+              .clearGroupMembersList()
+              .whenComplete(() {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const CreateGroupScreen(),
+              ),
+            );
+          });
+        },
+        child: const Icon(CupertinoIcons.add),
+      );
+    } else if (currentIndex == 0) {
+      return FloatingActionButton(
+        onPressed: () {
+          // Navigate to Contacts screen
+          Navigator.pushNamed(
+            context,
+            Constants.contactsScreen,
+          );
+        },
+        child: const Icon(CupertinoIcons.chat_bubble_text),
+      );
+    }
+    return null; // No FAB for Status and Profile tabs
   }
 }

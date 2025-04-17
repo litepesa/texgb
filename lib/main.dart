@@ -63,8 +63,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AdaptiveTheme(
-      light: lightTheme(), // Using imported light theme
-      dark: darkTheme(),   // Using imported dark theme
+      light: wechatLightTheme(), // Using imported light theme
+      dark: wechatDarkTheme(),   // Using imported dark theme
       initial: savedThemeMode ?? AdaptiveThemeMode.light,
       builder: (theme, darkTheme) => MaterialApp(
         debugShowCheckedModeBanner: false,

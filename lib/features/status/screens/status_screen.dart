@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/features/status/screens/status_create_screen.dart';
 import 'package:textgb/features/status/screens/status_view_screen.dart';
 import 'package:textgb/models/user_model.dart';
@@ -32,7 +33,7 @@ class _StatusScreenState extends State<StatusScreen> {
     // Get current user and their contacts
     final currentUser = authProvider.userModel!;
     
-    // Use contactsUIDs instead of friendsUIDs for the new contact system
+    // Use contactsUIDs for the new contact system
     final contactUids = currentUser.contactsUIDs;
     
     // Filter out blocked contacts
@@ -42,7 +43,7 @@ class _StatusScreenState extends State<StatusScreen> {
     // Fetch statuses
     await statusProvider.fetchAllStatuses(
       currentUserUid: currentUser.uid,
-      friendUids: filteredContactUids, // Still named friendUids in provider, but we're passing contactUids
+      friendUids: filteredContactUids,
     );
   }
 
@@ -66,20 +67,28 @@ class _StatusScreenState extends State<StatusScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final backgroundColor = themeExtension?.backgroundColor;
+    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
+    final greyColor = themeExtension?.greyColor ?? Colors.grey;
+    
     final currentUser = context.read<AuthenticationProvider>().userModel!;
     final statusProvider = context.watch<StatusProvider>();
     
-    return RefreshIndicator(
-      onRefresh: _loadStatuses,
-      child: Scaffold(
-        floatingActionButton: FloatingActionButton(
-          onPressed: _navigateToStatusCreate,
-          backgroundColor: Theme.of(context).primaryColor,
-          child: const Icon(Icons.camera_alt),
-        ),
-        body: statusProvider.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _navigateToStatusCreate,
+        backgroundColor: accentColor,
+        elevation: 2,
+        child: const Icon(Icons.camera_alt),
+      ),
+      body: statusProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadStatuses,
+              color: accentColor,
+              child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -91,7 +100,7 @@ class _StatusScreenState extends State<StatusScreen> {
                     children: [
                       // My Status section
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
+                        padding: const EdgeInsets.only(bottom: 24.0),
                         child: Row(
                           children: [
                             StatusCircle(
@@ -109,11 +118,12 @@ class _StatusScreenState extends State<StatusScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'My Status',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
+                                      color: Theme.of(context).textTheme.bodyLarge?.color,
                                     ),
                                   ),
                                   Text(
@@ -121,7 +131,7 @@ class _StatusScreenState extends State<StatusScreen> {
                                         ? 'Tap to add status update'
                                         : 'Tap to view your status',
                                     style: TextStyle(
-                                      color: Colors.grey.shade600,
+                                      color: greyColor,
                                       fontSize: 14,
                                     ),
                                   ),
@@ -132,15 +142,23 @@ class _StatusScreenState extends State<StatusScreen> {
                         ),
                       ),
 
-                      // Recent updates divider
+                      // Section divider
+                      Divider(
+                        color: themeExtension?.dividerColor ?? Colors.grey.withOpacity(0.2),
+                        height: 1,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Recent updates heading
                       if (statusProvider.contactStatuses.isNotEmpty) ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Text(
-                            'Recent updates',
+                            'Recent Updates',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
                             ),
                           ),
                         ),
@@ -185,15 +203,16 @@ class _StatusScreenState extends State<StatusScreen> {
                                       children: [
                                         Text(
                                           userName,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16,
+                                            color: Theme.of(context).textTheme.bodyLarge?.color,
                                           ),
                                         ),
                                         Text(
-                                          'Tap to view status',
+                                          _getTimeAgo(statusList.first.createdAt),
                                           style: TextStyle(
-                                            color: Colors.grey.shade600,
+                                            color: greyColor,
                                             fontSize: 14,
                                           ),
                                         ),
@@ -209,21 +228,30 @@ class _StatusScreenState extends State<StatusScreen> {
                         // No status updates from contacts
                         Center(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 32.0),
+                            padding: const EdgeInsets.symmetric(vertical: 60.0),
                             child: Column(
                               children: [
                                 Icon(
                                   Icons.circle_outlined,
-                                  size: 80,
-                                  color: Colors.grey.shade400,
+                                  size: 70,
+                                  color: greyColor.withOpacity(0.5),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   'No recent updates',
                                   style: TextStyle(
-                                    color: Colors.grey.shade600,
+                                    color: greyColor,
                                     fontSize: 16,
                                   ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'When friends add to their status, you\'ll see them here',
+                                  style: TextStyle(
+                                    color: greyColor,
+                                    fontSize: 14,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ],
                             ),
@@ -234,7 +262,21 @@ class _StatusScreenState extends State<StatusScreen> {
                   ),
                 ),
               ),
-      ),
+            ),
     );
+  }
+  
+  String _getTimeAgo(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    
+    if (difference.inSeconds < 60) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
   }
 }

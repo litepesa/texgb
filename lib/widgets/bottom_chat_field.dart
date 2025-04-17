@@ -7,6 +7,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/chat_provider.dart';
@@ -43,6 +44,7 @@ class _BottomChatFieldState extends State<BottomChatField> {
   bool isShowSendButton = false;
   bool isSendingAudio = false;
   bool isShowEmojiPicker = false;
+  bool isShowMoreOptions = false;
 
   // hide emoji container
   void hideEmojiContainer() {
@@ -55,6 +57,18 @@ class _BottomChatFieldState extends State<BottomChatField> {
   void showEmojiContainer() {
     setState(() {
       isShowEmojiPicker = true;
+      isShowMoreOptions = false; // Hide more options when showing emoji
+    });
+  }
+
+  // Toggle more options
+  void toggleMoreOptions() {
+    setState(() {
+      isShowMoreOptions = !isShowMoreOptions;
+      if (isShowMoreOptions) {
+        isShowEmojiPicker = false; // Hide emoji when showing more options
+        hideKeyNoard();
+      }
     });
   }
 
@@ -212,11 +226,13 @@ class _BottomChatFieldState extends State<BottomChatField> {
         _focusNode.unfocus();
         setState(() {
           isSendingAudio = false;
+          isShowMoreOptions = false;
         });
       },
       onError: (error) {
         setState(() {
           isSendingAudio = false;
+          isShowMoreOptions = false;
         });
         showSnackBar(context, error);
       },
@@ -238,7 +254,9 @@ class _BottomChatFieldState extends State<BottomChatField> {
         groupId: widget.groupId,
         onSucess: () {
           _textEditingController.clear();
-          _focusNode.unfocus();
+          setState(() {
+            isShowSendButton = false;
+          });
         },
         onError: (error) {
           showSnackBar(context, error);
@@ -247,9 +265,14 @@ class _BottomChatFieldState extends State<BottomChatField> {
 
   @override
   Widget build(BuildContext context) {
+    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final backgroundColor = themeExtension?.backgroundColor ?? const Color(0xFFF6F6F6);
+    final appBarColor = themeExtension?.appBarColor ?? const Color(0xFFEDEDED);
+    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
+    
     return widget.groupId.isNotEmpty
         ? buildLoackedMessages()
-        : buildBottomChatField();
+        : buildBottomChatField(backgroundColor, appBarColor, accentColor);
   }
 
   Widget buildLoackedMessages() {
@@ -265,7 +288,11 @@ class _BottomChatFieldState extends State<BottomChatField> {
     // check is messages are locked
     final isLocked = groupProvider.groupModel.lockMessages;
     return isAdmin
-        ? buildBottomChatField()
+        ? buildBottomChatField(
+            Theme.of(context).scaffoldBackgroundColor, 
+            Theme.of(context).appBarTheme.backgroundColor ?? Colors.white, 
+            Theme.of(context).extension<WeChatThemeExtension>()?.accentColor ?? const Color(0xFF07C160)
+          )
         : isMember
             ? buildisMember(isLocked)
             : SizedBox(
@@ -284,7 +311,6 @@ class _BottomChatFieldState extends State<BottomChatField> {
                           .whenComplete(() {
                         showSnackBar(context, 'Request sent');
                       });
-                      print('request to join group');
                     },
                     child: const Text(
                       'You are not a member of this group, \n click here to send request to join',
@@ -313,190 +339,265 @@ class _BottomChatFieldState extends State<BottomChatField> {
               ),
             ),
           )
-        : buildBottomChatField();
+        : buildBottomChatField(
+            Theme.of(context).scaffoldBackgroundColor, 
+            Theme.of(context).appBarTheme.backgroundColor ?? Colors.white, 
+            Theme.of(context).extension<WeChatThemeExtension>()?.accentColor ?? const Color(0xFF07C160)
+          );
   }
 
-  Consumer<ChatProvider> buildBottomChatField() {
+  Widget buildBottomChatField(Color backgroundColor, Color appBarColor, Color accentColor) {
     return Consumer<ChatProvider>(
       builder: (context, chatProvider, child) {
         final messageReply = chatProvider.messageReplyModel;
         final isMessageReply = messageReply != null;
-        return Column(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  color: Theme.of(context).cardColor,
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary,
-                  )),
-              child: Column(
-                children: [
-                  isMessageReply
-                      ? MessageReplyPreview(
-                          replyMessageModel: messageReply,
-                        )
-                      : const SizedBox.shrink(),
-                  Row(
-                    children: [
-                      // emoji button
-                      IconButton(
-                        onPressed: toggleEmojiKeyboardContainer,
-                        icon: Icon(isShowEmojiPicker
-                            ? Icons.keyboard_alt
-                            : Icons.emoji_emotions_outlined),
-                      ),
-                      IconButton(
-                        onPressed: isSendingAudio
-                            ? null
-                            : () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return SizedBox(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(8.0),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            // select image from camera
-                                            ListTile(
-                                              leading:
-                                                  const Icon(Icons.camera_alt),
-                                              title: const Text('Camera'),
-                                              onTap: () {
-                                                selectImage(true);
-                                              },
-                                            ),
-                                            // select image from gallery
-                                            ListTile(
-                                              leading: const Icon(Icons.image),
-                                              title: const Text('Gallery'),
-                                              onTap: () {
-                                                selectImage(false);
-                                              },
-                                            ),
-                                            // select a video file from device
-                                            ListTile(
-                                              leading: const Icon(
-                                                  Icons.video_library),
-                                              title: const Text('Video'),
-                                              onTap: selectVideo,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                        icon: const Icon(Icons.attachment),
-                      ),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _textEditingController,
-                          focusNode: _focusNode,
-                          decoration: const InputDecoration.collapsed(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(30),
-                              ),
-                              borderSide: BorderSide.none,
-                            ),
-                            hintText: 'Type a message',
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              isShowSendButton = value.isNotEmpty;
-                            });
-                          },
-                          onTap: () {
-                            hideEmojiContainer();
-                          },
-                        ),
-                      ),
-                      chatProvider.isLoading
-                          ? const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: CircularProgressIndicator(),
-                            )
-                          : GestureDetector(
-                              onTap: isShowSendButton ? sendTextMessage : null,
-                              onLongPress:
-                                  isShowSendButton ? null : startRecording,
-                              onLongPressUp: stopRecording,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(30),
-                                  color: Colors.deepPurple,
-                                ),
-                                margin: const EdgeInsets.all(5),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: isShowSendButton
-                                      ? const Icon(
-                                          Icons.arrow_upward,
-                                          color: Colors.white,
-                                        )
-                                      : const Icon(
-                                          Icons.mic,
-                                          color: Colors.white,
-                                        ),
-                                ),
-                              ),
-                            ),
-                    ],
-                  ),
-                ],
+        
+        return Container(
+          decoration: BoxDecoration(
+            color: appBarColor,
+            border: Border(
+              top: BorderSide(
+                color: Colors.grey.withOpacity(0.2),
+                width: 0.5,
               ),
             ),
-            // show emoji container
-            isShowEmojiPicker
-                ? SizedBox(
-                    height: 280,
-                    child: EmojiPicker(
-                      onEmojiSelected: (category, Emoji emoji) {
-                        _textEditingController.text =
-                            _textEditingController.text + emoji.emoji;
-
-                        if (!isShowSendButton) {
-                          setState(() {
-                            isShowSendButton = true;
-                          });
-                        }
-                      },
-                      onBackspacePressed: () {
-                        _textEditingController.text = _textEditingController
-                            .text.characters
-                            .skipLast(1)
-                            .toString();
-                      },
-                      // config: const Config(
-                      //   columns: 7,
-                      //   emojiSizeMax: 32.0,
-                      //   verticalSpacing: 0,
-                      //   horizontalSpacing: 0,
-                      //   initCategory: Category.RECENT,
-                      //   bgColor: Color(0xFFF2F2F2),
-                      //   indicatorColor: Colors.blue,
-                      //   iconColor: Colors.grey,
-                      //   iconColorSelected: Colors.blue,
-                      //   progressIndicatorColor: Colors.blue,
-                      //   backspaceColor: Colors.blue,
-                      //   showRecentsTab: true,
-                      //   recentsLimit: 28,
-                      //   noRecentsText: 'No Recents',
-                      //   noRecentsStyle: const TextStyle(fontSize: 20, color: Colors.black26),
-                      //   tabIndicatorAnimDuration: kTabScrollDuration,
-                      //   categoryIcons: const CategoryIcons(),
-                      //   buttonMode: ButtonMode.MATERIAL,
-                      // ),
+          ),
+          child: Column(
+            children: [
+              // Message reply preview
+              if (isMessageReply)
+                Container(
+                  padding: const EdgeInsets.only(top: 8.0, left: 8.0, right: 8.0),
+                  child: MessageReplyPreview(
+                    replyMessageModel: messageReply,
+                  ),
+                ),
+              
+              // Input area
+              Row(
+                children: [
+                  // Voice/text toggle button
+                  IconButton(
+                    icon: Icon(
+                      Icons.keyboard_voice,
+                      color: Colors.grey[600],
                     ),
-                  )
-                : const SizedBox.shrink(),
-          ],
+                    onPressed: () {
+                      // Implement voice toggle functionality
+                    },
+                  ),
+                  
+                  // Text input field
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
+                        borderRadius: BorderRadius.circular(4.0),
+                      ),
+                      child: TextField(
+                        controller: _textEditingController,
+                        focusNode: _focusNode,
+                        maxLines: 3,
+                        minLines: 1,
+                        style: TextStyle(
+                          fontSize: 16.0,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Message',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(vertical: 10.0),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            isShowSendButton = value.isNotEmpty;
+                          });
+                        },
+                        onTap: () {
+                          hideEmojiContainer();
+                          setState(() {
+                            isShowMoreOptions = false;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  
+                  // Emoji button
+                  IconButton(
+                    icon: Icon(
+                      isShowEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined,
+                      color: Colors.grey[600],
+                    ),
+                    onPressed: toggleEmojiKeyboardContainer,
+                  ),
+                  
+                  // More options or Send button
+                  if (isShowSendButton)
+                    chatProvider.isLoading
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: accentColor,
+                              ),
+                            ),
+                          )
+                        : TextButton(
+                            onPressed: sendTextMessage,
+                            style: TextButton.styleFrom(
+                              backgroundColor: accentColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4.0),
+                              ),
+                              minimumSize: const Size(50, 36),
+                            ),
+                            child: const Text(
+                              'Send',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )
+                  else
+                    IconButton(
+                      icon: Icon(
+                        Icons.add_circle_outline,
+                        color: Colors.grey[600],
+                      ),
+                      onPressed: toggleMoreOptions,
+                    ),
+                ],
+              ),
+              
+              // More options grid
+              if (isShowMoreOptions)
+                buildMoreOptionsGrid(context),
+              
+              // Emoji picker
+              if (isShowEmojiPicker)
+                SizedBox(
+                  height: 250,
+                  child: EmojiPicker(
+                    onEmojiSelected: (category, Emoji emoji) {
+                      _textEditingController.text = _textEditingController.text + emoji.emoji;
+                      
+                      if (!isShowSendButton) {
+                        setState(() {
+                          isShowSendButton = true;
+                        });
+                      }
+                    },
+                    onBackspacePressed: () {
+                      _textEditingController.text = _textEditingController
+                          .text.characters.skipLast(1).toString();
+                          
+                      if (_textEditingController.text.isEmpty) {
+                        setState(() {
+                          isShowSendButton = false;
+                        });
+                      }
+                    },
+                  ),
+                ),
+            ],
+          ),
         );
       },
+    );
+  }
+  
+  Widget buildMoreOptionsGrid(BuildContext context) {
+    // WeChat-style feature grid
+    final items = [
+      {
+        'icon': Icons.photo_library,
+        'color': Colors.green,
+        'label': 'Photos',
+        'onTap': () => selectImage(false),
+      },
+      {
+        'icon': Icons.camera_alt,
+        'color': Colors.blue,
+        'label': 'Camera',
+        'onTap': () => selectImage(true),
+      },
+      {
+        'icon': Icons.videocam,
+        'color': Colors.red,
+        'label': 'Video',
+        'onTap': selectVideo,
+      },
+      {
+        'icon': Icons.location_on,
+        'color': Colors.orange,
+        'label': 'Location',
+        'onTap': () {},  // Placeholder
+      },
+      {
+        'icon': Icons.mic,
+        'color': Colors.purple,
+        'label': 'Voice',
+        'onTap': startRecording,
+      },
+      {
+        'icon': Icons.insert_drive_file,
+        'color': Colors.indigo,
+        'label': 'Files',
+        'onTap': () {},  // Placeholder
+      },
+    ];
+    
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4,
+          crossAxisSpacing: 8.0,
+          mainAxisSpacing: 16.0,
+        ),
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return GestureDetector(
+            onTap: () {
+              if (item['onTap'] != null) {
+                (item['onTap'] as Function)();
+              }
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: (item['color'] as Color).withOpacity(0.1),
+                  child: Icon(
+                    item['icon'] as IconData,
+                    color: item['color'] as Color,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  item['label'] as String,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

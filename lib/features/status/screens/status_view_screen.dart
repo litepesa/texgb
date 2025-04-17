@@ -27,14 +27,16 @@ class _StatusViewScreenState extends State<StatusViewScreen> with SingleTickerPr
   int _currentIndex = 0;
   VideoPlayerController? _videoController;
   AnimationController? _progressController;
-  final _progressDuration = const Duration(milliseconds: 5000); // 5 seconds per status
+  Duration _defaultDuration = const Duration(milliseconds: 5000); // Default 5 seconds per status
+  bool _isPaused = false;
 
   @override
   void initState() {
     super.initState();
+    // Initialize with default duration, will be updated for videos
     _progressController = AnimationController(
       vsync: this,
-      duration: _progressDuration,
+      duration: _defaultDuration,
     )..addListener(() {
       setState(() {});
     })..addStatusListener((status) {
@@ -123,6 +125,7 @@ class _StatusViewScreenState extends State<StatusViewScreen> with SingleTickerPr
     }
 
     _currentIndex = index;
+    _isPaused = false;
 
     // Reset video controller if exists
     if (_videoController != null) {
@@ -130,22 +133,65 @@ class _StatusViewScreenState extends State<StatusViewScreen> with SingleTickerPr
       _videoController = null;
     }
 
-    // Reset and start progress
+    // Reset progress controller
     _progressController?.reset();
 
-    // If video, initialize video controller
+    // Get the current status
     final status = _statusList[index];
+    
+    // Set the appropriate duration based on content type
     if (status.statusType == StatusType.video) {
+      // For videos, initialize the controller and use video duration
       _videoController = VideoPlayerController.network(status.statusUrl);
       await _videoController!.initialize();
+      
+      // Get the actual video duration for the progress bar
+      final videoDuration = _videoController!.value.duration;
+      print("Video duration: ${videoDuration.inSeconds} seconds");
+      
+      // Update the progress controller duration to match the video
+      _progressController?.duration = videoDuration;
+      
+      // Start playing the video
       _videoController!.play();
-      _videoController!.setLooping(true);
+      _videoController!.setLooping(false);
+      
+      // Add listener to detect when video ends
+      _videoController!.addListener(_onVideoProgressChanged);
+    } else {
+      // For non-video content, use the default duration
+      _progressController?.duration = _defaultDuration;
     }
 
     // Start progress
     _progressController?.forward();
     
     setState(() {});
+  }
+  
+  void _onVideoProgressChanged() {
+    if (_videoController != null && 
+        _videoController!.value.isInitialized &&
+        _videoController!.value.position >= _videoController!.value.duration - const Duration(milliseconds: 300)) {
+      // Video has finished, move to next status
+      _goToNextStatus();
+    }
+  }
+
+  void _togglePlayPause() {
+    setState(() {
+      _isPaused = !_isPaused;
+    });
+    
+    if (_isPaused) {
+      // Pause both the progress and the video
+      _progressController?.stop();
+      _videoController?.pause();
+    } else {
+      // Resume both the progress and the video
+      _progressController?.forward();
+      _videoController?.play();
+    }
   }
 
   void _goToPreviousStatus() {
@@ -155,10 +201,20 @@ class _StatusViewScreenState extends State<StatusViewScreen> with SingleTickerPr
       // At first status, just restart it
       _progressController?.reset();
       _progressController?.forward();
+      
+      if (_videoController != null) {
+        _videoController!.seekTo(Duration.zero);
+        _videoController!.play();
+      }
     }
   }
 
   void _goToNextStatus() {
+    // If the video controller has a listener, remove it
+    if (_videoController != null) {
+      _videoController!.removeListener(_onVideoProgressChanged);
+    }
+    
     if (_currentIndex < _statusList.length - 1) {
       _showStatus(_currentIndex + 1);
     } else {
@@ -292,6 +348,7 @@ class _StatusViewScreenState extends State<StatusViewScreen> with SingleTickerPr
     final userName = status.userName;
     final userImage = status.userImage;
     final timeAgo = _getTimeAgo(status.createdAt);
+    final isVideo = status.statusType == StatusType.video;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -301,10 +358,15 @@ class _StatusViewScreenState extends State<StatusViewScreen> with SingleTickerPr
           final screenWidth = MediaQuery.of(context).size.width;
           final tapPosition = details.globalPosition.dx;
           
-          if (tapPosition < screenWidth / 2) {
+          if (tapPosition < screenWidth / 3) {
             _goToPreviousStatus();
-          } else {
+          } else if (tapPosition > screenWidth * 2/3) {
             _goToNextStatus();
+          } else {
+            // Center tap toggles play/pause for videos
+            if (isVideo) {
+              _togglePlayPause();
+            }
           }
         },
         onLongPress: _isMyStatus ? _deleteStatus : null,
@@ -375,6 +437,25 @@ class _StatusViewScreenState extends State<StatusViewScreen> with SingleTickerPr
                     ],
                   ),
                   const Spacer(),
+                  // Video duration indicator
+                  if (isVideo && _videoController != null && _videoController!.value.isInitialized)
+                    Text(
+                      '${_formatDuration(_videoController!.value.position)} / ${_formatDuration(_videoController!.value.duration)}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  // Play/Pause button for videos
+                  if (isVideo)
+                    IconButton(
+                      icon: Icon(
+                        _isPaused ? Icons.play_arrow : Icons.pause,
+                        color: Colors.white,
+                      ),
+                      onPressed: _togglePlayPause,
+                    ),
                   // Delete button for own statuses
                   if (_isMyStatus)
                     IconButton(
@@ -410,10 +491,33 @@ class _StatusViewScreenState extends State<StatusViewScreen> with SingleTickerPr
                   ),
                 ),
               ),
+              
+            // Navigation hint
+            Positioned(
+              bottom: 10,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Text(
+                  isVideo ? "Tap left/right to navigate • Tap center to play/pause" : "Tap left/right to navigate",
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  // Format duration for display
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 
   // Build the main status content based on type
@@ -463,7 +567,25 @@ class _StatusViewScreenState extends State<StatusViewScreen> with SingleTickerPr
                 child: SizedBox(
                   width: _videoController!.value.size.width,
                   height: _videoController!.value.size.height,
-                  child: VideoPlayer(_videoController!),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      VideoPlayer(_videoController!),
+                      if (_isPaused)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.black45,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.play_arrow,
+                            color: Colors.white,
+                            size: 50,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               )
             : const Center(child: CircularProgressIndicator());

@@ -177,7 +177,7 @@ class _StatusCreateScreenState extends State<StatusCreateScreen> {
     try {
       final pickedFile = await ImagePicker().pickVideo(
         source: ImageSource.gallery,
-        maxDuration: const Duration(seconds: 30),
+        maxDuration: const Duration(seconds: 90),
       );
       
       if (pickedFile != null) {
