@@ -125,15 +125,6 @@ class _MomentsScreenState extends State<MomentsScreen> with SingleTickerProvider
               forceElevated: innerBoxIsScrolled,
               backgroundColor: backgroundColor.withOpacity(0.95),
               actions: [
-                // Search button
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  tooltip: 'Search moments',
-                  onPressed: () {
-                    // TODO: Implement moments search
-                    showSnackBar(context, 'Search feature coming soon');
-                  },
-                ),
                 // My moments button
                 IconButton(
                   icon: const Icon(Icons.person),

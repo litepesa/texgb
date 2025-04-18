@@ -28,15 +28,10 @@ class MediaViewScreen extends StatefulWidget {
 class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProviderStateMixin {
   late int _currentIndex;
   late PageController _pageController;
-  bool _isFullScreen = false;
   bool _showControls = true;
-  bool _isVideoPlaying = false;
   Timer? _hideControlsTimer;
   AnimationController? _controlsAnimationController;
   Animation<double>? _controlsOpacityAnimation;
-
-  // Keep track of tap positions for double-tap zoom
-  Offset? _doubleTapPosition;
 
   @override
   void initState() {
@@ -80,7 +75,7 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
 
   void _startHideControlsTimer() {
     _hideControlsTimer?.cancel();
-    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+    _hideControlsTimer = Timer(const Duration(seconds: 2), () {
       if (mounted && _showControls) {
         setState(() {
           _showControls = false;
@@ -88,31 +83,6 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
         _controlsAnimationController!.reverse();
       }
     });
-  }
-
-  void _toggleFullScreen() {
-    setState(() {
-      _isFullScreen = !_isFullScreen;
-      _showControls = true;
-    });
-    
-    _controlsAnimationController!.forward();
-    
-    if (_isFullScreen) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    } else {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-      ]);
-    }
-    
-    _startHideControlsTimer();
   }
 
   void _toggleControls() {
@@ -129,26 +99,14 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
   }
 
   void _openVideoPlayer(String videoUrl) {
+    // Always use portrait orientation
     Navigator.of(context).push(
       VideoViewerScreen.route(
         videoUrl: videoUrl,
         videoTitle: widget.description ?? 'Video',
-        allowOrientationChanges: true,
+        allowOrientationChanges: false, 
+        // No need to specify orientation since we're forcing portrait in VideoViewerScreen
       ),
-    );
-  }
-
-  void _shareMedia() {
-    // TODO: Implement share functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sharing media...')),
-    );
-  }
-
-  void _downloadMedia() {
-    // TODO: Implement download functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Downloading media...')),
     );
   }
 
@@ -158,6 +116,15 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
            url.endsWith('.mov') ||
            url.endsWith('.avi') ||
            url.endsWith('.mkv');
+  }
+  
+  bool _isVerticalVideoFile(String url) {
+    // Check if the URL contains indicators that it might be a vertical video
+    return url.contains('vertical') || 
+           url.contains('portrait') || 
+           url.contains('tiktok') ||
+           url.contains('reels') ||
+           url.contains('shorts');
   }
 
   @override
@@ -174,257 +141,156 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
       );
     }
 
-    return WillPopScope(
-      onWillPop: () async {
-        // Handle back button press - exit fullscreen mode first if active
-        if (_isFullScreen) {
-          _toggleFullScreen();
-          return false;
-        }
-        return true;
-      },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: GestureDetector(
-          onTap: _toggleControls,
-          onDoubleTapDown: (details) {
-            _doubleTapPosition = details.localPosition;
-          },
-          onDoubleTap: () {
-            // Handle double-tap zoom here if needed
-          },
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Image gallery
-              PhotoViewGallery.builder(
-                scrollPhysics: const BouncingScrollPhysics(),
-                builder: (BuildContext context, int index) {
-                  final isVideoItem = _isVideoFile(widget.mediaUrls[index]);
-                  
-                  if (isVideoItem) {
-                    // For video items, show a thumbnail with play button
-                    return PhotoViewGalleryPageOptions.customChild(
-                      child: GestureDetector(
-                        onTap: () {
-                          if (_showControls) {
-                            _toggleControls();
-                          } else {
-                            _openVideoPlayer(widget.mediaUrls[index]);
-                          }
-                        },
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Video thumbnail
-                            CachedNetworkImage(
-                              imageUrl: widget.mediaUrls[index],
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => const Center(
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              ),
-                              errorWidget: (context, url, error) => Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Icon(Icons.videocam, color: Colors.white, size: 48),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      'Tap to play video',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ],
-                                ),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: _toggleControls,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Image gallery
+            PhotoViewGallery.builder(
+              scrollPhysics: const BouncingScrollPhysics(),
+              builder: (BuildContext context, int index) {
+                final isVideoItem = _isVideoFile(widget.mediaUrls[index]);
+                
+                if (isVideoItem) {
+                  // For video items, show a thumbnail with play button
+                  return PhotoViewGalleryPageOptions.customChild(
+                    child: GestureDetector(
+                      onTap: () {
+                        if (_showControls) {
+                          _toggleControls();
+                        } else {
+                          _openVideoPlayer(widget.mediaUrls[index]);
+                        }
+                      },
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Video thumbnail
+                          CachedNetworkImage(
+                            imageUrl: widget.mediaUrls[index],
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             ),
-                            
-                            // Play button overlay
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.play_arrow,
-                                color: Colors.white,
-                                size: 50,
+                            errorWidget: (context, url, error) => Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.videocam, color: Colors.white, size: 48),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Tap to play video',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          
+                          // Simple play button overlay
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                              size: 40,
+                            ),
+                          ),
+                        ],
                       ),
-                      minScale: PhotoViewComputedScale.contained,
-                      maxScale: PhotoViewComputedScale.covered * 2,
-                      heroAttributes: PhotoViewHeroAttributes(tag: 'media_${widget.mediaUrls[index]}'),
-                    );
-                  }
-                  
-                  // For images
-                  return PhotoViewGalleryPageOptions(
-                    imageProvider: CachedNetworkImageProvider(widget.mediaUrls[index]),
-                    initialScale: PhotoViewComputedScale.contained,
-                    minScale: PhotoViewComputedScale.contained * 0.8,
-                    maxScale: PhotoViewComputedScale.covered * 2.5,
+                    ),
+                    minScale: PhotoViewComputedScale.contained,
+                    maxScale: PhotoViewComputedScale.covered * 2,
                     heroAttributes: PhotoViewHeroAttributes(tag: 'media_${widget.mediaUrls[index]}'),
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.broken_image, color: Colors.white, size: 48),
-                            SizedBox(height: 8),
-                            Text(
-                              'Failed to load image',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
                   );
-                },
-                itemCount: widget.mediaUrls.length,
-                loadingBuilder: (context, event) => Center(
-                  child: CircularProgressIndicator(
-                    value: event == null
-                        ? 0
-                        : event.cumulativeBytesLoaded / (event.expectedTotalBytes ?? 1),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                ),
-                pageController: _pageController,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                    _showControls = true;
-                  });
-                  _controlsAnimationController!.forward();
-                  _startHideControlsTimer();
-                },
-                backgroundDecoration: const BoxDecoration(
-                  color: Colors.black,
+                }
+                
+                // For images
+                return PhotoViewGalleryPageOptions(
+                  imageProvider: CachedNetworkImageProvider(widget.mediaUrls[index]),
+                  initialScale: PhotoViewComputedScale.contained,
+                  minScale: PhotoViewComputedScale.contained * 0.8,
+                  maxScale: PhotoViewComputedScale.covered * 2.5,
+                  heroAttributes: PhotoViewHeroAttributes(tag: 'media_${widget.mediaUrls[index]}'),
+                  errorBuilder: (context, error, stackTrace) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.broken_image, color: Colors.white, size: 48),
+                          SizedBox(height: 8),
+                          Text(
+                            'Failed to load image',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+              itemCount: widget.mediaUrls.length,
+              loadingBuilder: (context, event) => Center(
+                child: CircularProgressIndicator(
+                  value: event == null
+                      ? 0
+                      : event.cumulativeBytesLoaded / (event.expectedTotalBytes ?? 1),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
-              
-              // Animated controls overlay
-              FadeTransition(
-                opacity: _controlsOpacityAnimation!,
-                child: Visibility(
-                  visible: _showControls,
-                  child: _buildControlsOverlay(),
-                ),
+              pageController: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                  _showControls = true;
+                });
+                _controlsAnimationController!.forward();
+                _startHideControlsTimer();
+              },
+              backgroundDecoration: const BoxDecoration(
+                color: Colors.black,
               ),
-            ],
-          ),
+            ),
+            
+            // Minimalist controls overlay
+            FadeTransition(
+              opacity: _controlsOpacityAnimation!,
+              child: Visibility(
+                visible: _showControls,
+                child: _buildMinimalistControls(),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
   
-  Widget _buildControlsOverlay() {
+  Widget _buildMinimalistControls() {
     return Stack(
       children: [
-        // Top controls (header)
+        // Back button - top left
         Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.7),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.8],
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Back button
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  
-                  // Page indicator
-                  Expanded(
-                    child: Text(
-                      '${_currentIndex + 1}/${widget.mediaUrls.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  
-                  // Action buttons
-                  IconButton(
-                    icon: const Icon(Icons.share, color: Colors.white),
-                    onPressed: _shareMedia,
-                    tooltip: 'Share',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.download, color: Colors.white),
-                    onPressed: _downloadMedia,
-                    tooltip: 'Download',
-                  ),
-                ],
-              ),
+          top: 20,
+          left: 16,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5),
+              shape: BoxShape.circle,
             ),
-          ),
-        ),
-        
-        // Bottom description if provided
-        if (widget.description != null && widget.description!.isNotEmpty)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.7),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.8],
-                ),
-              ),
-              child: Text(
-                widget.description!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ),
-          
-        // Fullscreen toggle button
-        Positioned(
-          right: 16,
-          bottom: widget.description != null && widget.description!.isNotEmpty ? 80 : 16,
-          child: FloatingActionButton.small(
-            heroTag: 'fullscreen_btn',
-            backgroundColor: Colors.black.withOpacity(0.7),
-            onPressed: _toggleFullScreen,
-            child: Icon(
-              _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
-              color: Colors.white,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
             ),
           ),
         ),
@@ -437,11 +303,15 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
             bottom: 0,
             child: Center(
               child: Container(
+                height: 40,
+                width: 40,
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.3),
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
+                  iconSize: 20,
+                  padding: EdgeInsets.zero,
                   icon: const Icon(Icons.chevron_left, color: Colors.white),
                   onPressed: () {
                     _pageController.previousPage(
@@ -462,11 +332,15 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
             bottom: 0,
             child: Center(
               child: Container(
+                height: 40,
+                width: 40,
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.3),
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
+                  iconSize: 20,
+                  padding: EdgeInsets.zero,
                   icon: const Icon(Icons.chevron_right, color: Colors.white),
                   onPressed: () {
                     _pageController.nextPage(
@@ -475,6 +349,31 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
                     );
                   },
                 ),
+              ),
+            ),
+          ),
+        
+        // Only show mute button for videos
+        if (_isVideoFile(widget.mediaUrls[_currentIndex]))
+          Positioned(
+            top: 20,
+            right: 16,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.volume_up, color: Colors.white),
+                onPressed: () {
+                  // This would be implemented in the VideoViewerScreen
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Mute/unmute will be available in video player'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
               ),
             ),
           ),

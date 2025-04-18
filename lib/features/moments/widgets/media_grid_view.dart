@@ -24,6 +24,7 @@ class _MediaGridViewState extends State<MediaGridView> {
   VideoPlayerController? _videoController;
   bool _isVideoInitialized = false;
   bool _isLoading = true;
+  double _videoAspectRatio = 16 / 9; // Default aspect ratio
   
   @override
   void initState() {
@@ -49,9 +50,11 @@ class _MediaGridViewState extends State<MediaGridView> {
       await _videoController!.initialize();
       
       if (mounted) {
+        // Set actual video aspect ratio
         setState(() {
           _isVideoInitialized = true;
           _isLoading = false;
+          _videoAspectRatio = _videoController!.value.aspectRatio;
         });
         
         // Get a single frame as thumbnail and then pause
@@ -66,6 +69,12 @@ class _MediaGridViewState extends State<MediaGridView> {
       }
       debugPrint('Error initializing video controller: $e');
     }
+  }
+
+  // Determine if video is in portrait/vertical format
+  bool get _isVerticalVideo {
+    if (!_isVideoInitialized || _videoController == null) return false;
+    return _videoController!.value.aspectRatio < 1.0;
   }
 
   @override
@@ -134,101 +143,147 @@ class _MediaGridViewState extends State<MediaGridView> {
   }
 
   Widget _buildVideoThumbnail(String videoUrl) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: ClipRRect(
+    // Determine the aspect ratio and layout based on video orientation
+    final aspectRatio = _isVideoInitialized ? _videoAspectRatio : 16 / 9;
+    final isVertical = _isVerticalVideo;
+    
+    // For vertical videos, we'll use a different container approach
+    if (isVertical) {
+      return Container(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          child: Material(
-            color: Colors.black,
-            child: InkWell(
-              onTap: () => _openVideoPlayer(videoUrl),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Video thumbnail or loading indicator
-                  if (_isVideoInitialized)
-                    VideoPlayer(_videoController!)
-                  else if (_isLoading)
-                    const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    )
-                  else
-                    Container(
-                      color: Colors.black45,
-                      child: const Center(
-                        child: Icon(
-                          Icons.videocam_off,
-                          color: Colors.white70,
-                          size: 40,
-                        ),
-                      ),
-                    ),
-                  
-                  // Play button overlay
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow,
-                        color: Colors.white,
-                        size: 40,
-                      ),
-                    ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        // Limit the height for vertical videos to not take too much space
+        constraints: const BoxConstraints(maxHeight: 350),
+        child: Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Material(
+              color: Colors.black,
+              child: InkWell(
+                onTap: () => _openVideoPlayer(videoUrl),
+                child: AspectRatio(
+                  aspectRatio: aspectRatio,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: _buildVideoStackChildren(videoUrl),
                   ),
-                  
-                  // Video indicator badge
-                  Positioned(
-                    bottom: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.videocam,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Video',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         ),
+      );
+    } else {
+      // Standard 16:9 or similar horizontal videos
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Material(
+              color: Colors.black,
+              child: InkWell(
+                onTap: () => _openVideoPlayer(videoUrl),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: _buildVideoStackChildren(videoUrl),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+  
+  // Extracted the common stack children for video thumbnails
+  List<Widget> _buildVideoStackChildren(String videoUrl) {
+    return [
+      // Video thumbnail or loading indicator
+      if (_isVideoInitialized)
+        VideoPlayer(_videoController!)
+      else if (_isLoading)
+        const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        )
+      else
+        Container(
+          color: Colors.black45,
+          child: const Center(
+            child: Icon(
+              Icons.videocam_off,
+              color: Colors.white70,
+              size: 40,
+            ),
+          ),
+        ),
+      
+      // Play button overlay
+      Center(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.5),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.play_arrow,
+            color: Colors.white,
+            size: 40,
+          ),
+        ),
       ),
-    );
+      
+      // Video type indicator badge (now shows format)
+      Positioned(
+        bottom: 8,
+        right: 8,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.videocam,
+                color: Colors.white,
+                size: 14,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _isVerticalVideo ? 'Vertical' : 'Video',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildImageGrid() {
