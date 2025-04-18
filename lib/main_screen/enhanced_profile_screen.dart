@@ -12,6 +12,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:textgb/utilities/assets_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class EnhancedProfileScreen extends StatefulWidget {
   const EnhancedProfileScreen({super.key});
@@ -203,18 +204,48 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
     });
     
     try {
+      // First verify the user is authenticated
+      final currentFirebaseUser = FirebaseAuth.instance.currentUser;
+      if (currentFirebaseUser == null) {
+        throw Exception("User not authenticated");
+      }
+      
       final authProvider = context.read<AuthenticationProvider>();
       final currentUser = authProvider.userModel!;
       final String oldImageUrl = currentUser.image;
       
       // Upload new image to Firebase Storage
       final storage = FirebaseStorage.instance;
-      final String imagePath = '${Constants.userImages}/${currentUser.uid}';
+      
+      // Make sure this path exactly matches your rules structure
+      // Using 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg' to ensure uniqueness
+      final String fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String imagePath = 'userImages/${currentUser.uid}/$fileName';
       final reference = storage.ref().child(imagePath);
       
-      // Upload new image
-      await reference.putFile(_selectedImage!);
+      // Add metadata to help with debugging and content type
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {'uploaded_by': currentUser.uid},
+      );
+      
+      // Upload with progress monitoring
+      final uploadTask = reference.putFile(_selectedImage!, metadata);
+      
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        print('Upload progress: ${(snapshot.bytesTransferred / snapshot.totalBytes) * 100}%');
+      }, onError: (e) {
+        print('Upload error: $e');
+      });
+      
+      // Wait for completion
+      await uploadTask;
+      
+      // Get the download URL
       final String newImageUrl = await reference.getDownloadURL();
+      
+      // Debug print the new URL
+      print('New image URL: $newImageUrl');
       
       // Update user model with new image URL
       final updatedUser = UserModel(
@@ -246,12 +277,18 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
         }
       }
       
-      setState(() {
-        _selectedImage = null;
+      // Keep the selected image until widget rebuilds with network image
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (mounted) {
+          setState(() {
+            _selectedImage = null;
+          });
+        }
       });
       
       showSnackBar(context, 'Profile photo updated successfully');
     } catch (e) {
+      print('Error updating profile photo: $e');
       showSnackBar(context, 'Failed to update profile photo: $e');
     } finally {
       setState(() {
@@ -419,22 +456,73 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                       children: [
                         const SizedBox(height: 20),
                         
-                        // User image with edit button
+                        // User image with edit button - ENHANCED VERSION
                         Stack(
                           children: [
-                            // Profile image
+                            // Profile image container
                             GestureDetector(
                               onTap: _showImagePickerOptions,
                               child: Hero(
                                 tag: 'profile-image',
-                                child: CircleAvatar(
-                                  radius: 60,
-                                  backgroundColor: Colors.grey[300],
-                                  backgroundImage: _selectedImage != null
-                                      ? FileImage(_selectedImage!)
-                                      : (currentUser.image.isNotEmpty
-                                          ? CachedNetworkImageProvider(currentUser.image) as ImageProvider
-                                          : const AssetImage(AssetsManager.userImage)),
+                                child: Stack(
+                                  children: [
+                                    // Base CircleAvatar with default background
+                                    CircleAvatar(
+                                      radius: 60,
+                                      backgroundColor: Colors.grey[300],
+                                    ),
+                                    
+                                    // Choose which image to display based on state
+                                    if (_selectedImage != null)
+                                      // Show local file image if selected
+                                      ClipOval(
+                                        child: Image.file(
+                                          _selectedImage!,
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )
+                                    else if (currentUser.image.isNotEmpty)
+                                      // Show network image with error handling
+                                      ClipOval(
+                                        child: CachedNetworkImage(
+                                          imageUrl: currentUser.image,
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) => Container(
+                                            width: 120,
+                                            height: 120,
+                                            color: Colors.grey[300],
+                                            child: const Center(
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            ),
+                                          ),
+                                          errorWidget: (context, url, error) {
+                                            print('Error loading image: $error, URL: $url');
+                                            return Image.asset(
+                                              AssetsManager.userImage,
+                                              width: 120,
+                                              height: 120,
+                                              fit: BoxFit.cover,
+                                            );
+                                          },
+                                        ),
+                                      )
+                                    else
+                                      // Show default user image
+                                      ClipOval(
+                                        child: Image.asset(
+                                          AssetsManager.userImage,
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),
