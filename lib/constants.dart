@@ -1,5 +1,5 @@
 class Constants {
-// screens routs
+  // screens routes
   static const String landingScreen = '/landingScreen';
   static const String loginScreen = '/loginScreen';
   static const String otpScreen = '/otpScreen';
@@ -17,10 +17,14 @@ class Constants {
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   static const String groupSettingsScreen = '/groupSettingsScreen';
   static const String groupInformationScreen = '/groupInformationScreen';
-  static const String groupMemberRequestsScreen = '/groupMemberRequestsScreen';  // New screen for pending group join requests
-  static const String statusViewScreen = '/statusViewScreen';
-  static const String statusCreateScreen = '/statusCreateScreen';
+  static const String groupMemberRequestsScreen = '/groupMemberRequestsScreen';  // Screen for pending group join requests
   static const String blockedContactsScreen = '/blockedContactsScreen';
+  
+  // New Moments feature routes
+  static const String momentsScreen = '/momentsScreen';
+  static const String createMomentScreen = '/createMomentScreen';
+  static const String momentDetailScreen = '/momentDetailScreen';
+  static const String userMomentsScreen = '/userMomentsScreen';
 
   static const String uid = 'uid';
   static const String name = 'name';
@@ -33,15 +37,25 @@ class Constants {
   static const String isOnline = 'isOnline';
   static const String contactsUIDs = 'contactsUIDs';
   static const String blockedUIDs = 'blockedUIDs';
-  static const String lastStatusUpdate = 'lastStatusUpdate';
 
   static const String verificationId = 'verificationId';
 
   static const String users = 'users';
   static const String userImages = 'userImages';
   static const String userModel = 'userModel';
-  static const String status = 'status';
-  static const String statusFiles = 'statusFiles';
+  
+  // Moments collection names
+  static const String moments = 'moments';
+  static const String momentFiles = 'momentFiles';
+  static const String momentId = 'momentId';
+  static const String mediaUrls = 'mediaUrls';
+  static const String isVideo = 'isVideo';
+  static const String likedBy = 'likedBy';
+  static const String viewedBy = 'viewedBy';
+  static const String comments = 'comments';
+  static const String commentId = 'commentId';
+  static const String text = 'text';
+  static const String location = 'location';
 
   static const String contactName = 'contactName';
   static const String contactImage = 'contactImage';

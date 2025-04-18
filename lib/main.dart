@@ -7,8 +7,9 @@ import 'package:textgb/authentication/login_screen.dart';
 import 'package:textgb/authentication/otp_screen.dart';
 import 'package:textgb/authentication/user_information_screen.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/status/screens/status_create_screen.dart';
-import 'package:textgb/features/status/screens/status_view_screen.dart';
+import 'package:textgb/features/moments/screens/create_moment_screen.dart';
+import 'package:textgb/features/moments/screens/moment_detail_screen.dart';
+import 'package:textgb/features/moments/screens/user_moments_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/add_contact_screen.dart';
 import 'package:textgb/main_screen/blocked_contacts_screen.dart';
@@ -23,15 +24,12 @@ import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/chat_provider.dart';
 import 'package:textgb/providers/contacts_provider.dart';
 import 'package:textgb/providers/group_provider.dart';
-import 'package:textgb/providers/status_provider.dart';
+import 'package:textgb/providers/moments_provider.dart';
 import 'package:textgb/theme/dark_theme.dart';
 import 'package:textgb/theme/light_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize MediaKit
-  //MediaKit.ensureInitialized();
   
   // Initialize Firebase
   await Firebase.initializeApp(
@@ -46,7 +44,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => GroupProvider()),
-        ChangeNotifierProvider(create: (_) => StatusProvider()),
+        ChangeNotifierProvider(create: (_) => MomentsProvider()),
         ChangeNotifierProvider(create: (_) => ContactsProvider()),
       ],
       child: MyApp(savedThemeMode: savedThemeMode),
@@ -90,10 +88,23 @@ class MyApp extends StatelessWidget {
               const GroupSettingsScreen(),
           Constants.groupInformationScreen: (context) =>
               const GroupInformationScreen(),
-          Constants.statusViewScreen: (context) => StatusViewScreen(
+          '/userMomentsScreen': (context) => UserMomentsScreen(
                 userId: ModalRoute.of(context)!.settings.arguments as String,
               ),
-          Constants.statusCreateScreen: (context) => const StatusCreateScreen(),
+          '/createMomentScreen': (context) => const CreateMomentScreen(),
+        },
+        onGenerateRoute: (settings) {
+          if (settings.name == '/momentDetailScreen') {
+            final args = settings.arguments as Map<String, dynamic>;
+            return MaterialPageRoute(
+              builder: (context) => MomentDetailScreen(
+                moment: args['moment'],
+                currentUserId: args['currentUserId'],
+                focusComment: args['focusComment'] ?? false,
+              ),
+            );
+          }
+          return null;
         },
       ),
     );
