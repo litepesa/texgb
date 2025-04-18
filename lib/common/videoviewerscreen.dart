@@ -41,103 +41,55 @@ class VideoViewerScreen extends StatefulWidget {
 
 class _VideoViewerScreenState extends State<VideoViewerScreen> with WidgetsBindingObserver {
   late VideoPlayerController _videoPlayerController;
-  ChewieController? _chewieController;
   bool _isInitialized = false;
   bool _isFullScreen = false;
-  bool _isLoading = true;
-  bool _hasError = false;
-  String _errorMessage = '';
   Timer? _hideControlsTimer;
+  bool _showControls = true;
+  final Duration _controlsTimeout = const Duration(seconds: 3);
+  bool _isPlaying = false;
+  Duration _currentPosition = Duration.zero;
+  Duration _videoDuration = Duration.zero;
+  double _bufferingProgress = 0.0;
+  bool _isError = false;
+  String _errorMessage = '';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Initialize player but don't change orientation yet
+    // We're not automatically setting orientations when opening the screen
+    // Only when the fullscreen button is explicitly pressed
+    
     _initializePlayer();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _isFullScreen) {
-      _setPreferredOrientations(true);
-    }
-    super.didChangeAppLifecycleState(state);
+    _startHideControlsTimer();
   }
 
   Future<void> _initializePlayer() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
-    
     try {
       _videoPlayerController = VideoPlayerController.network(widget.videoUrl);
       
-      // Listen for errors
+      // Add listeners
       _videoPlayerController.addListener(_videoPlayerListener);
       
       await _videoPlayerController.initialize();
       
-      // Create Chewie controller with custom UI options
-      _chewieController = ChewieController(
-        videoPlayerController: _videoPlayerController,
-        autoPlay: true,
-        looping: false,
-        allowFullScreen: true,
-        allowMuting: true,
-        showControls: true,
-        aspectRatio: _videoPlayerController.value.aspectRatio,
-        placeholder: Center(
-          child: CircularProgressIndicator(color: widget.accentColor),
-        ),
-        materialProgressColors: ChewieProgressColors(
-          playedColor: widget.accentColor,
-          handleColor: widget.accentColor,
-          bufferedColor: Colors.grey.withOpacity(0.5),
-          backgroundColor: Colors.grey.withOpacity(0.3),
-        ),
-        customControls: const CupertinoControls(
-          backgroundColor: Color.fromRGBO(41, 41, 41, 0.7),
-          iconColor: Color.fromARGB(255, 255, 255, 255),
-        ),
-        errorBuilder: (context, errorMessage) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  'Error: $errorMessage',
-                  style: const TextStyle(color: Colors.white),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _initializePlayer,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: widget.accentColor,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-      
       setState(() {
         _isInitialized = true;
-        _isLoading = false;
+        _videoDuration = _videoPlayerController.value.duration;
       });
+      
+      // Start playing automatically
+      _videoPlayerController.play();
+      setState(() {
+        _isPlaying = true;
+      });
+      
+      // Set up position reporting timer
+      _setupPositionReporting();
     } catch (error) {
       setState(() {
-        _isLoading = false;
-        _hasError = true;
+        _isError = true;
         _errorMessage = 'Failed to initialize video: $error';
       });
       debugPrint(_errorMessage);
@@ -146,15 +98,57 @@ class _VideoViewerScreenState extends State<VideoViewerScreen> with WidgetsBindi
 
   void _videoPlayerListener() {
     // Check for player errors
-    if (_videoPlayerController.value.hasError && !_hasError) {
+    if (_videoPlayerController.value.hasError && !_isError) {
       setState(() {
-        _hasError = true;
+        _isError = true;
         _errorMessage = 'Video playback error: ${_videoPlayerController.value.errorDescription}';
       });
       debugPrint(_errorMessage);
     }
+    
+    // Update playing state
+    if (_isPlaying != _videoPlayerController.value.isPlaying) {
+      setState(() {
+        _isPlaying = _videoPlayerController.value.isPlaying;
+      });
+      
+      if (_isPlaying) {
+        _startHideControlsTimer();
+      } else {
+        _hideControlsTimer?.cancel();
+        setState(() => _showControls = true);
+      }
+    }
   }
 
+  void _setupPositionReporting() {
+    Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (!mounted || !_isInitialized) {
+        timer.cancel();
+        return;
+      }
+      
+      setState(() {
+        _currentPosition = _videoPlayerController.value.position;
+        
+        // Calculate buffering progress
+        if (_videoDuration.inMilliseconds > 0) {
+          _bufferingProgress = _videoPlayerController.value.buffered.isEmpty
+              ? 0.0
+              : _videoPlayerController.value.buffered.last.end.inMilliseconds /
+                _videoDuration.inMilliseconds;
+        }
+      });
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isFullScreen) {
+      _setPreferredOrientations(true);
+    }
+  }
+  
   void _setPreferredOrientations(bool fullscreen) {
     // Only change orientations if explicitly allowed by the widget parameter
     if (!widget.allowOrientationChanges) {
@@ -170,26 +164,83 @@ class _VideoViewerScreenState extends State<VideoViewerScreen> with WidgetsBindi
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       setState(() => _isFullScreen = true);
     } else {
-      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      setState(() => _isFullScreen = false);
+      if (_isFullScreen) {
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        setState(() => _isFullScreen = false);
+      }
     }
   }
 
   void _resetPreferredOrientations() {
-    SystemChrome.setPreferredOrientations([]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    if (widget.allowOrientationChanges) {
+      SystemChrome.setPreferredOrientations([]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
   }
 
   void _toggleFullScreen() {
     _setPreferredOrientations(!_isFullScreen);
+    _showControlsTemporarily();
   }
 
-  void _shareVideo() {
-    // Implement share functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sharing video...')),
-    );
+  void _startHideControlsTimer() {
+    _hideControlsTimer?.cancel();
+    _hideControlsTimer = Timer(_controlsTimeout, () {
+      if (mounted && _isPlaying) {
+        setState(() => _showControls = false);
+      }
+    });
+  }
+
+  void _showControlsTemporarily() {
+    setState(() => _showControls = true);
+    _startHideControlsTimer();
+  }
+
+  void _togglePlayPause() {
+    if (_isPlaying) {
+      _videoPlayerController.pause();
+    } else {
+      _videoPlayerController.play();
+    }
+    _showControlsTemporarily();
+  }
+
+  void _seekRelative(Duration offset) {
+    final current = _videoPlayerController.value.position;
+    final target = current + offset;
+    final duration = _videoPlayerController.value.duration;
+    
+    // Ensure we don't seek beyond the video
+    final newPosition = target.inMilliseconds < 0 
+        ? Duration.zero 
+        : (target > duration ? duration : target);
+        
+    _videoPlayerController.seekTo(newPosition);
+    _showControlsTemporarily();
+  }
+
+  void _seekTo(double value) {
+    if (_videoDuration.inMilliseconds > 0) {
+      final newPosition = Duration(milliseconds: (value * _videoDuration.inMilliseconds).round());
+      _videoPlayerController.seekTo(newPosition);
+      setState(() {
+        _currentPosition = newPosition;
+      });
+      _showControlsTemporarily();
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    
+    return duration.inHours > 0 
+        ? '$hours:$minutes:$seconds' 
+        : '$minutes:$seconds';
   }
 
   @override
@@ -199,7 +250,6 @@ class _VideoViewerScreenState extends State<VideoViewerScreen> with WidgetsBindi
     _hideControlsTimer?.cancel();
     _videoPlayerController.removeListener(_videoPlayerListener);
     _videoPlayerController.dispose();
-    _chewieController?.dispose();
     super.dispose();
   }
 
@@ -229,20 +279,44 @@ class _VideoViewerScreenState extends State<VideoViewerScreen> with WidgetsBindi
                   ),
                   IconButton(
                     icon: const Icon(Icons.share),
-                    onPressed: _shareVideo,
+                    onPressed: () {
+                      // Implement share functionality
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Share functionality to be implemented')),
+                      );
+                    },
                     tooltip: 'Share',
                   ),
                 ],
               ),
-        body: Center(
-          child: _buildVideoPlayer(),
+        body: GestureDetector(
+          onTap: _showControlsTemporarily,
+          child: Stack(
+            children: [
+              // Center video player
+              Center(
+                child: _buildVideoPlayer(),
+              ),
+              
+              // Custom overlay controls
+              if (_showControls)
+                AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Container(
+                    color: Colors.black38,
+                    child: _buildCustomControls(),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildVideoPlayer() {
-    if (_isLoading) {
+    if (!_isInitialized) {
       return Center(
         child: CircularProgressIndicator(
           color: widget.accentColor,
@@ -250,7 +324,7 @@ class _VideoViewerScreenState extends State<VideoViewerScreen> with WidgetsBindi
       );
     }
     
-    if (_hasError) {
+    if (_isError) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -266,22 +340,10 @@ class _VideoViewerScreenState extends State<VideoViewerScreen> with WidgetsBindi
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                _errorMessage,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white70,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _initializePlayer,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry'),
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: widget.accentColor,
-                ),
               ),
             ],
           ),
@@ -289,18 +351,169 @@ class _VideoViewerScreenState extends State<VideoViewerScreen> with WidgetsBindi
       );
     }
     
-    if (!_isInitialized || _chewieController == null) {
-      return const Center(
-        child: Text(
-          'Initializing player...',
-          style: TextStyle(color: Colors.white),
-        ),
-      );
-    }
-    
+    // For "fullscreen" mode, we adjust the UI but don't rotate the device
+    // unless explicitly allowed
     return AspectRatio(
-      aspectRatio: _videoPlayerController.value.aspectRatio,
-      child: Chewie(controller: _chewieController!),
+      aspectRatio: _isFullScreen 
+          ? _videoPlayerController.value.aspectRatio 
+          : (_videoPlayerController.value.aspectRatio != 0.0
+              ? _videoPlayerController.value.aspectRatio
+              : 16 / 9),
+      child: VideoPlayer(_videoPlayerController),
+    );
+  }
+
+  Widget _buildCustomControls() {
+    final double sliderValue = _videoDuration.inMilliseconds > 0 
+        ? _currentPosition.inMilliseconds / _videoDuration.inMilliseconds
+        : 0.0;
+        
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Top controls (only in fullscreen mode)
+        _isFullScreen
+            ? SafeArea(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Back button
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: _toggleFullScreen,
+                    ),
+                    
+                    // Video title if available
+                    if (widget.videoTitle != null)
+                      Expanded(
+                        child: Text(
+                          widget.videoTitle!,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      
+                    // Fullscreen exit button
+                    IconButton(
+                      icon: const Icon(Icons.fullscreen_exit, color: Colors.white),
+                      onPressed: _toggleFullScreen,
+                    ),
+                  ],
+                ),
+              )
+            : const SizedBox(height: 0),
+
+        // Center play/pause button
+        Center(
+          child: IconButton(
+            iconSize: 64,
+            icon: Icon(
+              _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+              color: Colors.white,
+            ),
+            onPressed: _togglePlayPause,
+          ),
+        ),
+
+        // Bottom control bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Progress & buffer bar
+                Stack(
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    // Buffer progress
+                    Container(
+                      height: 3,
+                      width: MediaQuery.of(context).size.width,
+                      color: Colors.white30,
+                      child: FractionallySizedBox(
+                        widthFactor: _bufferingProgress,
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          height: 3,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                    
+                    // Playback progress
+                    SliderTheme(
+                      data: SliderThemeData(
+                        thumbColor: widget.accentColor,
+                        activeTrackColor: widget.accentColor,
+                        inactiveTrackColor: Colors.transparent,
+                        trackHeight: 3.0,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                      ),
+                      child: Slider(
+                        value: sliderValue.clamp(0.0, 1.0),
+                        onChanged: _seekTo,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // Time and controls row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Current position / total duration
+                    Text(
+                      '${_formatDuration(_currentPosition)} / ${_formatDuration(_videoDuration)}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    
+                    // Control buttons
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.replay_10, color: Colors.white),
+                          onPressed: () => _seekRelative(const Duration(seconds: -10)),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                          ),
+                          onPressed: _togglePlayPause,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.forward_10, color: Colors.white),
+                          onPressed: () => _seekRelative(const Duration(seconds: 10)),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                            color: Colors.white
+                          ),
+                          onPressed: _toggleFullScreen,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
+
+// Example usage:
+// Navigator.of(context).push(
+//   VideoViewerScreen.route(
+//     videoUrl: 'https://example.com/sample.mp4',
+//     videoTitle: 'Sample Video',
+//     accentColor: Colors.red,
+//     allowOrientationChanges: false, // This prevents auto-rotation
+//   ),
+// );
