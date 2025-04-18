@@ -27,7 +27,13 @@ class _LoginScreenState extends State<LoginScreen> {
     e164Key: '',
   );
 
-  // Format phone number by removing leading zero if present
+  final Color wechatGreen = const Color(0xFF07C160);
+  final Color wechatBlue = const Color(0xFF1A73E8); // Accent color
+  final Color backgroundLight = const Color(0xFFF7F7F7);
+  final Color textDark = const Color(0xFF181818);
+  final Color textMedium = const Color(0xFF888888);
+  final Color textLight = const Color(0xFFB2B2B2);
+
   String formatPhoneNumber(String phoneNumber) {
     if (phoneNumber.startsWith('0')) {
       return '+${selectedCountry.phoneCode}${phoneNumber.substring(1)}';
@@ -35,21 +41,19 @@ class _LoginScreenState extends State<LoginScreen> {
     return '+${selectedCountry.phoneCode}$phoneNumber';
   }
 
-  // Simple validation - either 10 digits with leading 0 or 9 digits without it
   bool isPhoneNumberValid() {
     final phoneNumber = _phoneNumberController.text;
-    return (phoneNumber.startsWith('0') && phoneNumber.length == 10) || 
-           (!phoneNumber.startsWith('0') && phoneNumber.length == 9);
+    return (phoneNumber.startsWith('0') && phoneNumber.length == 10) ||
+        (!phoneNumber.startsWith('0') && phoneNumber.length == 9);
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthenticationProvider>();
     final size = MediaQuery.of(context).size;
-    final theme = Theme.of(context);
-    
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundLight,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -58,58 +62,105 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: size.height * 0.15),
-                
-                // App Title
-                Text(
-                  'TexGB',
-                  style: GoogleFonts.poppins(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: theme.primaryColor,
-                    letterSpacing: -1,
+
+                // App logo with brand colors
+                Center(
+                  child: RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Tex',
+                          style: GoogleFonts.poppins(
+                            fontSize: 44,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'GB',
+                          style: GoogleFonts.poppins(
+                            fontSize: 44,
+                            fontWeight: FontWeight.bold,
+                            color: wechatGreen,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                
-                SizedBox(height: size.height * 0.02),
-                
-                Text(
-                  'Connect with a simple tap',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.black54,
-                  ),
-                ),
-                
-                SizedBox(height: size.height * 0.08),
-                
-                // Phone label
+
+                SizedBox(height: size.height * 0.12),
+
                 Text(
                   'Enter your phone number',
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: textDark,
                   ),
                 ),
-                
-                const SizedBox(height: 8),
-                
-                // Phone input field
-                Container(
+                const SizedBox(height: 12),
+
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.grey.shade50,
-                    border: Border.all(color: Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: isPhoneNumberValid()
+                            ? wechatGreen.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: isPhoneNumberValid()
+                          ? wechatGreen.withOpacity(0.3)
+                          : Colors.transparent,
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     children: [
-                      // Country code selector
                       InkWell(
                         onTap: () {
                           showCountryPicker(
                             context: context,
                             showPhoneCode: true,
+                            countryListTheme: CountryListThemeData(
+                              backgroundColor: Colors.white,
+                              textStyle: GoogleFonts.poppins(
+                                fontSize: 16,
+                                color: Colors.black87,
+                              ),
+                              inputDecoration: InputDecoration(
+                                filled: true,
+                                fillColor: const Color(0xFFF2F2F2),
+                                hintText: 'Search country',
+                                hintStyle: GoogleFonts.poppins(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
+                                prefixIcon:
+                                    const Icon(Icons.search, color: Colors.grey),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 0, horizontal: 16),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(24),
+                                topRight: Radius.circular(24),
+                              ),
+                              bottomSheetHeight:
+                                  MediaQuery.of(context).size.height * 0.75,
+                            ),
                             onSelect: (Country country) {
                               setState(() {
                                 selectedCountry = country;
@@ -119,10 +170,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 18),
                           decoration: BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Colors.grey.shade200, width: 1),
+                              right: BorderSide(
+                                  color: Colors.grey.shade100, width: 1),
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(14),
+                              bottomLeft: Radius.circular(14),
                             ),
                           ),
                           child: Row(
@@ -137,14 +194,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
+                                  color: textDark,
                                 ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 18,
+                                color: textMedium,
                               ),
                             ],
                           ),
                         ),
                       ),
-                      
-                      // Phone number field
                       Expanded(
                         child: TextFormField(
                           controller: _phoneNumberController,
@@ -154,6 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
+                            color: textDark,
                           ),
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
@@ -166,44 +229,61 @@ class _LoginScreenState extends State<LoginScreen> {
                             hintText: '0XXXXXXXXX',
                             hintStyle: GoogleFonts.poppins(
                               fontSize: 16,
-                              color: Colors.grey.shade400,
+                              color: textLight,
                             ),
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 18),
+                            suffixIcon: isPhoneNumberValid()
+                                ? Padding(
+                                    padding: const EdgeInsets.only(right: 12.0),
+                                    child: Icon(
+                                      Icons.check_circle,
+                                      color: wechatGreen,
+                                      size: 20,
+                                    ),
+                                  )
+                                : null,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                
-                // Phone formatting hint
+
                 Padding(
-                  padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                  padding: const EdgeInsets.only(top: 10.0, left: 4.0),
                   child: Text(
-                    'Enter 10 digits (0XXXXXXXXX) or 9 digits (XXXXXXXXX)',
+                    'Format: 0XXXXXXXXX or XXXXXXXXX',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: textLight,
                     ),
                   ),
                 ),
-                
+
                 SizedBox(height: size.height * 0.08),
-                
-                // Continue button
-                AnimatedOpacity(
-                  opacity: isPhoneNumberValid() ? 1.0 : 0.6,
-                  duration: const Duration(milliseconds: 200),
-                  child: SizedBox(
-                    width: double.infinity,
+
+                SizedBox(
+                  width: double.infinity,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: isPhoneNumberValid()
+                          ? LinearGradient(
+                              colors: [wechatGreen, wechatGreen.withGreen(200)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            )
+                          : null,
+                      color:
+                          isPhoneNumberValid() ? null : wechatGreen.withOpacity(0.6),
+                    ),
                     child: ElevatedButton(
                       onPressed: isPhoneNumberValid()
                           ? () {
-                              final formattedNumber = formatPhoneNumber(
-                                _phoneNumberController.text,
-                              );
-                              
+                              final formattedNumber =
+                                  formatPhoneNumber(_phoneNumberController.text);
                               authProvider.signInWithPhoneNumber(
                                 phoneNumber: formattedNumber,
                                 context: context,
@@ -211,13 +291,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primaryColor,
+                        backgroundColor: Colors.transparent,
+                        disabledBackgroundColor: Colors.transparent,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         elevation: 0,
+                        shadowColor: Colors.transparent,
                       ),
                       child: authProvider.isLoading
                           ? const SizedBox(
@@ -225,7 +307,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 24,
                               child: CircularProgressIndicator(
                                 color: Colors.white,
-                                strokeWidth: 2,
+                                strokeWidth: 2.5,
                               ),
                             )
                           : Text(
@@ -238,18 +320,36 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
-                SizedBox(height: size.height * 0.04),
-                
-                // Terms text
+
+                SizedBox(height: size.height * 0.06),
+
                 Center(
-                  child: Text(
-                    'By continuing, you agree to our Terms of Service\nand Privacy Policy',
+                  child: RichText(
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      height: 1.5,
+                    text: TextSpan(
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: textLight,
+                        height: 1.5,
+                      ),
+                      children: [
+                        const TextSpan(text: 'By continuing, you agree to our '),
+                        TextSpan(
+                          text: 'Terms',
+                          style: TextStyle(
+                            color: wechatGreen,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const TextSpan(text: ' and '),
+                        TextSpan(
+                          text: 'Privacy Policy',
+                          style: TextStyle(
+                            color: wechatGreen,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

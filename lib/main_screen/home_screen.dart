@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
-import 'package:textgb/main_screen/add_contact_screen.dart';
 import 'package:textgb/main_screen/create_group_screen.dart';
 import 'package:textgb/main_screen/groups_screen.dart';
 import 'package:textgb/main_screen/my_chats_screen.dart';
-import 'package:textgb/main_screen/people_screen.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/group_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
 
+// Import the enhanced profile screen
+import 'package:textgb/main_screen/enhanced_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,18 +25,10 @@ class _HomeScreenState extends State<HomeScreen>
   final PageController pageController = PageController(initialPage: 0);
   int currentIndex = 0;
 
-  late final List<Widget> pages;
-
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
     super.initState();
-    
-    pages = const [
-      MyChatsScreen(),
-      GroupsScreen(),
-      StatusScreen(),
-    ];
   }
 
   @override
@@ -72,22 +64,13 @@ class _HomeScreenState extends State<HomeScreen>
     super.didChangeAppLifecycleState(state);
   }
 
-  void _navigateToProfile() {
-    final authProvider = context.read<AuthenticationProvider>();
-    Navigator.pushNamed(
-      context,
-      Constants.profileScreen,
-      arguments: authProvider.userModel!.uid,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final isLightMode = brightness == Brightness.light;
     
     return Scaffold(
-      appBar: AppBar(
+      appBar: currentIndex != 3 ? AppBar(
         elevation: 0.5,
         centerTitle: false,
         title: RichText(
@@ -114,14 +97,14 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
         ),
-      ),
+      ) : null,
       body: IndexedStack(
         index: currentIndex,
         children: [
           const MyChatsScreen(),
           const GroupsScreen(),
           const StatusScreen(),
-          const SizedBox(), // Empty placeholder for profile tab
+          const EnhancedProfileScreen(), // New enhanced profile screen
         ],
       ),
       floatingActionButton: _buildFloatingActionButton(),
@@ -147,22 +130,16 @@ class _HomeScreenState extends State<HomeScreen>
         currentIndex: currentIndex,
         type: BottomNavigationBarType.fixed, // Ensures all 4 items are visible
         onTap: (index) {
-          if (index == 3) {
-            // Profile tab - directly navigate to profile screen
-            _navigateToProfile();
-          } else {
-            // For other tabs, update the currentIndex
-            setState(() {
-              currentIndex = index;
-            });
-          }
+          setState(() {
+            currentIndex = index;
+          });
         },
       ),
     );
   }
 
   Widget? _buildFloatingActionButton() {
-    // Keep the original FAB functionality based on the current tab
+    // Show FAB only on specific tabs
     if (currentIndex == 1) {
       return FloatingActionButton(
         onPressed: () {
@@ -190,7 +167,17 @@ class _HomeScreenState extends State<HomeScreen>
         },
         child: const Icon(CupertinoIcons.chat_bubble_text),
       );
+    } else if (currentIndex == 2) {
+      return FloatingActionButton(
+        onPressed: () {
+          Navigator.pushNamed(
+            context,
+            Constants.statusCreateScreen,
+          );
+        },
+        child: const Icon(CupertinoIcons.camera),
+      );
     }
-    return null; // No FAB for Status and Profile tabs
+    return null; // No FAB for Profile tab
   }
 }

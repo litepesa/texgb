@@ -368,4 +368,33 @@ class AuthenticationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Add this method to your AuthenticationProvider class in lib/providers/authentication_provider.dart
+
+  // Update user profile data in Firestore
+  Future<void> updateUserProfile(UserModel updatedUser) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      // Update user data in Firestore
+      await _firestore
+          .collection(Constants.users)
+          .doc(updatedUser.uid)
+          .update(updatedUser.toMap());
+
+      // Update local user model
+      _userModel = updatedUser;
+
+      // Save updated user data to shared preferences
+      await saveUserDataToSharedPreferences();
+
+      _isLoading = false;
+      notifyListeners();
+    } on FirebaseException catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      throw e.toString();
+    }
+  }
+
 } 
