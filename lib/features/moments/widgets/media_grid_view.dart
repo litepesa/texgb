@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:textgb/common/videoviewerscreen.dart';
 import 'package:textgb/features/moments/screens/media_view_screen.dart';
+import 'package:textgb/main_screen/media_viewer_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:video_player/video_player.dart';
 
-class MediaGridView extends StatelessWidget {
+class MediaGridView extends StatefulWidget {
   final List<String> mediaUrls;
   final bool isVideo;
 
@@ -14,20 +16,60 @@ class MediaGridView extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    // Handle single video
-    if (isVideo && mediaUrls.isNotEmpty) {
-      return _buildVideoThumbnail(mediaUrls.first);
-    }
+  State<MediaGridView> createState() => _MediaGridViewState();
+}
 
+class _MediaGridViewState extends State<MediaGridView> {
+  VideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isVideo && widget.mediaUrls.isNotEmpty) {
+      _initializeVideoController();
+    }
+  }
+  
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
+  }
+  
+  Future<void> _initializeVideoController() async {
+    try {
+      _videoController = VideoPlayerController.network(widget.mediaUrls.first);
+      await _videoController!.initialize();
+      if (mounted) {
+        setState(() {
+          _isVideoInitialized = true;
+        });
+        
+        // Get a single frame as thumbnail and then pause
+        _videoController!.seekTo(const Duration(milliseconds: 500));
+        _videoController!.pause();
+      }
+    } catch (e) {
+      debugPrint('Error initializing video controller: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // No media
-    if (mediaUrls.isEmpty) {
+    if (widget.mediaUrls.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    // Handle single video
+    if (widget.isVideo && widget.mediaUrls.isNotEmpty) {
+      return _buildVideoThumbnail(widget.mediaUrls.first);
+    }
+
     // Single image
-    if (mediaUrls.length == 1) {
-      return _buildSingleImage(mediaUrls.first);
+    if (widget.mediaUrls.length == 1) {
+      return _buildSingleImage(widget.mediaUrls.first);
     }
 
     // Multiple images grid
@@ -75,34 +117,23 @@ class MediaGridView extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Video thumbnail (here we use a placeholder, but ideally would use an actual thumbnail)
+            // Video thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Container(
-                color: Colors.black,
-                child: CachedNetworkImage(
-                  imageUrl: videoUrl + '?thumbnail=true', // This is a placeholder, in reality you'd have a separate thumbnail URL
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: Colors.grey[800],
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+              child: _isVideoInitialized
+                  ? VideoPlayer(_videoController!)
+                  : Container(
+                      color: Colors.black,
+                      child: const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
                     ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: Colors.grey[800],
-                    child: const Center(
-                      child: Icon(Icons.video_library, color: Colors.white, size: 48),
-                    ),
-                  ),
-                ),
-              ),
             ),
             
             // Play button overlay
             Center(
               child: Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.5),
                   shape: BoxShape.circle,
@@ -110,7 +141,7 @@ class MediaGridView extends StatelessWidget {
                 child: const Icon(
                   Icons.play_arrow,
                   color: Colors.white,
-                  size: 48,
+                  size: 40,
                 ),
               ),
             ),
@@ -131,14 +162,14 @@ class MediaGridView extends StatelessWidget {
                     Icon(
                       Icons.videocam,
                       color: Colors.white,
-                      size: 12,
+                      size: 14,
                     ),
                     SizedBox(width: 4),
                     Text(
                       'Video',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -155,9 +186,9 @@ class MediaGridView extends StatelessWidget {
   Widget _buildImageGrid() {
     // Determine grid dimensions based on image count
     int crossAxisCount = 3;
-    if (mediaUrls.length == 2) {
+    if (widget.mediaUrls.length == 2) {
       crossAxisCount = 2;
-    } else if (mediaUrls.length == 4) {
+    } else if (widget.mediaUrls.length == 4) {
       crossAxisCount = 2;
     }
 
@@ -170,18 +201,18 @@ class MediaGridView extends StatelessWidget {
           crossAxisSpacing: 4,
           mainAxisSpacing: 4,
         ),
-        itemCount: mediaUrls.length,
+        itemCount: widget.mediaUrls.length,
         itemBuilder: (context, index) {
           return GestureDetector(
             onTap: () {
               _openMediaViewer(index);
             },
             child: Hero(
-              tag: 'media_${mediaUrls[index]}',
+              tag: 'media_${widget.mediaUrls[index]}',
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: CachedNetworkImage(
-                  imageUrl: mediaUrls[index],
+                  imageUrl: widget.mediaUrls[index],
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
                     color: Colors.grey[300],
@@ -200,13 +231,11 @@ class MediaGridView extends StatelessWidget {
   }
 
   void _openMediaViewer(int initialIndex) {
-    // In a real app, you'd navigate to an image gallery viewer
-    // For this example, we'll create a placeholder
     Navigator.push(
       _getNavigationContext()!,
       MaterialPageRoute(
         builder: (context) => MediaViewScreen(
-          mediaUrls: mediaUrls,
+          mediaUrls: widget.mediaUrls,
           initialIndex: initialIndex,
         ),
       ),
@@ -214,11 +243,15 @@ class MediaGridView extends StatelessWidget {
   }
 
   void _openVideoPlayer(String videoUrl) {
+    // Stop video controller before navigating
+    _videoController?.pause();
+    
     Navigator.push(
       _getNavigationContext()!,
       VideoViewerScreen.route(
         videoUrl: videoUrl,
-        videoTitle: 'Video',
+        videoTitle: 'Moment Video',
+        allowOrientationChanges: true,
       ),
     );
   }
