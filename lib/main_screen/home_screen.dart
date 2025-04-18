@@ -72,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen>
     final isLightMode = brightness == Brightness.light;
     
     return Scaffold(
-      appBar: currentIndex != 3 ? AppBar(
+      appBar: currentIndex != 2 && currentIndex != 3 ? AppBar(
         elevation: 2.0, // Increased elevation for better shadow
         toolbarHeight: 65.0, // Increased height for better visibility
         centerTitle: false,
