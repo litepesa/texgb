@@ -71,12 +71,14 @@ class _HomeScreenState extends State<HomeScreen>
     
     return Scaffold(
       appBar: currentIndex != 3 ? AppBar(
-        elevation: 0.5,
+        elevation: 2.0, // Increased elevation for better shadow
+        toolbarHeight: 65.0, // Increased height for better visibility
         centerTitle: false,
+        backgroundColor: isLightMode ? Colors.white : const Color(0xFF121212),
         title: RichText(
           text: TextSpan(
             style: TextStyle(
-              fontSize: 25,
+              fontSize: 28, // Increased font size
               fontWeight: FontWeight.w600,
               color: isLightMode ? const Color(0xFF181818) : Colors.white,
             ),
@@ -108,32 +110,54 @@ class _HomeScreenState extends State<HomeScreen>
         ],
       ),
       floatingActionButton: _buildFloatingActionButton(),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.chat_bubble_2, size: 28),
-            label: 'Chats',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.chat_bubble_2, size: 30), // Larger icon
+              label: 'Chats',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.group, size: 30), // Larger icon
+              label: 'Groups',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.rays, size: 30), // Larger icon
+              label: 'Status',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.person, size: 30), // Larger icon
+              label: 'Profile',
+            ),
+          ],
+          currentIndex: currentIndex,
+          type: BottomNavigationBarType.fixed, // Ensures all 4 items are visible
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14, // Increased font size for labels
           ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.group, size: 28),
-            label: 'Groups',
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 12, // Increased font size for unselected labels
           ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.rays, size: 28),
-            label: 'Status',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.person, size: 28),
-            label: 'Profile',
-          ),
-        ],
-        currentIndex: currentIndex,
-        type: BottomNavigationBarType.fixed, // Ensures all 4 items are visible
-        onTap: (index) {
-          setState(() {
-            currentIndex = index;
-          });
-        },
+          selectedItemColor: const Color(0xFF09BB07), // WeChat green for selected items
+          elevation: 16, // Increased elevation
+          iconSize: 30, // Default size for all icons
+          backgroundColor: isLightMode ? Colors.white : const Color(0xFF121212),
+          onTap: (index) {
+            setState(() {
+              currentIndex = index;
+            });
+          },
+        ),
       ),
     );
   }
@@ -154,7 +178,8 @@ class _HomeScreenState extends State<HomeScreen>
             );
           });
         },
-        child: const Icon(CupertinoIcons.add),
+        backgroundColor: const Color(0xFF09BB07), // WeChat green
+        child: const Icon(CupertinoIcons.add, size: 30),
       );
     } else if (currentIndex == 0) {
       return FloatingActionButton(
@@ -165,7 +190,8 @@ class _HomeScreenState extends State<HomeScreen>
             Constants.contactsScreen,
           );
         },
-        child: const Icon(CupertinoIcons.chat_bubble_text),
+        backgroundColor: const Color(0xFF09BB07), // WeChat green
+        child: const Icon(CupertinoIcons.chat_bubble_text, size: 30),
       );
     } else if (currentIndex == 2) {
       return FloatingActionButton(
@@ -175,7 +201,8 @@ class _HomeScreenState extends State<HomeScreen>
             Constants.statusCreateScreen,
           );
         },
-        child: const Icon(CupertinoIcons.camera),
+        backgroundColor: const Color(0xFF09BB07), // WeChat green
+        child: const Icon(CupertinoIcons.camera, size: 30),
       );
     }
     return null; // No FAB for Profile tab

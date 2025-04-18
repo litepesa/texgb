@@ -45,6 +45,8 @@ class _BottomChatFieldState extends State<BottomChatField> {
   bool isSendingAudio = false;
   bool isShowEmojiPicker = false;
   bool isShowMoreOptions = false;
+  bool isVoiceMode = false; // Track voice/text input mode
+  bool isSendingFile = false; // Track file sending state
 
   // hide emoji container
   void hideEmojiContainer() {
@@ -68,6 +70,17 @@ class _BottomChatFieldState extends State<BottomChatField> {
       if (isShowMoreOptions) {
         isShowEmojiPicker = false; // Hide emoji when showing more options
         hideKeyNoard();
+      }
+    });
+  }
+
+  // Toggle between voice and text input
+  void toggleVoiceTextMode() {
+    setState(() {
+      isVoiceMode = !isVoiceMode;
+      if (isVoiceMode) {
+        hideKeyNoard();
+        hideEmojiContainer();
       }
     });
   }
@@ -133,7 +146,12 @@ class _BottomChatFieldState extends State<BottomChatField> {
       );
       setState(() {
         isRecording = true;
+        // Hide other UI elements while recording
+        isShowEmojiPicker = false;
+        isShowMoreOptions = false;
       });
+    } else {
+      showSnackBar(context, 'Microphone permission denied');
     }
   }
 
@@ -151,28 +169,52 @@ class _BottomChatFieldState extends State<BottomChatField> {
   }
 
   void selectImage(bool fromCamera) async {
+    setState(() {
+      isSendingFile = true;
+    });
+    
     finalFileImage = await pickImage(
       fromCamera: fromCamera,
       onFail: (String message) {
         showSnackBar(context, message);
+        setState(() {
+          isSendingFile = false;
+        });
       },
     );
+
+    // If user canceled the image picking
+    if (finalFileImage == null) {
+      setState(() {
+        isSendingFile = false;
+      });
+      return;
+    }
 
     // crop image
     await cropImage(finalFileImage?.path);
 
-    popContext();
+    // Close more options panel
+    setState(() {
+      isShowMoreOptions = false;
+    });
   }
 
   // select a video file from device
   void selectVideo() async {
+    setState(() {
+      isSendingFile = true;
+      isShowMoreOptions = false;
+    });
+    
     File? fileVideo = await pickVideo(
       onFail: (String message) {
         showSnackBar(context, message);
+        setState(() {
+          isSendingFile = false;
+        });
       },
     );
-
-    popContext();
 
     if (fileVideo != null) {
       filePath = fileVideo.path;
@@ -180,6 +222,10 @@ class _BottomChatFieldState extends State<BottomChatField> {
       sendFileMessage(
         messageType: MessageEnum.video,
       );
+    } else {
+      setState(() {
+        isSendingFile = false;
+      });
     }
   }
 
@@ -202,6 +248,11 @@ class _BottomChatFieldState extends State<BottomChatField> {
         sendFileMessage(
           messageType: MessageEnum.image,
         );
+      } else {
+        // User canceled cropping
+        setState(() {
+          isSendingFile = false;
+        });
       }
     }
   }
@@ -227,12 +278,14 @@ class _BottomChatFieldState extends State<BottomChatField> {
         setState(() {
           isSendingAudio = false;
           isShowMoreOptions = false;
+          isSendingFile = false;
         });
       },
       onError: (error) {
         setState(() {
           isSendingAudio = false;
           isShowMoreOptions = false;
+          isSendingFile = false;
         });
         showSnackBar(context, error);
       },
@@ -241,6 +294,8 @@ class _BottomChatFieldState extends State<BottomChatField> {
 
   // send text message to firestore
   void sendTextMessage() {
+    if (_textEditingController.text.trim().isEmpty) return;
+    
     final currentUser = context.read<AuthenticationProvider>().userModel!;
     final chatProvider = context.read<ChatProvider>();
 
@@ -249,7 +304,7 @@ class _BottomChatFieldState extends State<BottomChatField> {
         contactUID: widget.contactUID,
         contactName: widget.contactName,
         contactImage: widget.contactImage,
-        message: _textEditingController.text,
+        message: _textEditingController.text.trim(),
         messageType: MessageEnum.text,
         groupId: widget.groupId,
         onSucess: () {
@@ -287,14 +342,16 @@ class _BottomChatFieldState extends State<BottomChatField> {
 
     // check is messages are locked
     final isLocked = groupProvider.groupModel.lockMessages;
+    
+    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final backgroundColor = themeExtension?.backgroundColor ?? const Color(0xFFF6F6F6);
+    final appBarColor = themeExtension?.appBarColor ?? const Color(0xFFEDEDED);
+    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
+    
     return isAdmin
-        ? buildBottomChatField(
-            Theme.of(context).scaffoldBackgroundColor, 
-            Theme.of(context).appBarTheme.backgroundColor ?? Colors.white, 
-            Theme.of(context).extension<WeChatThemeExtension>()?.accentColor ?? const Color(0xFF07C160)
-          )
+        ? buildBottomChatField(backgroundColor, appBarColor, accentColor)
         : isMember
-            ? buildisMember(isLocked)
+            ? buildisMember(isLocked, backgroundColor, appBarColor, accentColor)
             : SizedBox(
                 height: 60,
                 child: Center(
@@ -318,17 +375,19 @@ class _BottomChatFieldState extends State<BottomChatField> {
                         color: Colors.red,
                         fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),
               );
   }
 
-  buildisMember(bool isLocked) {
+  buildisMember(bool isLocked, Color backgroundColor, Color appBarColor, Color accentColor) {
     return isLocked
-        ? const SizedBox(
+        ? Container(
             height: 50,
-            child: Center(
+            color: appBarColor,
+            child: const Center(
               child: Text(
                 'Messages are locked, only admins can send messages',
                 textAlign: TextAlign.center,
@@ -339,11 +398,7 @@ class _BottomChatFieldState extends State<BottomChatField> {
               ),
             ),
           )
-        : buildBottomChatField(
-            Theme.of(context).scaffoldBackgroundColor, 
-            Theme.of(context).appBarTheme.backgroundColor ?? Colors.white, 
-            Theme.of(context).extension<WeChatThemeExtension>()?.accentColor ?? const Color(0xFF07C160)
-          );
+        : buildBottomChatField(backgroundColor, appBarColor, accentColor);
   }
 
   Widget buildBottomChatField(Color backgroundColor, Color appBarColor, Color accentColor) {
@@ -363,6 +418,7 @@ class _BottomChatFieldState extends State<BottomChatField> {
             ),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min, // Ensure the container only takes necessary height
             children: [
               // Message reply preview
               if (isMessageReply)
@@ -373,117 +429,165 @@ class _BottomChatFieldState extends State<BottomChatField> {
                   ),
                 ),
               
-              // Input area
-              Row(
-                children: [
-                  // Voice/text toggle button
-                  IconButton(
-                    icon: Icon(
-                      Icons.keyboard_voice,
-                      color: Colors.grey[600],
-                    ),
-                    onPressed: () {
-                      // Implement voice toggle functionality
-                    },
-                  ),
-                  
-                  // Text input field
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 8.0),
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                      decoration: BoxDecoration(
-                        color: backgroundColor,
-                        borderRadius: BorderRadius.circular(4.0),
-                      ),
-                      child: TextField(
-                        controller: _textEditingController,
-                        focusNode: _focusNode,
-                        maxLines: 3,
-                        minLines: 1,
-                        style: TextStyle(
-                          fontSize: 16.0,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'Message',
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 10.0),
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            isShowSendButton = value.isNotEmpty;
-                          });
-                        },
-                        onTap: () {
-                          hideEmojiContainer();
-                          setState(() {
-                            isShowMoreOptions = false;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  
-                  // Emoji button
-                  IconButton(
-                    icon: Icon(
-                      isShowEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined,
-                      color: Colors.grey[600],
-                    ),
-                    onPressed: toggleEmojiKeyboardContainer,
-                  ),
-                  
-                  // More options or Send button
-                  if (isShowSendButton)
-                    chatProvider.isLoading
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: accentColor,
-                              ),
-                            ),
-                          )
-                        : TextButton(
-                            onPressed: sendTextMessage,
-                            style: TextButton.styleFrom(
-                              backgroundColor: accentColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4.0),
-                              ),
-                              minimumSize: const Size(50, 36),
-                            ),
-                            child: const Text(
-                              'Send',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          )
-                  else
+              // Recording indicator
+              if (isRecording)
+                _buildRecordingIndicator(accentColor),
+                
+              // Normal input area (when not recording)
+              if (!isRecording)
+                Row(
+                  children: [
+                    // Voice/text toggle button
                     IconButton(
                       icon: Icon(
-                        Icons.add_circle_outline,
+                        isVoiceMode ? Icons.keyboard : Icons.keyboard_voice,
                         color: Colors.grey[600],
                       ),
-                      onPressed: toggleMoreOptions,
+                      onPressed: toggleVoiceTextMode,
                     ),
-                ],
-              ),
+                    
+                    // Voice button or text input field
+                    if (isVoiceMode)
+                      Expanded(
+                        child: GestureDetector(
+                          onLongPress: startRecording,
+                          onLongPressEnd: (_) => stopRecording(),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 15.0),
+                            decoration: BoxDecoration(
+                              color: backgroundColor,
+                              borderRadius: BorderRadius.circular(4.0),
+                            ),
+                            child: const Text(
+                              'Hold to record voice message',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxHeight: 100, // Set maximum height
+                          ),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                            decoration: BoxDecoration(
+                              color: backgroundColor,
+                              borderRadius: BorderRadius.circular(4.0),
+                            ),
+                            child: TextField(
+                              controller: _textEditingController,
+                              focusNode: _focusNode,
+                              maxLines: 3,
+                              minLines: 1,
+                              style: TextStyle(
+                                fontSize: 16.0,
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: 'Message',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(vertical: 10.0),
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  isShowSendButton = value.isNotEmpty;
+                                });
+                              },
+                              onTap: () {
+                                hideEmojiContainer();
+                                setState(() {
+                                  isShowMoreOptions = false;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    
+                    if (!isVoiceMode) 
+                      IconButton(
+                        icon: Icon(
+                          isShowEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined,
+                          color: Colors.grey[600],
+                        ),
+                        onPressed: toggleEmojiKeyboardContainer,
+                      ),
+                    
+                    // More options or Send button
+                    if (isShowSendButton && !isVoiceMode)
+                      chatProvider.isLoading
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: accentColor,
+                                ),
+                              ),
+                            )
+                          : TextButton(
+                              onPressed: sendTextMessage,
+                              style: TextButton.styleFrom(
+                                backgroundColor: accentColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4.0),
+                                ),
+                                minimumSize: const Size(50, 36),
+                              ),
+                              child: const Text(
+                                'Send',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                    else if (!isVoiceMode)
+                      IconButton(
+                        icon: Icon(
+                          Icons.add_circle_outline,
+                          color: Colors.grey[600],
+                        ),
+                        onPressed: toggleMoreOptions,
+                      ),
+                  ],
+                ),
+              
+              // File sending indicator
+              if (isSendingFile && !isRecording)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: accentColor,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Preparing file...')
+                    ],
+                  ),
+                ),
               
               // More options grid
-              if (isShowMoreOptions)
+              if (isShowMoreOptions && !isRecording && !isSendingFile)
                 buildMoreOptionsGrid(context),
               
               // Emoji picker
-              if (isShowEmojiPicker)
+              if (isShowEmojiPicker && !isRecording && !isSendingFile)
                 SizedBox(
-                  height: 250,
+                  height: MediaQuery.of(context).size.height * 0.3, // Responsive height
                   child: EmojiPicker(
                     onEmojiSelected: (category, Emoji emoji) {
                       _textEditingController.text = _textEditingController.text + emoji.emoji;
@@ -510,6 +614,58 @@ class _BottomChatFieldState extends State<BottomChatField> {
           ),
         );
       },
+    );
+  }
+  
+  // Recording indicator UI
+  Widget _buildRecordingIndicator(Color accentColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+      child: Row(
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.fiber_manual_record,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Recording audio...',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: stopRecording,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Send',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
   
