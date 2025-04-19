@@ -1,3 +1,5 @@
+// Updated MediaGridView in lib/features/moments/widgets/media_grid_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:textgb/common/videoviewerscreen.dart';
 import 'package:textgb/features/moments/screens/media_view_screen.dart';
@@ -77,6 +79,46 @@ class _MediaGridViewState extends State<MediaGridView> {
     return _videoController!.value.aspectRatio < 1.0;
   }
 
+  // Get relative aspect ratio category for consistent sizing
+  VideoAspectRatioType get _videoAspectRatioType {
+    if (!_isVideoInitialized || _videoController == null) {
+      return VideoAspectRatioType.widescreen; // Default
+    }
+    
+    final ratio = _videoController!.value.aspectRatio;
+    
+    if (ratio < 0.6) {
+      return VideoAspectRatioType.ultraTall; // Very tall video like 9:16+
+    } else if (ratio < 1.0) {
+      return VideoAspectRatioType.vertical; // Standard vertical like 3:4, 9:16
+    } else if (ratio > 2.0) {
+      return VideoAspectRatioType.ultraWide; // Extra wide video like CinemaScope
+    } else if (ratio > 1.7) {
+      return VideoAspectRatioType.widescreen; // 16:9 or similar
+    } else {
+      return VideoAspectRatioType.standard; // 4:3, 5:4, 1:1, etc.
+    }
+  }
+
+  // Get the display height constraint based on aspect ratio type
+  double _getVideoHeightConstraint(BuildContext context) {
+    // Calculate relative to screen size for better adaptation to device
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    switch (_videoAspectRatioType) {
+      case VideoAspectRatioType.ultraTall:
+        return screenWidth * 1.5; // Cap ultra tall videos
+      case VideoAspectRatioType.vertical:
+        return screenWidth * 1.2; // Cap vertical videos
+      case VideoAspectRatioType.standard:
+        return screenWidth * 0.75; // 4:3 or similar
+      case VideoAspectRatioType.widescreen:
+        return screenWidth * 0.56; // 16:9 (9/16 of width)
+      case VideoAspectRatioType.ultraWide:
+        return screenWidth * 0.4; // Extra wide formats
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // No media
@@ -86,7 +128,7 @@ class _MediaGridViewState extends State<MediaGridView> {
 
     // Handle single video
     if (widget.isVideo && widget.mediaUrls.isNotEmpty) {
-      return _buildVideoThumbnail(widget.mediaUrls.first);
+      return _buildVideoThumbnail(widget.mediaUrls.first, context);
     }
 
     // Single image
@@ -142,149 +184,109 @@ class _MediaGridViewState extends State<MediaGridView> {
     );
   }
 
-  Widget _buildVideoThumbnail(String videoUrl) {
-    // Determine the aspect ratio and layout based on video orientation
+  Widget _buildVideoThumbnail(String videoUrl, BuildContext context) {
+    // Get aspect ratio and constraints
     final aspectRatio = _isVideoInitialized ? _videoAspectRatio : 16 / 9;
+    final heightConstraint = _getVideoHeightConstraint(context);
     final isVertical = _isVerticalVideo;
     
-    // For vertical videos, we'll use a different container approach
-    if (isVertical) {
-      return Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        // Limit the height for vertical videos to not take too much space
-        constraints: const BoxConstraints(maxHeight: 350),
-        child: Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Material(
-              color: Colors.black,
-              child: InkWell(
-                onTap: () => _openVideoPlayer(videoUrl),
-                child: AspectRatio(
-                  aspectRatio: aspectRatio,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: _buildVideoStackChildren(videoUrl),
-                  ),
-                ),
-              ),
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-        ),
-      );
-    } else {
-      // Standard 16:9 or similar horizontal videos
-      return Container(
-        decoration: BoxDecoration(
+        ],
+      ),
+      // Apply appropriate height constraint based on video type
+      constraints: BoxConstraints(maxHeight: heightConstraint),
+      child: Center(
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: AspectRatio(
-          aspectRatio: aspectRatio,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Material(
-              color: Colors.black,
-              child: InkWell(
-                onTap: () => _openVideoPlayer(videoUrl),
+          child: Material(
+            color: Colors.black,
+            child: InkWell(
+              onTap: () => _openVideoPlayer(videoUrl),
+              child: AspectRatio(
+                aspectRatio: aspectRatio,
                 child: Stack(
                   fit: StackFit.expand,
-                  children: _buildVideoStackChildren(videoUrl),
+                  children: [
+                    // Video thumbnail or loading indicator
+                    if (_isVideoInitialized)
+                      VideoPlayer(_videoController!)
+                    else if (_isLoading)
+                      const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    else
+                      Container(
+                        color: Colors.black45,
+                        child: const Center(
+                          child: Icon(
+                            Icons.videocam_off,
+                            color: Colors.white70,
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                    
+                    // Improved play button overlay with more subtle design
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.4),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+                      ),
+                    ),
+                    
+                    // No video icon badge - the play button is sufficient
+                    
+                    // Add subtle gradient overlay at bottom for better text visibility
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 60,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.5),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
   }
   
-  // Extracted the common stack children for video thumbnails
-  List<Widget> _buildVideoStackChildren(String videoUrl) {
-    return [
-      // Video thumbnail or loading indicator
-      if (_isVideoInitialized)
-        VideoPlayer(_videoController!)
-      else if (_isLoading)
-        const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        )
-      else
-        Container(
-          color: Colors.black45,
-          child: const Center(
-            child: Icon(
-              Icons.videocam_off,
-              color: Colors.white70,
-              size: 40,
-            ),
-          ),
-        ),
-      
-      // Play button overlay
-      Center(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.play_arrow,
-            color: Colors.white,
-            size: 40,
-          ),
-        ),
-      ),
-      
-      // Video type indicator badge (now shows format)
-      Positioned(
-        bottom: 8,
-        right: 8,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.6),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.videocam,
-                color: Colors.white,
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _isVerticalVideo ? 'Vertical' : 'Video',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ];
-  }
+  // Helper method no longer needed since we're not showing text labels
+  // String _getVideoFormatLabel() {
+  //   // Simply return "Video" for all types
+  //   return "Video";
+  // }
 
   Widget _buildImageGrid() {
     // Determine grid dimensions based on image count
@@ -409,4 +411,13 @@ class _MediaGridViewState extends State<MediaGridView> {
       ),
     );
   }
+}
+
+// Enum to categorize video aspect ratios for consistent UI presentation
+enum VideoAspectRatioType {
+  ultraTall,   // Very tall videos like 9:20
+  vertical,    // Standard vertical videos like 9:16
+  standard,    // 4:3, 1:1, etc
+  widescreen,  // 16:9 or similar
+  ultraWide,   // 21:9 or wider
 }
