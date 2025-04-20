@@ -1,3 +1,6 @@
+// lib/features/moments/screens/moments_screen.dart
+// MODIFIED to remove the floating action button
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
@@ -185,21 +188,7 @@ class _MomentsScreenState extends State<MomentsScreen> with SingleTickerProvider
           },
         ),
       ),
-      floatingActionButton: AnimatedSlide(
-        duration: const Duration(milliseconds: 300),
-        offset: _isAppBarVisible ? Offset.zero : const Offset(0, 2),
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 300),
-          opacity: _isAppBarVisible ? 1.0 : 0.0,
-          child: FloatingActionButton(
-            onPressed: () => _navigateToCreateMoment(),
-            backgroundColor: accentColor,
-            elevation: 4,
-            tooltip: 'Create new moment',
-            child: const Icon(Icons.add),
-          ),
-        ),
-      ),
+      // Floating action button removed - will be handled by the center camera button in HomeScreen
     );
   }
 
@@ -236,7 +225,12 @@ class _MomentsScreenState extends State<MomentsScreen> with SingleTickerProvider
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () => _navigateToCreateMoment(),
+                onPressed: () {
+                  Navigator.pushNamed(
+                    context,
+                    Constants.createMomentScreen,
+                  ).then((_) => _loadMoments());
+                },
                 icon: const Icon(Icons.add_photo_alternate),
                 label: const Text('Create Moment'),
                 style: ElevatedButton.styleFrom(
@@ -263,10 +257,5 @@ class _MomentsScreenState extends State<MomentsScreen> with SingleTickerProvider
     );
   }
 
-  void _navigateToCreateMoment() {
-    Navigator.pushNamed(
-      context,
-      Constants.createMomentScreen,
-    ).then((_) => _loadMoments());
-  }
+  // Removed _navigateToCreateMoment method as it's now handled in HomeScreen
 }

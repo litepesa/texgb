@@ -1,18 +1,19 @@
+// lib/main_screen/home_screen.dart
+// Final implementation with centered camera button
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-import 'package:textgb/features/moments/screens/moments_screen.dart';  // New import
+import 'package:textgb/features/moments/screens/moments_screen.dart';
 import 'package:textgb/main_screen/create_group_screen.dart';
 import 'package:textgb/main_screen/groups_screen.dart';
 import 'package:textgb/main_screen/my_chats_screen.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/group_provider.dart';
-import 'package:textgb/providers/moments_provider.dart';  // New import
+import 'package:textgb/providers/moments_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
-
-// Import the enhanced profile screen
 import 'package:textgb/main_screen/enhanced_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -66,21 +67,38 @@ class _HomeScreenState extends State<HomeScreen>
     super.didChangeAppLifecycleState(state);
   }
 
+  void _navigateToCreateMoment() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const CreateMomentScreen(),
+      ),
+    ).then((_) {
+      // Refresh moments after creating a new one
+      if (currentIndex == 2) { // Only refresh if we're on the Moments tab
+        context.read<MomentsProvider>().fetchMoments(
+          currentUserId: context.read<AuthenticationProvider>().userModel!.uid,
+          contactIds: context.read<AuthenticationProvider>().userModel!.contactsUIDs,
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final isLightMode = brightness == Brightness.light;
+    final accentColor = const Color(0xFF09BB07); // WeChat green
     
     return Scaffold(
       appBar: currentIndex != 2 && currentIndex != 3 ? AppBar(
-        elevation: 2.0, // Increased elevation for better shadow
-        toolbarHeight: 65.0, // Increased height for better visibility
+        elevation: 2.0,
+        toolbarHeight: 65.0,
         centerTitle: false,
         backgroundColor: isLightMode ? Colors.white : const Color(0xFF121212),
         title: RichText(
           text: TextSpan(
             style: TextStyle(
-              fontSize: 28, // Increased font size
+              fontSize: 28,
               fontWeight: FontWeight.w600,
               color: isLightMode ? const Color(0xFF181818) : Colors.white,
             ),
@@ -88,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen>
               const TextSpan(
                 text: 'Tex',
                 style: TextStyle(
-                  color: Color(0xFF09BB07), // WeChat green color
+                  color: Color(0xFF09BB07),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -107,114 +125,86 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           const MyChatsScreen(),
           const GroupsScreen(),
-          const MomentsScreen(),  // Changed from StatusScreen to MomentsScreen
-          const EnhancedProfileScreen(), // Enhanced profile screen
+          const MomentsScreen(),
+          const EnhancedProfileScreen(),
         ],
       ),
-      floatingActionButton: _buildFloatingActionButton(),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              spreadRadius: 0,
-            ),
-          ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: currentIndex == 2 
+          ? _navigateToCreateMoment // For Moments tab, navigate to CreateMomentScreen
+          : null, // Disable FAB for other tabs (will be hidden)
+        backgroundColor: accentColor,
+        child: const Icon(
+          CupertinoIcons.camera,
+          color: Colors.white,
+          size: 28,
         ),
-        child: BottomNavigationBar(
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.chat_bubble_2, size: 28), // Larger icon
-              label: 'Chats',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.group, size: 28), // Larger icon
-              label: 'Groups',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.photo, size: 28), // Changed icon
-              label: 'Moments', // Changed label from Status to Moments
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.person, size: 28), // Larger icon
-              label: 'Profile',
-            ),
-          ],
-          currentIndex: currentIndex,
-          type: BottomNavigationBarType.fixed, // Ensures all 4 items are visible
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14, // Increased font size for labels
+        // Hide FAB for non-Moments tabs
+        // This will make the FAB disappear on other tabs
+        elevation: currentIndex == 2 ? 6.0 : 0.0,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        color: isLightMode ? Colors.white : const Color(0xFF121212),
+        child: Container(
+          height: 60,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left side items
+              Row(
+                children: [
+                  _buildNavItem(0, CupertinoIcons.chat_bubble_2, 'Chats', accentColor),
+                  const SizedBox(width: 32),
+                  _buildNavItem(1, CupertinoIcons.group, 'Groups', accentColor),
+                ],
+              ),
+              
+              // Right side items
+              Row(
+                children: [
+                  _buildNavItem(2, CupertinoIcons.photo, 'Moments', accentColor),
+                  const SizedBox(width: 32),
+                  _buildNavItem(3, CupertinoIcons.person, 'Profile', accentColor),
+                ],
+              ),
+            ],
           ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 12, // Increased font size for unselected labels
-          ),
-          selectedItemColor: const Color(0xFF09BB07), // WeChat green for selected items
-          elevation: 16, // Increased elevation
-          iconSize: 28, // Default size for all icons
-          backgroundColor: isLightMode ? Colors.white : const Color(0xFF121212),
-          onTap: (index) {
-            setState(() {
-              currentIndex = index;
-            });
-          },
         ),
       ),
     );
   }
 
-  Widget? _buildFloatingActionButton() {
-    // Show FAB only on specific tabs
-    if (currentIndex == 1) {
-      return FloatingActionButton(
-        onPressed: () {
-          context
-              .read<GroupProvider>()
-              .clearGroupMembersList()
-              .whenComplete(() {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const CreateGroupScreen(),
-              ),
-            );
-          });
-        },
-        backgroundColor: const Color(0xFF09BB07), // WeChat green
-        child: const Icon(CupertinoIcons.add, size: 28),
-      );
-    } else if (currentIndex == 0) {
-      return FloatingActionButton(
-        onPressed: () {
-          // Navigate to Contacts screen
-          Navigator.pushNamed(
-            context,
-            Constants.contactsScreen,
-          );
-        },
-        backgroundColor: const Color(0xFF09BB07), // WeChat green
-        child: const Icon(CupertinoIcons.chat_bubble_text, size: 28),
-      );
-    } else if (currentIndex == 2) {
-      // Changed from StatusCreateScreen to CreateMomentScreen
-      return FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const CreateMomentScreen(),
+  Widget _buildNavItem(int index, IconData icon, String label, Color accentColor) {
+    final isSelected = currentIndex == index;
+    
+    return InkWell(
+      onTap: () {
+        setState(() {
+          currentIndex = index;
+        });
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 28,
+            color: isSelected ? accentColor : Colors.grey,
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isSelected ? 12 : 10,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? accentColor : Colors.grey,
             ),
-          ).then((_) {
-            // Refresh moments after creating a new one
-            context.read<MomentsProvider>().fetchMoments(
-              currentUserId: context.read<AuthenticationProvider>().userModel!.uid,
-              contactIds: context.read<AuthenticationProvider>().userModel!.contactsUIDs,
-            );
-          });
-        },
-        backgroundColor: const Color(0xFF09BB07), // WeChat green
-        child: const Icon(CupertinoIcons.camera, size: 28),
-      );
-    }
-    return null; // No FAB for Profile tab
+          ),
+        ],
+      ),
+    );
   }
 }
