@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-import 'package:textgb/features/moments/screens/moments_screen.dart';
+import 'package:textgb/features/moments/screens/tiktok_feed_screen.dart';
 import 'package:textgb/features/moments/widgets/custom_icon.dart';
 import 'package:textgb/main_screen/create_group_screen.dart';
 import 'package:textgb/main_screen/groups_screen.dart';
@@ -29,7 +29,8 @@ class _HomeScreenState extends State<HomeScreen>
   final Widget chatScreen = const MyChatsScreen();
   final Widget groupScreen = const GroupsScreen();
   final Widget cameraScreen = const CreateMomentScreen();
-  final Widget momentScreen = const MomentsScreen();
+  // Updated to use TikTok Feed Screen instead of Moments Screen
+  final Widget tikTokFeedScreen = const TikTokFeedScreen();
   final Widget profileScreen = const EnhancedProfileScreen();
   
   // We'll define these in initState to ensure they match our bottom nav bar
@@ -42,11 +43,11 @@ class _HomeScreenState extends State<HomeScreen>
     
     // Initialize pages list to match the order of our bottom nav bar items
     pages = [
-      chatScreen,     // Index 0 - Chats
-      groupScreen,    // Index 1 - Groups
-      cameraScreen,   // Index 2 - Camera (custom icon)
-      momentScreen,   // Index 3 - Moments
-      profileScreen,  // Index 4 - Profile
+      chatScreen,          // Index 0 - Chats
+      groupScreen,         // Index 1 - Groups
+      cameraScreen,        // Index 2 - Camera (custom icon)
+      tikTokFeedScreen,    // Index 3 - TikTok-style Feed (was Moments)
+      profileScreen,       // Index 4 - Profile
     ];
   }
 
@@ -88,6 +89,16 @@ class _HomeScreenState extends State<HomeScreen>
     final brightness = Theme.of(context).brightness;
     final isLightMode = brightness == Brightness.light;
     final accentColor = const Color(0xFF09BB07); // WeChat green
+    
+    // Determine bottom nav bar color - black when TikTok feed is selected
+    final bottomNavColor = pageIndex == 3 
+        ? Colors.black 
+        : (isLightMode ? Colors.white : const Color(0xFF121212));
+    
+    // Determine item colors - white for selected item in TikTok feed, accent color otherwise
+    final selectedItemColor = pageIndex == 3 
+        ? Colors.white 
+        : accentColor;
     
     return Scaffold(
       appBar: pageIndex != 2 && pageIndex != 3 && pageIndex != 4 ? AppBar(
@@ -145,13 +156,13 @@ class _HomeScreenState extends State<HomeScreen>
           print('Now showing: ${pages[pageIndex].runtimeType}');
         },
         type: BottomNavigationBarType.fixed,
-        backgroundColor: isLightMode ? Colors.white : const Color(0xFF121212),
-        selectedItemColor: accentColor,
+        backgroundColor: bottomNavColor,
+        selectedItemColor: selectedItemColor,
         unselectedItemColor: Colors.grey,
         currentIndex: pageIndex,
         items: [
           BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.chat_bubble, size: 30),
+            icon: Icon(CupertinoIcons.chat_bubble_2, size: 30),
             label: 'Chats',
           ),
           BottomNavigationBarItem(

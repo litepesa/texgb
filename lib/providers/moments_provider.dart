@@ -12,14 +12,53 @@ class MomentsProvider extends ChangeNotifier {
   bool _isUploading = false;
   final List<MomentModel> _userMoments = [];
   final List<MomentModel> _contactsMoments = [];
+  final List<MomentModel> _forYouMoments = []; // For future TikTok-style recommendations
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  
+  // Feed mode for TikTok-style feed
+  FeedMode _currentFeedMode = FeedMode.forYou;
 
   // Getters
   bool get isLoading => _isLoading;
   bool get isUploading => _isUploading;
   List<MomentModel> get userMoments => _userMoments;
   List<MomentModel> get contactsMoments => _contactsMoments;
+  List<MomentModel> get forYouMoments => _forYouMoments;
+  FeedMode get currentFeedMode => _currentFeedMode;
+  
+  // Get combined feed based on current mode
+  List<MomentModel> get currentFeed {
+    switch (_currentFeedMode) {
+      case FeedMode.following:
+        // Sort newer content first
+        return [..._contactsMoments]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case FeedMode.forYou:
+      default:
+        // For now, this is just all content (later would be algorithm-based)
+        final allContent = [
+          ..._userMoments,
+          ..._contactsMoments,
+          ..._forYouMoments,
+        ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        
+        return allContent;
+    }
+  }
+  
+  // Toggle between Following and For You modes
+  void toggleFeedMode() {
+    _currentFeedMode = _currentFeedMode == FeedMode.forYou
+        ? FeedMode.following
+        : FeedMode.forYou;
+    notifyListeners();
+  }
+  
+  // Set feed mode
+  void setFeedMode(FeedMode mode) {
+    _currentFeedMode = mode;
+    notifyListeners();
+  }
 
   // Set loading state
   void setLoading(bool value) {
@@ -37,6 +76,7 @@ class MomentsProvider extends ChangeNotifier {
   void clearMoments() {
     _userMoments.clear();
     _contactsMoments.clear();
+    _forYouMoments.clear();
     notifyListeners();
   }
 
@@ -293,6 +333,7 @@ class MomentsProvider extends ChangeNotifier {
     try {
       final List<MomentModel> userMoments = [];
       final List<MomentModel> contactsMoments = [];
+      final List<MomentModel> forYouMoments = [];
       
       // Fetch user's moments
       final userMomentsQuery = await _firestore
@@ -310,7 +351,7 @@ class MomentsProvider extends ChangeNotifier {
       if (contactIds.isNotEmpty) {
         final contactsMomentsQuery = await _firestore
             .collection('moments')
-            .where('uid', whereIn: contactIds)
+            .where('uid', whereIn: contactIds.length > 10 ? contactIds.sublist(0, 10) : contactIds)
             .orderBy('createdAt', descending: true)
             .get();
         
@@ -320,14 +361,76 @@ class MomentsProvider extends ChangeNotifier {
         }
       }
       
+      // Fetch "For You" content (for now, just get the most recent 20 videos)
+      // In a real app, this would use an algorithm based on user interests
+      final forYouQuery = await _firestore
+          .collection('moments')
+          .where('isVideo', isEqualTo: true)
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .get();
+      
+      for (final doc in forYouQuery.docs) {
+        final moment = MomentModel.fromMap(doc.data());
+        // Skip if this is from the current user or their contacts (already in other lists)
+        if (moment.uid != currentUserId && !contactIds.contains(moment.uid)) {
+          forYouMoments.add(moment);
+        }
+      }
+      
       // Update local lists
-      updateMomentsList(userMoments, contactsMoments);
+      _userMoments.clear();
+      _userMoments.addAll(userMoments);
+      
+      _contactsMoments.clear();
+      _contactsMoments.addAll(contactsMoments);
+      
+      _forYouMoments.clear();
+      _forYouMoments.addAll(forYouMoments);
       
       setLoading(false);
+      notifyListeners();
       
     } catch (e) {
       setLoading(false);
       print('Error fetching moments: $e');
+    }
+  }
+  
+  // Fetch videos-only feed for TikTok-style experience
+  Future<void> fetchVideoFeed({
+    required String currentUserId,
+    required List<String> contactIds,
+    int limit = 20,
+  }) async {
+    setLoading(true);
+    
+    try {
+      // For now, we'll just fetch videos, but this could be expanded with more 
+      // sophisticated recommendations later
+      final videosQuery = await _firestore
+          .collection('moments')
+          .where('isVideo', isEqualTo: true)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+      
+      final List<MomentModel> forYouVideos = [];
+      
+      for (final doc in videosQuery.docs) {
+        final moment = MomentModel.fromMap(doc.data());
+        forYouVideos.add(moment);
+      }
+      
+      _forYouMoments.clear();
+      _forYouMoments.addAll(forYouVideos);
+      
+      setLoading(false);
+      notifyListeners();
+      
+    } catch (e) {
+      setLoading(false);
+      print('Error fetching video feed: $e');
     }
   }
 
@@ -350,6 +453,15 @@ class MomentsProvider extends ChangeNotifier {
         break;
       }
     }
+    
+    // Update in for you moments
+    for (int i = 0; i < _forYouMoments.length; i++) {
+      if (_forYouMoments[i].momentId == momentId) {
+        final updatedComments = List<CommentModel>.from(_forYouMoments[i].comments)..add(comment);
+        _forYouMoments[i] = _forYouMoments[i].copyWith(comments: updatedComments);
+        break;
+      }
+    }
   }
 
   // Helper method to update moment likes in local lists
@@ -366,6 +478,14 @@ class MomentsProvider extends ChangeNotifier {
     for (int i = 0; i < _contactsMoments.length; i++) {
       if (_contactsMoments[i].momentId == momentId) {
         _contactsMoments[i] = _contactsMoments[i].copyWith(likedBy: likedBy);
+        break;
+      }
+    }
+    
+    // Update in for you moments
+    for (int i = 0; i < _forYouMoments.length; i++) {
+      if (_forYouMoments[i].momentId == momentId) {
+        _forYouMoments[i] = _forYouMoments[i].copyWith(likedBy: likedBy);
         break;
       }
     }
@@ -388,40 +508,19 @@ class MomentsProvider extends ChangeNotifier {
         break;
       }
     }
+    
+    // Update in for you moments
+    for (int i = 0; i < _forYouMoments.length; i++) {
+      if (_forYouMoments[i].momentId == momentId) {
+        _forYouMoments[i] = _forYouMoments[i].copyWith(viewedBy: viewedBy);
+        break;
+      }
+    }
   }
+}
 
-  // Get moment stream
-  Stream<QuerySnapshot> getMomentsStream(List<String> contactIds) {
-    // Include current user's ID in the query
-    final List<String> allIds = [...contactIds];
-    
-    // Handle empty contacts case or when contactIds length exceeds Firestore limit
-    if (allIds.isEmpty) {
-      return _firestore
-          .collection('moments')
-          .orderBy('createdAt', descending: true)
-          .limit(20)
-          .snapshots();
-    }
-    
-    // Firestore has a limit on 'whereIn' clauses (usually 10)
-    // For larger lists, we'd need to split into multiple queries and merge results
-    if (allIds.length <= 10) {
-      return _firestore
-          .collection('moments')
-          .where('uid', whereIn: allIds)
-          .orderBy('createdAt', descending: true)
-          .limit(20)
-          .snapshots();
-    } else {
-      // For simplicity in this implementation, we'll just limit to the first 10
-      // In a real app, you'd implement pagination or batching
-      return _firestore
-          .collection('moments')
-          .where('uid', whereIn: allIds.sublist(0, 10))
-          .orderBy('createdAt', descending: true)
-          .limit(20)
-          .snapshots();
-    }
-  }
+// Enum for TikTok-style feed modes
+enum FeedMode {
+  following,  // Content from users you follow
+  forYou,     // Recommended content (TikTok's default)
 }
