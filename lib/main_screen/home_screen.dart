@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             children: [
               const TextSpan(
-                text: 'Tex',
+                text: 'Bisha',
                 style: TextStyle(
                   color: Color(0xFF09BB07),
                   fontWeight: FontWeight.bold,
@@ -151,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen>
         currentIndex: pageIndex,
         items: [
           BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.chat_bubble_2, size: 30),
+            icon: Icon(CupertinoIcons.chat_bubble, size: 30),
             label: 'Chats',
           ),
           BottomNavigationBarItem(
@@ -163,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen>
             label: '',  // Intentionally empty for better design
           ),
           BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.photo, size: 30),
+            icon: Icon(CupertinoIcons.camera, size: 30),
             label: 'Moments',
           ),
           BottomNavigationBarItem(
