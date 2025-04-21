@@ -49,6 +49,13 @@ class _HomeScreenState extends State<HomeScreen>
       statusScreen,      // Index 3 - Status Feed
       profileScreen,     // Index 4 - Profile
     ];
+    
+    // Set app in fresh start state on initialization
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<StatusProvider>().setAppFreshStart(true);
+      }
+    });
   }
 
   @override
@@ -194,6 +201,9 @@ class _HomeScreenState extends State<HomeScreen>
             } else if (index == 3 && pageIndex != 3) {
               // We're switching TO status tab, set visibility to true
               context.read<StatusProvider>().setStatusTabVisible(true);
+              
+              // Set app as no longer in fresh start when user actively selects the status tab
+              context.read<StatusProvider>().setAppFreshStart(false);
             }
             
             setState(() {

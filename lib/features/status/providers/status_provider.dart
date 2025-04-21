@@ -19,21 +19,29 @@ class StatusProvider extends ChangeNotifier {
   bool _hasMoreStatuses = true;
   String? _lastStatusId;
   int _batchSize = 15; // Increased batch size for better initial load
-  bool _isStatusTabVisible = true; // New property for tab visibility
+  bool _isStatusTabVisible = true; // Property for tab visibility
+  bool _isAppFreshStart = true; // Property for app fresh start state
 
   // Getters
   List<StatusModel> get statusList => _statusList;
   bool get isLoading => _isLoading;
   bool get hasMoreStatuses => _hasMoreStatuses;
-  bool get isStatusTabVisible => _isStatusTabVisible; // New getter
+  bool get isStatusTabVisible => _isStatusTabVisible;
+  bool get isAppFreshStart => _isAppFreshStart;
 
   // Tab visibility setter
   void setStatusTabVisible(bool visible) {
     _isStatusTabVisible = visible;
     notifyListeners();
   }
+  
+  // App fresh start setter
+  void setAppFreshStart(bool isFreshStart) {
+    _isAppFreshStart = isFreshStart;
+    notifyListeners();
+  }
 
-  // FETCH STATUSES
+  // FETCH STATUSES - Optimized for better performance
   Future<void> fetchStatuses({
     required String currentUserId,
     required List<String> contactIds,
@@ -41,7 +49,11 @@ class StatusProvider extends ChangeNotifier {
   }) async {
     try {
       _isLoading = true;
-      notifyListeners();
+      
+      // Only notify at the beginning of the load if it's a fresh load
+      if (refresh) {
+        notifyListeners();
+      }
       
       if (refresh) {
         _statusList = [];
@@ -102,8 +114,22 @@ class StatusProvider extends ChangeNotifier {
         newStatuses.add(status);
       }
       
-      // Append or replace statuses
+      // Optimize loading order - sort to prioritize text and image statuses first
       if (refresh) {
+        // Sort: text statuses first, then images, then videos
+        newStatuses.sort((a, b) {
+          if (a.statusType == StatusType.text && b.statusType != StatusType.text) {
+            return -1;
+          } else if (b.statusType == StatusType.text && a.statusType != StatusType.text) {
+            return 1;
+          } else if (a.statusType == StatusType.image && b.statusType == StatusType.video) {
+            return -1;
+          } else if (b.statusType == StatusType.image && a.statusType == StatusType.video) {
+            return 1;
+          }
+          return 0;
+        });
+        
         _statusList = newStatuses;
       } else {
         _statusList.addAll(newStatuses);
@@ -290,6 +316,7 @@ class StatusProvider extends ChangeNotifier {
     _isLoading = false;
     _hasMoreStatuses = true;
     _lastStatusId = null;
+    _isAppFreshStart = true; // Reset fresh start state when provider is reset
     notifyListeners();
   }
 }

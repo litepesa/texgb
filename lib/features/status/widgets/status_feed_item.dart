@@ -1,22 +1,23 @@
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
+import 'package:textgb/features/status/services/video_cache_service.dart';
 import 'package:textgb/features/status/widgets/status_action_buttons.dart';
 import 'package:textgb/features/status/widgets/status_progress_indicator.dart';
 import 'package:textgb/features/status/widgets/status_user_info.dart';
 import 'package:textgb/models/status_model.dart';
 import 'package:video_player/video_player.dart';
-import 'package:textgb/widgets/video_player_widget.dart';
 
 class StatusFeedItem extends StatefulWidget {
   final StatusModel status;
   final bool isCurrentUser;
   final int currentIndex;
   final int index;
-  final bool isVisible; // New parameter for visibility
+  final bool isVisible;
 
   const StatusFeedItem({
     Key? key,
@@ -24,7 +25,7 @@ class StatusFeedItem extends StatefulWidget {
     required this.isCurrentUser,
     required this.currentIndex,
     required this.index,
-    this.isVisible = true, // Default to true
+    this.isVisible = true,
   }) : super(key: key);
 
   @override
@@ -34,12 +35,14 @@ class StatusFeedItem extends StatefulWidget {
 class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _animationController;
   VideoPlayerController? _videoController;
-  bool _isPlaying = false;
-  bool _isMuted = false; // Changed from true to make videos start unmuted
+  bool _isPlaying = true;
+  bool _isMuted = false;
   double _progress = 0.0;
   bool _isCurrentlyActive = false;
   bool _isAppInForeground = true;
-  bool _showHeartAnimation = false; // For double-tap animation
+  bool _showHeartAnimation = false;
+  bool _hasUserInteracted = false;
+  bool _isVideoInitialized = false;
   
   @override
   void initState() {
@@ -57,10 +60,28 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     // Check if this is the current status
     _isCurrentlyActive = widget.currentIndex == widget.index;
     
-    // Initialize video controller if it's a video status
+    // Initialize video controller if it's a video status, but DON'T autoplay by default
     if (widget.status.statusType == StatusType.video) {
-      _initializeVideoController();
+      _initializeVideoController(autoPlayIfActive: false);
     }
+    
+    // Add a delay to check app start state after widgets are built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Check if this is a fresh app start
+      if (mounted) {
+        final isAppFreshStart = context.read<StatusProvider>().isAppFreshStart;
+        
+        if (isAppFreshStart) {
+          // On fresh start, ensure videos are paused
+          _ensureVideoStopped();
+          
+          // If this is the first status (index 0), mark app as no longer in fresh start
+          if (widget.index == 0) {
+            context.read<StatusProvider>().setAppFreshStart(false);
+          }
+        }
+      }
+    });
   }
   
   @override
@@ -68,8 +89,13 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     // Handle app lifecycle changes
     if (state == AppLifecycleState.resumed) {
       _isAppInForeground = true;
-      // Only play if this is the current status and app is in foreground AND tab is visible
-      if (_isCurrentlyActive && widget.isVisible && widget.status.statusType == StatusType.video) {
+      // Only play if this is the current status, app is in foreground, tab is visible,
+      // AND user has interacted with the app since startup
+      if (_isCurrentlyActive && 
+          widget.isVisible && 
+          widget.status.statusType == StatusType.video && 
+          _hasUserInteracted &&
+          _isVideoInitialized) {
         _playVideo();
       }
     } else {
@@ -81,13 +107,49 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     }
   }
   
-  Future<void> _initializeVideoController() async {
+  Future<void> _initializeVideoController({bool autoPlayIfActive = true}) async {
     if (widget.status.statusUrl.isNotEmpty) {
-      _videoController = VideoPlayerController.network(widget.status.statusUrl);
-      
-      // Add try-catch to handle network errors
       try {
-        await _videoController!.initialize();
+        // Try to get cached video path
+        final cacheService = VideoCacheService();
+        String? videoPath = await cacheService.getCachedVideo(widget.status.statusUrl);
+        
+        // If not cached, cache it now if user has interacted or this is the active status
+        if (videoPath == null && (_hasUserInteracted || widget.currentIndex == widget.index)) {
+          videoPath = await cacheService.cacheVideo(widget.status.statusUrl);
+        }
+        
+        // Initialize with cached file if available, otherwise use network URL
+        if (videoPath != null) {
+          _videoController = VideoPlayerController.file(
+            File(videoPath),
+            videoPlayerOptions: VideoPlayerOptions(
+              mixWithOthers: true,
+            ),
+          );
+        } else {
+          _videoController = VideoPlayerController.network(
+            widget.status.statusUrl,
+            videoPlayerOptions: VideoPlayerOptions(
+              mixWithOthers: true,
+            ),
+          );
+        }
+        
+        // Set a timeout for initialization
+        await _videoController!.initialize().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            debugPrint('Video initialization timed out');
+            throw Exception('Video initialization timed out');
+          },
+        );
+        
+        if (mounted) {
+          setState(() {
+            _isVideoInitialized = true;
+          });
+        }
         
         // Set up listeners for video progress
         _videoController!.addListener(() {
@@ -103,11 +165,16 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
           }
         });
         
-        // Set initial volume (now unmuted by default)
+        // Set initial volume (unmuted by default)
         _videoController!.setVolume(_isMuted ? 0.0 : 1.0);
         
-        // Auto-play when this status becomes active and app is in foreground AND tab is visible
-        if (_isCurrentlyActive && _isAppInForeground && widget.isVisible) {
+        // Auto-play only if specified and all conditions are met
+        if (autoPlayIfActive && 
+            _isCurrentlyActive && 
+            _isAppInForeground && 
+            widget.isVisible && 
+            _hasUserInteracted && 
+            !context.read<StatusProvider>().isAppFreshStart) {
           _playVideo();
         }
       } catch (e) {
@@ -142,6 +209,9 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   }
   
   void _togglePlayPause() {
+    // When user manually toggles play/pause, track that they've interacted
+    _hasUserInteracted = true;
+    
     if (_videoController != null && _videoController!.value.isInitialized) {
       if (_videoController!.value.isPlaying) {
         _pauseVideo();
@@ -152,6 +222,9 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   }
   
   void _toggleMute() {
+    // When user toggles mute, track that they've interacted
+    _hasUserInteracted = true;
+    
     if (_videoController != null && _videoController!.value.isInitialized) {
       setState(() {
         _isMuted = !_isMuted;
@@ -162,6 +235,9 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   
   // Handle double-tap like animation
   void _handleDoubleTap() {
+    // When user double-taps, track that they've interacted
+    _hasUserInteracted = true;
+    
     setState(() {
       _showHeartAnimation = true;
     });
@@ -182,22 +258,34 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     // Check if the active status has changed
     final isNowActive = widget.currentIndex == widget.index;
     
+    // When user swipes between statuses, track that they've interacted
+    if (isNowActive != _isCurrentlyActive) {
+      _hasUserInteracted = true;
+    }
+    
     // Only perform actions if the active state has changed
     if (isNowActive != _isCurrentlyActive) {
       _isCurrentlyActive = isNowActive;
       
       // Handle video playback when scrolling
-      if (widget.status.statusType == StatusType.video && _videoController != null) {
-        if (isNowActive && _isAppInForeground && widget.isVisible) {
-          // This is now the active status - play video only if tab is visible
-          _playVideo();
-          // Trigger appear animation
-          _animationController.forward();
-        } else {
-          // This is no longer the active status - pause video
-          _pauseVideo();
-          // Trigger disappear animation
-          _animationController.reverse();
+      if (widget.status.statusType == StatusType.video) {
+        if (_videoController != null && _videoController!.value.isInitialized) {
+          if (isNowActive && _isAppInForeground && widget.isVisible) {
+            // This is now the active status - play video only if tab is visible and user has interacted
+            if (_hasUserInteracted && !context.read<StatusProvider>().isAppFreshStart) {
+              _playVideo();
+            }
+            // Trigger appear animation
+            _animationController.forward();
+          } else {
+            // This is no longer the active status - pause video
+            _pauseVideo();
+            // Trigger disappear animation
+            _animationController.reverse();
+          }
+        } else if (isNowActive && !_isVideoInitialized) {
+          // Video controller isn't initialized yet, try initializing now
+          _initializeVideoController(autoPlayIfActive: _hasUserInteracted);
         }
       }
     }
@@ -208,8 +296,13 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
         // Tab has been hidden, pause video
         _pauseVideo();
       } else if (widget.isVisible && _isCurrentlyActive && _isAppInForeground) {
-        // Tab has become visible and this is active status, play video
-        _playVideo();
+        // Tab has become visible and this is active status
+        // Only play if user has interacted and it's not a fresh app start
+        if (_hasUserInteracted && 
+            !context.read<StatusProvider>().isAppFreshStart && 
+            _isVideoInitialized) {
+          _playVideo();
+        }
       }
     }
   }
@@ -257,6 +350,9 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
 
   // Delete status function for current user
   void _deleteStatus() {
+    // Mark user as interacting with the app
+    _hasUserInteracted = true;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -282,6 +378,9 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
 
   // Navigate to user profile
   void _goToUserProfile() {
+    // Mark user as interacting with the app
+    _hasUserInteracted = true;
+    
     Navigator.pushNamed(
       context,
       Constants.profileScreen,
@@ -296,7 +395,10 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
       body: GestureDetector(
         onTap: widget.status.statusType == StatusType.video 
             ? _togglePlayPause 
-            : null,
+            : () {
+                // Mark user as interacting even for non-video taps
+                _hasUserInteracted = true;
+              },
         onDoubleTap: _handleDoubleTap, // Add double-tap handler
         onLongPress: widget.isCurrentUser ? _deleteStatus : null,
         child: Stack(
@@ -337,7 +439,7 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
             // Progress indicator
             if (widget.status.statusType == StatusType.video && 
                 _videoController != null && 
-                _videoController!.value.isInitialized)
+                _isVideoInitialized)
               Positioned(
                 top: MediaQuery.of(context).padding.top,
                 left: 0,
@@ -451,7 +553,7 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
         );
         
       case StatusType.video:
-        if (_videoController != null && _videoController!.value.isInitialized) {
+        if (_videoController != null && _isVideoInitialized) {
           return FittedBox(
             fit: BoxFit.cover,
             child: SizedBox(

@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
-import 'package:textgb/features/status/widgets/status_feed_item.dart';
 import 'package:textgb/features/status/widgets/feed_loading_indicator.dart';
+import 'package:textgb/features/status/widgets/lazy_status_item.dart';
 import 'package:textgb/features/status/widgets/no_status_placeholder.dart';
 import 'package:textgb/models/status_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
@@ -20,6 +20,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
   final PageController _pageController = PageController();
   bool _isLoading = true;
   int _currentIndex = 0;
+  List<StatusModel> _statusList = []; // Local cache of status list
 
   @override
   bool get wantKeepAlive => true;
@@ -71,23 +72,40 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
     }
   }
 
+  // Optimized status loading
   Future<void> _loadStatusFeed() async {
-    setState(() {
-      _isLoading = true;
-    });
+    // Only show loading indicator if the list is empty
+    if (_statusList.isEmpty) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     final currentUserId = context.read<AuthenticationProvider>().userModel!.uid;
     final contactIds = context.read<AuthenticationProvider>().userModel!.contactsUIDs;
 
-    // Initialize the status provider and fetch status posts
-    await context.read<StatusProvider>().fetchStatuses(
-      currentUserId: currentUserId,
-      contactIds: contactIds,
-    );
-
-    setState(() {
-      _isLoading = false;
-    });
+    try {
+      // Initialize the status provider and fetch status posts
+      await context.read<StatusProvider>().fetchStatuses(
+        currentUserId: currentUserId,
+        contactIds: contactIds,
+      );
+      
+      // Update local cache
+      if (mounted) {
+        setState(() {
+          _statusList = context.read<StatusProvider>().statusList;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading status feed: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   // Handle page change when swiping through statuses
@@ -97,9 +115,8 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
     });
     
     // Mark status as viewed
-    final statusList = context.read<StatusProvider>().statusList;
-    if (statusList.isNotEmpty && index < statusList.length) {
-      final status = statusList[index];
+    if (_statusList.isNotEmpty && index < _statusList.length) {
+      final status = _statusList[index];
       context.read<StatusProvider>().markStatusAsViewed(status.statusId);
     }
   }
@@ -145,13 +162,14 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                     pageSnapping: true, // Ensure proper snapping
                     itemBuilder: (context, index) {
                       final status = statusList[index];
-                      return StatusFeedItem(
-                        key: ValueKey(status.statusId), // Key for better widget identity
+                      // Use LazyStatusItem instead of StatusFeedItem directly
+                      return LazyStatusItem(
+                        key: ValueKey(status.statusId),
                         status: status,
                         isCurrentUser: status.uid == authProvider.userModel!.uid,
                         currentIndex: _currentIndex,
                         index: index,
-                        isVisible: isTabVisible, // Pass visibility flag
+                        isVisible: isTabVisible,
                       );
                     },
                   ),
