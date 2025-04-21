@@ -17,7 +17,7 @@ class StatusScreen extends StatefulWidget {
   State<StatusScreen> createState() => _StatusScreenState();
 }
 
-class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClientMixin {
+class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final PageController _pageController = PageController();
   bool _isLoading = true;
   int _currentIndex = 0;
@@ -28,7 +28,28 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
   @override
   void initState() {
     super.initState();
-    _loadStatusFeed();
+    WidgetsBinding.instance.addObserver(this);
+    // Delay loading to ensure the widget is fully initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStatusFeed();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // This triggers when the tab becomes visible again
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      _loadStatusFeed();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Reload statuses when app comes back to foreground
+    if (state == AppLifecycleState.resumed) {
+      _loadStatusFeed();
+    }
   }
 
   Future<void> _loadStatusFeed() async {
@@ -93,7 +114,10 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
         ),
         actions: [
           CreateStatusButton(onPressed: () {
-            Navigator.pushNamed(context, Constants.createStatusScreen);
+            Navigator.pushNamed(context, Constants.createStatusScreen).then((_) {
+              // Refresh feed when returning from create status screen
+              _loadStatusFeed();
+            });
           }),
         ],
       ),
@@ -135,6 +159,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
   @override
   void dispose() {
     _pageController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 }

@@ -18,7 +18,7 @@ class StatusProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _hasMoreStatuses = true;
   String? _lastStatusId;
-  int _batchSize = 10;
+  int _batchSize = 15; // Increased batch size for better initial load
 
   // Getters
   List<StatusModel> get statusList => _statusList;
@@ -47,15 +47,12 @@ class StatusProvider extends ChangeNotifier {
         return;
       }
 
-      // Include user's own statuses and their contacts' statuses
-      final List<String> allUserIds = [currentUserId, ...contactIds];
-      
       // Calculate expiration time (72 hours ago)
       final expirationTime = DateTime.now().subtract(const Duration(hours: 72));
       
-      // Create the base query
+      // Create the base query - fetch ALL statuses, not just from contacts
+      // We'll sort by createdAt in descending order (newest first)
       Query query = _firestore.collection('statuses')
-          .where('uid', whereIn: allUserIds)
           .where('createdAt', isGreaterThan: expirationTime.millisecondsSinceEpoch)
           .orderBy('createdAt', descending: true)
           .limit(_batchSize);

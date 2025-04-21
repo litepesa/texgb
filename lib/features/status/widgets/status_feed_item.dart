@@ -29,16 +29,21 @@ class StatusFeedItem extends StatefulWidget {
   State<StatusFeedItem> createState() => _StatusFeedItemState();
 }
 
-class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProviderStateMixin {
+class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _animationController;
   VideoPlayerController? _videoController;
   bool _isPlaying = false;
   bool _isMuted = true;
   double _progress = 0.0;
+  bool _isCurrentlyActive = false;
+  bool _isAppInForeground = true;
   
   @override
   void initState() {
     super.initState();
+    
+    // Add observer to detect app lifecycle changes
+    WidgetsBinding.instance.addObserver(this);
     
     // Initialize animation controller
     _animationController = AnimationController(
@@ -46,40 +51,72 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
       duration: const Duration(milliseconds: 300),
     );
     
+    // Check if this is the current status
+    _isCurrentlyActive = widget.currentIndex == widget.index;
+    
     // Initialize video controller if it's a video status
     if (widget.status.statusType == StatusType.video) {
       _initializeVideoController();
     }
   }
   
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Handle app lifecycle changes
+    if (state == AppLifecycleState.resumed) {
+      _isAppInForeground = true;
+      // Only play if this is the current status and app is in foreground
+      if (_isCurrentlyActive && widget.status.statusType == StatusType.video) {
+        _playVideo();
+      }
+    } else {
+      _isAppInForeground = false;
+      // Pause video when app goes to background
+      if (widget.status.statusType == StatusType.video) {
+        _pauseVideo();
+      }
+    }
+  }
+  
   Future<void> _initializeVideoController() async {
     if (widget.status.statusUrl.isNotEmpty) {
       _videoController = VideoPlayerController.network(widget.status.statusUrl);
-      await _videoController!.initialize();
       
-      // Set up listeners for video progress
-      _videoController!.addListener(() {
-        if (mounted) {
-          setState(() {
-            _isPlaying = _videoController!.value.isPlaying;
-            
-            if (_videoController!.value.duration.inMilliseconds > 0) {
-              _progress = _videoController!.value.position.inMilliseconds /
-                  _videoController!.value.duration.inMilliseconds;
-            }
-          });
+      // Add try-catch to handle network errors
+      try {
+        await _videoController!.initialize();
+        
+        // Set up listeners for video progress
+        _videoController!.addListener(() {
+          if (mounted) {
+            setState(() {
+              _isPlaying = _videoController!.value.isPlaying;
+              
+              if (_videoController!.value.duration.inMilliseconds > 0) {
+                _progress = _videoController!.value.position.inMilliseconds /
+                    _videoController!.value.duration.inMilliseconds;
+              }
+            });
+          }
+        });
+        
+        // Set initial mute state
+        _videoController!.setVolume(_isMuted ? 0.0 : 1.0);
+        
+        // Auto-play when this status becomes active and app is in foreground
+        if (_isCurrentlyActive && _isAppInForeground) {
+          _playVideo();
         }
-      });
-      
-      // Auto-play when this status becomes active
-      if (widget.currentIndex == widget.index) {
-        _playVideo();
+      } catch (e) {
+        debugPrint('Error initializing video: $e');
       }
     }
   }
   
   void _playVideo() {
-    if (_videoController != null && !_videoController!.value.isPlaying) {
+    if (_videoController != null && 
+        _videoController!.value.isInitialized && 
+        !_videoController!.value.isPlaying) {
       _videoController!.play();
       _videoController!.setLooping(true);
       setState(() {
@@ -89,7 +126,9 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   }
   
   void _pauseVideo() {
-    if (_videoController != null && _videoController!.value.isPlaying) {
+    if (_videoController != null && 
+        _videoController!.value.isInitialized && 
+        _videoController!.value.isPlaying) {
       _videoController!.pause();
       setState(() {
         _isPlaying = false;
@@ -98,7 +137,7 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   }
   
   void _togglePlayPause() {
-    if (_videoController != null) {
+    if (_videoController != null && _videoController!.value.isInitialized) {
       if (_videoController!.value.isPlaying) {
         _pauseVideo();
       } else {
@@ -108,7 +147,7 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   }
   
   void _toggleMute() {
-    if (_videoController != null) {
+    if (_videoController != null && _videoController!.value.isInitialized) {
       setState(() {
         _isMuted = !_isMuted;
         _videoController!.setVolume(_isMuted ? 0.0 : 1.0);
@@ -120,32 +159,44 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   void didUpdateWidget(StatusFeedItem oldWidget) {
     super.didUpdateWidget(oldWidget);
     
-    // Handle video playback when scrolling
-    if (widget.currentIndex == widget.index) {
-      // This is the active status
+    // Check if the active status has changed
+    final isNowActive = widget.currentIndex == widget.index;
+    
+    // Only perform actions if the active state has changed
+    if (isNowActive != _isCurrentlyActive) {
+      _isCurrentlyActive = isNowActive;
+      
+      // Handle video playback when scrolling
       if (widget.status.statusType == StatusType.video && _videoController != null) {
-        _playVideo();
+        if (isNowActive && _isAppInForeground) {
+          // This is now the active status - play video
+          _playVideo();
+          // Trigger appear animation
+          _animationController.forward();
+        } else {
+          // This is no longer the active status - pause video
+          _pauseVideo();
+          // Trigger disappear animation
+          _animationController.reverse();
+        }
       }
-      
-      // Trigger appear animation
-      _animationController.forward();
-    } else if (oldWidget.currentIndex == widget.index) {
-      // This status is no longer active
-      if (widget.status.statusType == StatusType.video) {
-        _pauseVideo();
-      }
-      
-      // Trigger disappear animation
-      _animationController.reverse();
     }
   }
   
   @override
   void dispose() {
+    // Remove the observer
+    WidgetsBinding.instance.removeObserver(this);
+    
+    // Dispose of the animation controller
     _animationController.dispose();
+    
+    // Properly dispose of the video controller
     if (_videoController != null) {
+      _videoController!.removeListener(() {});
       _videoController!.dispose();
     }
+    
     super.dispose();
   }
 
@@ -185,8 +236,6 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final bool isCurrentlyActive = widget.currentIndex == widget.index;
-    
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
@@ -214,7 +263,9 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
             ),
             
             // Progress indicator
-            if (widget.status.statusType == StatusType.video && _videoController != null)
+            if (widget.status.statusType == StatusType.video && 
+                _videoController != null && 
+                _videoController!.value.isInitialized)
               Positioned(
                 top: MediaQuery.of(context).padding.top,
                 left: 0,

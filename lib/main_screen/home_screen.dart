@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/status/widgets/custom_icon.dart';
+import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/main_screen/create_group_screen.dart';
 import 'package:textgb/main_screen/groups_screen.dart';
 import 'package:textgb/main_screen/my_chats_screen.dart';
@@ -28,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen>
   final Widget chatScreen = const MyChatsScreen();
   final Widget groupScreen = const GroupsScreen();
   final Widget cameraScreen = const CreateStatusScreen();
-  final Widget StatusScreen = const StatusScreen();
+  final Widget statusScreen = const StatusScreen();  // Correctly referencing StatusScreen
   final Widget profileScreen = const EnhancedProfileScreen();
   
   // We'll define these in initState to ensure they match our bottom nav bar
@@ -41,11 +43,11 @@ class _HomeScreenState extends State<HomeScreen>
     
     // Initialize pages list to match the order of our bottom nav bar items
     pages = [
-      chatScreen,          // Index 0 - Chats
-      groupScreen,         // Index 1 - Groups
-      cameraScreen,        // Index 2 - Camera (custom icon)
-      StatusScreen,    // Index 3 - TikTok-style Feed (was Moments)
-      profileScreen,       // Index 4 - Profile
+      chatScreen,        // Index 0 - Chats
+      groupScreen,       // Index 1 - Groups
+      cameraScreen,      // Index 2 - Camera (custom icon)
+      statusScreen,      // Index 3 - Status Feed
+      profileScreen,     // Index 4 - Profile
     ];
   }
 
@@ -64,6 +66,10 @@ class _HomeScreenState extends State<HomeScreen>
         context.read<AuthenticationProvider>().updateUserStatus(
               value: true,
             );
+        // Refresh status feed when app is resumed
+        if (pageIndex == 3) {
+          _refreshStatusFeed();
+        }
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
@@ -80,6 +86,18 @@ class _HomeScreenState extends State<HomeScreen>
         break;
     }
     super.didChangeAppLifecycleState(state);
+  }
+
+  // Function to refresh status feed
+  void _refreshStatusFeed() {
+    final currentUserId = context.read<AuthenticationProvider>().userModel!.uid;
+    final contactIds = context.read<AuthenticationProvider>().userModel!.contactsUIDs;
+    
+    // Fetch statuses
+    context.read<StatusProvider>().fetchStatuses(
+      currentUserId: currentUserId,
+      contactIds: contactIds,
+    );
   }
 
   @override
@@ -163,16 +181,18 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         child: BottomNavigationBar(
           onTap: (index) {
+            // If switching FROM status tab, ensure videos are paused
+            if (pageIndex == 3 && index != 3) {
+              // We don't need to explicitly pause videos here as we handle this in the StatusFeedItem widget
+            }
+            
             setState(() {
               pageIndex = index;
             });
             
-            // If moments tab is selected, refresh moments data
+            // If status tab is selected, refresh status data
             if (index == 3) {
-              context.read<StatusProvider>().fetchMoments(
-                currentUserId: context.read<AuthenticationProvider>().userModel!.uid,
-                contactIds: context.read<AuthenticationProvider>().userModel!.contactsUIDs,
-              );
+              _refreshStatusFeed();
             }
           },
           type: BottomNavigationBarType.fixed,
@@ -215,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen>
             BottomNavigationBarItem(
               icon: Icon(CupertinoIcons.camera, size: 28),
               activeIcon: Icon(CupertinoIcons.camera_fill, size: 28),
-              label: 'Moments',
+              label: 'Status',  // Renamed for clarity
             ),
             BottomNavigationBarItem(
               icon: Icon(CupertinoIcons.person, size: 28),
@@ -263,6 +283,23 @@ class _HomeScreenState extends State<HomeScreen>
         },
         backgroundColor: accentColor,
         elevation: 4.0, // Increased elevation for better visibility
+        child: const Icon(CupertinoIcons.add, size: 28),
+      );
+    }
+    // Status creation button for Status tab
+    else if (pageIndex == 3) {
+      return FloatingActionButton(
+        onPressed: () {
+          Navigator.pushNamed(
+            context,
+            Constants.createStatusScreen,
+          ).then((_) {
+            // Refresh status feed when returning from create status screen
+            _refreshStatusFeed();
+          });
+        },
+        backgroundColor: accentColor,
+        elevation: 4.0,
         child: const Icon(CupertinoIcons.add, size: 28),
       );
     }
