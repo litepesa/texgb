@@ -31,6 +31,9 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
     // Delay loading to ensure the widget is fully initialized
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadStatusFeed();
+      
+      // Set the status tab as visible when it's initialized
+      context.read<StatusProvider>().setStatusTabVisible(true);
     });
   }
 
@@ -40,6 +43,11 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
     // This triggers when the tab becomes visible again
     if (ModalRoute.of(context)?.isCurrent ?? false) {
       _loadStatusFeed();
+      
+      // Mark the status tab as visible
+      if (mounted) {
+        context.read<StatusProvider>().setStatusTabVisible(true);
+      }
     }
   }
 
@@ -48,6 +56,18 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
     // Reload statuses when app comes back to foreground
     if (state == AppLifecycleState.resumed) {
       _loadStatusFeed();
+      
+      // Mark the status tab as visible when app resumes
+      if (mounted) {
+        context.read<StatusProvider>().setStatusTabVisible(true);
+      }
+    } else if (state == AppLifecycleState.paused || 
+              state == AppLifecycleState.inactive ||
+              state == AppLifecycleState.detached) {
+      // Mark tab as invisible when app goes to background
+      if (mounted) {
+        context.read<StatusProvider>().setStatusTabVisible(false);
+      }
     }
   }
 
@@ -103,9 +123,10 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
       // No app bar for a more immersive experience
       body: _isLoading 
           ? FeedLoadingIndicator()
-          : Consumer<StatusProvider>(
-              builder: (context, statusProvider, _) {
+          : Consumer2<StatusProvider, AuthenticationProvider>(
+              builder: (context, statusProvider, authProvider, _) {
                 final statusList = statusProvider.statusList;
+                final isTabVisible = statusProvider.isStatusTabVisible;
                 
                 if (statusList.isEmpty) {
                   return NoStatusPlaceholder(
@@ -120,13 +141,17 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                     scrollDirection: Axis.vertical,
                     onPageChanged: _onPageChanged,
                     itemCount: statusList.length,
+                    physics: const BouncingScrollPhysics(), // Smoother scrolling
+                    pageSnapping: true, // Ensure proper snapping
                     itemBuilder: (context, index) {
                       final status = statusList[index];
                       return StatusFeedItem(
+                        key: ValueKey(status.statusId), // Key for better widget identity
                         status: status,
-                        isCurrentUser: status.uid == context.read<AuthenticationProvider>().userModel!.uid,
+                        isCurrentUser: status.uid == authProvider.userModel!.uid,
                         currentIndex: _currentIndex,
                         index: index,
+                        isVisible: isTabVisible, // Pass visibility flag
                       );
                     },
                   ),

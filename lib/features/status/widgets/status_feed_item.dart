@@ -16,6 +16,7 @@ class StatusFeedItem extends StatefulWidget {
   final bool isCurrentUser;
   final int currentIndex;
   final int index;
+  final bool isVisible; // New parameter for visibility
 
   const StatusFeedItem({
     Key? key,
@@ -23,6 +24,7 @@ class StatusFeedItem extends StatefulWidget {
     required this.isCurrentUser,
     required this.currentIndex,
     required this.index,
+    this.isVisible = true, // Default to true
   }) : super(key: key);
 
   @override
@@ -33,10 +35,11 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   late AnimationController _animationController;
   VideoPlayerController? _videoController;
   bool _isPlaying = false;
-  bool _isMuted = true;
+  bool _isMuted = false; // Changed from true to make videos start unmuted
   double _progress = 0.0;
   bool _isCurrentlyActive = false;
   bool _isAppInForeground = true;
+  bool _showHeartAnimation = false; // For double-tap animation
   
   @override
   void initState() {
@@ -65,8 +68,8 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     // Handle app lifecycle changes
     if (state == AppLifecycleState.resumed) {
       _isAppInForeground = true;
-      // Only play if this is the current status and app is in foreground
-      if (_isCurrentlyActive && widget.status.statusType == StatusType.video) {
+      // Only play if this is the current status and app is in foreground AND tab is visible
+      if (_isCurrentlyActive && widget.isVisible && widget.status.statusType == StatusType.video) {
         _playVideo();
       }
     } else {
@@ -100,11 +103,11 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
           }
         });
         
-        // Set initial mute state
+        // Set initial volume (now unmuted by default)
         _videoController!.setVolume(_isMuted ? 0.0 : 1.0);
         
-        // Auto-play when this status becomes active and app is in foreground
-        if (_isCurrentlyActive && _isAppInForeground) {
+        // Auto-play when this status becomes active and app is in foreground AND tab is visible
+        if (_isCurrentlyActive && _isAppInForeground && widget.isVisible) {
           _playVideo();
         }
       } catch (e) {
@@ -116,7 +119,9 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   void _playVideo() {
     if (_videoController != null && 
         _videoController!.value.isInitialized && 
-        !_videoController!.value.isPlaying) {
+        !_videoController!.value.isPlaying &&
+        widget.isVisible && // Only play if tab is visible
+        _isAppInForeground) {
       _videoController!.play();
       _videoController!.setLooping(true);
       setState(() {
@@ -155,6 +160,21 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     }
   }
   
+  // Handle double-tap like animation
+  void _handleDoubleTap() {
+    setState(() {
+      _showHeartAnimation = true;
+    });
+    
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        setState(() {
+          _showHeartAnimation = false;
+        });
+      }
+    });
+  }
+  
   @override
   void didUpdateWidget(StatusFeedItem oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -168,8 +188,8 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
       
       // Handle video playback when scrolling
       if (widget.status.statusType == StatusType.video && _videoController != null) {
-        if (isNowActive && _isAppInForeground) {
-          // This is now the active status - play video
+        if (isNowActive && _isAppInForeground && widget.isVisible) {
+          // This is now the active status - play video only if tab is visible
           _playVideo();
           // Trigger appear animation
           _animationController.forward();
@@ -181,12 +201,47 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
         }
       }
     }
+    
+    // Check if visibility has changed
+    if (widget.isVisible != oldWidget.isVisible) {
+      if (!widget.isVisible) {
+        // Tab has been hidden, pause video
+        _pauseVideo();
+      } else if (widget.isVisible && _isCurrentlyActive && _isAppInForeground) {
+        // Tab has become visible and this is active status, play video
+        _playVideo();
+      }
+    }
+  }
+  
+  // Ensure video is stopped in various scenarios
+  void _ensureVideoStopped() {
+    if (_videoController != null && 
+        _videoController!.value.isInitialized && 
+        _videoController!.value.isPlaying) {
+      _pauseVideo();
+    }
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Check if route is still active
+    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? false;
+    if (!isCurrentRoute) {
+      // Not on current route, ensure video is stopped
+      _ensureVideoStopped();
+    }
   }
   
   @override
   void dispose() {
     // Remove the observer
     WidgetsBinding.instance.removeObserver(this);
+    
+    // Ensure video is stopped before disposing
+    _ensureVideoStopped();
     
     // Dispose of the animation controller
     _animationController.dispose();
@@ -242,12 +297,29 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
         onTap: widget.status.statusType == StatusType.video 
             ? _togglePlayPause 
             : null,
+        onDoubleTap: _handleDoubleTap, // Add double-tap handler
         onLongPress: widget.isCurrentUser ? _deleteStatus : null,
         child: Stack(
           fit: StackFit.expand,
           children: [
             // Status content
             _buildStatusContent(),
+            
+            // Heart animation on double-tap
+            if (_showHeartAnimation)
+              Positioned.fill(
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _showHeartAnimation ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      Icons.favorite,
+                      color: Colors.white,
+                      size: 120,
+                    ),
+                  ),
+                ),
+              ),
             
             // User info at top
             Positioned(
@@ -273,28 +345,36 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
                 child: StatusProgressIndicator(progress: _progress),
               ),
             
-            // Caption
+            // Enhanced caption with background
             if (widget.status.caption.isNotEmpty)
               Positioned(
                 left: 16,
                 right: 80, // Make room for action buttons
-                bottom: 50,
-                child: Text(
-                  widget.status.caption,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    shadows: [
-                      Shadow(
-                        offset: Offset(1, 1),
-                        blurRadius: 3,
-                        color: Colors.black45,
-                      ),
-                    ],
+                bottom: 60, // Moved up a bit for better visibility
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3), // Semi-transparent background
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                  child: Text(
+                    widget.status.caption,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      height: 1.3, // Better line height
+                      shadows: [
+                        Shadow(
+                          offset: Offset(1, 1),
+                          blurRadius: 3,
+                          color: Colors.black45,
+                        ),
+                      ],
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             
@@ -318,23 +398,35 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
               bottom: 20,
               left: 0,
               right: 0,
-              child: Center(
-                child: Column(
-                  children: const [
-                    Icon(
-                      Icons.keyboard_arrow_up,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Swipe up for next',
-                      style: TextStyle(
+              child: AnimatedOpacity(
+                opacity: _isCurrentlyActive ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: Center(
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.keyboard_arrow_up,
                         color: Colors.white,
-                        fontSize: 12,
+                        size: 24,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.4),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Text(
+                          'Swipe up for next',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

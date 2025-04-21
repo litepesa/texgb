@@ -11,10 +11,10 @@ class StatusProgressIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 3,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
+      height: 4, // Increased from 3 for better visibility
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Added vertical margin
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(1.5),
+        borderRadius: BorderRadius.circular(2), // Increased for smoother look
         child: LinearProgressIndicator(
           value: progress.clamp(0.0, 1.0),
           backgroundColor: Colors.white.withOpacity(0.3),

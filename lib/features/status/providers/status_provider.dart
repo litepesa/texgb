@@ -19,11 +19,19 @@ class StatusProvider extends ChangeNotifier {
   bool _hasMoreStatuses = true;
   String? _lastStatusId;
   int _batchSize = 15; // Increased batch size for better initial load
+  bool _isStatusTabVisible = true; // New property for tab visibility
 
   // Getters
   List<StatusModel> get statusList => _statusList;
   bool get isLoading => _isLoading;
   bool get hasMoreStatuses => _hasMoreStatuses;
+  bool get isStatusTabVisible => _isStatusTabVisible; // New getter
+
+  // Tab visibility setter
+  void setStatusTabVisible(bool visible) {
+    _isStatusTabVisible = visible;
+    notifyListeners();
+  }
 
   // FETCH STATUSES
   Future<void> fetchStatuses({

@@ -69,6 +69,8 @@ class _HomeScreenState extends State<HomeScreen>
         // Refresh status feed when app is resumed
         if (pageIndex == 3) {
           _refreshStatusFeed();
+          // Set status tab visibility to true when app resumes on status tab
+          context.read<StatusProvider>().setStatusTabVisible(true);
         }
         break;
       case AppLifecycleState.inactive:
@@ -80,6 +82,10 @@ class _HomeScreenState extends State<HomeScreen>
         context.read<AuthenticationProvider>().updateUserStatus(
               value: false,
             );
+        // Set status tab visibility to false when app is in background
+        if (pageIndex == 3) {
+          context.read<StatusProvider>().setStatusTabVisible(false);
+        }
         break;
       default:
         // handle other states
@@ -181,9 +187,13 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         child: BottomNavigationBar(
           onTap: (index) {
-            // If switching FROM status tab, ensure videos are paused
+            // If switching FROM status tab, ensure videos are paused by setting visibility flag
             if (pageIndex == 3 && index != 3) {
-              // We don't need to explicitly pause videos here as we handle this in the StatusFeedItem widget
+              // We're switching away from status tab
+              context.read<StatusProvider>().setStatusTabVisible(false);
+            } else if (index == 3 && pageIndex != 3) {
+              // We're switching TO status tab, set visibility to true
+              context.read<StatusProvider>().setStatusTabVisible(true);
             }
             
             setState(() {

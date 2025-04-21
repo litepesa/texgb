@@ -100,34 +100,35 @@ class StatusActionButtons extends StatelessWidget {
         GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 48,
-            height: 48,
+            width: 52, // Increased from 48
+            height: 52, // Increased from 48
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withOpacity(0.4), // Slightly more opaque
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-                width: 1,
+                color: Colors.white.withOpacity(0.3), // More visible border
+                width: 1.5, // Thicker border
               ),
             ),
             child: Icon(
               icon,
               color: Colors.white,
-              size: 24,
+              size: 26, // Slightly larger icon
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6), // Increased spacing
         Text(
           label,
           style: const TextStyle(
             color: Colors.white,
             fontSize: 12,
+            fontWeight: FontWeight.w500, // Slightly bolder
             shadows: [
               Shadow(
                 offset: Offset(1, 1),
-                blurRadius: 2,
-                color: Colors.black45,
+                blurRadius: 3, // Increased blur radius
+                color: Colors.black54, // Darker shadow
               ),
             ],
           ),
@@ -142,14 +143,14 @@ class StatusActionButtons extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 48,
-          height: 48,
+          width: 52, // Increased from 48
+          height: 52, // Increased from 48
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withOpacity(0.4), // More opaque for visibility
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
+              color: Colors.white.withOpacity(0.3), // More visible border
+              width: 1.5, // Thicker border
             ),
           ),
           child: Center(
@@ -163,17 +164,18 @@ class StatusActionButtons extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6), // Increased spacing
         const Text(
           'Views',
           style: TextStyle(
             color: Colors.white,
             fontSize: 12,
+            fontWeight: FontWeight.w500, // Slightly bolder
             shadows: [
               Shadow(
                 offset: Offset(1, 1),
-                blurRadius: 2,
-                color: Colors.black45,
+                blurRadius: 3, // Increased blur radius
+                color: Colors.black54, // Darker shadow
               ),
             ],
           ),
