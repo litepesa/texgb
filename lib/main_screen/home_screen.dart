@@ -286,23 +286,8 @@ class _HomeScreenState extends State<HomeScreen>
         child: const Icon(CupertinoIcons.add, size: 28),
       );
     }
-    // Status creation button for Status tab
-    else if (pageIndex == 3) {
-      return FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(
-            context,
-            Constants.createStatusScreen,
-          ).then((_) {
-            // Refresh status feed when returning from create status screen
-            _refreshStatusFeed();
-          });
-        },
-        backgroundColor: accentColor,
-        elevation: 4.0,
-        child: const Icon(CupertinoIcons.add, size: 28),
-      );
-    }
+    // No FAB for Status tab - removed as requested
+    
     // No FAB for other tabs
     return null;
   }

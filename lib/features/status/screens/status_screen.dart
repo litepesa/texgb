@@ -4,7 +4,6 @@ import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/widgets/status_feed_item.dart';
-import 'package:textgb/features/status/widgets/create_status_button.dart';
 import 'package:textgb/features/status/widgets/feed_loading_indicator.dart';
 import 'package:textgb/features/status/widgets/no_status_placeholder.dart';
 import 'package:textgb/models/status_model.dart';
@@ -101,26 +100,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
     return Scaffold(
       backgroundColor: backgroundColor,
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Status',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        actions: [
-          CreateStatusButton(onPressed: () {
-            Navigator.pushNamed(context, Constants.createStatusScreen).then((_) {
-              // Refresh feed when returning from create status screen
-              _loadStatusFeed();
-            });
-          }),
-        ],
-      ),
+      // No app bar for a more immersive experience
       body: _isLoading 
           ? FeedLoadingIndicator()
           : Consumer<StatusProvider>(
