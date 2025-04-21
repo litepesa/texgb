@@ -4,18 +4,17 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/providers/moments_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:video_player/video_player.dart';
 
-class CreateMomentScreen extends StatefulWidget {
-  const CreateMomentScreen({Key? key}) : super(key: key);
+class CreateStatusScreen extends StatefulWidget {
+  const CreateStatusScreen({Key? key}) : super(key: key);
 
   @override
-  State<CreateMomentScreen> createState() => _CreateMomentScreenState();
+  State<CreateStatusScreen> createState() => _CreateStatusScreenState();
 }
 
-class _CreateMomentScreenState extends State<CreateMomentScreen> {
+class _CreateStatusScreenState extends State<CreateStatusScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<File> _selectedMedia = [];
   final List<bool> _isVideoList = [];
@@ -129,7 +128,7 @@ class _CreateMomentScreenState extends State<CreateMomentScreen> {
       return;
     }
     
-    final momentsProvider = context.read<MomentsProvider>();
+    final momentsProvider = context.read<StatusProvider>();
     final currentUser = context.read<AuthenticationProvider>().userModel!;
     
     await momentsProvider.uploadMoment(
@@ -159,7 +158,7 @@ class _CreateMomentScreenState extends State<CreateMomentScreen> {
         centerTitle: true,
         actions: [
           TextButton(
-            onPressed: context.watch<MomentsProvider>().isUploading 
+            onPressed: context.watch<StatusProvider>().isUploading 
                 ? null 
                 : _publishMoment,
             child: const Text('Post'),
@@ -256,7 +255,7 @@ class _CreateMomentScreenState extends State<CreateMomentScreen> {
           ),
           
           // Loading overlay
-          if (context.watch<MomentsProvider>().isUploading)
+          if (context.watch<StatusProvider>().isUploading)
             Positioned.fill(
               child: Container(
                 color: Colors.black.withOpacity(0.5),

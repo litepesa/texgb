@@ -2,15 +2,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/status/screens/create_moment_screen.dart';
-import 'package:textgb/features/status/screens/tiktok_feed_screen.dart';
+import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/status/widgets/custom_icon.dart';
 import 'package:textgb/main_screen/create_group_screen.dart';
 import 'package:textgb/main_screen/groups_screen.dart';
 import 'package:textgb/main_screen/my_chats_screen.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/group_provider.dart';
-import 'package:textgb/providers/moments_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:textgb/main_screen/enhanced_profile_screen.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
@@ -29,8 +27,8 @@ class _HomeScreenState extends State<HomeScreen>
   // Creating separate widget variables to ensure we're using the correct screens
   final Widget chatScreen = const MyChatsScreen();
   final Widget groupScreen = const GroupsScreen();
-  final Widget cameraScreen = const CreateMomentScreen();
-  final Widget tikTokFeedScreen = const TikTokFeedScreen();
+  final Widget cameraScreen = const CreateStatusScreen();
+  final Widget StatusScreen = const StatusScreen();
   final Widget profileScreen = const EnhancedProfileScreen();
   
   // We'll define these in initState to ensure they match our bottom nav bar
@@ -46,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen>
       chatScreen,          // Index 0 - Chats
       groupScreen,         // Index 1 - Groups
       cameraScreen,        // Index 2 - Camera (custom icon)
-      tikTokFeedScreen,    // Index 3 - TikTok-style Feed (was Moments)
+      StatusScreen,    // Index 3 - TikTok-style Feed (was Moments)
       profileScreen,       // Index 4 - Profile
     ];
   }
@@ -171,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen>
             
             // If moments tab is selected, refresh moments data
             if (index == 3) {
-              context.read<MomentsProvider>().fetchMoments(
+              context.read<StatusProvider>().fetchMoments(
                 currentUserId: context.read<AuthenticationProvider>().userModel!.uid,
                 contactIds: context.read<AuthenticationProvider>().userModel!.contactsUIDs,
               );
