@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
-import 'package:textgb/features/tiktoks/widgets/moment_card.dart';
+import 'package:textgb/features/status/widgets/moment_card.dart';
 import 'package:textgb/models/moment_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';

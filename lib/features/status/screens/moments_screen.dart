@@ -1,31 +1,29 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/common/videoviewerscreen.dart';
-import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/status/screens/status_comments_screen.dart';
-import 'package:textgb/models/status_model.dart';
+import 'package:textgb/features/status/screens/create_moment_screen.dart';
+import 'package:textgb/features/status/screens/tiktok_comments_screen.dart';
+import 'package:textgb/models/moment_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/providers/status_provider.dart';
+import 'package:textgb/providers/moments_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:video_player/video_player.dart';
 
-class StatusScreen extends StatefulWidget {
-  const StatusScreen({Key? key}) : super(key: key);
+class MomentsScreen extends StatefulWidget {
+  const MomentsScreen({Key? key}) : super(key: key);
 
   @override
-  State<StatusScreen> createState() => _StatusScreenState();
+  State<MomentsScreen> createState() => _MomentsScreenState();
 }
 
-class _StatusScreenState extends State<StatusScreen> 
+class _MomentsScreenState extends State<MomentsScreen> 
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver, RouteAware {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   Map<int, VideoPlayerController> _videoControllers = {};
+  bool _isForYouSelected = true; // Track which feed is selected
   bool _isLoadingMore = false;
   bool _isVisible = true; // Track if screen is visible
   
@@ -45,8 +43,8 @@ class _StatusScreenState extends State<StatusScreen>
     // Register for app lifecycle changes
     WidgetsBinding.instance.addObserver(this);
     
-    // Ensure we have status posts to show on initial load
-    _initialLoadStatus();
+    // Ensure we have videos to show on initial load
+    _initialLoadMoments();
     
     // Add page listener to manage video playback
     _pageController.addListener(_pageListener);
@@ -91,7 +89,6 @@ class _StatusScreenState extends State<StatusScreen>
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
         // App is in background or inactive, pause all videos
         _pauseAllVideos();
         break;
@@ -167,20 +164,32 @@ class _StatusScreenState extends State<StatusScreen>
     }
   }
 
-  Future<void> _initialLoadStatus() async {
+  Future<void> _initialLoadMoments() async {
+    // This method ensures we have content for all users, even new ones
     final authProvider = context.read<AuthenticationProvider>();
-    final statusProvider = context.read<StatusProvider>();
+    final momentsProvider = context.read<MomentsProvider>();
     
     final currentUser = authProvider.userModel!;
     final contactIds = currentUser.contactsUIDs;
     
-    // Load user status feed including public posts
-    if (!statusProvider.initialFeedLoaded) {
-      await statusProvider.fetchStatusFeed(
+    // Set feed mode based on selection
+    momentsProvider.setFeedMode(
+      _isForYouSelected ? FeedMode.forYou : FeedMode.following
+    );
+    
+    // Always fetch the discovery feed first - this works even for new users with no contacts
+    if (!momentsProvider.initialDiscoveryLoaded) {
+      await momentsProvider.fetchVideoFeed(
         currentUserId: currentUser.uid,
         contactIds: contactIds,
       );
     }
+    
+    // Then fetch user's and contacts' moments in the background
+    momentsProvider.fetchMoments(
+      currentUserId: currentUser.uid,
+      contactIds: contactIds,
+    );
     
     // Initialize video controller for first visible item
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -194,14 +203,14 @@ class _StatusScreenState extends State<StatusScreen>
     });
   }
 
-  Future<void> _loadStatus() async {
-    final statusProvider = context.read<StatusProvider>();
-    if (statusProvider.isLoading) return;
+  Future<void> _loadMoments() async {
+    final momentsProvider = context.read<MomentsProvider>();
+    if (momentsProvider.isLoading) return;
     
     setState(() {
       // Use spinner only on first load
-      if (statusProvider.statusFeed.isEmpty) {
-        statusProvider.setLoading(true);
+      if (momentsProvider.currentFeed.isEmpty) {
+        momentsProvider.setLoading(true);
       }
     });
     
@@ -210,13 +219,27 @@ class _StatusScreenState extends State<StatusScreen>
       final currentUser = authProvider.userModel!;
       final contactIds = currentUser.contactsUIDs;
       
-      // Fetch status feed
-      await statusProvider.fetchStatusFeed(
+      // Set feed mode based on selection
+      momentsProvider.setFeedMode(
+        _isForYouSelected ? FeedMode.forYou : FeedMode.following
+      );
+      
+      // For For You feed, prioritize fetching video content
+      if (_isForYouSelected) {
+        // This will ensure we have content even for new users
+        await momentsProvider.fetchVideoFeed(
+          currentUserId: currentUser.uid,
+          contactIds: contactIds,
+        );
+      }
+      
+      // Also fetch regular moments in background
+      momentsProvider.fetchMoments(
         currentUserId: currentUser.uid,
         contactIds: contactIds,
       );
       
-      // Reset page controller to start
+      // Reset page controller to start when switching feeds
       if (_pageController.hasClients) {
         _pageController.jumpToPage(0);
       }
@@ -232,32 +255,32 @@ class _StatusScreenState extends State<StatusScreen>
       });
     } catch (e) {
       if (mounted) {
-        showSnackBar(context, 'Error loading status feed: $e');
+        showSnackBar(context, 'Error loading feed: $e');
       }
     } finally {
       if (mounted) {
-        statusProvider.setLoading(false);
+        momentsProvider.setLoading(false);
       }
     }
   }
 
   Future<void> _initializeVideoController(int index) async {
-    final statusProvider = context.read<StatusProvider>();
-    final statuses = statusProvider.statusFeed;
+    final momentsProvider = context.read<MomentsProvider>();
+    final moments = momentsProvider.currentFeed;
     
     // Skip if out of bounds
-    if (index < 0 || index >= statuses.length) return;
+    if (index < 0 || index >= moments.length) return;
     
-    final status = statuses[index];
+    final moment = moments[index];
     
-    // Only initialize if it's a video and has media URL
-    if (status.statusType == StatusType.video && status.statusUrl.isNotEmpty) {
+    // Only initialize if it's a video and has media URLs
+    if (moment.isVideo && moment.mediaUrls.isNotEmpty) {
       // Skip if controller already exists
       if (_videoControllers.containsKey(index)) return;
       
       try {
         final controller = VideoPlayerController.network(
-          status.statusUrl,
+          moment.mediaUrls[0],
           videoPlayerOptions: VideoPlayerOptions(
             mixWithOthers: false, // Better audio handling
           ),
@@ -351,17 +374,16 @@ class _StatusScreenState extends State<StatusScreen>
   }
   
   void _toggleLike(int index) {
-    final statusProvider = context.read<StatusProvider>();
-    final statuses = statusProvider.statusFeed;
-    if (index < 0 || index >= statuses.length) return;
+    final momentsProvider = context.read<MomentsProvider>();
+    final moments = momentsProvider.currentFeed;
+    if (index < 0 || index >= moments.length) return;
     
-    final status = statuses[index];
+    final moment = moments[index];
     final currentUserId = context.read<AuthenticationProvider>().userModel!.uid;
     
-    context.read<StatusProvider>().toggleLike(
-      statusId: status.statusId,
+    context.read<MomentsProvider>().toggleLike(
+      momentId: moment.momentId,
       userId: currentUserId,
-      statusOwnerUid: status.uid,
       onSuccess: () {},
       onError: (error) {
         showSnackBar(context, 'Error: $error');
@@ -370,11 +392,11 @@ class _StatusScreenState extends State<StatusScreen>
   }
   
   void _showComments(int index) {
-    final statusProvider = context.read<StatusProvider>();
-    final statuses = statusProvider.statusFeed;
-    if (index < 0 || index >= statuses.length) return;
+    final momentsProvider = context.read<MomentsProvider>();
+    final moments = momentsProvider.currentFeed;
+    if (index < 0 || index >= moments.length) return;
     
-    final status = statuses[index];
+    final moment = moments[index];
     
     // Pause current video if playing
     if (_videoControllers.containsKey(_currentPage)) {
@@ -414,7 +436,7 @@ class _StatusScreenState extends State<StatusScreen>
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
-                      '${status.comments.length} comments',
+                      '${moment.comments.length} comments',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -426,8 +448,8 @@ class _StatusScreenState extends State<StatusScreen>
                   
                   // Comments list with input field
                   Expanded(
-                    child: StatusCommentsScreen(
-                      status: status,
+                    child: TikTokCommentsScreen(
+                      moment: moment,
                       isBottomSheet: true,
                     ),
                   ),
@@ -470,15 +492,58 @@ class _StatusScreenState extends State<StatusScreen>
             showSnackBar(context, 'Search coming soon');
           },
         ),
-        title: const Text(
-          'Status',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isForYouSelected = false;
+                });
+                
+                // If switching from For You to Following, clean up controllers
+                for (final controller in _videoControllers.values) {
+                  controller.pause();
+                }
+                _videoControllers.clear();
+                
+                _loadMoments();
+              },
+              child: Text(
+                'Following',
+                style: TextStyle(
+                  color: _isForYouSelected ? Colors.white60 : Colors.white,
+                  fontSize: _isForYouSelected ? 16 : 17,
+                  fontWeight: _isForYouSelected ? FontWeight.normal : FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 20),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isForYouSelected = true;
+                });
+                
+                // If switching from Following to For You, clean up controllers
+                for (final controller in _videoControllers.values) {
+                  controller.pause();
+                }
+                _videoControllers.clear();
+                
+                _loadMoments();
+              },
+              child: Text(
+                'For You',
+                style: TextStyle(
+                  color: _isForYouSelected ? Colors.white : Colors.white60,
+                  fontSize: _isForYouSelected ? 17 : 16,
+                  fontWeight: _isForYouSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
         ),
-        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.camera_alt, color: Colors.white, size: 28),
@@ -486,26 +551,26 @@ class _StatusScreenState extends State<StatusScreen>
               Navigator.push(
                 context, 
                 MaterialPageRoute(
-                  builder: (context) => const CreateStatusScreen(),
+                  builder: (context) => const CreateMomentScreen(),
                 ),
-              ).then((_) => _loadStatus());
+              ).then((_) => _loadMoments());
             },
           ),
         ],
       ),
-      body: Consumer<StatusProvider>(
-        builder: (context, statusProvider, child) {
-          // Get the current feed
-          final statuses = statusProvider.statusFeed;
+      body: Consumer<MomentsProvider>(
+        builder: (context, momentsProvider, child) {
+          // Get the current feed based on selected tab
+          final moments = momentsProvider.currentFeed;
           
-          if (statusProvider.isLoading && statuses.isEmpty) {
+          if (momentsProvider.isLoading && moments.isEmpty) {
             return Center(
               child: CircularProgressIndicator(color: accentColor),
             );
           }
           
-          if (statuses.isEmpty) {
-            return _buildEmptyState(accentColor);
+          if (moments.isEmpty) {
+            return _buildEmptyState(accentColor, _isForYouSelected);
           }
           
           return Stack(
@@ -514,24 +579,23 @@ class _StatusScreenState extends State<StatusScreen>
               PageView.builder(
                 controller: _pageController,
                 scrollDirection: Axis.vertical,
-                itemCount: statuses.length,
+                itemCount: moments.length,
                 itemBuilder: (context, index) {
-                  final status = statuses[index];
+                  final moment = moments[index];
                   
-                  // Mark status as viewed if it's not the current user's
-                  if (status.uid != currentUser.uid && !status.viewedBy.contains(currentUser.uid)) {
-                    statusProvider.markStatusAsViewed(
-                      statusId: status.statusId,
+                  // Mark moment as viewed if it's not the current user's
+                  if (moment.uid != currentUser.uid && !moment.viewedBy.contains(currentUser.uid)) {
+                    momentsProvider.markMomentAsViewed(
+                      momentId: moment.momentId,
                       userId: currentUser.uid,
-                      statusOwnerUid: status.uid,
                     );
                   }
                   
-                  return _buildStatusItem(index, status, currentUser.uid);
+                  return _buildMomentItem(index, moment, currentUser.uid);
                 },
                 onPageChanged: (index) {
                   // Load more content when we're close to the end
-                  if (index >= statuses.length - 5 && !_isLoadingMore && !statusProvider.isLoading) {
+                  if (index >= moments.length - 5 && !_isLoadingMore && !momentsProvider.isLoading) {
                     _loadMoreContent();
                   }
                 },
@@ -563,7 +627,7 @@ class _StatusScreenState extends State<StatusScreen>
                           ),
                           const SizedBox(width: 10),
                           const Text(
-                            'Loading more...',
+                            'Loading more videos...',
                             style: TextStyle(color: Colors.white),
                           ),
                         ],
@@ -585,15 +649,20 @@ class _StatusScreenState extends State<StatusScreen>
     });
     
     try {
-      final statusProvider = context.read<StatusProvider>();
+      final momentsProvider = context.read<MomentsProvider>();
       final authProvider = context.read<AuthenticationProvider>();
       final currentUser = authProvider.userModel!;
       
-      // Load more status posts
-      await statusProvider.fetchMoreStatusPosts(
-        currentUserId: currentUser.uid,
-        contactIds: currentUser.contactsUIDs,
-      );
+      // Load more videos for the For You feed
+      if (_isForYouSelected) {
+        await momentsProvider.fetchVideoFeed(
+          currentUserId: currentUser.uid,
+          contactIds: currentUser.contactsUIDs,
+        );
+      }
+      
+      // For the Following feed, we just make sure all contacts' content is loaded
+      // This is typically handled by the initial load already
     } catch (e) {
       print('Error loading more content: $e');
     } finally {
@@ -605,19 +674,55 @@ class _StatusScreenState extends State<StatusScreen>
     }
   }
   
-  Widget _buildEmptyState(Color accentColor) {
+  Widget _buildEmptyState(Color accentColor, bool isForYouTab) {
+    // For the "For You" tab, instead of showing empty state, we should retry loading
+    // This should only appear briefly since we've improved the feed loading
+    if (isForYouTab) {
+      // This is unexpected, as For You should always have content - retry loading
+      Future.delayed(Duration.zero, () {
+        if (mounted) {
+          context.read<MomentsProvider>().fetchVideoFeed(
+            currentUserId: context.read<AuthenticationProvider>().userModel!.uid,
+            contactIds: context.read<AuthenticationProvider>().userModel!.contactsUIDs,
+          );
+        }
+      });
+      
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(color: accentColor),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Finding videos for you...',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // This is for the Following tab which might really be empty for new users
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.photo_camera_outlined,
+            Icons.people_outline,
             size: 70,
             color: Colors.grey[400],
           ),
           const SizedBox(height: 16),
           const Text(
-            'No Status Updates Yet',
+            'No videos from your contacts yet',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -627,7 +732,7 @@ class _StatusScreenState extends State<StatusScreen>
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Be the first to share a photo or video status',
+              'Add contacts or check out the "For You" tab to see trending videos',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -636,24 +741,59 @@ class _StatusScreenState extends State<StatusScreen>
             ),
           ),
           const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context, 
-                MaterialPageRoute(
-                  builder: (context) => const CreateStatusScreen(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  // Navigate to add contacts screen
+                  Navigator.pushNamed(context, '/contactsScreen');
+                },
+                icon: const Icon(Icons.person_add),
+                label: const Text('Add Contacts'),
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: accentColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-              ).then((_) => _loadStatus());
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Create Status'),
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: accentColor,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
               ),
+              const SizedBox(width: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context, 
+                    MaterialPageRoute(
+                      builder: (context) => const CreateMomentScreen(),
+                    ),
+                  ).then((_) => _loadMoments());
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Create Now'),
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: accentColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _isForYouSelected = true;
+              });
+              _loadMoments();
+            },
+            child: const Text('Switch to For You'),
+            style: TextButton.styleFrom(
+              foregroundColor: accentColor,
             ),
           ),
         ],
@@ -661,8 +801,8 @@ class _StatusScreenState extends State<StatusScreen>
     );
   }
 
-  Widget _buildStatusItem(int index, StatusModel status, String currentUserId) {
-    final bool isLiked = status.likedBy.contains(currentUserId);
+  Widget _buildMomentItem(int index, MomentModel moment, String currentUserId) {
+    final bool isLiked = moment.likedBy.contains(currentUserId);
     
     return Stack(
       fit: StackFit.expand,
@@ -670,11 +810,9 @@ class _StatusScreenState extends State<StatusScreen>
         // Content (Video or Image)
         GestureDetector(
           onDoubleTap: () => _toggleLike(index),
-          child: status.statusType == StatusType.video
-              ? _buildVideoPlayer(index, status)
-              : status.statusType == StatusType.image
-                  ? _buildImageViewer(status)
-                  : _buildMultipleImageViewer(status),
+          child: moment.isVideo
+              ? _buildVideoPlayer(index, moment)
+              : _buildImageViewer(moment),
         ),
         
         // Gradient overlay for better text visibility
@@ -701,7 +839,7 @@ class _StatusScreenState extends State<StatusScreen>
             children: [
               // Username
               Text(
-                '@${status.userName}',
+                '@${moment.userName}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -711,9 +849,9 @@ class _StatusScreenState extends State<StatusScreen>
               const SizedBox(height: 8),
               
               // Description
-              if (status.caption.isNotEmpty)
+              if (moment.text.isNotEmpty)
                 Text(
-                  status.caption,
+                  moment.text,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -723,8 +861,8 @@ class _StatusScreenState extends State<StatusScreen>
                 ),
               const SizedBox(height: 8),
               
-              // Location (if implemented)
-              if (status.location != null && status.location!.isNotEmpty)
+              // Location
+              if (moment.location.isNotEmpty)
                 Row(
                   children: [
                     const Icon(
@@ -734,7 +872,7 @@ class _StatusScreenState extends State<StatusScreen>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      status.location!,
+                      moment.location,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -758,8 +896,8 @@ class _StatusScreenState extends State<StatusScreen>
                   // Navigate to user profile
                   Navigator.pushNamed(
                     context,
-                    '/userStatusScreen',
-                    arguments: status.uid,
+                    '/userMomentsScreen',
+                    arguments: moment.uid,
                   );
                 },
                 child: Container(
@@ -772,7 +910,7 @@ class _StatusScreenState extends State<StatusScreen>
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(25),
                     child: userImageWidget(
-                      imageUrl: status.userImage,
+                      imageUrl: moment.userImage,
                       radius: 25,
                       onTap: () {},
                     ),
@@ -793,7 +931,7 @@ class _StatusScreenState extends State<StatusScreen>
                     onPressed: () => _toggleLike(index),
                   ),
                   Text(
-                    '${status.likedBy.length}',
+                    '${moment.likedBy.length}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -815,7 +953,7 @@ class _StatusScreenState extends State<StatusScreen>
                     onPressed: () => _showComments(index),
                   ),
                   Text(
-                    '${status.comments.length}',
+                    '${moment.comments.length}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -852,7 +990,7 @@ class _StatusScreenState extends State<StatusScreen>
     );
   }
   
-  Widget _buildVideoPlayer(int index, StatusModel status) {
+  Widget _buildVideoPlayer(int index, MomentModel moment) {
     final controller = _videoControllers[index];
     
     if (controller != null && controller.value.isInitialized) {
@@ -878,15 +1016,15 @@ class _StatusScreenState extends State<StatusScreen>
     }
   }
   
-  Widget _buildImageViewer(StatusModel status) {
-    if (status.statusUrl.isEmpty) {
+  Widget _buildImageViewer(MomentModel moment) {
+    if (moment.mediaUrls.isEmpty) {
       return Container(color: Colors.black);
     }
     
     return Container(
       color: Colors.black,
       child: CachedNetworkImage(
-        imageUrl: status.statusUrl,
+        imageUrl: moment.mediaUrls[0],
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
@@ -896,65 +1034,6 @@ class _StatusScreenState extends State<StatusScreen>
         errorWidget: (context, url, error) => const Center(
           child: Icon(Icons.error, color: Colors.white),
         ),
-      ),
-    );
-  }
-  
-  Widget _buildMultipleImageViewer(StatusModel status) {
-    if (status.mediaUrls == null || status.mediaUrls!.isEmpty) {
-      return Container(color: Colors.black);
-    }
-    
-    // Build a single image preview with indicator of multiple images
-    return Container(
-      color: Colors.black,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Main (first) image
-          CachedNetworkImage(
-            imageUrl: status.mediaUrls!.first,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            placeholder: (context, url) => const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-            errorWidget: (context, url, error) => const Center(
-              child: Icon(Icons.error, color: Colors.white),
-            ),
-          ),
-          
-          // Indicator for multiple images
-          Positioned(
-            top: 16,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.photo_library,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${status.mediaUrls!.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

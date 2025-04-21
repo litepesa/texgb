@@ -3,29 +3,29 @@ import 'package:provider/provider.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/features/status/widgets/comment_item.dart';
 import 'package:textgb/features/status/widgets/media_grid_view.dart';
-import 'package:textgb/models/status_model.dart';
+import 'package:textgb/models/moment_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/providers/status_provider.dart';
+import 'package:textgb/providers/moments_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-class StatusDetailScreen extends StatefulWidget {
-  final StatusModel status;
+class MomentDetailScreen extends StatefulWidget {
+  final MomentModel moment;
   final String currentUserId;
   final bool focusComment;
   
-  const StatusDetailScreen({
+  const MomentDetailScreen({
     Key? key,
-    required this.status,
+    required this.moment,
     required this.currentUserId,
     this.focusComment = false,
   }) : super(key: key);
 
   @override
-  State<StatusDetailScreen> createState() => _StatusDetailScreenState();
+  State<MomentDetailScreen> createState() => _MomentDetailScreenState();
 }
 
-class _StatusDetailScreenState extends State<StatusDetailScreen> {
+class _MomentDetailScreenState extends State<MomentDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocus = FocusNode();
   bool _isCommenting = false;
@@ -58,11 +58,11 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
       _isCommenting = true;
     });
     
-    final statusProvider = context.read<StatusProvider>();
+    final momentsProvider = context.read<MomentsProvider>();
     final currentUser = context.read<AuthenticationProvider>().userModel!;
     
-    await statusProvider.addComment(
-      statusId: widget.status.statusId,
+    await momentsProvider.addComment(
+      momentId: widget.moment.momentId,
       currentUser: currentUser,
       commentText: _commentController.text.trim(),
       onSuccess: () {
@@ -86,12 +86,12 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
     final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
     final backgroundColor = themeExtension?.backgroundColor ?? Colors.white;
     final accentColor = themeExtension?.accentColor ?? Colors.green;
-    final isMyStatus = widget.status.uid == widget.currentUserId;
+    final isMyMoment = widget.moment.uid == widget.currentUserId;
     
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Status'),
+        title: const Text('Moment'),
         centerTitle: true,
       ),
       body: Column(
@@ -110,7 +110,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                       children: [
                         // User avatar
                         userImageWidget(
-                          imageUrl: widget.status.userImage,
+                          imageUrl: widget.moment.userImage,
                           radius: 20,
                           onTap: () {},
                         ),
@@ -122,14 +122,14 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.status.userName,
+                                widget.moment.userName,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 ),
                               ),
                               Text(
-                                timeago.format(widget.status.createdAt),
+                                timeago.format(widget.moment.createdAt),
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 12,
@@ -141,29 +141,25 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                       ],
                     ),
                     
-                    // Caption content
-                    if (widget.status.caption.isNotEmpty)
+                    // Text content
+                    if (widget.moment.text.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Text(
-                          widget.status.caption,
+                          widget.moment.text,
                           style: const TextStyle(fontSize: 16),
                         ),
                       ),
                     
-                    // Media content
-                    if (widget.status.statusType == StatusType.image)
-                      _buildSingleImage(widget.status.statusUrl)
-                    else if (widget.status.statusType == StatusType.video)
-                      _buildVideoThumbnail(widget.status.statusUrl)
-                    else if (widget.status.statusType == StatusType.multiImage && widget.status.mediaUrls != null)
+                    // Media grid
+                    if (widget.moment.mediaUrls.isNotEmpty)
                       MediaGridView(
-                        mediaUrls: widget.status.mediaUrls!,
-                        caption: widget.status.caption,
+                        mediaUrls: widget.moment.mediaUrls,
+                        isVideo: widget.moment.isVideo,
                       ),
                     
                     // Location if available
-                    if (widget.status.location != null && widget.status.location!.isNotEmpty)
+                    if (widget.moment.location.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 12),
                         child: Row(
@@ -175,7 +171,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              widget.status.location!,
+                              widget.moment.location,
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey[600],
@@ -188,7 +184,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                     const SizedBox(height: 16),
                     
                     // Stats row (only visible to post owner)
-                    if (isMyStatus)
+                    if (isMyMoment)
                       Row(
                         children: [
                           // Views count
@@ -201,7 +197,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '${widget.status.viewedBy.length} views',
+                                '${widget.moment.viewedBy.length} views',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[600],
@@ -221,7 +217,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '${widget.status.likedBy.length} likes',
+                                '${widget.moment.likedBy.length} likes',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[600],
@@ -235,17 +231,16 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                     const Divider(height: 32),
                     
                     // Interaction section (for non-owners)
-                    if (!isMyStatus)
+                    if (!isMyMoment)
                       Row(
                         children: [
                           // Like button
                           Expanded(
                             child: InkWell(
                               onTap: () {
-                                context.read<StatusProvider>().toggleLike(
-                                  statusId: widget.status.statusId,
+                                context.read<MomentsProvider>().toggleLike(
+                                  momentId: widget.moment.momentId,
                                   userId: widget.currentUserId,
-                                  statusOwnerUid: widget.status.uid,
                                   onSuccess: () {},
                                   onError: (error) {
                                     showSnackBar(context, 'Error: $error');
@@ -256,16 +251,16 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    widget.status.likedBy.contains(widget.currentUserId)
+                                    widget.moment.likedBy.contains(widget.currentUserId)
                                         ? Icons.favorite
                                         : Icons.favorite_border,
-                                    color: widget.status.likedBy.contains(widget.currentUserId)
+                                    color: widget.moment.likedBy.contains(widget.currentUserId)
                                         ? Colors.red
                                         : null,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    widget.status.likedBy.contains(widget.currentUserId)
+                                    widget.moment.likedBy.contains(widget.currentUserId)
                                         ? 'Liked'
                                         : 'Like',
                                   ),
@@ -293,13 +288,13 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                         ],
                       ),
                     
-                    if (!isMyStatus)
+                    if (!isMyMoment)
                       const Divider(height: 32),
                     
                     // Comments section
-                    if (widget.status.comments.isNotEmpty) ...[
+                    if (widget.moment.comments.isNotEmpty) ...[
                       Text(
-                        'Comments (${widget.status.comments.length})',
+                        'Comments (${widget.moment.comments.length})',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -311,9 +306,9 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: widget.status.comments.length,
+                        itemCount: widget.moment.comments.length,
                         itemBuilder: (context, index) {
-                          final comment = widget.status.comments[index];
+                          final comment = widget.moment.comments[index];
                           return CommentItem(
                             comment: comment,
                             isMyComment: comment.uid == widget.currentUserId,
@@ -386,77 +381,6 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-  
-  Widget _buildSingleImage(String imageUrl) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          width: double.infinity,
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildVideoThumbnail(String videoUrl) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                // For a real implementation, you would use a thumbnail extraction or video frame
-                // Here we just use a placeholder
-                'https://via.placeholder.com/800x450',
-                fit: BoxFit.cover,
-                width: double.infinity,
-              ),
-            ),
-            // Play button overlay
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

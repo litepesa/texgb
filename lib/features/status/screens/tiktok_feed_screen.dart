@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/common/videoviewerscreen.dart';
-import 'package:textgb/features/tiktoks/screens/create_moment_screen.dart';
+import 'package:textgb/features/status/screens/create_moment_screen.dart';
 import 'package:textgb/models/moment_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/moments_provider.dart';

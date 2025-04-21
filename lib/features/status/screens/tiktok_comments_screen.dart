@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
-import 'package:textgb/features/tiktoks/widgets/comment_item.dart';
+import 'package:textgb/features/status/widgets/comment_item.dart';
 import 'package:textgb/models/moment_model.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';

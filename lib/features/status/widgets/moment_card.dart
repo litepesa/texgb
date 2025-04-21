@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
-import 'package:textgb/features/tiktoks/screens/moment_detail_screen.dart';
-import 'package:textgb/features/tiktoks/widgets/media_grid_view.dart';
+import 'package:textgb/features/status/screens/moment_detail_screen.dart';
+import 'package:textgb/features/status/widgets/media_grid_view.dart';
 import 'package:textgb/models/moment_model.dart';
 import 'package:textgb/providers/moments_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';

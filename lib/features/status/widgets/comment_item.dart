@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:textgb/models/status_model.dart';
+import 'package:textgb/models/moment_model.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:timeago/timeago.dart' as timeago;
 

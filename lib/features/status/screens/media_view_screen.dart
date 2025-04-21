@@ -10,13 +10,15 @@ import 'package:textgb/common/videoviewerscreen.dart';
 class MediaViewScreen extends StatefulWidget {
   final List<String> mediaUrls;
   final int initialIndex;
-  final String? caption;
+  final bool isVideo;
+  final String? description;
 
   const MediaViewScreen({
     Key? key,
     required this.mediaUrls,
     this.initialIndex = 0,
-    this.caption,
+    this.isVideo = false,
+    this.description,
   }) : super(key: key);
 
   @override
@@ -101,8 +103,9 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
     Navigator.of(context).push(
       VideoViewerScreen.route(
         videoUrl: videoUrl,
-        videoTitle: widget.caption ?? 'Video',
+        videoTitle: widget.description ?? 'Video',
         allowOrientationChanges: false, 
+        // No need to specify orientation since we're forcing portrait in VideoViewerScreen
       ),
     );
   }
@@ -114,13 +117,22 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
            url.endsWith('.avi') ||
            url.endsWith('.mkv');
   }
+  
+  bool _isVerticalVideoFile(String url) {
+    // Check if the URL contains indicators that it might be a vertical video
+    return url.contains('vertical') || 
+           url.contains('portrait') || 
+           url.contains('tiktok') ||
+           url.contains('reels') ||
+           url.contains('shorts');
+  }
 
   @override
   Widget build(BuildContext context) {
     // Handle single video case
-    if (_isVideoFile(widget.mediaUrls[_currentIndex])) {
+    if (widget.isVideo && widget.mediaUrls.length == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _openVideoPlayer(widget.mediaUrls[_currentIndex]);
+        _openVideoPlayer(widget.mediaUrls.first);
         if (mounted) Navigator.pop(context);
       });
       return const Scaffold(
@@ -283,28 +295,6 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
           ),
         ),
         
-        // Caption - if available
-        if (widget.caption != null && widget.caption!.isNotEmpty)
-          Positioned(
-            top: 20,
-            left: 70,
-            right: 70,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                widget.caption!,
-                style: const TextStyle(color: Colors.white),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        
         // Left navigation button (if not the first item)
         if (_currentIndex > 0)
           Positioned(
@@ -363,28 +353,30 @@ class _MediaViewScreenState extends State<MediaViewScreen> with SingleTickerProv
             ),
           ),
         
-        // Counter indicator
-        Positioned(
-          bottom: 20,
-          left: 0,
-          right: 0,
-          child: Center(
+        // Only show mute button for videos
+        if (_isVideoFile(widget.mediaUrls[_currentIndex]))
+          Positioned(
+            top: 20,
+            right: 16,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(15),
+                shape: BoxShape.circle,
               ),
-              child: Text(
-                '${_currentIndex + 1} / ${widget.mediaUrls.length}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: IconButton(
+                icon: const Icon(Icons.volume_up, color: Colors.white),
+                onPressed: () {
+                  // This would be implemented in the VideoViewerScreen
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Mute/unmute will be available in video player'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
               ),
             ),
           ),
-        ),
       ],
     );
   }
