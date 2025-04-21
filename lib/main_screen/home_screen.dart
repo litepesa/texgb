@@ -2,9 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-import 'package:textgb/features/moments/screens/tiktok_feed_screen.dart';
-import 'package:textgb/features/moments/widgets/custom_icon.dart';
+import 'package:textgb/features/tiktoks/screens/create_moment_screen.dart';
+import 'package:textgb/features/tiktoks/screens/tiktok_feed_screen.dart';
+import 'package:textgb/features/tiktoks/widgets/custom_icon.dart';
 import 'package:textgb/main_screen/create_group_screen.dart';
 import 'package:textgb/main_screen/groups_screen.dart';
 import 'package:textgb/main_screen/my_chats_screen.dart';
@@ -13,6 +13,7 @@ import 'package:textgb/providers/group_provider.dart';
 import 'package:textgb/providers/moments_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:textgb/main_screen/enhanced_profile_screen.dart';
+import 'package:textgb/common/extension/wechat_theme_extension.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,7 +30,6 @@ class _HomeScreenState extends State<HomeScreen>
   final Widget chatScreen = const MyChatsScreen();
   final Widget groupScreen = const GroupsScreen();
   final Widget cameraScreen = const CreateMomentScreen();
-  // Updated to use TikTok Feed Screen instead of Moments Screen
   final Widget tikTokFeedScreen = const TikTokFeedScreen();
   final Widget profileScreen = const EnhancedProfileScreen();
   
@@ -86,26 +86,36 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final isLightMode = brightness == Brightness.light;
-    final accentColor = const Color(0xFF09BB07); // WeChat green
+    final themeExt = context.theme;
+    final isLightMode = Theme.of(context).brightness == Brightness.light;
     
-    // Determine bottom nav bar color - black when TikTok feed is selected
+    // Get all theme colors from WeChatThemeExtension
+    final accentColor = themeExt.accentColor ?? const Color(0xFF09BB07);
+    
+    // Determine bottom nav bar color based on both theme and current tab
     final bottomNavColor = pageIndex == 3 
         ? Colors.black 
-        : (isLightMode ? Colors.white : const Color(0xFF121212));
+        : themeExt.appBarColor ?? (isLightMode ? Colors.white : const Color(0xFF121212));
     
-    // Determine item colors - white for selected item in TikTok feed, accent color otherwise
+    // Determine item colors based on current tab and theme
     final selectedItemColor = pageIndex == 3 
         ? Colors.white 
         : accentColor;
+    
+    // Unselected items should be more visible in dark mode
+    final unselectedItemColor = pageIndex == 3
+        ? Colors.grey
+        : (themeExt.greyColor ?? Colors.grey);
+    
+    // Set elevation for better delineation
+    final bottomNavElevation = isLightMode ? 2.0 : 1.0;
     
     return Scaffold(
       appBar: pageIndex != 2 && pageIndex != 3 && pageIndex != 4 ? AppBar(
         elevation: 2.0,
         toolbarHeight: 65.0,
         centerTitle: false,
-        backgroundColor: isLightMode ? Colors.white : const Color(0xFF121212),
+        backgroundColor: themeExt.appBarColor ?? (isLightMode ? Colors.white : const Color(0xFF121212)),
         title: RichText(
           text: TextSpan(
             style: TextStyle(
@@ -114,10 +124,10 @@ class _HomeScreenState extends State<HomeScreen>
               color: isLightMode ? const Color(0xFF181818) : Colors.white,
             ),
             children: [
-              const TextSpan(
-                text: 'Bisha',
+              TextSpan(
+                text: 'Tex',
                 style: TextStyle(
-                  color: Color(0xFF09BB07),
+                  color: accentColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -135,60 +145,94 @@ class _HomeScreenState extends State<HomeScreen>
         index: pageIndex,
         children: pages,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        onTap: (index) {
-          // Debug info to verify which screen is shown
-          print('Tapped on bottom nav index: $index');
-          
-          setState(() {
-            pageIndex = index;
-          });
-          
-          // If moments tab is selected, refresh moments data
-          if (index == 3) {
-            context.read<MomentsProvider>().fetchMoments(
-              currentUserId: context.read<AuthenticationProvider>().userModel!.uid,
-              contactIds: context.read<AuthenticationProvider>().userModel!.contactsUIDs,
-            );
-          }
-          
-          // Debug verification
-          print('Now showing: ${pages[pageIndex].runtimeType}');
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: bottomNavColor,
-        selectedItemColor: selectedItemColor,
-        unselectedItemColor: Colors.grey,
-        currentIndex: pageIndex,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.chat_bubble_2, size: 30),
-            label: 'Chats',
+      bottomNavigationBar: Container(
+        // Add a top divider to better separate the content from navigation
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: themeExt.dividerColor ?? (isLightMode ? const Color(0xFFDBDBDB) : const Color(0xFF3D3D3D)),
+              width: 0.5,
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.group, size: 30),
-            label: 'Groups',
+          // Add a subtle shadow for depth in light mode
+          boxShadow: isLightMode && pageIndex != 3 ? [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 3,
+              offset: const Offset(0, -1),
+            ),
+          ] : null,
+        ),
+        child: BottomNavigationBar(
+          onTap: (index) {
+            setState(() {
+              pageIndex = index;
+            });
+            
+            // If moments tab is selected, refresh moments data
+            if (index == 3) {
+              context.read<MomentsProvider>().fetchMoments(
+                currentUserId: context.read<AuthenticationProvider>().userModel!.uid,
+                contactIds: context.read<AuthenticationProvider>().userModel!.contactsUIDs,
+              );
+            }
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: bottomNavColor,
+          selectedItemColor: selectedItemColor,
+          unselectedItemColor: unselectedItemColor,
+          showUnselectedLabels: true,
+          showSelectedLabels: true,
+          currentIndex: pageIndex,
+          elevation: bottomNavElevation,
+          // Improve padding for better touch targets
+          selectedLabelStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            height: 1.6,
           ),
-          BottomNavigationBarItem(
-            icon: CustomIcon(), // Your custom camera icon
-            label: '',  // Intentionally empty for better design
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.normal,
+            height: 1.6,
           ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.camera, size: 30),
-            label: 'Moments',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.person, size: 30),
-            label: 'Profile',
-          ),
-        ],
+          items: [
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.chat_bubble_2, size: 28),
+              activeIcon: Icon(CupertinoIcons.chat_bubble_2_fill, size: 28),
+              label: 'Chats',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.group, size: 28),
+              activeIcon: Icon(CupertinoIcons.group_solid, size: 28),
+              label: 'Groups',
+            ),
+            BottomNavigationBarItem(
+              icon: CustomIcon(
+                accentColor: accentColor,
+                isDarkMode: !isLightMode,
+              ),
+              label: '',  // Intentionally empty for better design
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.camera, size: 28),
+              activeIcon: Icon(CupertinoIcons.camera_fill, size: 28),
+              label: 'Moments',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.person, size: 28),
+              activeIcon: Icon(CupertinoIcons.person_fill, size: 28),
+              label: 'Profile',
+            ),
+          ],
+        ),
       ),
-      floatingActionButton: _buildFloatingActionButton(),
+      floatingActionButton: _buildFloatingActionButton(accentColor),
     );
   }
   
   // Build context-specific floating action button
-  Widget? _buildFloatingActionButton() {
+  Widget? _buildFloatingActionButton(Color accentColor) {
     // Chat button for Chats tab
     if (pageIndex == 0) {
       return FloatingActionButton(
@@ -199,7 +243,8 @@ class _HomeScreenState extends State<HomeScreen>
             Constants.contactsScreen,
           );
         },
-        backgroundColor: const Color(0xFF09BB07), // WeChat green
+        backgroundColor: accentColor,
+        elevation: 4.0, // Increased elevation for better visibility
         child: const Icon(CupertinoIcons.chat_bubble_text, size: 28),
       );
     }
@@ -218,7 +263,8 @@ class _HomeScreenState extends State<HomeScreen>
             );
           });
         },
-        backgroundColor: const Color(0xFF09BB07), // WeChat green
+        backgroundColor: accentColor,
+        elevation: 4.0, // Increased elevation for better visibility
         child: const Icon(CupertinoIcons.add, size: 28),
       );
     }

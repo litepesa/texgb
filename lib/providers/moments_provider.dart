@@ -12,9 +12,15 @@ class MomentsProvider extends ChangeNotifier {
   bool _isUploading = false;
   final List<MomentModel> _userMoments = [];
   final List<MomentModel> _contactsMoments = [];
-  final List<MomentModel> _forYouMoments = []; // For future TikTok-style recommendations
+  final List<MomentModel> _forYouMoments = []; // For TikTok-style recommendations
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  
+  // Default number of videos to load in For You feed
+  final int _defaultVideoLimit = 30;
+  
+  // Flag to track if initial discovery feed has been loaded
+  bool _initialDiscoveryLoaded = false;
   
   // Feed mode for TikTok-style feed
   FeedMode _currentFeedMode = FeedMode.forYou;
@@ -26,6 +32,7 @@ class MomentsProvider extends ChangeNotifier {
   List<MomentModel> get contactsMoments => _contactsMoments;
   List<MomentModel> get forYouMoments => _forYouMoments;
   FeedMode get currentFeedMode => _currentFeedMode;
+  bool get initialDiscoveryLoaded => _initialDiscoveryLoaded;
   
   // Get combined feed based on current mode
   List<MomentModel> get currentFeed {
@@ -35,12 +42,34 @@ class MomentsProvider extends ChangeNotifier {
         return [..._contactsMoments]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       case FeedMode.forYou:
       default:
-        // For now, this is just all content (later would be algorithm-based)
+        // Enhanced algorithm: prioritize recent and popular content
         final allContent = [
           ..._userMoments,
           ..._contactsMoments,
           ..._forYouMoments,
-        ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        ];
+        
+        // Sort based on an engagement score: recency + popularity
+        allContent.sort((a, b) {
+          // Calculate engagement score (likes + comments + views)
+          final scoreA = a.likedBy.length + a.comments.length + a.viewedBy.length;
+          final scoreB = b.likedBy.length + b.comments.length + b.viewedBy.length;
+          
+          // Factor in recency (within past 48 hours gets a boost)
+          final now = DateTime.now();
+          final isRecentA = now.difference(a.createdAt).inHours < 48;
+          final isRecentB = now.difference(b.createdAt).inHours < 48;
+          
+          final adjustedScoreA = isRecentA ? scoreA * 1.5 : scoreA;
+          final adjustedScoreB = isRecentB ? scoreB * 1.5 : scoreB;
+          
+          // If scores are very close, use recency as tiebreaker
+          if ((adjustedScoreA - adjustedScoreB).abs() < 5) {
+            return b.createdAt.compareTo(a.createdAt);
+          }
+          
+          return adjustedScoreB.compareTo(adjustedScoreA);
+        });
         
         return allContent;
     }
@@ -77,6 +106,7 @@ class MomentsProvider extends ChangeNotifier {
     _userMoments.clear();
     _contactsMoments.clear();
     _forYouMoments.clear();
+    _initialDiscoveryLoaded = false;
     notifyListeners();
   }
 
@@ -333,7 +363,6 @@ class MomentsProvider extends ChangeNotifier {
     try {
       final List<MomentModel> userMoments = [];
       final List<MomentModel> contactsMoments = [];
-      final List<MomentModel> forYouMoments = [];
       
       // Fetch user's moments
       final userMomentsQuery = await _firestore
@@ -349,32 +378,21 @@ class MomentsProvider extends ChangeNotifier {
       
       // Fetch contacts' moments
       if (contactIds.isNotEmpty) {
-        final contactsMomentsQuery = await _firestore
-            .collection('moments')
-            .where('uid', whereIn: contactIds.length > 10 ? contactIds.sublist(0, 10) : contactIds)
-            .orderBy('createdAt', descending: true)
-            .get();
-        
-        for (final doc in contactsMomentsQuery.docs) {
-          final moment = MomentModel.fromMap(doc.data());
-          contactsMoments.add(moment);
-        }
-      }
-      
-      // Fetch "For You" content (for now, just get the most recent 20 videos)
-      // In a real app, this would use an algorithm based on user interests
-      final forYouQuery = await _firestore
-          .collection('moments')
-          .where('isVideo', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
-          .limit(20)
-          .get();
-      
-      for (final doc in forYouQuery.docs) {
-        final moment = MomentModel.fromMap(doc.data());
-        // Skip if this is from the current user or their contacts (already in other lists)
-        if (moment.uid != currentUserId && !contactIds.contains(moment.uid)) {
-          forYouMoments.add(moment);
+        // Handle case where there are too many contacts by doing multiple queries if needed
+        for (var i = 0; i < contactIds.length; i += 10) {
+          final end = (i + 10 < contactIds.length) ? i + 10 : contactIds.length;
+          final batchIds = contactIds.sublist(i, end);
+          
+          final contactsMomentsQuery = await _firestore
+              .collection('moments')
+              .where('uid', whereIn: batchIds)
+              .orderBy('createdAt', descending: true)
+              .get();
+          
+          for (final doc in contactsMomentsQuery.docs) {
+            final moment = MomentModel.fromMap(doc.data());
+            contactsMoments.add(moment);
+          }
         }
       }
       
@@ -385,8 +403,8 @@ class MomentsProvider extends ChangeNotifier {
       _contactsMoments.clear();
       _contactsMoments.addAll(contactsMoments);
       
-      _forYouMoments.clear();
-      _forYouMoments.addAll(forYouMoments);
+      // Always fetch discovery feed for all users
+      await _loadDiscoveryFeed(currentUserId, contactIds);
       
       setLoading(false);
       notifyListeners();
@@ -397,33 +415,201 @@ class MomentsProvider extends ChangeNotifier {
     }
   }
   
-  // Fetch videos-only feed for TikTok-style experience
+  // Load discovery feed - guaranteed content for all users
+  Future<void> _loadDiscoveryFeed(String currentUserId, List<String> contactIds) async {
+    try {
+      if (_forYouMoments.isNotEmpty && _initialDiscoveryLoaded) {
+        // Already loaded, just refresh in background
+        _refreshDiscoveryFeedInBackground(currentUserId, contactIds);
+        return;
+      }
+      
+      final List<MomentModel> discoveryMoments = [];
+      
+      // First, get the most popular videos (most likes and comments)
+      final popularQuery = await _firestore
+          .collection('moments')
+          .where('isVideo', isEqualTo: true)
+          .orderBy('createdAt', descending: true)
+          .limit(_defaultVideoLimit)
+          .get();
+      
+      final List<MomentModel> tempMoments = [];
+      for (final doc in popularQuery.docs) {
+        final moment = MomentModel.fromMap(doc.data());
+        // Skip if this is from the current user (already in user's list)
+        if (moment.uid != currentUserId) {
+          tempMoments.add(moment);
+        }
+      }
+      
+      // Sort by engagement (likes + comments)
+      tempMoments.sort((a, b) {
+        final engagementA = a.likedBy.length + a.comments.length;
+        final engagementB = b.likedBy.length + b.comments.length;
+        return engagementB.compareTo(engagementA);
+      });
+      
+      // Take top 15 most engaging videos
+      if (tempMoments.length > 15) {
+        discoveryMoments.addAll(tempMoments.sublist(0, 15));
+      } else {
+        discoveryMoments.addAll(tempMoments);
+      }
+      
+      // Then get some recent videos to ensure fresh content
+      final recentQuery = await _firestore
+          .collection('moments')
+          .where('isVideo', isEqualTo: true)
+          .orderBy('createdAt', descending: true)
+          .limit(15)
+          .get();
+      
+      for (final doc in recentQuery.docs) {
+        final moment = MomentModel.fromMap(doc.data());
+        // Skip if already added or from current user
+        if (moment.uid != currentUserId && 
+            !discoveryMoments.any((m) => m.momentId == moment.momentId)) {
+          discoveryMoments.add(moment);
+        }
+      }
+      
+      // Make sure we have at least 10 videos for any user
+      if (discoveryMoments.isEmpty) {
+        // As a fallback, get any videos
+        final fallbackQuery = await _firestore
+            .collection('moments')
+            .where('isVideo', isEqualTo: true)
+            .limit(10)
+            .get();
+        
+        for (final doc in fallbackQuery.docs) {
+          discoveryMoments.add(MomentModel.fromMap(doc.data()));
+        }
+      }
+      
+      // Update local list
+      _forYouMoments.clear();
+      _forYouMoments.addAll(discoveryMoments);
+      _initialDiscoveryLoaded = true;
+      
+    } catch (e) {
+      print('Error loading discovery feed: $e');
+      // Even on error, mark as initialized to avoid repeated failures
+      _initialDiscoveryLoaded = true;
+    }
+  }
+  
+  // Refresh discovery feed in background without blocking UI
+  Future<void> _refreshDiscoveryFeedInBackground(String currentUserId, List<String> contactIds) async {
+    try {
+      final List<MomentModel> newDiscoveryItems = [];
+      
+      // Get newer videos since our last refresh
+      DateTime newestTimestamp = DateTime.now().subtract(const Duration(days: 7));
+      if (_forYouMoments.isNotEmpty) {
+        // Find the newest video timestamp we already have
+        final newest = _forYouMoments.reduce((a, b) => 
+          a.createdAt.isAfter(b.createdAt) ? a : b);
+        newestTimestamp = newest.createdAt;
+      }
+      
+      // Query for newer videos
+      final newVideosQuery = await _firestore
+          .collection('moments')
+          .where('isVideo', isEqualTo: true)
+          .where('createdAt', isGreaterThan: newestTimestamp)
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .get();
+      
+      for (final doc in newVideosQuery.docs) {
+        final moment = MomentModel.fromMap(doc.data());
+        // Skip if this is from the current user (already in user's list)
+        if (moment.uid != currentUserId && 
+            !_forYouMoments.any((m) => m.momentId == moment.momentId)) {
+          newDiscoveryItems.add(moment);
+        }
+      }
+      
+      // If we found new items, add them and notify
+      if (newDiscoveryItems.isNotEmpty) {
+        _forYouMoments.insertAll(0, newDiscoveryItems);
+        notifyListeners();
+      }
+      
+    } catch (e) {
+      print('Error refreshing discovery feed: $e');
+    }
+  }
+  
+  // Fetch videos-only feed for TikTok-style experience with improved algorithm
   Future<void> fetchVideoFeed({
     required String currentUserId,
     required List<String> contactIds,
-    int limit = 20,
+    int limit = 30,
   }) async {
     setLoading(true);
     
     try {
-      // For now, we'll just fetch videos, but this could be expanded with more 
-      // sophisticated recommendations later
-      final videosQuery = await _firestore
+      final List<MomentModel> videoFeed = [];
+      
+      // 1. First, get the most recent videos
+      final recentVideosQuery = await _firestore
           .collection('moments')
           .where('isVideo', isEqualTo: true)
           .orderBy('createdAt', descending: true)
-          .limit(limit)
+          .limit(limit ~/ 2) // Get half the limit from recent videos
           .get();
       
-      final List<MomentModel> forYouVideos = [];
-      
-      for (final doc in videosQuery.docs) {
+      for (final doc in recentVideosQuery.docs) {
         final moment = MomentModel.fromMap(doc.data());
-        forYouVideos.add(moment);
+        videoFeed.add(moment);
       }
       
+      // 2. Then, get some popular videos based on engagement
+      // We can't easily query directly by popularity, so we'll fetch more and sort client-side
+      final popularVideosQuery = await _firestore
+          .collection('moments')
+          .where('isVideo', isEqualTo: true)
+          .orderBy('createdAt', descending: true) // Get somewhat recent ones first
+          .limit(limit) // Get more than we need for filtering
+          .get();
+      
+      final List<MomentModel> popularCandidates = [];
+      for (final doc in popularVideosQuery.docs) {
+        final moment = MomentModel.fromMap(doc.data());
+        // Skip if already in the feed
+        if (!videoFeed.any((m) => m.momentId == moment.momentId)) {
+          popularCandidates.add(moment);
+        }
+      }
+      
+      // Sort by engagement score
+      popularCandidates.sort((a, b) {
+        final scoreA = a.likedBy.length + a.comments.length + (a.viewedBy.length ~/ 2);
+        final scoreB = b.likedBy.length + b.comments.length + (b.viewedBy.length ~/ 2);
+        return scoreB.compareTo(scoreA);
+      });
+      
+      // Add top popular videos to complete our feed
+      final remainingSlots = limit - videoFeed.length;
+      if (popularCandidates.length > remainingSlots) {
+        videoFeed.addAll(popularCandidates.sublist(0, remainingSlots));
+      } else {
+        videoFeed.addAll(popularCandidates);
+      }
+      
+      // 3. Shuffle slightly to avoid predictable ordering while maintaining quality
+      final firstFew = videoFeed.take(3).toList(); // Keep the very best at the top
+      final rest = videoFeed.skip(3).toList()..shuffle();
+      
+      final shuffledFeed = [...firstFew, ...rest];
+      
+      // Update local list
       _forYouMoments.clear();
-      _forYouMoments.addAll(forYouVideos);
+      _forYouMoments.addAll(shuffledFeed);
+      _initialDiscoveryLoaded = true;
       
       setLoading(false);
       notifyListeners();

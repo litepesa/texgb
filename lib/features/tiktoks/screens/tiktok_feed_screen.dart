@@ -3,31 +3,25 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/common/videoviewerscreen.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-import 'package:textgb/features/moments/screens/tiktok_comments_screen.dart';
+import 'package:textgb/features/tiktoks/screens/create_moment_screen.dart';
 import 'package:textgb/models/moment_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/moments_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:video_player/video_player.dart';
 
-class MomentsScreen extends StatefulWidget {
-  const MomentsScreen({Key? key}) : super(key: key);
+class TikTokFeedScreen extends StatefulWidget {
+  const TikTokFeedScreen({Key? key}) : super(key: key);
 
   @override
-  State<MomentsScreen> createState() => _MomentsScreenState();
+  State<TikTokFeedScreen> createState() => _TikTokFeedScreenState();
 }
 
-class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveClientMixin {
+class _TikTokFeedScreenState extends State<TikTokFeedScreen> {
   final PageController _pageController = PageController();
   List<MomentModel> _allMoments = [];
   int _currentPage = 0;
   Map<int, VideoPlayerController> _videoControllers = {};
-  bool _isForYouSelected = true; // Track which feed is selected
-  bool _isLoading = false;
-
-  @override
-  bool get wantKeepAlive => true; // Keep the state when switching tabs
 
   @override
   void initState() {
@@ -63,12 +57,6 @@ class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveCl
   }
 
   Future<void> _loadMoments() async {
-    if (_isLoading) return;
-    
-    setState(() {
-      _isLoading = true;
-    });
-    
     try {
       final authProvider = context.read<AuthenticationProvider>();
       final momentsProvider = context.read<MomentsProvider>();
@@ -76,44 +64,24 @@ class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveCl
       final currentUser = authProvider.userModel!;
       final contactIds = currentUser.contactsUIDs;
       
-      // Set feed mode based on selection
-      momentsProvider.setFeedMode(
-        _isForYouSelected ? FeedMode.forYou : FeedMode.following
-      );
-      
-      // Fetch moments
       await momentsProvider.fetchMoments(
         currentUserId: currentUser.uid,
         contactIds: contactIds,
       );
       
-      // Get moments based on selected feed
+      // Combine and sort all moments
       setState(() {
-        if (_isForYouSelected) {
-          // For You feed includes all content
-          _allMoments = momentsProvider.currentFeed;
-        } else {
-          // Following feed only includes contacts' content
-          _allMoments = [...momentsProvider.contactsMoments]
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        }
-        _isLoading = false;
+        _allMoments = [
+          ...momentsProvider.userMoments,
+          ...momentsProvider.contactsMoments,
+        ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       });
-      
-      // Reset page controller to start when switching feeds
-      if (_pageController.hasClients) {
-        _pageController.jumpToPage(0);
-      }
       
       // Initialize video controller for first visible item if it's a video
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _currentPage = 0;
         _initializeVideoController(0);
       });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
       if (mounted) {
         showSnackBar(context, 'Error loading feed: $e');
       }
@@ -126,7 +94,7 @@ class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveCl
     
     final moment = _allMoments[index];
     
-    // Only initialize if it's a video and has media URLs
+    // Only initialize if it's a video
     if (moment.isVideo && moment.mediaUrls.isNotEmpty) {
       // Skip if controller already exists
       if (_videoControllers.containsKey(index)) return;
@@ -139,7 +107,6 @@ class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveCl
         
         // Initialize and play if this is the current page
         await controller.initialize();
-        
         if (mounted) {
           setState(() {});
           if (index == _currentPage) {
@@ -188,77 +155,8 @@ class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveCl
   }
   
   void _showComments(int index) {
-    if (index < 0 || index >= _allMoments.length) return;
-    
-    final moment = _allMoments[index];
-    
-    // Pause current video if playing
-    if (_videoControllers.containsKey(_currentPage)) {
-      _videoControllers[_currentPage]!.pause();
-    }
-    
-    // Show bottom sheet with comments
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true, // Makes the bottom sheet take up to 90% of screen height
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.8, // Start at 80% of screen height
-          minChildSize: 0.5, // Can be dragged down to 50%
-          maxChildSize: 0.9, // Can be dragged up to 90%
-          builder: (context, scrollController) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Column(
-                children: [
-                  // Drag handle
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  
-                  // Title
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                      '${moment.comments.length} comments',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  
-                  const Divider(),
-                  
-                  // Comments list with input field
-                  Expanded(
-                    child: TikTokCommentsScreen(
-                      moment: moment,
-                      isBottomSheet: true,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    ).then((_) {
-      // Resume video playback when returning from comments
-      if (_videoControllers.containsKey(_currentPage) && mounted) {
-        _videoControllers[_currentPage]!.play();
-      }
-    });
+    // Implementation will be added later
+    showSnackBar(context, 'Comments coming soon');
   }
   
   void _shareContent(int index) {
@@ -268,8 +166,6 @@ class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveCl
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
-    
     final currentUser = context.read<AuthenticationProvider>().userModel!;
     final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
     final accentColor = themeExtension?.accentColor ?? const Color(0xFF09BB07);
@@ -289,37 +185,20 @@ class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveCl
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isForYouSelected = false;
-                });
-                _loadMoments();
-              },
-              child: Text(
-                'Following',
-                style: TextStyle(
-                  color: _isForYouSelected ? Colors.white60 : Colors.white,
-                  fontSize: _isForYouSelected ? 16 : 17,
-                  fontWeight: _isForYouSelected ? FontWeight.normal : FontWeight.bold,
-                ),
+            const Text(
+              'Following',
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 16,
               ),
             ),
             const SizedBox(width: 20),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isForYouSelected = true;
-                });
-                _loadMoments();
-              },
-              child: Text(
-                'For You',
-                style: TextStyle(
-                  color: _isForYouSelected ? Colors.white : Colors.white60,
-                  fontSize: _isForYouSelected ? 17 : 16,
-                  fontWeight: _isForYouSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+            const Text(
+              'For You',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -338,30 +217,38 @@ class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveCl
           ),
         ],
       ),
-      body: _isLoading && _allMoments.isEmpty
-          ? Center(
+      body: Consumer<MomentsProvider>(
+        builder: (context, momentsProvider, child) {
+          if (momentsProvider.isLoading && _allMoments.isEmpty) {
+            return Center(
               child: CircularProgressIndicator(color: accentColor),
-            )
-          : _allMoments.isEmpty
-              ? _buildEmptyState(accentColor)
-              : PageView.builder(
-                  controller: _pageController,
-                  scrollDirection: Axis.vertical,
-                  itemCount: _allMoments.length,
-                  itemBuilder: (context, index) {
-                    final moment = _allMoments[index];
-                    
-                    // Mark moment as viewed if it's not the current user's
-                    if (moment.uid != currentUser.uid && !moment.viewedBy.contains(currentUser.uid)) {
-                      context.read<MomentsProvider>().markMomentAsViewed(
-                        momentId: moment.momentId,
-                        userId: currentUser.uid,
-                      );
-                    }
-                    
-                    return _buildMomentItem(index, moment, currentUser.uid);
-                  },
-                ),
+            );
+          }
+          
+          if (_allMoments.isEmpty) {
+            return _buildEmptyState(accentColor);
+          }
+          
+          return PageView.builder(
+            controller: _pageController,
+            scrollDirection: Axis.vertical,
+            itemCount: _allMoments.length,
+            itemBuilder: (context, index) {
+              final moment = _allMoments[index];
+              
+              // Mark moment as viewed if it's not the current user's
+              if (moment.uid != currentUser.uid && !moment.viewedBy.contains(currentUser.uid)) {
+                momentsProvider.markMomentAsViewed(
+                  momentId: moment.momentId,
+                  userId: currentUser.uid,
+                );
+              }
+              
+              return _buildMomentItem(index, moment, currentUser.uid);
+            },
+          );
+        },
+      ),
     );
   }
   
@@ -571,7 +458,7 @@ class _MomentsScreenState extends State<MomentsScreen> with AutomaticKeepAliveCl
       // Show a loading indicator or placeholder
       return Container(
         color: Colors.black,
-        child: const Center(
+        child: Center(
           child: CircularProgressIndicator(
             color: Colors.white,
           ),

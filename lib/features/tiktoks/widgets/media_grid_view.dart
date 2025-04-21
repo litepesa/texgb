@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:textgb/common/videoviewerscreen.dart';
-import 'package:textgb/features/moments/screens/media_view_screen.dart';
+import 'package:textgb/features/tiktoks/screens/media_view_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 

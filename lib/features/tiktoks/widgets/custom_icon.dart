@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
 class CustomIcon extends StatefulWidget {
-  const CustomIcon({super.key});
+  final Color? accentColor;
+  final bool isDarkMode;
+  
+  const CustomIcon({
+    super.key, 
+    this.accentColor,
+    this.isDarkMode = false,
+  });
 
   @override
   State<CustomIcon> createState() => _CustomIconState();
@@ -32,17 +39,14 @@ class _CustomIconState extends State<CustomIcon> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    // Get the current theme
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    // Use the accent color passed in or default to WeChat green
+    final iconColor = widget.accentColor ?? const Color(0xFF09BB07);
     
-    // Define the WeChat green color
-    const wechatGreen = Color(0xFF09BB07);
+    // Define background color based on provided dark mode setting
+    final backgroundColor = widget.isDarkMode ? Colors.black : Colors.white;
     
-    // Use white for dark theme, green for light theme
-    final iconColor = isDarkMode ? Colors.white : wechatGreen;
-    
-    // Define background color (black for dark, white for light)
-    final backgroundColor = isDarkMode ? Colors.black : Colors.white;
+    // Adjust shadow opacity based on theme for better visibility
+    final shadowOpacity = widget.isDarkMode ? 0.5 : 0.3;
     
     return Container(
       // This container maintains the larger overall size (60x60) but doesn't show visually
@@ -85,9 +89,9 @@ class _CustomIconState extends State<CustomIcon> with SingleTickerProviderStateM
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: iconColor.withOpacity(0.3),
+                      color: iconColor.withOpacity(shadowOpacity),
                       blurRadius: 8,
-                      spreadRadius: isDarkMode ? 1 : 0,
+                      spreadRadius: widget.isDarkMode ? 1 : 0,
                     ),
                   ],
                 ),
