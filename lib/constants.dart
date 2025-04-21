@@ -19,12 +19,18 @@ class Constants {
   static const String groupInformationScreen = '/groupInformationScreen';
   static const String groupMemberRequestsScreen = '/groupMemberRequestsScreen';  // Screen for pending group join requests
   static const String blockedContactsScreen = '/blockedContactsScreen';
+  static const String statusScreen = '/statusScreen';
+  static const String createStatusScreen = '/createStatusScreen';
+  static const String statusDetailScreen = '/statusDetailScreen';
+  static const String userStatusScreen = '/userStatusScreen';
+  static const String mediaViewScreen = '/mediaViewScreen';
   
   // New Moments feature routes
   static const String momentsScreen = '/momentsScreen';
   static const String createMomentScreen = '/createMomentScreen';
   static const String momentDetailScreen = '/momentDetailScreen';
   static const String userMomentsScreen = '/userMomentsScreen';
+
 
   static const String uid = 'uid';
   static const String name = 'name';
@@ -37,6 +43,8 @@ class Constants {
   static const String isOnline = 'isOnline';
   static const String contactsUIDs = 'contactsUIDs';
   static const String blockedUIDs = 'blockedUIDs';
+
+  
 
   static const String verificationId = 'verificationId';
 
