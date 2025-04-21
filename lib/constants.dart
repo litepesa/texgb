@@ -19,11 +19,21 @@ class Constants {
   static const String groupInformationScreen = '/groupInformationScreen';
   static const String groupMemberRequestsScreen = '/groupMemberRequestsScreen';  // Screen for pending group join requests
   static const String blockedContactsScreen = '/blockedContactsScreen';
+  
+  // Status feature routes
   static const String statusScreen = '/statusScreen';
   static const String createStatusScreen = '/createStatusScreen';
   static const String statusDetailScreen = '/statusDetailScreen';
   static const String userStatusScreen = '/userStatusScreen';
   static const String mediaViewScreen = '/mediaViewScreen';
+  
+  // Collection names for Status
+  static const String statuses = 'statuses';
+  static const String statusFiles = 'statusFiles';
+  static const String statusId = 'statusId';
+  static const String statusUrl = 'statusUrl';
+  static const String statusType = 'statusType';
+  static const String statusViewCount = 'statusViewCount';   // Changed to only track count for privacy
   
   // New Moments feature routes
   static const String momentsScreen = '/momentsScreen';
