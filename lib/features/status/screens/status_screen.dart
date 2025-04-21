@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/widgets/feed_loading_indicator.dart';
 import 'package:textgb/features/status/widgets/lazy_status_item.dart';
 import 'package:textgb/features/status/widgets/no_status_placeholder.dart';
-import 'package:textgb/models/status_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 
 class StatusScreen extends StatefulWidget {

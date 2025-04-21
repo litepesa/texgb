@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_sound_record/flutter_sound_record.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
@@ -33,7 +34,11 @@ class BottomChatField extends StatefulWidget {
   State<BottomChatField> createState() => _BottomChatFieldState();
 }
 
-class _BottomChatFieldState extends State<BottomChatField> {
+class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProviderStateMixin {
+  // Animation controller for transitions
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
   FlutterSoundRecord? _soundRecord;
   late TextEditingController _textEditingController;
   late FocusNode _focusNode;
@@ -45,58 +50,79 @@ class _BottomChatFieldState extends State<BottomChatField> {
   bool isSendingAudio = false;
   bool isShowEmojiPicker = false;
   bool isShowMoreOptions = false;
-  bool isVoiceMode = false; // Track voice/text input mode
-  bool isSendingFile = false; // Track file sending state
+  bool isVoiceMode = false;
+  bool isSendingFile = false;
 
-  // hide emoji container
+  // Recording variables
+  double _recordingPosition = 0.0; // For slide to cancel UI
+  int _recordingDuration = 0; // Recording duration in seconds
+  DateTime? _recordingStartTime;
+
+  // Hide emoji container
   void hideEmojiContainer() {
-    setState(() {
-      isShowEmojiPicker = false;
-    });
+    if (mounted) {
+      setState(() {
+        isShowEmojiPicker = false;
+      });
+    }
   }
 
-  // show emoji container
+  // Show emoji container with animation
   void showEmojiContainer() {
-    setState(() {
-      isShowEmojiPicker = true;
-      isShowMoreOptions = false; // Hide more options when showing emoji
-    });
+    if (mounted) {
+      setState(() {
+        isShowEmojiPicker = true;
+        isShowMoreOptions = false;
+      });
+      _animationController.reset();
+      _animationController.forward();
+    }
   }
 
-  // Toggle more options
+  // Toggle more options with animation
   void toggleMoreOptions() {
-    setState(() {
-      isShowMoreOptions = !isShowMoreOptions;
-      if (isShowMoreOptions) {
-        isShowEmojiPicker = false; // Hide emoji when showing more options
-        hideKeyNoard();
-      }
-    });
+    if (mounted) {
+      setState(() {
+        isShowMoreOptions = !isShowMoreOptions;
+        if (isShowMoreOptions) {
+          isShowEmojiPicker = false;
+          hideKeyNoard();
+          _animationController.reset();
+          _animationController.forward();
+        } else {
+          _animationController.reverse();
+        }
+      });
+    }
   }
 
-  // Toggle between voice and text input
+  // Toggle between voice and text input with haptic feedback
   void toggleVoiceTextMode() {
-    setState(() {
-      isVoiceMode = !isVoiceMode;
-      if (isVoiceMode) {
-        hideKeyNoard();
-        hideEmojiContainer();
-      }
-    });
+    HapticFeedback.lightImpact();
+    if (mounted) {
+      setState(() {
+        isVoiceMode = !isVoiceMode;
+        if (isVoiceMode) {
+          hideKeyNoard();
+          hideEmojiContainer();
+        }
+      });
+    }
   }
 
-  // show keyboard
+  // Show keyboard
   void showKeyBoard() {
     _focusNode.requestFocus();
   }
 
-  // hide keyboard
+  // Hide keyboard
   void hideKeyNoard() {
     _focusNode.unfocus();
   }
 
-  // toggle emoji and keyboard container
+  // Toggle emoji and keyboard container
   void toggleEmojiKeyboardContainer() {
+    HapticFeedback.lightImpact();
     if (isShowEmojiPicker) {
       showKeyBoard();
       hideEmojiContainer();
@@ -106,11 +132,47 @@ class _BottomChatFieldState extends State<BottomChatField> {
     }
   }
 
+  // Timer for recording duration
+  void _startRecordingTimer() {
+    _recordingStartTime = DateTime.now();
+    Future.doWhile(() async {
+      if (!isRecording || !mounted) return false;
+      final now = DateTime.now();
+      final difference = now.difference(_recordingStartTime!);
+      if (mounted) {
+        setState(() {
+          _recordingDuration = difference.inSeconds;
+        });
+      }
+      await Future.delayed(const Duration(seconds: 1));
+      return isRecording && mounted;
+    });
+  }
+
+  // Format recording time
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
   @override
   void initState() {
     _textEditingController = TextEditingController();
     _soundRecord = FlutterSoundRecord();
     _focusNode = FocusNode();
+    
+    // Initialize animation controller
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    
     super.initState();
   }
 
@@ -119,10 +181,11 @@ class _BottomChatFieldState extends State<BottomChatField> {
     _textEditingController.dispose();
     _soundRecord?.dispose();
     _focusNode.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
-  // check microphone permission
+  // Check microphone permission
   Future<bool> checkMicrophonePermission() async {
     bool hasPermission = await Permission.microphone.isGranted;
     final status = await Permission.microphone.request();
@@ -135,10 +198,11 @@ class _BottomChatFieldState extends State<BottomChatField> {
     return hasPermission;
   }
 
-  // start recording audio
+  // Start recording audio
   void startRecording() async {
     final hasPermission = await checkMicrophonePermission();
     if (hasPermission) {
+      HapticFeedback.heavyImpact(); // Provide haptic feedback when recording starts
       var tempDir = await getTemporaryDirectory();
       filePath = '${tempDir.path}/flutter_sound.aac';
       await _soundRecord!.start(
@@ -146,23 +210,74 @@ class _BottomChatFieldState extends State<BottomChatField> {
       );
       setState(() {
         isRecording = true;
+        _recordingPosition = 0.0;
+        _recordingDuration = 0;
         // Hide other UI elements while recording
         isShowEmojiPicker = false;
         isShowMoreOptions = false;
       });
+      _startRecordingTimer();
     } else {
       showSnackBar(context, 'Microphone permission denied');
     }
   }
 
-  // stop recording audio
+  // Update recording slide position
+  void updateRecordingPosition(DragUpdateDetails details) {
+    if (isRecording) {
+      setState(() {
+        // Limit the slide position to a valid range
+        _recordingPosition += details.primaryDelta ?? 0;
+        _recordingPosition = _recordingPosition.clamp(-150.0, 0.0);
+      });
+    }
+  }
+
+  // Handle end of recording slide
+  void onRecordingSlideEnd(DragEndDetails details) {
+    if (isRecording) {
+      if (_recordingPosition < -100) {
+        // Cancel recording if slide far enough to the left
+        cancelRecording();
+      } else {
+        // Reset position if not canceled
+        setState(() {
+          _recordingPosition = 0.0;
+        });
+      }
+    }
+  }
+
+  // Cancel recording
+  void cancelRecording() async {
+    HapticFeedback.mediumImpact();
+    await _soundRecord!.stop();
+    if (mounted) {
+      setState(() {
+        isRecording = false;
+        _recordingPosition = 0.0;
+      });
+    }
+    // Delete the recorded file
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      // Ignore errors when deleting temp file
+    }
+  }
+
+  // Stop recording audio
   void stopRecording() async {
+    HapticFeedback.mediumImpact();
     await _soundRecord!.stop();
     setState(() {
       isRecording = false;
       isSendingAudio = true;
     });
-    // send audio message to firestore
+    // Send audio message to firestore
     sendFileMessage(
       messageType: MessageEnum.audio,
     );
@@ -191,7 +306,7 @@ class _BottomChatFieldState extends State<BottomChatField> {
       return;
     }
 
-    // crop image
+    // Crop image
     await cropImage(finalFileImage?.path);
 
     // Close more options panel
@@ -200,7 +315,7 @@ class _BottomChatFieldState extends State<BottomChatField> {
     });
   }
 
-  // select a video file from device
+  // Select a video file from device
   void selectVideo() async {
     setState(() {
       isSendingFile = true;
@@ -218,7 +333,7 @@ class _BottomChatFieldState extends State<BottomChatField> {
 
     if (fileVideo != null) {
       filePath = fileVideo.path;
-      // send video message to firestore
+      // Send video message to firestore
       sendFileMessage(
         messageType: MessageEnum.video,
       );
@@ -227,10 +342,6 @@ class _BottomChatFieldState extends State<BottomChatField> {
         isSendingFile = false;
       });
     }
-  }
-
-  popContext() {
-    Navigator.pop(context);
   }
 
   Future<void> cropImage(croppedFilePath) async {
@@ -244,7 +355,7 @@ class _BottomChatFieldState extends State<BottomChatField> {
 
       if (croppedFile != null) {
         filePath = croppedFile.path;
-        // send image message to firestore
+        // Send image message to firestore
         sendFileMessage(
           messageType: MessageEnum.image,
         );
@@ -257,7 +368,7 @@ class _BottomChatFieldState extends State<BottomChatField> {
     }
   }
 
-  // send image message to firestore
+  // Send image message to firestore
   void sendFileMessage({
     required MessageEnum messageType,
   }) {
@@ -292,10 +403,11 @@ class _BottomChatFieldState extends State<BottomChatField> {
     );
   }
 
-  // send text message to firestore
+  // Send text message to firestore
   void sendTextMessage() {
     if (_textEditingController.text.trim().isEmpty) return;
     
+    HapticFeedback.lightImpact(); // Light feedback when sending message
     final currentUser = context.read<AuthenticationProvider>().userModel!;
     final chatProvider = context.read<ChatProvider>();
 
@@ -334,13 +446,13 @@ class _BottomChatFieldState extends State<BottomChatField> {
     final uid = context.read<AuthenticationProvider>().userModel!.uid;
 
     final groupProvider = context.read<GroupProvider>();
-    // check if is admin
+    // Check if is admin
     final isAdmin = groupProvider.groupModel.adminsUIDs.contains(uid);
 
-    // chec if is member
+    // Check if is member
     final isMember = groupProvider.groupModel.membersUIDs.contains(uid);
 
-    // check is messages are locked
+    // Check if messages are locked
     final isLocked = groupProvider.groupModel.lockMessages;
     
     final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
@@ -352,12 +464,23 @@ class _BottomChatFieldState extends State<BottomChatField> {
         ? buildBottomChatField(backgroundColor, appBarColor, accentColor)
         : isMember
             ? buildisMember(isLocked, backgroundColor, appBarColor, accentColor)
-            : SizedBox(
+            : Container(
                 height: 60,
+                decoration: BoxDecoration(
+                  color: appBarColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 3,
+                      offset: const Offset(0, -1),
+                    ),
+                  ],
+                ),
                 child: Center(
                   child: TextButton(
                     onPressed: () async {
-                      // send request to join group
+                      HapticFeedback.lightImpact();
+                      // Send request to join group
                       await groupProvider
                           .sendRequestToJoinGroup(
                         groupId: groupProvider.groupModel.groupId,
@@ -369,8 +492,15 @@ class _BottomChatFieldState extends State<BottomChatField> {
                         showSnackBar(context, 'Request sent');
                       });
                     },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      backgroundColor: Colors.red.withOpacity(0.1),
+                    ),
                     child: const Text(
-                      'You are not a member of this group, \n click here to send request to join',
+                      'Send request to join group',
                       style: TextStyle(
                         color: Colors.red,
                         fontWeight: FontWeight.bold,
@@ -387,14 +517,28 @@ class _BottomChatFieldState extends State<BottomChatField> {
         ? Container(
             height: 50,
             color: appBarColor,
-            child: const Center(
-              child: Text(
-                'Messages are locked, only admins can send messages',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                ),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock, color: Colors.red, size: 16),
+                  SizedBox(width: 8),
+                  Text(
+                    'Only admins can send messages',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ),
           )
@@ -410,20 +554,21 @@ class _BottomChatFieldState extends State<BottomChatField> {
         return Container(
           decoration: BoxDecoration(
             color: appBarColor,
-            border: Border(
-              top: BorderSide(
-                color: Colors.grey.withOpacity(0.2),
-                width: 0.5,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 3,
+                offset: const Offset(0, -1),
               ),
-            ),
+            ],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Ensure the container only takes necessary height
+            mainAxisSize: MainAxisSize.min,
             children: [
               // Message reply preview
               if (isMessageReply)
                 Container(
-                  padding: const EdgeInsets.only(top: 8.0, left: 8.0, right: 8.0),
+                  padding: const EdgeInsets.all(8.0),
                   child: MessageReplyPreview(
                     replyMessageModel: messageReply,
                   ),
@@ -435,179 +580,252 @@ class _BottomChatFieldState extends State<BottomChatField> {
                 
               // Normal input area (when not recording)
               if (!isRecording)
-                Row(
-                  children: [
-                    // Voice/text toggle button
-                    IconButton(
-                      icon: Icon(
-                        isVoiceMode ? Icons.keyboard : Icons.keyboard_voice,
-                        color: Colors.grey[600],
-                      ),
-                      onPressed: toggleVoiceTextMode,
-                    ),
-                    
-                    // Voice button or text input field
-                    if (isVoiceMode)
-                      Expanded(
-                        child: GestureDetector(
-                          onLongPress: startRecording,
-                          onLongPressEnd: (_) => stopRecording(),
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 8.0),
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 15.0),
-                            decoration: BoxDecoration(
-                              color: backgroundColor,
-                              borderRadius: BorderRadius.circular(4.0),
-                            ),
-                            child: const Text(
-                              'Hold to record voice message',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      Expanded(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxHeight: 100, // Set maximum height
-                          ),
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 8.0),
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                            decoration: BoxDecoration(
-                              color: backgroundColor,
-                              borderRadius: BorderRadius.circular(4.0),
-                            ),
-                            child: TextField(
-                              controller: _textEditingController,
-                              focusNode: _focusNode,
-                              maxLines: 3,
-                              minLines: 1,
-                              style: TextStyle(
-                                fontSize: 16.0,
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
-                              ),
-                              decoration: const InputDecoration(
-                                hintText: 'Message',
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(vertical: 10.0),
-                              ),
-                              onChanged: (value) {
-                                setState(() {
-                                  isShowSendButton = value.isNotEmpty;
-                                });
-                              },
-                              onTap: () {
-                                hideEmojiContainer();
-                                setState(() {
-                                  isShowMoreOptions = false;
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                    
-                    if (!isVoiceMode) 
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: [
+                      // Voice/text toggle button
                       IconButton(
                         icon: Icon(
-                          isShowEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined,
+                          isVoiceMode ? Icons.keyboard : Icons.keyboard_voice,
                           color: Colors.grey[600],
                         ),
-                        onPressed: toggleEmojiKeyboardContainer,
+                        onPressed: toggleVoiceTextMode,
                       ),
-                    
-                    // More options or Send button
-                    if (isShowSendButton && !isVoiceMode)
-                      chatProvider.isLoading
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: accentColor,
-                                ),
+                      
+                      // Voice button or text input field
+                      if (isVoiceMode)
+                        Expanded(
+                          child: GestureDetector(
+                            onLongPress: startRecording,
+                            onLongPressEnd: (_) => stopRecording(),
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4.0),
+                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 15.0),
+                              decoration: BoxDecoration(
+                                color: backgroundColor,
+                                borderRadius: BorderRadius.circular(18.0),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 2,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
                               ),
-                            )
-                          : TextButton(
-                              onPressed: sendTextMessage,
-                              style: TextButton.styleFrom(
-                                backgroundColor: accentColor,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4.0),
-                                ),
-                                minimumSize: const Size(50, 36),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.mic_none,
+                                    color: Colors.grey[600],
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Hold to record voice message',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              child: const Text(
-                                'Send',
+                            ),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxHeight: 100,
+                            ),
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4.0),
+                              decoration: BoxDecoration(
+                                color: backgroundColor,
+                                borderRadius: BorderRadius.circular(18.0),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 2,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: TextField(
+                                controller: _textEditingController,
+                                focusNode: _focusNode,
+                                maxLines: 3,
+                                minLines: 1,
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16.0,
+                                  color: Theme.of(context).textTheme.bodyLarge?.color,
                                 ),
+                                decoration: InputDecoration(
+                                  hintText: 'Message',
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0,
+                                    vertical: 10.0,
+                                  ),
+                                  hintStyle: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                onChanged: (value) {
+                                  setState(() {
+                                    isShowSendButton = value.isNotEmpty;
+                                  });
+                                },
+                                onTap: () {
+                                  hideEmojiContainer();
+                                  setState(() {
+                                    isShowMoreOptions = false;
+                                  });
+                                },
                               ),
-                            )
-                    else if (!isVoiceMode)
-                      IconButton(
-                        icon: Icon(
-                          Icons.add_circle_outline,
-                          color: Colors.grey[600],
+                            ),
+                          ),
                         ),
-                        onPressed: toggleMoreOptions,
-                      ),
-                  ],
+                    
+                      if (!isVoiceMode) 
+                        IconButton(
+                          icon: Icon(
+                            isShowEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined,
+                            color: Colors.grey[600],
+                          ),
+                          onPressed: toggleEmojiKeyboardContainer,
+                          splashRadius: 20,
+                        ),
+                    
+                      // More options or Send button
+                      if (isShowSendButton && !isVoiceMode)
+                        chatProvider.isLoading
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: accentColor,
+                                  ),
+                                ),
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: Material(
+                                  color: accentColor,
+                                  borderRadius: BorderRadius.circular(18.0),
+                                  child: InkWell(
+                                    onTap: sendTextMessage,
+                                    borderRadius: BorderRadius.circular(18.0),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 8,
+                                      ),
+                                      child: const Text(
+                                        'Send',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                      else if (!isVoiceMode)
+                        IconButton(
+                          icon: Icon(
+                            Icons.add_circle_outline,
+                            color: Colors.grey[600],
+                          ),
+                          onPressed: toggleMoreOptions,
+                          splashRadius: 20,
+                        ),
+                    ],
+                  ),
                 ),
               
               // File sending indicator
               if (isSendingFile && !isRecording)
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+                  margin: const EdgeInsets.all(8.0),
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: accentColor,
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: accentColor,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      const Text('Preparing file...')
+                      Text(
+                        'Preparing file...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                      )
                     ],
                   ),
                 ),
               
-              // More options grid
+              // More options grid with animation
               if (isShowMoreOptions && !isRecording && !isSendingFile)
-                buildMoreOptionsGrid(context),
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SizeTransition(
+                    sizeFactor: _fadeAnimation,
+                    axisAlignment: -1.0,
+                    child: buildMoreOptionsGrid(context, accentColor),
+                  ),
+                ),
               
-              // Emoji picker
+              // Emoji picker with animation
               if (isShowEmojiPicker && !isRecording && !isSendingFile)
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.3, // Responsive height
-                  child: EmojiPicker(
-                    onEmojiSelected: (category, Emoji emoji) {
-                      _textEditingController.text = _textEditingController.text + emoji.emoji;
-                      
-                      if (!isShowSendButton) {
-                        setState(() {
-                          isShowSendButton = true;
-                        });
-                      }
-                    },
-                    onBackspacePressed: () {
-                      _textEditingController.text = _textEditingController
-                          .text.characters.skipLast(1).toString();
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SizeTransition(
+                    sizeFactor: _fadeAnimation,
+                    axisAlignment: -1.0,
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.3,
+                      child: EmojiPicker(
+                        onEmojiSelected: (category, Emoji emoji) {
+                          _textEditingController.text = _textEditingController.text + emoji.emoji;
                           
-                      if (_textEditingController.text.isEmpty) {
-                        setState(() {
-                          isShowSendButton = false;
-                        });
-                      }
-                    },
+                          if (!isShowSendButton) {
+                            setState(() {
+                              isShowSendButton = true;
+                            });
+                          }
+                        },
+                        onBackspacePressed: () {
+                          _textEditingController.text = _textEditingController
+                              .text.characters.skipLast(1).toString();
+                              
+                          if (_textEditingController.text.isEmpty) {
+                            setState(() {
+                              isShowSendButton = false;
+                            });
+                          }
+                        },
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -617,59 +835,140 @@ class _BottomChatFieldState extends State<BottomChatField> {
     );
   }
   
-  // Recording indicator UI
+  // Recording indicator UI with slide to cancel
   Widget _buildRecordingIndicator(Color accentColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
-      child: Row(
-        children: [
-          Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Center(
-              child: Icon(
-                Icons.fiber_manual_record,
-                color: Colors.white,
-                size: 14,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Recording audio...',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: stopRecording,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+    // Calculate the background color based on the slide position
+    final cancelOpacity = _recordingPosition < -50 ? (_recordingPosition / -150).clamp(0.0, 1.0) : 0.0;
+    final cancelColor = Colors.red.withOpacity(cancelOpacity * 0.3);
+    
+    return GestureDetector(
+      onHorizontalDragUpdate: updateRecordingPosition,
+      onHorizontalDragEnd: onRecordingSlideEnd,
+      child: Container(
+        color: cancelColor,
+        padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+        child: Row(
+          children: [
+            // Recording animation
+            Container(
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: accentColor,
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.red.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(18),
               ),
-              child: const Text(
-                'Send',
-                style: TextStyle(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Animated circle
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(seconds: 2),
+                    builder: (context, value, child) {
+                      return Container(
+                        width: 30 + (value * 10),
+                        height: 30 + (value * 10),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.3 * (1 - value)),
+                          shape: BoxShape.circle,
+                        ),
+                      );
+                    },
+                  ),
+                  // Center dot
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            
+            // Recording info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Recording',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatDuration(_recordingDuration),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Transform.translate(
+                    offset: Offset(_recordingPosition, 0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.arrow_back,
+                          size: 14,
+                          color: _recordingPosition < -50 ? Colors.red : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "Slide left to cancel",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _recordingPosition < -50 ? Colors.red : Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Send button for audio
+            GestureDetector(
+              onTap: stopRecording,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.send,
                   color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                  size: 20,
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
   
-  Widget buildMoreOptionsGrid(BuildContext context) {
+  Widget buildMoreOptionsGrid(BuildContext context, Color accentColor) {
     // WeChat-style feature grid
     final items = [
       {
@@ -708,51 +1007,108 @@ class _BottomChatFieldState extends State<BottomChatField> {
         'label': 'Files',
         'onTap': () {},  // Placeholder
       },
+      {
+        'icon': Icons.person,
+        'color': accentColor,
+        'label': 'Contact',
+        'onTap': () {},  // Placeholder
+      },
+      {
+        'icon': Icons.sticky_note_2_outlined,
+        'color': Colors.amber,
+        'label': 'Stickers',
+        'onTap': () {},  // Placeholder
+      },
     ];
     
     return Container(
-      height: 200,
+      height: 220,
       padding: const EdgeInsets.symmetric(vertical: 16.0),
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4,
-          crossAxisSpacing: 8.0,
-          mainAxisSpacing: 16.0,
+      decoration: BoxDecoration(
+        color: Theme.of(context).extension<WeChatThemeExtension>()?.backgroundColor,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
         ),
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return GestureDetector(
-            onTap: () {
-              if (item['onTap'] != null) {
-                (item['onTap'] as Function)();
-              }
-            },
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: (item['color'] as Color).withOpacity(0.1),
-                  child: Icon(
-                    item['icon'] as IconData,
-                    color: item['color'] as Color,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  item['label'] as String,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).textTheme.bodySmall?.color,
-                  ),
-                ),
-              ],
+      ),
+      child: Column(
+        children: [
+          // Handle indicator
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2),
             ),
-          );
-        },
+          ),
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                crossAxisSpacing: 8.0,
+                mainAxisSpacing: 16.0,
+                childAspectRatio: 0.9,
+              ),
+              physics: const BouncingScrollPhysics(),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      if (item['onTap'] != null) {
+                        (item['onTap'] as Function)();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    splashColor: (item['color'] as Color).withOpacity(0.1),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: (item['color'] as Color).withOpacity(0.12),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: (item['color'] as Color).withOpacity(0.1),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            item['icon'] as IconData,
+                            color: item['color'] as Color,
+                            size: 26,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          item['label'] as String,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:textgb/enums/enums.dart';
+import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/widgets/status_feed_item.dart';
-import 'package:textgb/models/status_model.dart';
 
 class LazyStatusItem extends StatefulWidget {
   final StatusModel status;

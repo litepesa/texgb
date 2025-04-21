@@ -5,7 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/models/status_model.dart';
+import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:uuid/uuid.dart';
@@ -41,7 +41,7 @@ class StatusProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // FETCH STATUSES - Optimized for better performance
+  // FETCH STATUSES - Optimized for better performance and pure chronological ordering
   Future<void> fetchStatuses({
     required String currentUserId,
     required List<String> contactIds,
@@ -114,22 +114,8 @@ class StatusProvider extends ChangeNotifier {
         newStatuses.add(status);
       }
       
-      // Optimize loading order - sort to prioritize text and image statuses first
+      // Update local list - preserving pure chronological order
       if (refresh) {
-        // Sort: text statuses first, then images, then videos
-        newStatuses.sort((a, b) {
-          if (a.statusType == StatusType.text && b.statusType != StatusType.text) {
-            return -1;
-          } else if (b.statusType == StatusType.text && a.statusType != StatusType.text) {
-            return 1;
-          } else if (a.statusType == StatusType.image && b.statusType == StatusType.video) {
-            return -1;
-          } else if (b.statusType == StatusType.image && a.statusType == StatusType.video) {
-            return 1;
-          }
-          return 0;
-        });
-        
         _statusList = newStatuses;
       } else {
         _statusList.addAll(newStatuses);
@@ -160,12 +146,13 @@ class StatusProvider extends ChangeNotifier {
     );
   }
 
-  // UPLOAD A NEW STATUS
+  // UPLOAD A NEW STATUS with support for multiple media files
   Future<StatusModel?> createStatus({
     required UserModel user,
     required String caption,
     StatusType statusType = StatusType.text,
-    File? mediaFile,
+    File? mediaFile, // Keep for backward compatibility
+    List<File>? mediaFiles, // New parameter for multiple files
     String backgroundColor = '#000000',
     String textColor = '#FFFFFF',
     String fontStyle = 'normal',
@@ -176,17 +163,35 @@ class StatusProvider extends ChangeNotifier {
       
       final statusId = const Uuid().v4();
       String statusUrl = '';
+      List<String> mediaUrls = [];
       
-      // Upload media file if present
-      if (mediaFile != null && statusType != StatusType.text) {
-        final String storagePath = 'statusFiles/${user.uid}/$statusId';
-        statusUrl = await storeFileToStorage(
-          file: mediaFile,
-          reference: storagePath,
-        );
-      } else if (statusType == StatusType.text) {
-        // For text status, the content is stored in the caption
-        statusUrl = '';
+      // Upload media files
+      if (statusType != StatusType.text) {
+        // Handle single file for backward compatibility
+        if (mediaFile != null && (mediaFiles == null || mediaFiles.isEmpty)) {
+          final String storagePath = 'statusFiles/${user.uid}/$statusId/0';
+          statusUrl = await storeFileToStorage(
+            file: mediaFile,
+            reference: storagePath,
+          );
+          mediaUrls.add(statusUrl);
+        } 
+        // Handle multiple files
+        else if (mediaFiles != null && mediaFiles.isNotEmpty) {
+          for (int i = 0; i < mediaFiles.length; i++) {
+            final String storagePath = 'statusFiles/${user.uid}/$statusId/$i';
+            String url = await storeFileToStorage(
+              file: mediaFiles[i],
+              reference: storagePath,
+            );
+            mediaUrls.add(url);
+          }
+          
+          // Set the first image as the main statusUrl for backward compatibility
+          if (mediaUrls.isNotEmpty) {
+            statusUrl = mediaUrls[0];
+          }
+        }
       }
       
       // Create the status model
@@ -196,6 +201,7 @@ class StatusProvider extends ChangeNotifier {
         userImage: user.image,
         statusId: statusId,
         statusUrl: statusUrl,
+        mediaUrls: mediaUrls,
         caption: caption,
         statusType: statusType,
         createdAt: DateTime.now(),
@@ -241,13 +247,32 @@ class StatusProvider extends ChangeNotifier {
       await _firestore.collection('statuses').doc(statusId).delete();
       
       // If it has media, delete from storage
-      if (status.statusType != StatusType.text && status.statusUrl.isNotEmpty) {
-        try {
-          final storageRef = _storage.refFromURL(status.statusUrl);
-          await storageRef.delete();
-        } catch (e) {
-          debugPrint('Error deleting status media: $e');
-          // Continue with deletion even if media removal fails
+      if (status.statusType != StatusType.text) {
+        // Handle both legacy single URL and new multiple URLs
+        List<String> urlsToDelete = [];
+        
+        if (status.statusUrl.isNotEmpty) {
+          urlsToDelete.add(status.statusUrl);
+        }
+        
+        if (status.mediaUrls.isNotEmpty) {
+          // Add any URLs from mediaUrls that aren't already in the list
+          for (String url in status.mediaUrls) {
+            if (!urlsToDelete.contains(url)) {
+              urlsToDelete.add(url);
+            }
+          }
+        }
+        
+        // Delete all media files
+        for (String url in urlsToDelete) {
+          try {
+            final storageRef = _storage.refFromURL(url);
+            await storageRef.delete();
+          } catch (e) {
+            debugPrint('Error deleting status media: $e');
+            // Continue with deletion even if media removal fails
+          }
         }
       }
       
@@ -288,25 +313,35 @@ class StatusProvider extends ChangeNotifier {
       
       // Update local list
       final updatedViewedBy = List<String>.from(status.viewedBy)..add(currentUser.uid);
-      final updatedStatus = StatusModel(
-        uid: status.uid,
-        userName: status.userName,
-        userImage: status.userImage,
-        statusId: status.statusId,
-        statusUrl: status.statusUrl,
-        caption: status.caption,
-        statusType: status.statusType,
-        createdAt: status.createdAt,
-        viewedBy: updatedViewedBy,
-        backgroundColor: status.backgroundColor,
-        textColor: status.textColor,
-        fontStyle: status.fontStyle,
-      );
+      final updatedStatus = status.copyWith(viewedBy: updatedViewedBy);
       
       _statusList[statusIndex] = updatedStatus;
       notifyListeners();
     } catch (e) {
       debugPrint('Error marking status as viewed: $e');
+    }
+  }
+  
+  // Navigate between media in multi-image status
+  void updateStatusMediaIndex(String statusId, int newIndex) {
+    try {
+      // Find status in local list
+      final statusIndex = _statusList.indexWhere((s) => s.statusId == statusId);
+      if (statusIndex < 0) return;
+      
+      final status = _statusList[statusIndex];
+      
+      // Validate index is within bounds
+      if (newIndex < 0 || newIndex >= status.mediaUrls.length) return;
+      
+      // Create updated status with new index
+      final updatedStatus = status.copyWithIndex(newIndex);
+      
+      // Update local list
+      _statusList[statusIndex] = updatedStatus;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error updating status media index: $e');
     }
   }
 

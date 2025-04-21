@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
+import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
-import 'package:textgb/models/status_model.dart';
 
 class StatusActionButtons extends StatelessWidget {
   final StatusModel status;

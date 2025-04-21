@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
+import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/services/video_cache_service.dart';
 import 'package:textgb/features/status/widgets/status_action_buttons.dart';
 import 'package:textgb/features/status/widgets/status_progress_indicator.dart';
 import 'package:textgb/features/status/widgets/status_user_info.dart';
-import 'package:textgb/models/status_model.dart';
 import 'package:video_player/video_player.dart';
 
 class StatusFeedItem extends StatefulWidget {
@@ -44,6 +44,10 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   bool _hasUserInteracted = false;
   bool _isVideoInitialized = false;
   
+  // For multi-image statuses
+  int _currentMediaIndex = 0;
+  PageController? _mediaPageController;
+  
   @override
   void initState() {
     super.initState();
@@ -59,6 +63,14 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     
     // Check if this is the current status
     _isCurrentlyActive = widget.currentIndex == widget.index;
+    
+    // Initialize current media index from status model
+    _currentMediaIndex = widget.status.currentMediaIndex;
+    
+    // Initialize page controller for swiping between multiple media items
+    if (widget.status.hasMultipleMedia) {
+      _mediaPageController = PageController(initialPage: _currentMediaIndex);
+    }
     
     // Initialize video controller if it's a video status, but DON'T autoplay by default
     if (widget.status.statusType == StatusType.video) {
@@ -108,15 +120,17 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
   }
   
   Future<void> _initializeVideoController({bool autoPlayIfActive = true}) async {
-    if (widget.status.statusUrl.isNotEmpty) {
+    final String videoUrl = widget.status.currentMediaUrl;
+    
+    if (videoUrl.isNotEmpty) {
       try {
         // Try to get cached video path
         final cacheService = VideoCacheService();
-        String? videoPath = await cacheService.getCachedVideo(widget.status.statusUrl);
+        String? videoPath = await cacheService.getCachedVideo(videoUrl);
         
         // If not cached, cache it now if user has interacted or this is the active status
         if (videoPath == null && (_hasUserInteracted || widget.currentIndex == widget.index)) {
-          videoPath = await cacheService.cacheVideo(widget.status.statusUrl);
+          videoPath = await cacheService.cacheVideo(videoUrl);
         }
         
         // Initialize with cached file if available, otherwise use network URL
@@ -129,7 +143,7 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
           );
         } else {
           _videoController = VideoPlayerController.network(
-            widget.status.statusUrl,
+            videoUrl,
             videoPlayerOptions: VideoPlayerOptions(
               mixWithOthers: true,
             ),
@@ -251,6 +265,92 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     });
   }
   
+  // Handle media navigation for multi-image statuses
+  void _nextMedia() {
+    if (!widget.status.hasMultipleMedia) return;
+    
+    final int mediaCount = widget.status.mediaUrls.length;
+    if (_currentMediaIndex < mediaCount - 1) {
+      final newIndex = _currentMediaIndex + 1;
+      
+      // Update index in provider
+      context.read<StatusProvider>().updateStatusMediaIndex(widget.status.statusId, newIndex);
+      
+      // Update local state
+      setState(() {
+        _currentMediaIndex = newIndex;
+      });
+      
+      // Animate to the next page
+      _mediaPageController?.animateToPage(
+        newIndex,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      
+      // Re-initialize video controller if needed
+      if (widget.status.statusType == StatusType.video) {
+        _isVideoInitialized = false;
+        _videoController?.dispose();
+        _videoController = null;
+        _initializeVideoController(autoPlayIfActive: _hasUserInteracted);
+      }
+    }
+  }
+  
+  // Handle media navigation for multi-image statuses
+  void _previousMedia() {
+    if (!widget.status.hasMultipleMedia) return;
+    
+    if (_currentMediaIndex > 0) {
+      final newIndex = _currentMediaIndex - 1;
+      
+      // Update index in provider
+      context.read<StatusProvider>().updateStatusMediaIndex(widget.status.statusId, newIndex);
+      
+      // Update local state
+      setState(() {
+        _currentMediaIndex = newIndex;
+      });
+      
+      // Animate to the previous page
+      _mediaPageController?.animateToPage(
+        newIndex,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      
+      // Re-initialize video controller if needed
+      if (widget.status.statusType == StatusType.video) {
+        _isVideoInitialized = false;
+        _videoController?.dispose();
+        _videoController = null;
+        _initializeVideoController(autoPlayIfActive: _hasUserInteracted);
+      }
+    }
+  }
+  
+  // Handle page change in PageView
+  void _onMediaPageChanged(int page) {
+    if (_currentMediaIndex != page) {
+      // Update index in provider
+      context.read<StatusProvider>().updateStatusMediaIndex(widget.status.statusId, page);
+      
+      // Update local state
+      setState(() {
+        _currentMediaIndex = page;
+      });
+      
+      // Re-initialize video controller if needed
+      if (widget.status.statusType == StatusType.video) {
+        _isVideoInitialized = false;
+        _videoController?.dispose();
+        _videoController = null;
+        _initializeVideoController(autoPlayIfActive: _hasUserInteracted);
+      }
+    }
+  }
+  
   @override
   void didUpdateWidget(StatusFeedItem oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -287,6 +387,26 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
           // Video controller isn't initialized yet, try initializing now
           _initializeVideoController(autoPlayIfActive: _hasUserInteracted);
         }
+      }
+    }
+    
+    // Check if the status model has changed (e.g., currentMediaIndex was updated)
+    if (widget.status.currentMediaIndex != oldWidget.status.currentMediaIndex) {
+      _currentMediaIndex = widget.status.currentMediaIndex;
+      
+      // Update page controller
+      if (_mediaPageController != null &&
+          _mediaPageController!.hasClients &&
+          _currentMediaIndex != _mediaPageController!.page?.round()) {
+        _mediaPageController!.jumpToPage(_currentMediaIndex);
+      }
+      
+      // Re-initialize video controller if needed
+      if (widget.status.statusType == StatusType.video) {
+        _isVideoInitialized = false;
+        _videoController?.dispose();
+        _videoController = null;
+        _initializeVideoController(autoPlayIfActive: _hasUserInteracted && _isCurrentlyActive);
       }
     }
     
@@ -339,11 +459,14 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     // Dispose of the animation controller
     _animationController.dispose();
     
-    // Properly dispose of the video controller
+    // Dispose of the video controller
     if (_videoController != null) {
       _videoController!.removeListener(() {});
       _videoController!.dispose();
     }
+    
+    // Dispose of the page controller
+    _mediaPageController?.dispose();
     
     super.dispose();
   }
@@ -436,7 +559,7 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
               ),
             ),
             
-            // Progress indicator
+            // Progress indicator for videos
             if (widget.status.statusType == StatusType.video && 
                 _videoController != null && 
                 _isVideoInitialized)
@@ -445,6 +568,79 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
                 left: 0,
                 right: 0,
                 child: StatusProgressIndicator(progress: _progress),
+              ),
+            
+            // Multiple media indicator for images/videos (dots at bottom)
+            if (widget.status.hasMultipleMedia)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 0,
+                right: 0,
+                child: _buildMediaIndicator(),
+              ),
+            
+            // Navigation arrows for multiple media
+            if (widget.status.hasMultipleMedia)
+              Row(
+                children: [
+                  // Left arrow for previous media
+                  if (_currentMediaIndex > 0)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: _previousMedia,
+                        child: Container(
+                          height: double.infinity,
+                          width: MediaQuery.of(context).size.width * 0.2,
+                          color: Colors.transparent,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.3),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.arrow_back_ios,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  
+                  Spacer(),
+                  
+                  // Right arrow for next media
+                  if (_currentMediaIndex < widget.status.mediaUrls.length - 1)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: GestureDetector(
+                        onTap: _nextMedia,
+                        child: Container(
+                          height: double.infinity,
+                          width: MediaQuery.of(context).size.width * 0.2,
+                          color: Colors.transparent,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.3),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.arrow_forward_ios,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             
             // Enhanced caption with background
@@ -538,11 +734,103 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
     );
   }
   
+  // Build media indicator dots for multiple images/videos
+  Widget _buildMediaIndicator() {
+    if (!widget.status.hasMultipleMedia) return const SizedBox.shrink();
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
+        widget.status.mediaUrls.length,
+        (index) => Container(
+          width: 8,
+          height: 8,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: index == _currentMediaIndex
+                ? Colors.white
+                : Colors.white.withOpacity(0.5),
+          ),
+        ),
+      ),
+    );
+  }
+  
   Widget _buildStatusContent() {
-    switch (widget.status.statusType) {
-      case StatusType.image:
+    // For text status, just use the text background
+    if (widget.status.statusType == StatusType.text) {
+      // Parse hex color codes
+      Color bgColor = _parseColor(widget.status.backgroundColor);
+      Color textColor = _parseColor(widget.status.textColor);
+      
+      return Container(
+        color: bgColor,
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Text(
+            widget.status.caption,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              height: 1.4,
+              fontFamily: widget.status.fontStyle == 'normal'
+                  ? null
+                  : widget.status.fontStyle,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    
+    // For media content
+    if (widget.status.hasMultipleMedia) {
+      // Use PageView for multiple media
+      return PageView.builder(
+        controller: _mediaPageController,
+        onPageChanged: _onMediaPageChanged,
+        itemCount: widget.status.mediaUrls.length,
+        physics: const BouncingScrollPhysics(),
+        itemBuilder: (context, index) {
+          final mediaUrl = widget.status.mediaUrls[index];
+          
+          if (widget.status.statusType == StatusType.image) {
+            return CachedNetworkImage(
+              imageUrl: mediaUrl,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+              errorWidget: (context, url, error) => const Center(
+                child: Icon(Icons.error, color: Colors.white),
+              ),
+            );
+          } else if (widget.status.statusType == StatusType.video && 
+                    index == _currentMediaIndex &&
+                    _videoController != null &&
+                    _isVideoInitialized) {
+            return FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _videoController!.value.size.width,
+                height: _videoController!.value.size.height,
+                child: VideoPlayer(_videoController!),
+              ),
+            );
+          } else {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            );
+          }
+        },
+      );
+    } else {
+      // Single media display
+      if (widget.status.statusType == StatusType.image) {
         return CachedNetworkImage(
-          imageUrl: widget.status.statusUrl,
+          imageUrl: widget.status.currentMediaUrl,
           fit: BoxFit.cover,
           placeholder: (context, url) => const Center(
             child: CircularProgressIndicator(color: Colors.white),
@@ -551,52 +839,22 @@ class _StatusFeedItemState extends State<StatusFeedItem> with SingleTickerProvid
             child: Icon(Icons.error, color: Colors.white),
           ),
         );
-        
-      case StatusType.video:
-        if (_videoController != null && _isVideoInitialized) {
-          return FittedBox(
-            fit: BoxFit.cover,
-            child: SizedBox(
-              width: _videoController!.value.size.width,
-              height: _videoController!.value.size.height,
-              child: VideoPlayer(_videoController!),
-            ),
-          );
-        } else {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          );
-        }
-        
-      case StatusType.text:
-        // Parse hex color codes
-        Color bgColor = _parseColor(widget.status.backgroundColor);
-        Color textColor = _parseColor(widget.status.textColor);
-        
-        return Container(
-          color: bgColor,
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: Text(
-              widget.status.caption,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                height: 1.4,
-                fontFamily: widget.status.fontStyle == 'normal'
-                    ? null
-                    : widget.status.fontStyle,
-              ),
-              textAlign: TextAlign.center,
-            ),
+      } else if (widget.status.statusType == StatusType.video && 
+                 _videoController != null && 
+                 _isVideoInitialized) {
+        return FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: _videoController!.value.size.width,
+            height: _videoController!.value.size.height,
+            child: VideoPlayer(_videoController!),
           ),
         );
-        
-      default:
+      } else {
         return const Center(
-          child: Text('Unsupported status type', style: TextStyle(color: Colors.white)),
+          child: CircularProgressIndicator(color: Colors.white),
         );
+      }
     }
   }
   

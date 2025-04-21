@@ -225,8 +225,8 @@ class _HomeScreenState extends State<HomeScreen>
           elevation: bottomNavElevation,
           // Improve padding for better touch targets
           selectedLabelStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
             height: 1.6,
           ),
           unselectedLabelStyle: const TextStyle(
@@ -236,13 +236,13 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           items: [
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.chat_bubble_2, size: 28),
-              activeIcon: Icon(CupertinoIcons.chat_bubble_2_fill, size: 28),
+              icon: Icon(CupertinoIcons.chat_bubble_2, size: 30),
+              activeIcon: Icon(CupertinoIcons.chat_bubble_2_fill, size: 30),
               label: 'Chats',
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.group, size: 28),
-              activeIcon: Icon(CupertinoIcons.group_solid, size: 28),
+              icon: Icon(CupertinoIcons.group, size: 30),
+              activeIcon: Icon(CupertinoIcons.group_solid, size: 30),
               label: 'Groups',
             ),
             BottomNavigationBarItem(
@@ -253,13 +253,13 @@ class _HomeScreenState extends State<HomeScreen>
               label: '',  // Intentionally empty for better design
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.camera, size: 28),
-              activeIcon: Icon(CupertinoIcons.camera_fill, size: 28),
+              icon: Icon(CupertinoIcons.camera, size: 30),
+              activeIcon: Icon(CupertinoIcons.camera_fill, size: 30),
               label: 'Status',  // Renamed for clarity
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.person, size: 28),
-              activeIcon: Icon(CupertinoIcons.person_fill, size: 28),
+              icon: Icon(CupertinoIcons.person, size: 30),
+              activeIcon: Icon(CupertinoIcons.person_fill, size: 30),
               label: 'Profile',
             ),
           ],
