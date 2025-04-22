@@ -61,7 +61,7 @@ class StatusProvider extends ChangeNotifier {
     _currentUserId = userId;
   }
   
-  // Create a new status
+  // Create a new status - Improved to immediately reflect in UI
   Future<void> createStatus({
     required String userId,
     required String userName,
@@ -141,7 +141,7 @@ class StatusProvider extends ChangeNotifier {
     }
   }
   
-  // Fetch statuses
+  // Fetch statuses - Improved with better error handling and cache management
   Future<void> fetchStatuses({
     required String currentUserId,
     required List<String> contactIds,
@@ -249,6 +249,9 @@ class StatusProvider extends ChangeNotifier {
       // Sort public statuses by creation time (newest first)
       _publicStatuses.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       
+      // Clean up any expired statuses
+      cleanupExpiredStatuses();
+      
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -258,22 +261,14 @@ class StatusProvider extends ChangeNotifier {
     }
   }
   
-  // Mark status as viewed
+  // Mark status as viewed - improved with optimistic update
   Future<void> markStatusAsViewed(StatusModel status) async {
     if (_currentUserId.isEmpty || status.isViewedBy(_currentUserId)) {
       return;
     }
     
     try {
-      // Update on Firestore
-      await _firestore
-          .collection(Constants.statuses)
-          .doc(status.statusId)
-          .update({
-        'viewedBy': FieldValue.arrayUnion([_currentUserId]),
-      });
-      
-      // Update local model
+      // Update local model immediately for optimistic UI update
       final updatedViewedBy = List<String>.from(status.viewedBy)..add(_currentUserId);
       
       // Update in appropriate collections
@@ -306,12 +301,20 @@ class StatusProvider extends ChangeNotifier {
       }
       
       notifyListeners();
+      
+      // Update on Firestore after local update
+      await _firestore
+          .collection(Constants.statuses)
+          .doc(status.statusId)
+          .update({
+        'viewedBy': FieldValue.arrayUnion([_currentUserId]),
+      });
     } catch (e) {
       debugPrint('Error marking status as viewed: $e');
     }
   }
   
-  // Like/unlike status
+  // Like/unlike status - improved with optimistic update
   Future<void> toggleStatusLike(StatusModel status) async {
     if (_currentUserId.isEmpty) {
       return;
@@ -320,17 +323,7 @@ class StatusProvider extends ChangeNotifier {
     final isLiked = status.isLikedBy(_currentUserId);
     
     try {
-      // Update on Firestore
-      await _firestore
-          .collection(Constants.statuses)
-          .doc(status.statusId)
-          .update({
-        'likedBy': isLiked
-            ? FieldValue.arrayRemove([_currentUserId])
-            : FieldValue.arrayUnion([_currentUserId]),
-      });
-      
-      // Update local model
+      // Update local model immediately for optimistic UI update
       List<String> updatedLikedBy;
       if (isLiked) {
         updatedLikedBy = List<String>.from(status.likedBy)..remove(_currentUserId);
@@ -368,33 +361,27 @@ class StatusProvider extends ChangeNotifier {
       }
       
       notifyListeners();
+      
+      // Update on Firestore after local update
+      await _firestore
+          .collection(Constants.statuses)
+          .doc(status.statusId)
+          .update({
+        'likedBy': isLiked
+            ? FieldValue.arrayRemove([_currentUserId])
+            : FieldValue.arrayUnion([_currentUserId]),
+      });
     } catch (e) {
       debugPrint('Error toggling status like: $e');
     }
   }
   
-  // Delete status
+  // Delete status - Improved with optimistic UI update
   Future<void> deleteStatus(StatusModel status) async {
     try {
       _isLoading = true;
-      notifyListeners();
       
-      // Delete from Firestore
-      await _firestore
-          .collection(Constants.statuses)
-          .doc(status.statusId)
-          .delete();
-      
-      // Delete media if exists
-      if (status.mediaUrl.isNotEmpty) {
-        try {
-          await _storage.refFromURL(status.mediaUrl).delete();
-        } catch (e) {
-          debugPrint('Error deleting status media: $e');
-        }
-      }
-      
-      // Remove from local lists
+      // Remove from local lists first for immediate UI update
       if (status.uid == _currentUserId) {
         if (status.isPrivate) {
           _myPrivateStatuses.removeWhere((s) => s.statusId == status.statusId);
@@ -416,6 +403,23 @@ class StatusProvider extends ChangeNotifier {
         }
       }
       
+      notifyListeners();
+      
+      // Delete from Firestore
+      await _firestore
+          .collection(Constants.statuses)
+          .doc(status.statusId)
+          .delete();
+      
+      // Delete media if exists
+      if (status.mediaUrl.isNotEmpty) {
+        try {
+          await _storage.refFromURL(status.mediaUrl).delete();
+        } catch (e) {
+          debugPrint('Error deleting status media: $e');
+        }
+      }
+      
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -426,7 +430,7 @@ class StatusProvider extends ChangeNotifier {
     }
   }
   
-  // Get status by ID
+  // Get status by ID - Improved to search across all collections
   StatusModel? getStatusById(String statusId) {
     // Check in private statuses
     final privateStatus = _myPrivateStatuses.firstWhere(

@@ -31,6 +31,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   
   // For video preview
   VideoPlayerController? _videoController;
+  double _videoAspectRatio = 9/16; // Default TikTok-style aspect ratio
   
   // For text status
   String _statusText = '';
@@ -77,7 +78,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
       
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: image.path,
-        aspectRatio: const CropAspectRatio(ratioX: 9, ratioY: 16),
+        aspectRatio: const CropAspectRatio(ratioX: 9, ratioY: 16), // TikTok-style ratio
         compressQuality: 90,
         maxHeight: 1920,
         maxWidth: 1080,
@@ -119,7 +120,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     }
   }
   
-  // Pick video for status
+  // Pick video for status - Improved to enforce limits without processing
   Future<void> _pickVideo() async {
     try {
       // First dispose any existing video controller
@@ -143,6 +144,19 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         return;
       }
       
+      // Get file size
+      final fileSize = await video.length();
+      final fileSizeInMB = fileSize / (1024 * 1024);
+      
+      // Check size limit directly instead of processing
+      if (fileSizeInMB > 50) {
+        showSnackBar(context, 'Video is too large. Maximum size is 50MB.');
+        setState(() {
+          _isProcessingMedia = false;
+        });
+        return;
+      }
+      
       // Initialize video player
       _videoController = VideoPlayerController.file(video);
       
@@ -157,6 +171,19 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         });
         return;
       }
+      
+      // Set aspect ratio for TikTok-style preview
+      setState(() {
+        final videoAspectRatio = _videoController!.value.aspectRatio;
+        
+        // If the video is landscape, we'll force it into a portrait frame
+        if (videoAspectRatio > 1.0) {
+          _videoAspectRatio = 9/16; // Default TikTok style
+        } else {
+          // Already portrait - use actual ratio but cap at 9:16
+          _videoAspectRatio = videoAspectRatio < (9/16) ? videoAspectRatio : (9/16);
+        }
+      });
       
       _videoController!.setLooping(true);
       _videoController!.play();
@@ -186,7 +213,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     _submitStatus();
   }
   
-  // Submit status
+  // Submit status - Improved to ensure visibility in My Status
   Future<void> _submitStatus() async {
     // Validate
     if (_selectedType == StatusType.text && _statusText.trim().isEmpty) {
@@ -236,23 +263,24 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         isPrivate: _isPrivate,
         backgroundInfo: _backgroundInfo,
         onSuccess: () {
-          // Show success message and navigate back
-          showSnackBar(context, 'Status created successfully');
-          
+          // Improved success handling to ensure status appears in My Status
           // Force refresh status list
           statusProvider.fetchStatuses(
             currentUserId: currentUser.uid,
             contactIds: currentUser.contactsUIDs,
-          );
-          
-          // Check if we're on the home screen to navigate to status screen
-          if (Navigator.canPop(context)) {
-            // We're on the status screen, so just pop back
-            Navigator.pop(context);
-          } else {
-            // We're on the home screen from bottom nav, navigate to status screen
-            Navigator.pushReplacementNamed(context, Constants.statusScreen);
-          }
+          ).then((_) {
+            // Show success message and navigate back
+            showSnackBar(context, 'Status created successfully');
+            
+            // Check if we're on the home screen to navigate to status screen
+            if (Navigator.canPop(context)) {
+              // We're on the status screen, so just pop back
+              Navigator.pop(context);
+            } else {
+              // We're on the home screen from bottom nav, navigate to status screen
+              Navigator.pushReplacementNamed(context, Constants.statusScreen);
+            }
+          });
         },
         onError: (error) {
           showSnackBar(context, error);
@@ -356,7 +384,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                   child: const Icon(Icons.videocam, color: Colors.red),
                 ),
                 title: const Text('Video'),
-                subtitle: const Text('Share a video clip'),
+                subtitle: const Text('Share a video clip (max 90s, 50MB)'),
                 onTap: () {
                   Navigator.pop(context);
                   _pickVideo();
@@ -492,7 +520,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     );
   }
   
-  // Build the media preview once selected
+  // Build the media preview once selected - Improved for TikTok-style video
   Widget _buildMediaPreview() {
     final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
     
@@ -506,16 +534,18 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Media content
+                // Media content - Improved for TikTok-style aspect ratio
                 _selectedType == StatusType.image
                     ? Image.file(
                         _selectedMedia!,
                         fit: BoxFit.contain,
                       )
                     : _videoController != null && _videoController!.value.isInitialized
-                        ? AspectRatio(
-                            aspectRatio: _videoController!.value.aspectRatio,
-                            child: VideoPlayer(_videoController!),
+                        ? Center(
+                            child: AspectRatio(
+                              aspectRatio: _videoAspectRatio,
+                              child: VideoPlayer(_videoController!),
+                            ),
                           )
                         : const Center(
                             child: CircularProgressIndicator(color: Colors.white),

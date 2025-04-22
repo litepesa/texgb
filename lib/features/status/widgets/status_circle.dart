@@ -25,7 +25,6 @@ class StatusCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final statusCircleColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
     final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
     final greyColor = themeExtension?.greyColor ?? Colors.grey;
 
@@ -36,35 +35,50 @@ class StatusCircle extends StatelessWidget {
           onTap: onTap,
           child: Stack(
             children: [
-              // Status ring based on state
-              if (hasStatus && !isMyStatus)
+              // Unviewed status ring (green)
+              if (hasStatus && !isMyStatus && !isViewed)
                 Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isViewed ? greyColor.withOpacity(0.5) : statusCircleColor,
+                      color: accentColor,
                       width: 2.5,
                     ),
                   ),
                   child: _buildUserImage(),
                 )
+              // Viewed status ring (grey)
+              else if (hasStatus && !isMyStatus && isViewed)
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: greyColor.withOpacity(0.5),
+                      width: 2.5,
+                    ),
+                  ),
+                  child: _buildUserImage(),
+                )
+              // My status always green ring
               else if (isMyStatus)
                 Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: statusCircleColor,
+                      color: accentColor,
                       width: 2.5,
                     ),
                   ),
                   child: _buildUserImage(),
                 )
+              // No status, no ring
               else
                 _buildUserImage(),
 
-              // Add button for "My Status"
+              // Add button for "My Status" 
               if (isMyStatus)
                 Positioned(
                   bottom: 0,

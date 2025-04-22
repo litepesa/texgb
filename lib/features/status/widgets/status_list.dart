@@ -46,27 +46,31 @@ class StatusList extends StatelessWidget {
       );
     }
     
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: sources.length,
-      itemBuilder: (context, index) {
-        // For private statuses, we group by user
-        final entry = sources[index];
-        
-        // Get user info from first status
-        final userId = entry.key;
-        final statusList = entry.value;
-        final mostRecentStatus = statusList.last; // Assuming sorted by time
-        
-        return _buildUserStatusItem(
-          context, 
-          userId, 
-          mostRecentStatus, 
-          statusList, 
-          themeExtension,
-        );
-      },
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: ListView.builder(
+        key: ValueKey<String>("${isPrivate}_${sources.length}"),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: sources.length,
+        itemBuilder: (context, index) {
+          // For private statuses, we group by user
+          final entry = sources[index];
+          
+          // Get user info from first status
+          final userId = entry.key;
+          final statusList = entry.value;
+          final mostRecentStatus = statusList.last; // Assuming sorted by time
+          
+          return _buildUserStatusItem(
+            context, 
+            userId, 
+            mostRecentStatus, 
+            statusList, 
+            themeExtension,
+          );
+        },
+      ),
     );
   }
   
@@ -95,13 +99,30 @@ class StatusList extends StatelessWidget {
           fontWeight: hasUnviewed ? FontWeight.bold : FontWeight.normal,
         ),
       ),
-      subtitle: Text(
-        _getStatusPreview(latestStatus) + ' • ' + timeago.format(latestStatus.createdAt),
-        style: TextStyle(
-          color: themeExtension?.greyColor,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _getStatusPreview(latestStatus),
+            style: TextStyle(
+              color: themeExtension?.greyColor,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            timeago.format(latestStatus.createdAt),
+            style: TextStyle(
+              color: themeExtension?.greyColor?.withOpacity(0.7),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+      trailing: Icon(
+        latestStatus.isPrivate ? Icons.lock_outline : Icons.public,
+        size: 16,
+        color: themeExtension?.greyColor,
       ),
       onTap: () => _openStatusDetail(context, latestStatus, allStatuses),
     );
@@ -132,14 +153,31 @@ class StatusList extends StatelessWidget {
     // Find index of selected status
     final index = allStatuses.indexWhere((s) => s.statusId == status.statusId);
     
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => StatusDetailScreen(
+    // Use page transition for better UX
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => StatusDetailScreen(
           status: status,
           statuses: allStatuses,
           initialIndex: index,
         ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 0.1);
+          const end = Offset.zero;
+          const curve = Curves.easeOutCubic;
+          
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+          
+          return SlideTransition(
+            position: offsetAnimation,
+            child: FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
       ),
     );
   }
