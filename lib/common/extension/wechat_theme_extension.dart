@@ -21,6 +21,7 @@ class WeChatThemeExtension extends ThemeExtension<WeChatThemeExtension> {
   final Color? dividerColor;
   final Color? systemMessageColor;
   final Color? systemMessageTextColor;
+  final Color? textColor;
 
   const WeChatThemeExtension({
     this.backgroundColor,
@@ -37,6 +38,7 @@ class WeChatThemeExtension extends ThemeExtension<WeChatThemeExtension> {
     this.dividerColor,
     this.systemMessageColor,
     this.systemMessageTextColor,
+    this.textColor,
   });
 
   static const lightMode = WeChatThemeExtension(
@@ -89,6 +91,7 @@ class WeChatThemeExtension extends ThemeExtension<WeChatThemeExtension> {
     Color? dividerColor,
     Color? systemMessageColor,
     Color? systemMessageTextColor,
+    Color? textColor,
   }) {
     return WeChatThemeExtension(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -105,6 +108,7 @@ class WeChatThemeExtension extends ThemeExtension<WeChatThemeExtension> {
       dividerColor: dividerColor ?? this.dividerColor,
       systemMessageColor: systemMessageColor ?? this.systemMessageColor,
       systemMessageTextColor: systemMessageTextColor ?? this.systemMessageTextColor,
+      textColor: textColor ?? this.textColor,
     );
   }
 
@@ -127,6 +131,7 @@ class WeChatThemeExtension extends ThemeExtension<WeChatThemeExtension> {
       dividerColor: Color.lerp(dividerColor, other.dividerColor, t),
       systemMessageColor: Color.lerp(systemMessageColor, other.systemMessageColor, t),
       systemMessageTextColor: Color.lerp(systemMessageTextColor, other.systemMessageTextColor, t),
+      textColor: Color.lerp(textColor, other.textColor, t),
     );
   }
 }

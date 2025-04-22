@@ -11,7 +11,6 @@ import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/widgets/status_text_content.dart';
 import 'package:textgb/features/status/widgets/status_video_player.dart';
 import 'package:textgb/models/message_reply_model.dart';
-import 'package:textgb/models/status_model.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/chat_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';

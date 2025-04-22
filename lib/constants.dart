@@ -24,7 +24,7 @@ class Constants {
   static const String statusScreen = '/statusScreen';
   static const String createStatusScreen = '/createStatusScreen';
   static const String statusDetailScreen = '/statusDetailScreen';
-  static const String userStatusScreen = '/userStatusScreen';
+  static const String myStatusScreen = '/myStatusScreen';
   static const String mediaViewScreen = '/mediaViewScreen';
   
   // Collection names for Status

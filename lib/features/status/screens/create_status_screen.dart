@@ -9,7 +9,6 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/widgets/text_status_creator.dart';
 import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/utilities/colors.dart';
 import 'package:textgb/utilities/global_methods.dart';
 
 class CreateStatusScreen extends StatefulWidget {

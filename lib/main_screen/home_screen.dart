@@ -10,10 +10,10 @@ import 'package:textgb/main_screen/groups_screen.dart';
 import 'package:textgb/main_screen/my_chats_screen.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/providers/group_provider.dart';
-import 'package:textgb/utilities/custom_icon.dart';
 import 'package:textgb/utilities/global_methods.dart';
 import 'package:textgb/main_screen/enhanced_profile_screen.dart';
 import 'package:textgb/common/extension/wechat_theme_extension.dart';
+import 'package:textgb/widgets/custom_icon.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

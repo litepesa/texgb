@@ -9,7 +9,10 @@ import 'package:textgb/authentication/user_information_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/my_status_screen.dart';
+import 'package:textgb/features/status/screens/status_detail_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
+import 'package:textgb/features/status/screens/video_viewer_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/add_contact_screen.dart';
 import 'package:textgb/main_screen/blocked_contacts_screen.dart';
@@ -89,6 +92,10 @@ class MyApp extends StatelessWidget {
               const GroupInformationScreen(),
           Constants.statusScreen: (context) => const StatusScreen(),
           Constants.createStatusScreen: (context) => const CreateStatusScreen(),
+          //Constants.statusDetailScreen: (context) => const StatusDetailScreen(),
+          Constants.myStatusScreen: (context) => const MyStatusScreen(isPrivate: true),
+          //Constants.userStatusScreen: (context) => const StatusDetailScreen(),
+          Constants.mediaViewScreen: (context) => const ImageViewerScreen(imageUrl: ''),
         },
       ),
     );
