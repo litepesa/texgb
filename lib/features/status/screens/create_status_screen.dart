@@ -10,6 +10,7 @@ import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/widgets/text_status_creator.dart';
 import 'package:textgb/providers/authentication_provider.dart';
 import 'package:textgb/utilities/global_methods.dart';
+import 'package:video_player/video_player.dart';
 
 class CreateStatusScreen extends StatefulWidget {
   const CreateStatusScreen({Key? key}) : super(key: key);
@@ -26,6 +27,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   StatusType _selectedType = StatusType.text;
   bool _isPrivate = true;
   bool _isSubmitting = false;
+  bool _isProcessingMedia = false;
+  
+  // For video preview
+  VideoPlayerController? _videoController;
   
   // For text status
   String _statusText = '';
@@ -38,12 +43,24 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   @override
   void dispose() {
     _captionController.dispose();
+    _disposeVideoController();
     super.dispose();
+  }
+  
+  void _disposeVideoController() {
+    if (_videoController != null) {
+      _videoController!.dispose();
+      _videoController = null;
+    }
   }
   
   // Pick image for status
   Future<void> _pickImage(bool fromCamera) async {
     try {
+      setState(() {
+        _isProcessingMedia = true;
+      });
+      
       final File? image = await pickImage(
         fromCamera: fromCamera, 
         onFail: (error) {
@@ -51,7 +68,12 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         }
       );
       
-      if (image == null) return;
+      if (image == null) {
+        setState(() {
+          _isProcessingMedia = false;
+        });
+        return;
+      }
       
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: image.path,
@@ -73,14 +95,26 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         ],
       );
       
-      if (croppedFile == null) return;
+      if (croppedFile == null) {
+        setState(() {
+          _isProcessingMedia = false;
+        });
+        return;
+      }
+      
+      // Clear any existing video controller
+      _disposeVideoController();
       
       setState(() {
         _selectedMedia = File(croppedFile.path);
         _selectedType = StatusType.image;
+        _isProcessingMedia = false;
       });
       
     } catch (e) {
+      setState(() {
+        _isProcessingMedia = false;
+      });
       showSnackBar(context, 'Error picking image: $e');
     }
   }
@@ -88,20 +122,55 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   // Pick video for status
   Future<void> _pickVideo() async {
     try {
+      // First dispose any existing video controller
+      _disposeVideoController();
+      
+      setState(() {
+        _isProcessingMedia = true;
+      });
+      
       final File? video = await pickVideo(
         onFail: (error) {
           showSnackBar(context, error);
-        }
+        },
+        maxDuration: const Duration(seconds: 90), // 90 second limit
       );
       
-      if (video == null) return;
+      if (video == null) {
+        setState(() {
+          _isProcessingMedia = false;
+        });
+        return;
+      }
+      
+      // Initialize video player
+      _videoController = VideoPlayerController.file(video);
+      
+      await _videoController!.initialize();
+      
+      // Check video duration
+      if (_videoController!.value.duration.inSeconds > 90) {
+        showSnackBar(context, 'Video is too long. Maximum duration is 90 seconds.');
+        _disposeVideoController();
+        setState(() {
+          _isProcessingMedia = false;
+        });
+        return;
+      }
+      
+      _videoController!.setLooping(true);
+      _videoController!.play();
       
       setState(() {
         _selectedMedia = video;
         _selectedType = StatusType.video;
+        _isProcessingMedia = false;
       });
       
     } catch (e) {
+      setState(() {
+        _isProcessingMedia = false;
+      });
       showSnackBar(context, 'Error picking video: $e');
     }
   }
@@ -170,6 +239,12 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
           // Show success message and navigate back
           showSnackBar(context, 'Status created successfully');
           
+          // Force refresh status list
+          statusProvider.fetchStatuses(
+            currentUserId: currentUser.uid,
+            contactIds: currentUser.contactsUIDs,
+          );
+          
           // Check if we're on the home screen to navigate to status screen
           if (Navigator.canPop(context)) {
             // We're on the status screen, so just pop back
@@ -192,6 +267,15 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         _isSubmitting = false;
       });
     }
+  }
+  
+  // Remove selected media
+  void _removeMedia() {
+    _disposeVideoController();
+    setState(() {
+      _selectedMedia = null;
+      _selectedType = StatusType.text;
+    });
   }
   
   // Show bottom sheet with options (camera, gallery, video)
@@ -389,9 +473,22 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                 ],
               ),
             )
-          : hasMedia
-              ? _buildMediaPreview()
-              : _buildSelectMediaPrompt(remainingPublic, maxPublic),
+          : _isProcessingMedia
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(
+                        color: themeExtension?.accentColor,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('Processing media...'),
+                    ],
+                  ),
+                )
+              : hasMedia
+                  ? _buildMediaPreview()
+                  : _buildSelectMediaPrompt(remainingPublic, maxPublic),
     );
   }
   
@@ -406,29 +503,78 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         children: [
           // Media preview
           Expanded(
-            child: _selectedType == StatusType.image
-                ? Image.file(
-                    _selectedMedia!,
-                    fit: BoxFit.contain,
-                  )
-                : Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Image.file(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Media content
+                _selectedType == StatusType.image
+                    ? Image.file(
                         _selectedMedia!,
                         fit: BoxFit.contain,
+                      )
+                    : _videoController != null && _videoController!.value.isInitialized
+                        ? AspectRatio(
+                            aspectRatio: _videoController!.value.aspectRatio,
+                            child: VideoPlayer(_videoController!),
+                          )
+                        : const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
+                
+                // Remove button
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: GestureDetector(
+                    onTap: _removeMedia,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        shape: BoxShape.circle,
                       ),
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.black54,
-                        child: Icon(
-                          Icons.play_arrow,
-                          color: Colors.white,
-                          size: 40,
-                        ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 20,
                       ),
-                    ],
+                    ),
                   ),
+                ),
+                
+                // Play/Pause button for video
+                if (_selectedType == StatusType.video && _videoController != null)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          if (_videoController!.value.isPlaying) {
+                            _videoController!.pause();
+                          } else {
+                            _videoController!.play();
+                          }
+                        });
+                      },
+                      child: Center(
+                        child: _videoController!.value.isPlaying
+                            ? Container() // Hide when playing
+                            : Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow,
+                                  color: Colors.white,
+                                  size: 36,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           
           // Caption input

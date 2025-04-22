@@ -34,13 +34,6 @@ class Constants {
   static const String statusUrl = 'statusUrl';
   static const String statusType = 'statusType';
   static const String statusViewCount = 'statusViewCount';   // Changed to only track count for privacy
-  
-  // New Moments feature routes
-  static const String momentsScreen = '/momentsScreen';
-  static const String createMomentScreen = '/createMomentScreen';
-  static const String momentDetailScreen = '/momentDetailScreen';
-  static const String userMomentsScreen = '/userMomentsScreen';
-
 
   static const String uid = 'uid';
   static const String name = 'name';
@@ -54,27 +47,12 @@ class Constants {
   static const String contactsUIDs = 'contactsUIDs';
   static const String blockedUIDs = 'blockedUIDs';
 
-  
-
   static const String verificationId = 'verificationId';
 
   static const String users = 'users';
   static const String userImages = 'userImages';
   static const String userModel = 'userModel';
   
-  // Moments collection names
-  static const String moments = 'moments';
-  static const String momentFiles = 'momentFiles';
-  static const String momentId = 'momentId';
-  static const String mediaUrls = 'mediaUrls';
-  static const String isVideo = 'isVideo';
-  static const String likedBy = 'likedBy';
-  static const String viewedBy = 'viewedBy';
-  static const String comments = 'comments';
-  static const String commentId = 'commentId';
-  static const String text = 'text';
-  static const String location = 'location';
-
   static const String contactName = 'contactName';
   static const String contactImage = 'contactImage';
   static const String groupId = 'groupId';

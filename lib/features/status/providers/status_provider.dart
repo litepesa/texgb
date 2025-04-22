@@ -120,11 +120,11 @@ class StatusProvider extends ChangeNotifier {
           .doc(statusId)
           .set(statusModel.toMap());
       
-      // Add to local lists
+      // Add to local lists immediately
       if (isPrivate) {
-        _myPrivateStatuses.add(statusModel);
+        _myPrivateStatuses.insert(0, statusModel); // Add to beginning of list
       } else {
-        _myPublicStatuses.add(statusModel);
+        _myPublicStatuses.insert(0, statusModel); // Add to beginning of list
       }
       
       _isLoading = false;
@@ -159,15 +159,20 @@ class StatusProvider extends ChangeNotifier {
       _myPublicStatuses.clear();
       _publicStatuses.clear();
       
-      // Get all unexpired statuses
-      final now = DateTime.now().millisecondsSinceEpoch;
+      // Get current timestamp and calculate 24 hours ago
+      final now = DateTime.now();
+      final twentyFourHoursAgo = now.subtract(const Duration(hours: 24));
+      final timestampNow = Timestamp.fromDate(now);
+      final timestamp24HoursAgo = Timestamp.fromDate(twentyFourHoursAgo);
       
-      // Fetch my statuses
+      // Fetch my statuses - use Timestamp objects for correct comparison
       final myStatusesQuery = await _firestore
           .collection(Constants.statuses)
           .where(Constants.uid, isEqualTo: currentUserId)
-          .where(Constants.createdAt, isGreaterThan: now - (24 * 60 * 60 * 1000)) // Last 24 hours
+          .where(Constants.createdAt, isGreaterThanOrEqualTo: timestamp24HoursAgo)
           .get();
+      
+      debugPrint('Fetched ${myStatusesQuery.docs.length} my statuses');
       
       for (var doc in myStatusesQuery.docs) {
         final status = StatusModel.fromMap(doc.data());
@@ -185,24 +190,36 @@ class StatusProvider extends ChangeNotifier {
       
       // Fetch contacts' private statuses
       if (contactIds.isNotEmpty) {
-        final contactStatusesQuery = await _firestore
-            .collection(Constants.statuses)
-            .where(Constants.uid, whereIn: contactIds)
-            .where('isPrivate', isEqualTo: true)
-            .where(Constants.createdAt, isGreaterThan: now - (24 * 60 * 60 * 1000)) // Last 24 hours
-            .get();
+        // Firestore has a limit on collection group queries
+        // To handle potentially large contact lists, we may need to batch the requests
+        final List<List<String>> contactBatches = [];
+        const int batchSize = 10;
         
-        for (var doc in contactStatusesQuery.docs) {
-          final status = StatusModel.fromMap(doc.data());
+        for (var i = 0; i < contactIds.length; i += batchSize) {
+          var end = (i + batchSize < contactIds.length) ? i + batchSize : contactIds.length;
+          contactBatches.add(contactIds.sublist(i, end));
+        }
+        
+        for (var batch in contactBatches) {
+          final contactStatusesQuery = await _firestore
+              .collection(Constants.statuses)
+              .where(Constants.uid, whereIn: batch)
+              .where('isPrivate', isEqualTo: true)
+              .where(Constants.createdAt, isGreaterThanOrEqualTo: timestamp24HoursAgo)
+              .get();
           
-          if (!status.isExpired) {
-            final uid = status.uid;
+          for (var doc in contactStatusesQuery.docs) {
+            final status = StatusModel.fromMap(doc.data());
             
-            if (!_userStatuses.containsKey(uid)) {
-              _userStatuses[uid] = [];
+            if (!status.isExpired) {
+              final uid = status.uid;
+              
+              if (!_userStatuses.containsKey(uid)) {
+                _userStatuses[uid] = [];
+              }
+              
+              _userStatuses[uid]!.add(status);
             }
-            
-            _userStatuses[uid]!.add(status);
           }
         }
         
@@ -216,8 +233,10 @@ class StatusProvider extends ChangeNotifier {
       final publicStatusesQuery = await _firestore
           .collection(Constants.statuses)
           .where('isPrivate', isEqualTo: false)
-          .where(Constants.createdAt, isGreaterThan: now - (24 * 60 * 60 * 1000)) // Last 24 hours
+          .where(Constants.createdAt, isGreaterThanOrEqualTo: timestamp24HoursAgo)
           .get();
+      
+      debugPrint('Fetched ${publicStatusesQuery.docs.length} public statuses');
       
       for (var doc in publicStatusesQuery.docs) {
         final status = StatusModel.fromMap(doc.data());
@@ -522,11 +541,37 @@ class StatusProvider extends ChangeNotifier {
   
   // Stream of status updates (for real-time updates)
   Stream<QuerySnapshot> getStatusUpdatesStream() {
-    final now = DateTime.now().millisecondsSinceEpoch;
+    final now = DateTime.now();
+    final twentyFourHoursAgo = now.subtract(const Duration(hours: 24));
+    final timestamp24HoursAgo = Timestamp.fromDate(twentyFourHoursAgo);
     
     return _firestore
         .collection(Constants.statuses)
-        .where(Constants.createdAt, isGreaterThan: now - (24 * 60 * 60 * 1000)) // Last 24 hours
+        .where(Constants.createdAt, isGreaterThanOrEqualTo: timestamp24HoursAgo)
         .snapshots();
+  }
+  
+  // Clean up expired statuses (can be called periodically)
+  Future<void> cleanupExpiredStatuses() async {
+    try {
+      final now = DateTime.now();
+      
+      // Remove expired statuses from local lists
+      _myPrivateStatuses.removeWhere((status) => status.isExpired);
+      _myPublicStatuses.removeWhere((status) => status.isExpired);
+      _publicStatuses.removeWhere((status) => status.isExpired);
+      
+      // Remove expired statuses from user statuses map
+      _userStatuses.forEach((uid, statuses) {
+        statuses.removeWhere((status) => status.isExpired);
+      });
+      
+      // Remove empty user entries
+      _userStatuses.removeWhere((uid, statuses) => statuses.isEmpty);
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error cleaning up expired statuses: $e');
+    }
   }
 }

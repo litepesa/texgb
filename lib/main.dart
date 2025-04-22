@@ -90,12 +90,34 @@ class MyApp extends StatelessWidget {
               const GroupSettingsScreen(),
           Constants.groupInformationScreen: (context) =>
               const GroupInformationScreen(),
+              
+          // Status feature routes
           Constants.statusScreen: (context) => const StatusScreen(),
           Constants.createStatusScreen: (context) => const CreateStatusScreen(),
-          //Constants.statusDetailScreen: (context) => const StatusDetailScreen(),
+          // Cannot use direct routing for StatusDetailScreen as it requires parameters
+          // Constants.statusDetailScreen will be handled via MaterialPageRoute
           Constants.myStatusScreen: (context) => const MyStatusScreen(isPrivate: true),
-          //Constants.userStatusScreen: (context) => const StatusDetailScreen(),
+          // MediaViewScreen needs parameters, so we'll use a placeholder
           Constants.mediaViewScreen: (context) => const ImageViewerScreen(imageUrl: ''),
+        },
+        // For routes that need parameters, use onGenerateRoute
+        onGenerateRoute: (settings) {
+          if (settings.name == Constants.statusDetailScreen) {
+            // Handle StatusDetailScreen route - would need to extract arguments
+            final args = settings.arguments as Map<String, dynamic>?;
+            if (args != null) {
+              return MaterialPageRoute(
+                builder: (context) => StatusDetailScreen(
+                  status: args['status'],
+                  statuses: args['statuses'],
+                  initialIndex: args['initialIndex'] ?? 0,
+                ),
+              );
+            }
+          }
+          
+          // Return null to let the app handle undefined routes
+          return null;
         },
       ),
     );

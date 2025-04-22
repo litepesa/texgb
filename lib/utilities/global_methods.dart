@@ -45,11 +45,23 @@ Future<File?> pickImage({
     // get picture from camera
     try {
       final pickedFile =
-          await ImagePicker().pickImage(source: ImageSource.camera);
+          await ImagePicker().pickImage(
+            source: ImageSource.camera,
+            imageQuality: 80, // Compress image for better performance
+          );
       if (pickedFile == null) {
         onFail('No image selected');
       } else {
         fileImage = File(pickedFile.path);
+        
+        // Check file size
+        final fileSize = await fileImage.length();
+        final fileSizeInMB = fileSize / (1024 * 1024);
+        
+        if (fileSizeInMB > 10) {
+          onFail('Image size too large. Maximum allowed is 10MB.');
+          return null;
+        }
       }
     } catch (e) {
       onFail(e.toString());
@@ -58,11 +70,23 @@ Future<File?> pickImage({
     // get picture from gallery
     try {
       final pickedFile =
-          await ImagePicker().pickImage(source: ImageSource.gallery);
+          await ImagePicker().pickImage(
+            source: ImageSource.gallery,
+            imageQuality: 80, // Compress image for better performance
+          );
       if (pickedFile == null) {
         onFail('No image selected');
       } else {
         fileImage = File(pickedFile.path);
+        
+        // Check file size
+        final fileSize = await fileImage.length();
+        final fileSizeInMB = fileSize / (1024 * 1024);
+        
+        if (fileSizeInMB > 10) {
+          onFail('Image size too large. Maximum allowed is 10MB.');
+          return null;
+        }
       }
     } catch (e) {
       onFail(e.toString());
@@ -72,21 +96,69 @@ Future<File?> pickImage({
   return fileImage;
 }
 
-// pick video from gallery
+// pick video from gallery with duration limit and size check
 Future<File?> pickVideo({
   required Function(String) onFail,
+  Duration? maxDuration,
 }) async {
   File? fileVideo;
   try {
-    final pickedFile =
-        await ImagePicker().pickVideo(source: ImageSource.gallery);
+    final pickedFile = await ImagePicker().pickVideo(
+      source: ImageSource.gallery,
+      maxDuration: maxDuration ?? const Duration(seconds: 90), // Default to 90 seconds
+    );
+    
     if (pickedFile == null) {
       onFail('No video selected');
     } else {
       fileVideo = File(pickedFile.path);
+      
+      // Check file size
+      final fileSize = await fileVideo.length();
+      final fileSizeInMB = fileSize / (1024 * 1024);
+      
+      // Limit file size to 50MB
+      if (fileSizeInMB > 50) {
+        onFail('Video size too large. Maximum allowed is 50MB.');
+        return null;
+      }
     }
   } catch (e) {
-    onFail(e.toString());
+    onFail('Error picking video: $e');
+  }
+
+  return fileVideo;
+}
+
+// Pick video from camera
+Future<File?> pickVideoFromCamera({
+  required Function(String) onFail,
+  Duration? maxDuration,
+}) async {
+  File? fileVideo;
+  try {
+    final pickedFile = await ImagePicker().pickVideo(
+      source: ImageSource.camera,
+      maxDuration: maxDuration ?? const Duration(seconds: 90), // Default to 90 seconds
+    );
+    
+    if (pickedFile == null) {
+      onFail('No video recorded');
+    } else {
+      fileVideo = File(pickedFile.path);
+      
+      // Check file size
+      final fileSize = await fileVideo.length();
+      final fileSizeInMB = fileSize / (1024 * 1024);
+      
+      // Limit file size to 50MB
+      if (fileSizeInMB > 50) {
+        onFail('Video size too large. Maximum allowed is 50MB.');
+        return null;
+      }
+    }
+  } catch (e) {
+    onFail('Error recording video: $e');
   }
 
   return fileVideo;
@@ -163,16 +235,58 @@ Widget messageToShow({required MessageEnum type, required String message}) {
   }
 }
 
-// store file to storage and return file url
+// Store file to Firebase Storage and return download URL
 Future<String> storeFileToStorage({
   required File file,
   required String reference,
 }) async {
+  // Create upload task
   UploadTask uploadTask =
       FirebaseStorage.instance.ref().child(reference).putFile(file);
+  
+  // Set metadata for videos if needed
+  if (reference.contains('video') || file.path.toLowerCase().endsWith('.mp4')) {
+    uploadTask = FirebaseStorage.instance.ref().child(reference).putFile(
+      file,
+      SettableMetadata(contentType: 'video/mp4'),
+    );
+  }
+  
+  // Monitor upload progress - could be connected to a progress indicator
+  uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+    final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+    debugPrint('Upload progress: ${(progress * 100).toStringAsFixed(2)}%');
+  });
+  
+  // Wait for upload to complete
   TaskSnapshot taskSnapshot = await uploadTask;
   String fileUrl = await taskSnapshot.ref.getDownloadURL();
   return fileUrl;
+}
+
+// Format file size for display
+String formatFileSize(int bytes) {
+  if (bytes < 1024) {
+    return '$bytes B';
+  } else if (bytes < 1024 * 1024) {
+    return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  } else if (bytes < 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  } else {
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+}
+
+// Format duration for display
+String formatDuration(Duration duration) {
+  String twoDigits(int n) => n.toString().padLeft(2, '0');
+  String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+  String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+  if (duration.inHours > 0) {
+    return '${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds';
+  } else {
+    return '$twoDigitMinutes:$twoDigitSeconds';
+  }
 }
 
 // animated dialog

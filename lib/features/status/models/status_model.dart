@@ -35,18 +35,24 @@ class StatusModel {
 
   // Create from map (Firestore document)
   factory StatusModel.fromMap(Map<String, dynamic> map) {
+    // Get createdAt timestamp
+    final createdAtDateTime = _parseDateTime(map[Constants.createdAt]);
+    
+    // Calculate expiresAt - always exactly 24 hours after creation
+    final expiresAtDateTime = createdAtDateTime.add(const Duration(hours: 24));
+    
     return StatusModel(
       statusId: map[Constants.statusId] ?? '',
       uid: map[Constants.uid] ?? '',
       userName: map[Constants.name] ?? '',
       userImage: map[Constants.image] ?? '',
       text: map[Constants.message] ?? '',
-      mediaUrl: map[Constants.mediaUrls] != null && map[Constants.mediaUrls].isNotEmpty 
-          ? map[Constants.mediaUrls][0] 
+      mediaUrl: map[Constants.statusUrl] != null && (map[Constants.statusUrl] as List).isNotEmpty 
+          ? map[Constants.statusUrl][0] 
           : '',
       type: _getStatusTypeFromString(map[Constants.statusType] ?? 'text'),
-      createdAt: _parseDateTime(map[Constants.createdAt]),
-      expiresAt: _parseDateTime(map[Constants.createdAt], addHours: 24), // Status expires in 24 hours
+      createdAt: createdAtDateTime,
+      expiresAt: expiresAtDateTime,
       isPrivate: map['isPrivate'] ?? true,
       viewedBy: List<String>.from(map['viewedBy'] ?? []),
       likedBy: List<String>.from(map['likedBy'] ?? []),
@@ -62,9 +68,10 @@ class StatusModel {
       Constants.name: userName,
       Constants.image: userImage,
       Constants.message: text,
-      Constants.mediaUrls: mediaUrl.isNotEmpty ? [mediaUrl] : [],
+      Constants.statusUrl: mediaUrl.isNotEmpty ? [mediaUrl] : [],
       Constants.statusType: type.toString().split('.').last,
-      Constants.createdAt: createdAt.millisecondsSinceEpoch,
+      Constants.createdAt: Timestamp.fromDate(createdAt), // Store as Firestore Timestamp
+      'expiresAt': Timestamp.fromDate(expiresAt), // Store expiry as Timestamp too
       'isPrivate': isPrivate,
       'viewedBy': viewedBy,
       'likedBy': likedBy,
@@ -106,7 +113,7 @@ class StatusModel {
   }
 
   // Helper method to parse DateTime from Firestore
-  static DateTime _parseDateTime(dynamic timestamp, {int addHours = 0}) {
+  static DateTime _parseDateTime(dynamic timestamp) {
     DateTime dateTime;
     
     if (timestamp is Timestamp) {
@@ -115,10 +122,6 @@ class StatusModel {
       dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
     } else {
       dateTime = DateTime.now();
-    }
-    
-    if (addHours > 0) {
-      dateTime = dateTime.add(Duration(hours: addHours));
     }
     
     return dateTime;
@@ -139,6 +142,38 @@ class StatusModel {
 
   // Check if status is expired
   bool get isExpired => DateTime.now().isAfter(expiresAt);
+  
+  // Calculate remaining time in hours and minutes
+  String get remainingTime {
+    final now = DateTime.now();
+    if (now.isAfter(expiresAt)) {
+      return 'Expired';
+    }
+    
+    final difference = expiresAt.difference(now);
+    final hours = difference.inHours;
+    final minutes = difference.inMinutes.remainder(60);
+    
+    if (hours > 0) {
+      return 'Expires in ${hours}h ${minutes}m';
+    } else {
+      return 'Expires in ${minutes}m';
+    }
+  }
+  
+  // Get remaining time as percentage (for progress indicators)
+  double get remainingTimePercentage {
+    final now = DateTime.now();
+    if (now.isAfter(expiresAt)) {
+      return 0.0;
+    }
+    
+    final totalDuration = const Duration(hours: 24).inMilliseconds;
+    final elapsed = now.difference(createdAt).inMilliseconds;
+    final remaining = totalDuration - elapsed;
+    
+    return remaining / totalDuration;
+  }
   
   // Get view count
   int get viewCount => viewedBy.length;
