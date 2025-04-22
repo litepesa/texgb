@@ -2,9 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/status/screens/status_screen.dart';
-import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/main_screen/create_group_screen.dart';
 import 'package:textgb/main_screen/groups_screen.dart';
 import 'package:textgb/main_screen/my_chats_screen.dart';
@@ -29,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen>
   // Creating separate widget variables to ensure we're using the correct screens
   final Widget chatScreen = const MyChatsScreen();
   final Widget groupScreen = const GroupsScreen();
-  final Widget cameraScreen = const CreateStatusScreen();
+  final Widget cameraScreen = const CreateMomentsScreen();
   final Widget statusScreen = const StatusScreen();  // Correctly referencing StatusScreen
   final Widget profileScreen = const EnhancedProfileScreen();
   
@@ -53,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen>
     // Set app in fresh start state on initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<StatusProvider>().setAppFreshStart(true);
+        context.read<MomentsProvider>().setAppFreshStart(true);
       }
     });
   }
@@ -77,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen>
         if (pageIndex == 3) {
           _refreshStatusFeed();
           // Set status tab visibility to true when app resumes on status tab
-          context.read<StatusProvider>().setStatusTabVisible(true);
+          context.read<MomentsProvider>().setStatusTabVisible(true);
         }
         break;
       case AppLifecycleState.inactive:
@@ -91,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen>
             );
         // Set status tab visibility to false when app is in background
         if (pageIndex == 3) {
-          context.read<StatusProvider>().setStatusTabVisible(false);
+          context.read<MomentsProvider>().setStatusTabVisible(false);
         }
         break;
       default:
@@ -107,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen>
     final contactIds = context.read<AuthenticationProvider>().userModel!.contactsUIDs;
     
     // Fetch statuses
-    context.read<StatusProvider>().fetchStatuses(
+    context.read<MomentsProvider>().fetchStatuses(
       currentUserId: currentUserId,
       contactIds: contactIds,
     );
@@ -197,13 +194,13 @@ class _HomeScreenState extends State<HomeScreen>
             // If switching FROM status tab, ensure videos are paused by setting visibility flag
             if (pageIndex == 3 && index != 3) {
               // We're switching away from status tab
-              context.read<StatusProvider>().setStatusTabVisible(false);
+              context.read<MomentsProvider>().setStatusTabVisible(false);
             } else if (index == 3 && pageIndex != 3) {
               // We're switching TO status tab, set visibility to true
-              context.read<StatusProvider>().setStatusTabVisible(true);
+              context.read<MomentsProvider>().setStatusTabVisible(true);
               
               // Set app as no longer in fresh start when user actively selects the status tab
-              context.read<StatusProvider>().setAppFreshStart(false);
+              context.read<MomentsProvider>().setAppFreshStart(false);
             }
             
             setState(() {

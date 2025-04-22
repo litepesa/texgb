@@ -7,12 +7,6 @@ import 'package:textgb/authentication/login_screen.dart';
 import 'package:textgb/authentication/otp_screen.dart';
 import 'package:textgb/authentication/user_information_screen.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/status/providers/status_provider.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/status/screens/my_status_screen.dart';
-import 'package:textgb/features/status/screens/status_detail_screen.dart';
-import 'package:textgb/features/status/screens/status_screen.dart';
-import 'package:textgb/features/status/screens/video_viewer_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/add_contact_screen.dart';
 import 'package:textgb/main_screen/blocked_contacts_screen.dart';
@@ -47,7 +41,6 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => GroupProvider()),
         ChangeNotifierProvider(create: (_) => ContactsProvider()),
-        ChangeNotifierProvider(create: (_) => StatusProvider()),
       ],
       child: MyApp(savedThemeMode: savedThemeMode),
     ),
@@ -90,34 +83,6 @@ class MyApp extends StatelessWidget {
               const GroupSettingsScreen(),
           Constants.groupInformationScreen: (context) =>
               const GroupInformationScreen(),
-              
-          // Status feature routes
-          Constants.statusScreen: (context) => const StatusScreen(),
-          Constants.createStatusScreen: (context) => const CreateStatusScreen(),
-          // Cannot use direct routing for StatusDetailScreen as it requires parameters
-          // Constants.statusDetailScreen will be handled via MaterialPageRoute
-          Constants.myStatusScreen: (context) => const MyStatusScreen(isPrivate: true),
-          // MediaViewScreen needs parameters, so we'll use a placeholder
-          Constants.mediaViewScreen: (context) => const ImageViewerScreen(imageUrl: ''),
-        },
-        // For routes that need parameters, use onGenerateRoute
-        onGenerateRoute: (settings) {
-          if (settings.name == Constants.statusDetailScreen) {
-            // Handle StatusDetailScreen route - would need to extract arguments
-            final args = settings.arguments as Map<String, dynamic>?;
-            if (args != null) {
-              return MaterialPageRoute(
-                builder: (context) => StatusDetailScreen(
-                  status: args['status'],
-                  statuses: args['statuses'],
-                  initialIndex: args['initialIndex'] ?? 0,
-                ),
-              );
-            }
-          }
-          
-          // Return null to let the app handle undefined routes
-          return null;
         },
       ),
     );
