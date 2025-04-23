@@ -10,8 +10,8 @@ class UserModel {
   String lastSeen;
   String createdAt;
   bool isOnline;
-  List<String> contactsUIDs;  // Changed from friendsUIDs
-  List<String> blockedUIDs;   // New field for blocked contacts
+  List<String> contactsUIDs;  
+  List<String> blockedUIDs;   
 
   UserModel({
     required this.uid,

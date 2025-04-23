@@ -2,10 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/groups/screens/create_group_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
-import 'package:textgb/main_screen/create_group_screen.dart';
 import 'package:textgb/features/groups/screens/groups_screen.dart';
 import 'package:textgb/features/chat/screens/my_chats_screen.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
@@ -13,7 +12,6 @@ import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/main_screen/enhanced_profile_screen.dart';
 import 'package:textgb/shared/theme/wechat_theme_extension.dart';
-import 'package:textgb/shared/widgets/custom_icon.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,11 +24,10 @@ class _HomeScreenState extends State<HomeScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   int pageIndex = 0;
   
-  // Creating separate widget variables to ensure we're using the correct screens
+  // Creating separate widget variables with 4 screens instead of 5
   final Widget chatScreen = const MyChatsScreen();
   final Widget groupScreen = const GroupsScreen();
-  final Widget cameraScreen = const CreateStatusScreen();
-  final Widget statusScreen = const StatusScreen();  // Correctly referencing StatusScreen
+  final Widget statusScreen = const StatusScreen();
   final Widget profileScreen = const EnhancedProfileScreen();
   
   // We'll define these in initState to ensure they match our bottom nav bar
@@ -41,13 +38,12 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     super.initState();
     
-    // Initialize pages list to match the order of our bottom nav bar items
+    // Initialize pages list to match our simplified bottom nav bar (4 tabs instead of 5)
     pages = [
       chatScreen,        // Index 0 - Chats
       groupScreen,       // Index 1 - Groups
-      cameraScreen,      // Index 2 - Camera (custom icon)
-      statusScreen,      // Index 3 - Status Feed
-      profileScreen,     // Index 4 - Profile
+      statusScreen,      // Index 2 - Status Feed (includes camera functionality)
+      profileScreen,     // Index 3 - Profile
     ];
     
     // Set app in fresh start state on initialization
@@ -74,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen>
               value: true,
             );
         // Refresh status feed when app is resumed
-        if (pageIndex == 3) {
+        if (pageIndex == 2) { // Updated index (was 3 before)
           _refreshStatusFeed();
           // Set status tab visibility to true when app resumes on status tab
           context.read<StatusProvider>().setStatusTabVisible(true);
@@ -90,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen>
               value: false,
             );
         // Set status tab visibility to false when app is in background
-        if (pageIndex == 3) {
+        if (pageIndex == 2) { // Updated index (was 3 before)
           context.read<StatusProvider>().setStatusTabVisible(false);
         }
         break;
@@ -118,33 +114,30 @@ class _HomeScreenState extends State<HomeScreen>
     final themeExt = context.theme;
     final isLightMode = Theme.of(context).brightness == Brightness.light;
     
-    // Get all theme colors from WeChatThemeExtension
+    // Get accent color from WeChatThemeExtension
     final accentColor = themeExt.accentColor ?? const Color(0xFF09BB07);
     
-    // Determine bottom nav bar color based on both theme and current tab
-    final bottomNavColor = pageIndex == 3 
-        ? Colors.black 
-        : themeExt.appBarColor ?? (isLightMode ? Colors.white : const Color(0xFF121212));
+    // Consistent color for both app bar and bottom nav bar
+    final appBarColor = themeExt.appBarColor ?? (isLightMode ? Colors.white : const Color(0xFF121212));
     
-    // Determine item colors based on current tab and theme
-    final selectedItemColor = pageIndex == 3 
-        ? Colors.white 
-        : accentColor;
+    // Use same color for bottom nav - no special case for status tab
+    final bottomNavColor = appBarColor;
+    
+    // Consistent selected item color - no special case for status tab
+    final selectedItemColor = accentColor;
     
     // Unselected items should be more visible in dark mode
-    final unselectedItemColor = pageIndex == 3
-        ? Colors.grey
-        : (themeExt.greyColor ?? Colors.grey);
+    final unselectedItemColor = themeExt.greyColor ?? Colors.grey;
     
-    // Set elevation for better delineation
-    final bottomNavElevation = isLightMode ? 2.0 : 1.0;
+    // Set elevation for better delineation - consistent between appBar and bottomNav
+    final elevation = isLightMode ? 2.0 : 1.0;
     
     return Scaffold(
-      appBar: pageIndex != 2 && pageIndex != 3 && pageIndex != 4 ? AppBar(
-        elevation: 2.0,
+      appBar: pageIndex != 2 && pageIndex != 3 ? AppBar(
+        elevation: elevation,
         toolbarHeight: 65.0,
         centerTitle: false,
-        backgroundColor: themeExt.appBarColor ?? (isLightMode ? Colors.white : const Color(0xFF121212)),
+        backgroundColor: appBarColor,
         title: RichText(
           text: TextSpan(
             style: TextStyle(
@@ -184,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
           // Add a subtle shadow for depth in light mode
-          boxShadow: isLightMode && pageIndex != 3 ? [
+          boxShadow: isLightMode && pageIndex != 2 ? [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
               blurRadius: 3,
@@ -195,10 +188,10 @@ class _HomeScreenState extends State<HomeScreen>
         child: BottomNavigationBar(
           onTap: (index) {
             // If switching FROM status tab, ensure videos are paused by setting visibility flag
-            if (pageIndex == 3 && index != 3) {
+            if (pageIndex == 2 && index != 2) {
               // We're switching away from status tab
               context.read<StatusProvider>().setStatusTabVisible(false);
-            } else if (index == 3 && pageIndex != 3) {
+            } else if (index == 2 && pageIndex != 2) {
               // We're switching TO status tab, set visibility to true
               context.read<StatusProvider>().setStatusTabVisible(true);
               
@@ -211,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen>
             });
             
             // If status tab is selected, refresh status data
-            if (index == 3) {
+            if (index == 2) {
               _refreshStatusFeed();
             }
           },
@@ -222,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen>
           showUnselectedLabels: true,
           showSelectedLabels: true,
           currentIndex: pageIndex,
-          elevation: bottomNavElevation,
+          elevation: elevation, // Match app bar elevation
           // Improve padding for better touch targets
           selectedLabelStyle: const TextStyle(
             fontSize: 13,
@@ -246,16 +239,9 @@ class _HomeScreenState extends State<HomeScreen>
               label: 'Groups',
             ),
             BottomNavigationBarItem(
-              icon: CustomIcon(
-                accentColor: accentColor,
-                isDarkMode: !isLightMode,
-              ),
-              label: '',  // Intentionally empty for better design
-            ),
-            BottomNavigationBarItem(
               icon: Icon(CupertinoIcons.camera, size: 30),
               activeIcon: Icon(CupertinoIcons.camera_fill, size: 30),
-              label: 'Status',  // Renamed for clarity
+              label: 'Status',
             ),
             BottomNavigationBarItem(
               icon: Icon(CupertinoIcons.person, size: 30),
@@ -306,7 +292,17 @@ class _HomeScreenState extends State<HomeScreen>
         child: const Icon(CupertinoIcons.add, size: 28),
       );
     }
-    // No FAB for Status tab - removed as requested
+    // Status create button for Status tab
+    else if (pageIndex == 2) {
+      return FloatingActionButton(
+        onPressed: () {
+          Navigator.pushNamed(context, Constants.createStatusScreen);
+        },
+        backgroundColor: accentColor,
+        elevation: 4.0,
+        child: const Icon(CupertinoIcons.camera, size: 28),
+      );
+    }
     
     // No FAB for other tabs
     return null;

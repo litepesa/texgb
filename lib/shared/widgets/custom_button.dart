@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:textgb/shared/theme/colors.dart';
 
 
 class CustomButton extends StatelessWidget {
@@ -16,13 +15,13 @@ class CustomButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: tabColor,
+        backgroundColor: Color.fromRGBO(0, 167, 131, 1),
         minimumSize: const Size(double.infinity, 50),
       ),
       child: Text(
         text,
         style: const TextStyle(
-          color: blackColor,
+          color: Colors.black,
         ),
       ),
     );

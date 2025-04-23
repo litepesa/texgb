@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/main_screen/private_group_screen.dart';
-import 'package:textgb/main_screen/public_group_screen.dart';
+import 'package:textgb/features/groups/screens/private_group_screen.dart';
+import 'package:textgb/features/groups/screens/public_group_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});

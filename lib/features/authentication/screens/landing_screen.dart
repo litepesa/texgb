@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
-import 'package:textgb/shared/theme/colors.dart';
 import 'package:textgb/shared/widgets/custom_button.dart';
 
 class LandingScreen extends StatefulWidget {
