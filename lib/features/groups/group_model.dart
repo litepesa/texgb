@@ -62,7 +62,7 @@ class GroupModel {
       Constants.editSettings: editSettings,
       Constants.approveMembers: approveMembers,
       Constants.lockMessages: lockMessages,
-      Constants.requestToJoing: requestToJoing,
+      Constants.requestToJoin: requestToJoing,
       Constants.membersUIDs: membersUIDs,
       Constants.adminsUIDs: adminsUIDs,
       Constants.awaitingApprovalUIDs: awaitingApprovalUIDs,
@@ -89,7 +89,7 @@ class GroupModel {
       editSettings: map[Constants.editSettings] ?? false,
       approveMembers: map[Constants.approveMembers] ?? false,
       lockMessages: map[Constants.lockMessages] ?? false,
-      requestToJoing: map[Constants.requestToJoing] ?? false,
+      requestToJoing: map[Constants.requestToJoin] ?? false,
       membersUIDs: List<String>.from(map[Constants.membersUIDs] ?? []),
       adminsUIDs: List<String>.from(map[Constants.adminsUIDs] ?? []),
       awaitingApprovalUIDs:

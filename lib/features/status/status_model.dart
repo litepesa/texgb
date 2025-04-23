@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:textgb/enums/enums.dart';
 
 class StatusModel {
   final String statusId;
@@ -89,7 +90,7 @@ class StatusItemModel {
       timestamp: (map['timestamp'] is Timestamp)
           ? (map['timestamp'] as Timestamp).toDate()
           : DateTime.fromMillisecondsSinceEpoch(map['timestamp'] ?? DateTime.now().millisecondsSinceEpoch),
-      type: StatusTypeExtension.fromString(map['type'] ?? 'text'),
+      type: _getStatusTypeFromString(map['type'] ?? 'text'),
       viewedBy: List<String>.from(map['viewedBy'] ?? []),
       reactions: map['reactions'] != null 
           ? Map<String, String>.from(map['reactions']) 
@@ -108,24 +109,9 @@ class StatusItemModel {
       'reactions': reactions,
     };
   }
-}
-
-enum StatusType {
-  text,
-  image,
-  video
-}
-
-extension StatusTypeExtension on StatusType {
-  static StatusType fromString(String type) {
-    switch (type) {
-      case 'image':
-        return StatusType.image;
-      case 'video':
-        return StatusType.video;
-      case 'text':
-      default:
-        return StatusType.text;
-    }
+  
+  // Helper method to convert string to StatusType
+  static StatusType _getStatusTypeFromString(String typeStr) {
+    return StatusTypeExtension.fromString(typeStr);
   }
 }

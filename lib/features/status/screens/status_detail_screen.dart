@@ -189,7 +189,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
     _progressController.forward();
   }
   
-  void _onTap(TapDetails details) {
+  void _onTap(TapUpDetails details) {
     // Detect tap position for navigation
     final screenWidth = MediaQuery.of(context).size.width;
     final tapPosition = details.localPosition.dx;

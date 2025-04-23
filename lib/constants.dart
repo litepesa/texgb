@@ -35,6 +35,7 @@ class Constants {
   static const String statusType = 'statusType';
   static const String statusViewCount = 'statusViewCount';   // Changed to only track count for privacy
 
+  // User-related constants
   static const String uid = 'uid';
   static const String name = 'name';
   static const String phoneNumber = 'phoneNumber';
@@ -78,7 +79,7 @@ class Constants {
   static const String chats = 'chats';
   static const String messages = 'messages';
   static const String groups = 'groups';
-  static const chatFiles = 'chatFiles';
+  static const String chatFiles = 'chatFiles';
 
   static const String private = 'private';
   static const String public = 'public';
@@ -91,7 +92,7 @@ class Constants {
   static const String editSettings = 'editSettings';
   static const String approveMembers = 'approveMembers';
   static const String lockMessages = 'lockMessages';
-  static const String requestToJoing = 'requestToJoing';
+  static const String requestToJoin = 'requestToJoin';  // Fixed typo in "requestToJoing"
   static const String membersUIDs = 'membersUIDs';
   static const String adminsUIDs = 'adminsUIDs';
   static const String awaitingApprovalUIDs = 'awaitingApprovalUIDs';

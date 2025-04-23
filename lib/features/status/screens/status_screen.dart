@@ -102,110 +102,6 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                     currentUser.name,
                     currentUser.image,
                   ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildContactStatusTile(StatusModel status, String currentUserId) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    
-    // Check if all status items have been viewed by current user
-    final bool allViewed = status.hasUserViewedAll(currentUserId);
-    
-    // Get the most recent status item timestamp
-    final latestTimestamp = status.items
-        .map((item) => item.timestamp)
-        .reduce((a, b) => a.isAfter(b) ? a : b);
-    
-    // Format time (e.g., "2h ago")
-    final timeAgo = _getTimeAgo(latestTimestamp);
-    
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-      leading: StatusCircle(
-        imageUrl: status.userImage,
-        name: status.userName,
-        hasStatus: true,
-        isViewed: allViewed,
-        onTap: () => _navigateToStatusDetail(status, false),
-      ),
-      title: Text(
-        status.userName,
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: themeExtension?.textColor ?? Colors.black,
-        ),
-      ),
-      subtitle: Text(
-        timeAgo,
-        style: TextStyle(
-          color: themeExtension?.greyColor ?? Colors.grey,
-        ),
-      ),
-      onTap: () => _navigateToStatusDetail(status, false),
-    );
-  }
-  
-  Widget _buildEmptyState(Color accentColor) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.photo_camera,
-            size: 80,
-            color: accentColor.withOpacity(0.5),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No status updates',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap the button below to create your first status',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _navigateToCreateStatus,
-            icon: const Icon(Icons.add_a_photo),
-            label: const Text('Create Status'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: accentColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  String _getTimeAgo(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
-    
-    if (difference.inSeconds < 60) {
-      return 'Just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else {
-      return 'Yesterday';
-    }
-  }
                 ),
                 
                 // Recent Updates Header
@@ -360,3 +256,108 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                   ],
                 ),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildContactStatusTile(StatusModel status, String currentUserId) {
+    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    
+    // Check if all status items have been viewed by current user
+    final bool allViewed = status.hasUserViewedAll(currentUserId);
+    
+    // Get the most recent status item timestamp
+    final latestTimestamp = status.items
+        .map((item) => item.timestamp)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+    
+    // Format time (e.g., "2h ago")
+    final timeAgo = _getTimeAgo(latestTimestamp);
+    
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      leading: StatusCircle(
+        imageUrl: status.userImage,
+        name: status.userName,
+        hasStatus: true,
+        isViewed: allViewed,
+        onTap: () => _navigateToStatusDetail(status, false),
+      ),
+      title: Text(
+        status.userName,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: themeExtension?.textColor ?? Colors.black,
+        ),
+      ),
+      subtitle: Text(
+        timeAgo,
+        style: TextStyle(
+          color: themeExtension?.greyColor ?? Colors.grey,
+        ),
+      ),
+      onTap: () => _navigateToStatusDetail(status, false),
+    );
+  }
+  
+  Widget _buildEmptyState(Color accentColor) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_camera,
+            size: 80,
+            color: accentColor.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No status updates',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tap the button below to create your first status',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _navigateToCreateStatus,
+            icon: const Icon(Icons.add_a_photo),
+            label: const Text('Create Status'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  String _getTimeAgo(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+    
+    if (difference.inSeconds < 60) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return 'Yesterday';
+    }
+  }
+}

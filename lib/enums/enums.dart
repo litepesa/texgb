@@ -1,3 +1,5 @@
+// Complete implementation for lib/enums/enums.dart
+
 enum ContactViewType {
   contacts,
   blocked,
@@ -23,7 +25,7 @@ enum StatusType {
   video,
 }
 
-// extension convertMessageEnumToString on String
+// Extension for converting string to MessageEnum
 extension MessageEnumExtension on String {
   MessageEnum toMessageEnum() {
     switch (this) {
@@ -37,6 +39,34 @@ extension MessageEnumExtension on String {
         return MessageEnum.audio;
       default:
         return MessageEnum.text;
+    }
+  }
+}
+
+// Extension for StatusType to get name as string
+extension StatusTypeExtension on StatusType {
+  String get name {
+    switch (this) {
+      case StatusType.text:
+        return 'text';
+      case StatusType.image:
+        return 'image';
+      case StatusType.video:
+        return 'video';
+      default:
+        return 'text';
+    }
+  }
+  
+  static StatusType fromString(String type) {
+    switch (type.toLowerCase()) {
+      case 'image':
+        return StatusType.image;
+      case 'video':
+        return StatusType.video;
+      case 'text':
+      default:
+        return StatusType.text;
     }
   }
 }

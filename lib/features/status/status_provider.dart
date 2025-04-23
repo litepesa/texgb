@@ -3,11 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_model.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:uuid/uuid.dart';
-
 
 class StatusProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

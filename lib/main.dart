@@ -7,6 +7,9 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/status_screen.dart';
+import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
@@ -41,6 +44,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => GroupProvider()),
         ChangeNotifierProvider(create: (_) => ContactsProvider()),
+        ChangeNotifierProvider(create: (_) => StatusProvider()),
       ],
       child: MyApp(savedThemeMode: savedThemeMode),
     ),
@@ -83,6 +87,9 @@ class MyApp extends StatelessWidget {
               const GroupSettingsScreen(),
           Constants.groupInformationScreen: (context) =>
               const GroupInformationScreen(),
+
+          Constants.statusScreen: (context) => const StatusScreen(),
+          Constants.createStatusScreen: (context) => const CreateStatusScreen(), 
         },
       ),
     );
