@@ -5,10 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
-import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/utilities/global_methods.dart';
-import 'package:textgb/widgets/app_bar_back_button.dart';
-import 'package:textgb/widgets/group_details_card.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/shared/widgets/app_bar_back_button.dart';
+import 'package:textgb/features/groups/widgets/group_details_card.dart';
 import 'package:textgb/widgets/settings_list_tile.dart';
 
 class ProfileScreen extends StatefulWidget {

@@ -2,15 +2,18 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/status_screen.dart';
+import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/main_screen/create_group_screen.dart';
-import 'package:textgb/main_screen/groups_screen.dart';
-import 'package:textgb/main_screen/my_chats_screen.dart';
-import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/providers/group_provider.dart';
-import 'package:textgb/utilities/global_methods.dart';
+import 'package:textgb/features/groups/screens/groups_screen.dart';
+import 'package:textgb/features/chat/screens/my_chats_screen.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/groups/group_provider.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/main_screen/enhanced_profile_screen.dart';
-import 'package:textgb/common/extension/wechat_theme_extension.dart';
-import 'package:textgb/widgets/custom_icon.dart';
+import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/widgets/custom_icon.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen>
   // Creating separate widget variables to ensure we're using the correct screens
   final Widget chatScreen = const MyChatsScreen();
   final Widget groupScreen = const GroupsScreen();
-  final Widget cameraScreen = const CreateMomentsScreen();
+  final Widget cameraScreen = const CreateStatusScreen();
   final Widget statusScreen = const StatusScreen();  // Correctly referencing StatusScreen
   final Widget profileScreen = const EnhancedProfileScreen();
   
@@ -50,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen>
     // Set app in fresh start state on initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<MomentsProvider>().setAppFreshStart(true);
+        context.read<StatusProvider>().setAppFreshStart(true);
       }
     });
   }
@@ -74,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen>
         if (pageIndex == 3) {
           _refreshStatusFeed();
           // Set status tab visibility to true when app resumes on status tab
-          context.read<MomentsProvider>().setStatusTabVisible(true);
+          context.read<StatusProvider>().setStatusTabVisible(true);
         }
         break;
       case AppLifecycleState.inactive:
@@ -88,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen>
             );
         // Set status tab visibility to false when app is in background
         if (pageIndex == 3) {
-          context.read<MomentsProvider>().setStatusTabVisible(false);
+          context.read<StatusProvider>().setStatusTabVisible(false);
         }
         break;
       default:
@@ -104,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen>
     final contactIds = context.read<AuthenticationProvider>().userModel!.contactsUIDs;
     
     // Fetch statuses
-    context.read<MomentsProvider>().fetchStatuses(
+    context.read<StatusProvider>().fetchStatuses(
       currentUserId: currentUserId,
       contactIds: contactIds,
     );
@@ -194,13 +197,13 @@ class _HomeScreenState extends State<HomeScreen>
             // If switching FROM status tab, ensure videos are paused by setting visibility flag
             if (pageIndex == 3 && index != 3) {
               // We're switching away from status tab
-              context.read<MomentsProvider>().setStatusTabVisible(false);
+              context.read<StatusProvider>().setStatusTabVisible(false);
             } else if (index == 3 && pageIndex != 3) {
               // We're switching TO status tab, set visibility to true
-              context.read<MomentsProvider>().setStatusTabVisible(true);
+              context.read<StatusProvider>().setStatusTabVisible(true);
               
               // Set app as no longer in fresh start when user actively selects the status tab
-              context.read<MomentsProvider>().setAppFreshStart(false);
+              context.read<StatusProvider>().setAppFreshStart(false);
             }
             
             setState(() {

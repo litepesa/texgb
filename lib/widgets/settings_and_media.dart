@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:textgb/main_screen/group_settings_screen.dart';
-import 'package:textgb/providers/group_provider.dart';
-import 'package:textgb/utilities/global_methods.dart';
+import 'package:textgb/features/groups/screens/group_settings_screen.dart';
+import 'package:textgb/features/groups/group_provider.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/widgets/settings_list_tile.dart';
 
 class SettingsAndMedia extends StatelessWidget {

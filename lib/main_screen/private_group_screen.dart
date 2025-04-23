@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:textgb/common/extension/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/wechat_theme_extension.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/models/group_model.dart';
-import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/providers/group_provider.dart';
-import 'package:textgb/widgets/chat_widget.dart';
-import 'package:textgb/widgets/group_search_bar.dart';
+import 'package:textgb/features/groups/group_model.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/groups/group_provider.dart';
+import 'package:textgb/features/chat/widgets/chat_widget.dart';
+import 'package:textgb/features/groups/widgets/group_search_bar.dart';
 
 class PrivateGroupScreen extends StatefulWidget {
   const PrivateGroupScreen({super.key});

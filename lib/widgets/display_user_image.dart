@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:textgb/utilities/assets_manager.dart';
+import 'package:textgb/shared/utilities/assets_manager.dart';
 
 class DisplayUserImage extends StatelessWidget {
   const DisplayUserImage({

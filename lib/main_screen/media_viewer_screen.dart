@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import 'package:textgb/common/extension/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/wechat_theme_extension.dart';
 import 'package:share_plus/share_plus.dart';
 
 class MediaViewerScreen extends StatefulWidget {

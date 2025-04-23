@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/utilities/global_methods.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
 
 class PeopleScreen extends StatefulWidget {
   const PeopleScreen({super.key});

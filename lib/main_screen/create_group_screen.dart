@@ -6,14 +6,14 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/models/group_model.dart';
-import 'package:textgb/providers/authentication_provider.dart';
-import 'package:textgb/providers/group_provider.dart';
-import 'package:textgb/utilities/global_methods.dart';
-import 'package:textgb/widgets/app_bar_back_button.dart';
-import 'package:textgb/widgets/contact_list.dart';
+import 'package:textgb/features/groups/group_model.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/groups/group_provider.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/shared/widgets/app_bar_back_button.dart';
+import 'package:textgb/features/contacts/widgets/contact_list.dart';
 import 'package:textgb/widgets/display_user_image.dart';
-import 'package:textgb/widgets/group_type_list_tile.dart';
+import 'package:textgb/features/groups/widgets/group_type_list_tile.dart';
 import 'package:textgb/widgets/settings_list_tile.dart';
 
 class CreateGroupScreen extends StatefulWidget {

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/last_message_model.dart';
-import 'package:textgb/providers/chat_provider.dart';
-import 'package:textgb/widgets/chat_widget.dart';
+import 'package:textgb/features/chat/chat_provider.dart';
+import 'package:textgb/features/chat/widgets/chat_widget.dart';
 
 class SearchStream extends StatelessWidget {
   const SearchStream({
