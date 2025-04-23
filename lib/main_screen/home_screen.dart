@@ -11,7 +11,7 @@ import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/main_screen/enhanced_profile_screen.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -111,26 +111,33 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final themeExt = context.theme;
-    final isLightMode = Theme.of(context).brightness == Brightness.light;
+    // Use the new theme extensions
+    final modernTheme = context.modernTheme;
+    final animationTheme = context.animationTheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
-    // Get accent color from WeChatThemeExtension
-    final accentColor = themeExt.accentColor ?? const Color(0xFF09BB07);
+    // Get accent color from ModernThemeExtension
+    final accentColor = modernTheme.primaryColor!;
     
-    // Consistent color for both app bar and bottom nav bar
-    final appBarColor = themeExt.appBarColor ?? (isLightMode ? Colors.white : const Color(0xFF121212));
+    // Get app bar and surface colors
+    final appBarColor = modernTheme.appBarColor!;
+    final surfaceColor = modernTheme.surfaceColor!;
     
-    // Use same color for bottom nav - no special case for status tab
-    final bottomNavColor = appBarColor;
+    // Use same color for bottom nav
+    final bottomNavColor = surfaceColor;
     
-    // Consistent selected item color - no special case for status tab
+    // Get text colors
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
+    
+    // Consistent selected item color
     final selectedItemColor = accentColor;
     
-    // Unselected items should be more visible in dark mode
-    final unselectedItemColor = themeExt.greyColor ?? Colors.grey;
+    // Unselected items color
+    final unselectedItemColor = textSecondaryColor;
     
-    // Set elevation for better delineation - consistent between appBar and bottomNav
-    final elevation = isLightMode ? 2.0 : 1.0;
+    // Set elevation for better delineation
+    final elevation = isDarkMode ? 1.0 : 2.0;
     
     return Scaffold(
       appBar: pageIndex != 2 && pageIndex != 3 ? AppBar(
@@ -143,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen>
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w600,
-              color: isLightMode ? const Color(0xFF181818) : Colors.white,
+              color: textColor,
             ),
             children: [
               TextSpan(
@@ -172,12 +179,12 @@ class _HomeScreenState extends State<HomeScreen>
         decoration: BoxDecoration(
           border: Border(
             top: BorderSide(
-              color: themeExt.dividerColor ?? (isLightMode ? const Color(0xFFDBDBDB) : const Color(0xFF3D3D3D)),
+              color: modernTheme.dividerColor!,
               width: 0.5,
             ),
           ),
           // Add a subtle shadow for depth in light mode
-          boxShadow: isLightMode && pageIndex != 2 ? [
+          boxShadow: !isDarkMode && pageIndex != 2 ? [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
               blurRadius: 3,
@@ -227,25 +234,25 @@ class _HomeScreenState extends State<HomeScreen>
             fontWeight: FontWeight.normal,
             height: 1.6,
           ),
-          items: [
+          items: const [
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.chat_bubble_2, size: 30),
-              activeIcon: Icon(CupertinoIcons.chat_bubble_2_fill, size: 30),
+              icon: Icon(CupertinoIcons.chat_bubble_2, size: 28),
+              activeIcon: Icon(CupertinoIcons.chat_bubble_2_fill, size: 28),
               label: 'Chats',
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.group, size: 30),
-              activeIcon: Icon(CupertinoIcons.group_solid, size: 30),
+              icon: Icon(CupertinoIcons.group, size: 28),
+              activeIcon: Icon(CupertinoIcons.group_solid, size: 28),
               label: 'Groups',
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.camera, size: 30),
-              activeIcon: Icon(CupertinoIcons.camera_fill, size: 30),
+              icon: Icon(CupertinoIcons.camera, size: 28),
+              activeIcon: Icon(CupertinoIcons.camera_fill, size: 28),
               label: 'Status',
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.person, size: 30),
-              activeIcon: Icon(CupertinoIcons.person_fill, size: 30),
+              icon: Icon(CupertinoIcons.person, size: 28),
+              activeIcon: Icon(CupertinoIcons.person_fill, size: 28),
               label: 'Profile',
             ),
           ],
@@ -269,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen>
         },
         backgroundColor: accentColor,
         elevation: 4.0, // Increased elevation for better visibility
-        child: const Icon(CupertinoIcons.chat_bubble_text, size: 28),
+        child: const Icon(CupertinoIcons.chat_bubble_text, size: 26),
       );
     }
     // Group button for Groups tab
@@ -289,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen>
         },
         backgroundColor: accentColor,
         elevation: 4.0, // Increased elevation for better visibility
-        child: const Icon(CupertinoIcons.add, size: 28),
+        child: const Icon(CupertinoIcons.add, size: 26),
       );
     }
     // Status create button for Status tab
@@ -300,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen>
         },
         backgroundColor: accentColor,
         elevation: 4.0,
-        child: const Icon(CupertinoIcons.camera, size: 28),
+        child: const Icon(CupertinoIcons.camera, size: 26),
       );
     }
     
