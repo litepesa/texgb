@@ -41,7 +41,7 @@ class ChatProvider extends ChangeNotifier {
   // firebase initialization
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-// send text message to firestore
+  // send text message to firestore
   Future<void> sendTextMessage({
     required UserModel sender,
     required String contactUID,
@@ -97,7 +97,7 @@ class ChatProvider extends ChangeNotifier {
             .doc(messageId)
             .set(messageModel.toMap());
 
-        // update the last message fo the group
+        // update the last message for the group
         await _firestore.collection(Constants.groups).doc(groupId).update({
           Constants.lastMessage: message,
           Constants.timeSent: DateTime.now().millisecondsSinceEpoch,
@@ -105,7 +105,7 @@ class ChatProvider extends ChangeNotifier {
           Constants.messageType: messageType.name,
         });
 
-        // set loading to true
+        // set loading to false
         setLoading(false);
         onSucess();
         // set message reply model to null
@@ -125,7 +125,7 @@ class ChatProvider extends ChangeNotifier {
         setMessageReplyModel(null);
       }
     } catch (e) {
-      // set loading to true
+      // set loading to false
       setLoading(false);
       onError(e.toString());
     }
@@ -185,7 +185,6 @@ class ChatProvider extends ChangeNotifier {
       // 4. check if its a group message and send to group else send to contact
       if (groupId.isNotEmpty) {
         // handle group message
-        // handle group message
         await _firestore
             .collection(Constants.groups)
             .doc(groupId)
@@ -193,7 +192,7 @@ class ChatProvider extends ChangeNotifier {
             .doc(messageId)
             .set(messageModel.toMap());
 
-        // update the last message fo the group
+        // update the last message for the group
         await _firestore.collection(Constants.groups).doc(groupId).update({
           Constants.lastMessage: fileUrl,
           Constants.timeSent: DateTime.now().millisecondsSinceEpoch,
@@ -201,7 +200,7 @@ class ChatProvider extends ChangeNotifier {
           Constants.messageType: messageType.name,
         });
 
-        // set loading to true
+        // set loading to false
         setLoading(false);
         onSucess();
         // set message reply model to null
@@ -221,7 +220,7 @@ class ChatProvider extends ChangeNotifier {
         setMessageReplyModel(null);
       }
     } catch (e) {
-      // set loading to true
+      // set loading to false
       setLoading(false);
       onError(e.toString());
     }
@@ -241,102 +240,82 @@ class ChatProvider extends ChangeNotifier {
         userId: messageModel.senderUID,
       );
 
-      // 1. initialize last message for the sender
-      final senderLastMessage = LastMessageModel(
-        senderUID: messageModel.senderUID,
-        contactUID: contactUID,
-        contactName: contactName,
-        contactImage: contactImage,
-        message: messageModel.message,
-        messageType: messageModel.messageType,
-        timeSent: messageModel.timeSent,
-        isSeen: false,
-      );
+      // Get message data to store in Firestore
+      final Map<String, dynamic> messageData = messageModel.toMap();
+      final Map<String, dynamic> contactMessageData = contactMessageModel.toMap();
 
-      // 2. initialize last message for the contact
-      final contactLastMessage = senderLastMessage.copyWith(
-        contactUID: messageModel.senderUID,
-        contactName: messageModel.senderName,
-        contactImage: messageModel.senderImage,
-      );
+      // Get current timestamp in milliseconds
+      final int timeStampMillis = messageModel.timeSent.millisecondsSinceEpoch;
+
+      // 1. initialize last message data for the sender
+      final Map<String, dynamic> senderLastMessageData = {
+        Constants.senderUID: messageModel.senderUID,
+        Constants.contactUID: contactUID,
+        Constants.contactName: contactName,
+        Constants.contactImage: contactImage,
+        Constants.message: messageModel.message,
+        Constants.messageType: messageModel.messageType.name,
+        Constants.timeSent: timeStampMillis,  // Store as milliseconds
+        Constants.isSeen: false,
+      };
+
+      // 2. initialize last message data for the contact
+      final Map<String, dynamic> contactLastMessageData = {
+        Constants.senderUID: messageModel.senderUID,
+        Constants.contactUID: messageModel.senderUID,
+        Constants.contactName: messageModel.senderName,
+        Constants.contactImage: messageModel.senderImage,
+        Constants.message: messageModel.message,
+        Constants.messageType: messageModel.messageType.name,
+        Constants.timeSent: timeStampMillis,  // Store as milliseconds
+        Constants.isSeen: false,
+      };
+      
+      // Run as a batch operation for better consistency
+      final batch = _firestore.batch();
+      
       // 3. send message to sender firestore location
-      await _firestore
+      final senderMessageRef = _firestore
           .collection(Constants.users)
           .doc(messageModel.senderUID)
           .collection(Constants.chats)
           .doc(contactUID)
           .collection(Constants.messages)
-          .doc(messageModel.messageId)
-          .set(messageModel.toMap());
+          .doc(messageModel.messageId);
+          
+      batch.set(senderMessageRef, messageData);
+      
       // 4. send message to contact firestore location
-      await _firestore
+      final contactMessageRef = _firestore
           .collection(Constants.users)
           .doc(contactUID)
           .collection(Constants.chats)
           .doc(messageModel.senderUID)
           .collection(Constants.messages)
-          .doc(messageModel.messageId)
-          .set(contactMessageModel.toMap());
+          .doc(messageModel.messageId);
+          
+      batch.set(contactMessageRef, contactMessageData);
 
       // 5. send the last message to sender firestore location
-      await _firestore
+      final senderLastMessageRef = _firestore
           .collection(Constants.users)
           .doc(messageModel.senderUID)
           .collection(Constants.chats)
-          .doc(contactUID)
-          .set(senderLastMessage.toMap());
+          .doc(contactUID);
+          
+      batch.set(senderLastMessageRef, senderLastMessageData);
 
       // 6. send the last message to contact firestore location
-      await _firestore
+      final contactLastMessageRef = _firestore
           .collection(Constants.users)
           .doc(contactUID)
           .collection(Constants.chats)
-          .doc(messageModel.senderUID)
-          .set(contactLastMessage.toMap());
-
-      // // run transaction
-      // await _firestore.runTransaction((transaction) async {
-      //   // 3. send message to sender firestore location
-      //   transaction.set(
-      //     _firestore
-      //         .collection(Constants.users)
-      //         .doc(messageModel.senderUID)
-      //         .collection(Constants.chats)
-      //         .doc(contactUID)
-      //         .collection(Constants.messages)
-      //         .doc(messageModel.messageId),
-      //     messageModel.toMap(),
-      //   );
-      //   // 4. send message to contact firestore location
-      //   transaction.set(
-      //     _firestore
-      //         .collection(Constants.users)
-      //         .doc(contactUID)
-      //         .collection(Constants.chats)
-      //         .doc(messageModel.senderUID)
-      //         .collection(Constants.messages)
-      //         .doc(messageModel.messageId),
-      //     contactMessageModel.toMap(),
-      //   );
-      //   // 5. send the last message to sender firestore location
-      //   transaction.set(
-      //     _firestore
-      //         .collection(Constants.users)
-      //         .doc(messageModel.senderUID)
-      //         .collection(Constants.chats)
-      //         .doc(contactUID),
-      //     senderLastMessage.toMap(),
-      //   );
-      //   // 6. send the last message to contact firestore location
-      //   transaction.set(
-      //     _firestore
-      //         .collection(Constants.users)
-      //         .doc(contactUID)
-      //         .collection(Constants.chats)
-      //         .doc(messageModel.senderUID),
-      //     contactLastMessage.toMap(),
-      //   );
-      // });
+          .doc(messageModel.senderUID);
+          
+      batch.set(contactLastMessageRef, contactLastMessageData);
+      
+      // Commit the batch
+      await batch.commit();
 
       // 7.call onSucess
       // set loading to false
@@ -482,7 +461,8 @@ class ChatProvider extends ChangeNotifier {
       // set loading to false
       setLoading(false);
     } catch (e) {
-      print(e.toString());
+      setLoading(false);
+      debugPrint(e.toString());
     }
   }
 
@@ -496,7 +476,27 @@ class ChatProvider extends ChangeNotifier {
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) {
-        return LastMessageModel.fromMap(doc.data());
+        final data = doc.data();
+        
+        // Make sure timeSent is properly handled - convert to DateTime from int
+        if (data[Constants.timeSent] is int) {
+          final int milliseconds = data[Constants.timeSent];
+          
+          // Create a proper LastMessageModel from the data with converted DateTime
+          return LastMessageModel(
+            senderUID: data[Constants.senderUID] ?? '',
+            contactUID: data[Constants.contactUID] ?? '',
+            contactName: data[Constants.contactName] ?? '',
+            contactImage: data[Constants.contactImage] ?? '',
+            message: data[Constants.message] ?? '',
+            messageType: (data[Constants.messageType] ?? 'text').toString().toMessageEnum(),
+            timeSent: DateTime.fromMillisecondsSinceEpoch(milliseconds),
+            isSeen: data[Constants.isSeen] ?? false,
+          );
+        }
+        
+        // If it's already a valid format, use the standard fromMap
+        return LastMessageModel.fromMap(data);
       }).toList();
     });
   }
@@ -514,6 +514,7 @@ class ChatProvider extends ChangeNotifier {
           .collection(Constants.groups)
           .doc(contactUID)
           .collection(Constants.messages)
+          .orderBy(Constants.timeSent, descending: true)
           .snapshots()
           .map((snapshot) {
         return snapshot.docs.map((doc) {
@@ -528,6 +529,7 @@ class ChatProvider extends ChangeNotifier {
           .collection(Constants.chats)
           .doc(contactUID)
           .collection(Constants.messages)
+          .orderBy(Constants.timeSent, descending: true)
           .snapshots()
           .map((snapshot) {
         return snapshot.docs.map((doc) {
@@ -662,7 +664,7 @@ class ChatProvider extends ChangeNotifier {
         Constants.deletedBy: FieldValue.arrayUnion([currentUserId])
       });
 
-      // is is delete for everyone and message type is not text, we also dele the file from storage
+      // is is delete for everyone and message type is not text, we also delete the file from storage
       if (deleteForEveryone) {
         // get all group members uids and put them in deletedBy list
         final groupData =

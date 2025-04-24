@@ -64,35 +64,8 @@ class VideoThumbnailWidget extends StatelessWidget {
           children: [
             // Video thumbnail
             thumbnailUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: thumbnailUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[900],
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
-                          strokeWidth: 2.0,
-                        ),
-                      ),
-                    ),
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[900],
-                      child: const Icon(
-                        Icons.video_file,
-                        color: Colors.white54,
-                        size: 48,
-                      ),
-                    ),
-                  )
-                : Container(
-                    color: Colors.grey[900],
-                    child: const Icon(
-                      Icons.video_file,
-                      color: Colors.white54,
-                      size: 48,
-                    ),
-                  ),
+                ? _buildNetworkThumbnail()
+                : _buildDefaultThumbnail(),
 
             // Play button overlay with improved design
             Center(
@@ -169,6 +142,43 @@ class VideoThumbnailWidget extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Separate method for network thumbnail to avoid the error
+  Widget _buildNetworkThumbnail() {
+    return CachedNetworkImage(
+      imageUrl: thumbnailUrl!,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => Container(
+        color: Colors.grey[900],
+        child: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
+            strokeWidth: 2.0,
+          ),
+        ),
+      ),
+      errorWidget: (context, url, error) => Container(
+        color: Colors.grey[900],
+        child: const Icon(
+          Icons.video_file,
+          color: Colors.white54,
+          size: 48,
+        ),
+      ),
+    );
+  }
+
+  // Default thumbnail for when no URL is provided
+  Widget _buildDefaultThumbnail() {
+    return Container(
+      color: Colors.grey[900],
+      child: const Icon(
+        Icons.video_file,
+        color: Colors.white54,
+        size: 48,
       ),
     );
   }

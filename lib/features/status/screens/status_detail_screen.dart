@@ -24,7 +24,7 @@ class StatusDetailScreen extends StatefulWidget {
   const StatusDetailScreen({
     Key? key,
     required this.status,
-    required this.isMyStatus,
+    required this.isMyStatus, required int initialIndex,
   }) : super(key: key);
 
   @override

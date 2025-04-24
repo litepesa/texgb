@@ -1,6 +1,7 @@
 import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/groups/group_model.dart';
 import 'package:textgb/models/last_message_model.dart';
@@ -36,9 +37,12 @@ class ChatWidget extends StatelessWidget {
     // get the senderUID
     final senderUID = chat != null ? chat!.senderUID : group!.senderUID;
 
-    // get the date and time
-    final timeSent = chat != null ? chat!.timeSent : group!.timeSent;
-    final String timeString = formatDateForChatList(timeSent);
+    // get the date and time - fix the timeSent conversion issue
+    final DateTime timeToUse = chat != null 
+        ? chat!.timeSent  // Already a DateTime for chat
+        : DateTime.fromMillisecondsSinceEpoch(group!.timeSent as int);  // Convert milliseconds to DateTime for group
+    
+    final String timeString = formatDateForChatList(timeToUse);
 
     // get the image url
     final imageUrl = chat != null ? chat!.contactImage : group!.groupImage;
@@ -49,8 +53,10 @@ class ChatWidget extends StatelessWidget {
     // get the contactUID
     final contactUID = chat != null ? chat!.contactUID : group!.groupId;
     
-    // get the messageType
-    final messageType = chat != null ? chat!.messageType : group!.messageType;
+    // get the messageType - ensure we have a proper default
+    final messageType = chat != null 
+        ? chat!.messageType 
+        : (group!.messageType as String?)?.toMessageEnum() ?? MessageEnum.text;
     
     return InkWell(
       onTap: onTap,
@@ -124,7 +130,7 @@ class ChatWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 
-                // Unread messages counter - WeChat style
+                // Unread messages counter
                 UnreadMessageCounter(
                   uid: uid, 
                   contactUID: contactUID, 

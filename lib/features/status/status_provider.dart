@@ -44,6 +44,108 @@ class StatusProvider extends ChangeNotifier {
     _appFreshStart = value;
     notifyListeners();
   }
+
+  Future<void> createTextStatus({
+  required UserModel currentUser,
+  required String text,
+  required Function onSuccess,
+  required Function(String) onError,
+}) async {
+  try {
+    _isLoading = true;
+    notifyListeners();
+    
+    if (text.trim().isEmpty) {
+      _isLoading = false;
+      notifyListeners();
+      onError('Text cannot be empty');
+      return;
+    }
+    
+    // Generate unique IDs
+    final String statusId = const Uuid().v4();
+    final String itemId = const Uuid().v4();
+    
+    // For text status, we use the text as the mediaUrl
+    final StatusItemModel statusItem = StatusItemModel(
+      itemId: itemId,
+      mediaUrl: text,  // Text content goes here
+      caption: null,   // No need for caption
+      timestamp: DateTime.now(),
+      type: StatusType.text,
+      viewedBy: [currentUser.uid],  // Creator has viewed it
+      reactions: {},
+    );
+    
+    // Check if user already has a status
+    final DocumentSnapshot statusDoc = await _firestore
+        .collection(Constants.statuses)
+        .doc(currentUser.uid)
+        .get();
+    
+    final DateTime now = DateTime.now();
+    final DateTime expiryTime = now.add(const Duration(hours: 24));
+    
+    if (statusDoc.exists) {
+      // Update existing status with new item
+      final existingStatus = StatusModel.fromMap(
+        statusDoc.data() as Map<String, dynamic>
+      );
+      
+      // Filter out expired items
+      final List<StatusItemModel> activeItems = existingStatus.items
+          .where((item) => now.difference(item.timestamp).inHours < 24)
+          .toList();
+      
+      // Add new item
+      activeItems.add(statusItem);
+      
+      // Update status
+      await _firestore.collection(Constants.statuses).doc(currentUser.uid).update({
+        'items': activeItems.map((item) => item.toMap()).toList(),
+        'expiresAt': expiryTime.millisecondsSinceEpoch,
+      });
+      
+      // Update local state
+      _myStatus = StatusModel(
+        statusId: existingStatus.statusId,
+        uid: currentUser.uid,
+        userName: currentUser.name,
+        userImage: currentUser.image,
+        items: activeItems,
+        createdAt: existingStatus.createdAt,
+        expiresAt: expiryTime,
+      );
+    } else {
+      // Create new status
+      final StatusModel newStatus = StatusModel(
+        statusId: statusId,
+        uid: currentUser.uid,
+        userName: currentUser.name,
+        userImage: currentUser.image,
+        items: [statusItem],
+        createdAt: now,
+        expiresAt: expiryTime,
+      );
+      
+      // Save to Firestore
+      await _firestore.collection(Constants.statuses)
+          .doc(currentUser.uid)
+          .set(newStatus.toMap());
+          
+      // Update local state
+      _myStatus = newStatus;
+    }
+    
+    _isLoading = false;
+    notifyListeners();
+    onSuccess();
+  } catch (e) {
+    _isLoading = false;
+    notifyListeners();
+    onError(e.toString());
+  }
+}
   
   // Create a new status
   Future<void> createStatus({

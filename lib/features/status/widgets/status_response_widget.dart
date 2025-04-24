@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/status/status_model.dart';
+import 'package:textgb/features/status/status_reply_handler.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
 
 class StatusResponseWidget extends StatefulWidget {
   final StatusItemModel statusItem;
   final StatusModel status;
-  final Function(String) onSend;
+  final Function onSuccess;
 
   const StatusResponseWidget({
     Key? key,
     required this.statusItem,
     required this.status,
-    required this.onSend,
+    required this.onSuccess,
   }) : super(key: key);
 
   @override
@@ -25,6 +28,7 @@ class StatusResponseWidget extends StatefulWidget {
 class _StatusResponseWidgetState extends State<StatusResponseWidget> {
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  bool _isSending = false;
   final List<String> _quickResponses = [
     '😍 Amazing!',
     '👍 Nice',
@@ -34,10 +38,61 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Automatically focus the input field
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FocusScope.of(context).requestFocus(_focusNode);
+    });
+  }
+
+  @override
   void dispose() {
     _messageController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _sendReply(String message) async {
+    if (message.trim().isEmpty) return;
+    
+    // Provide haptic feedback
+    HapticFeedback.lightImpact();
+    
+    setState(() {
+      _isSending = true;
+    });
+    
+    await StatusReplyHandler.replyToStatus(
+      context: context,
+      status: widget.status,
+      statusItem: widget.statusItem,
+      message: message,
+      onSuccess: () {
+        setState(() {
+          _isSending = false;
+        });
+        widget.onSuccess();
+        Navigator.pop(context);
+        
+        // Show confirmation
+        showSnackBar(context, 'Reply sent to ${widget.status.userName}');
+        
+        // Optionally navigate to chat
+        Future.delayed(const Duration(milliseconds: 500), () {
+          StatusReplyHandler.navigateToChatWithStatusOwner(
+            context: context,
+            status: widget.status,
+          );
+        });
+      },
+      onError: (error) {
+        setState(() {
+          _isSending = false;
+        });
+        showSnackBar(context, error);
+      },
+    );
   }
 
   @override
@@ -85,11 +140,11 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
           
           // Status preview
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: modernTheme.surfaceVariantColor!.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: Colors.grey.withOpacity(0.2),
               ),
@@ -98,10 +153,10 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
               children: [
                 // Status thumbnail
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                   child: SizedBox(
-                    width: 40,
-                    height: 40,
+                    width: 50,
+                    height: 50,
                     child: _buildStatusThumbnail(),
                   ),
                 ),
@@ -116,10 +171,12 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
                       Text(
                         'Replying to ${widget.status.userName}\'s status',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: textColor.withOpacity(0.7),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: textColor.withOpacity(0.8),
                         ),
                       ),
+                      const SizedBox(height: 4),
                       if (widget.statusItem.caption != null && 
                           widget.statusItem.caption!.isNotEmpty)
                         Text(
@@ -128,8 +185,8 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: textColor,
+                            color: textColor.withOpacity(0.6),
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                     ],
@@ -140,18 +197,19 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
           ),
           
           // Quick responses
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              children: _quickResponses.map((response) {
+          Container(
+            height: 44,
+            margin: const EdgeInsets.only(top: 4, bottom: 12),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _quickResponses.length,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              itemBuilder: (context, index) {
+                final response = _quickResponses[index];
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: InkWell(
-                    onTap: () {
-                      widget.onSend(response);
-                      Navigator.pop(context);
-                    },
+                    onTap: _isSending ? null : () => _sendReply(response),
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -161,6 +219,9 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
                       decoration: BoxDecoration(
                         color: modernTheme.surfaceVariantColor!,
                         borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.2),
+                        ),
                       ),
                       child: Text(
                         response,
@@ -172,11 +233,9 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
                     ),
                   ),
                 );
-              }).toList(),
+              },
             ),
           ),
-          
-          const SizedBox(height: 8),
           
           // Message input
           Row(
@@ -185,12 +244,12 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
                 child: TextField(
                   controller: _messageController,
                   focusNode: _focusNode,
+                  enabled: !_isSending,
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) {
-                    if (_messageController.text.trim().isNotEmpty) {
-                      widget.onSend(_messageController.text.trim());
-                      Navigator.pop(context);
+                    if (_messageController.text.trim().isNotEmpty && !_isSending) {
+                      _sendReply(_messageController.text.trim());
                     }
                   },
                   decoration: InputDecoration(
@@ -210,20 +269,28 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
               ),
               const SizedBox(width: 8),
               CircleAvatar(
-                backgroundColor: primaryColor,
+                backgroundColor: _isSending ? Colors.grey : primaryColor,
                 radius: 24,
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.send,
-                    color: Colors.white,
-                  ),
-                  onPressed: () {
-                    if (_messageController.text.trim().isNotEmpty) {
-                      widget.onSend(_messageController.text.trim());
-                      Navigator.pop(context);
-                    }
-                  },
-                ),
+                child: _isSending 
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : IconButton(
+                        icon: const Icon(
+                          Icons.send,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          if (_messageController.text.trim().isNotEmpty && !_isSending) {
+                            _sendReply(_messageController.text.trim());
+                          }
+                        },
+                      ),
               ),
             ],
           ),
@@ -252,11 +319,34 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
           ),
         );
       case StatusType.video:
-        return Container(
-          color: Colors.black,
-          child: const Center(
-            child: Icon(Icons.play_arrow, color: Colors.white),
-          ),
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            CachedNetworkImage(
+              imageUrl: widget.statusItem.mediaUrl,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                color: Colors.black,
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.black,
+              ),
+            ),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+          ],
         );
       case StatusType.text:
         return Container(
