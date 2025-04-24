@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:textgb/common/videoviewerscreen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class VideoThumbnailWidget extends StatelessWidget {
   final String videoUrl;
@@ -10,6 +11,7 @@ class VideoThumbnailWidget extends StatelessWidget {
   final double? height;
   final double borderRadius;
   final VoidCallback? onTap;
+  final String? durationText;
 
   const VideoThumbnailWidget({
     Key? key,
@@ -21,6 +23,7 @@ class VideoThumbnailWidget extends StatelessWidget {
     this.height,
     this.borderRadius = 8.0,
     this.onTap,
+    this.durationText,
   }) : super(key: key);
 
   @override
@@ -61,9 +64,18 @@ class VideoThumbnailWidget extends StatelessWidget {
           children: [
             // Video thumbnail
             thumbnailUrl != null
-                ? Image.network(
-                    thumbnailUrl!,
+                ? CachedNetworkImage(
+                    imageUrl: thumbnailUrl!,
                     fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.grey[900],
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
+                          strokeWidth: 2.0,
+                        ),
+                      ),
+                    ),
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: Colors.grey[900],
                       child: const Icon(
@@ -82,15 +94,22 @@ class VideoThumbnailWidget extends StatelessWidget {
                     ),
                   ),
 
-            // Play button overlay
+            // Play button overlay with improved design
             Center(
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: accentColor.withOpacity(0.9),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.play_arrow,
                   color: Colors.white,
                   size: 32,
@@ -98,7 +117,7 @@ class VideoThumbnailWidget extends StatelessWidget {
               ),
             ),
 
-            // Duration indicator (optional placeholder)
+            // Duration indicator (now supports actual duration)
             Positioned(
               right: 8,
               bottom: 8,
@@ -108,9 +127,9 @@ class VideoThumbnailWidget extends StatelessWidget {
                   color: Colors.black.withOpacity(0.7),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  "Video",
-                  style: TextStyle(
+                child: Text(
+                  durationText ?? "Video",
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -120,7 +139,7 @@ class VideoThumbnailWidget extends StatelessWidget {
             ),
 
             // Title overlay (if provided)
-            if (title != null)
+            if (title != null && title!.isNotEmpty)
               Positioned(
                 left: 0,
                 right: 0,
@@ -132,7 +151,7 @@ class VideoThumbnailWidget extends StatelessWidget {
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        Colors.black.withOpacity(0.7),
+                        Colors.black.withOpacity(0.8),
                         Colors.transparent,
                       ],
                     ),
@@ -154,6 +173,3 @@ class VideoThumbnailWidget extends StatelessWidget {
     );
   }
 }
-
-// Make sure to import your VideoViewerScreen class
-// import 'video_viewer_screen.dart';

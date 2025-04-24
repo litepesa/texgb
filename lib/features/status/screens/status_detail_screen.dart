@@ -2,13 +2,16 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/status/status_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
+import 'package:textgb/features/status/status_reply_handler.dart';
 import 'package:textgb/features/status/widgets/status_media_viewer.dart';
 import 'package:textgb/features/status/widgets/status_response_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -46,6 +49,9 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
   
   // Flag to pause status when user long presses
   bool _isPaused = false;
+  
+  // Flag to track if we're viewing the reply UI
+  bool _isShowingReply = false;
   
   @override
   void initState() {
@@ -125,6 +131,8 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
   }
   
   void _goToNextStatus() {
+    if (_isShowingReply) return; // Don't advance while showing reply UI
+    
     if (_currentIndex < widget.status.items.length - 1) {
       // Go to next item
       setState(() {
@@ -146,6 +154,8 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
   }
   
   void _goToPreviousStatus() {
+    if (_isShowingReply) return; // Don't go back while showing reply UI
+    
     if (_currentIndex > 0) {
       // Go to previous item
       setState(() {
@@ -164,6 +174,8 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
   }
   
   void _onHorizontalDragEnd(DragEndDetails details) {
+    if (_isShowingReply) return; // Don't respond to swipes while showing reply UI
+    
     // Detect swipe direction
     if (details.primaryVelocity! > 0) {
       // Swiped right to left (go to previous)
@@ -175,6 +187,8 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
   }
   
   void _onLongPressStart(LongPressStartDetails details) {
+    if (_isShowingReply) return; // Don't respond to long press when reply UI is showing
+    
     // Pause the timer on long press
     setState(() {
       _isPaused = true;
@@ -183,6 +197,8 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
   }
   
   void _onLongPressEnd(LongPressEndDetails details) {
+    if (_isShowingReply) return; // Don't respond when reply UI is showing
+    
     // Resume the timer when long press ends
     setState(() {
       _isPaused = false;
@@ -191,6 +207,8 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
   }
   
   void _onTap(TapUpDetails details) {
+    if (_isShowingReply) return; // Don't respond when reply UI is showing
+    
     // Detect tap position for navigation
     final screenWidth = MediaQuery.of(context).size.width;
     final tapPosition = details.localPosition.dx;
@@ -251,12 +269,12 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
     // Pause the timer
     setState(() {
       _isPaused = true;
+      _isShowingReply = true;
     });
     _progressController.stop();
     
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
-    final statusProvider = context.read<StatusProvider>();
-    final currentItem = widget.status.items[_currentIndex];
+    // Provide haptic feedback
+    HapticFeedback.mediumImpact();
     
     // Show bottom sheet with reply input
     await showModalBottomSheet(
@@ -268,26 +286,10 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: StatusResponseWidget(
-          statusItem: currentItem,
+          statusItem: widget.status.items[_currentIndex],
           status: widget.status,
-          onSend: (message) async {
-            await statusProvider.replyToStatus(
-              statusId: widget.status.statusId,
-              statusItemId: currentItem.itemId,
-              statusOwnerId: widget.status.uid,
-              statusItem: currentItem,
-              senderId: currentUser.uid,
-              senderName: currentUser.name,
-              senderImage: currentUser.image,
-              message: message,
-              onSuccess: () {
-                HapticFeedback.mediumImpact();
-                showSnackBar(context, 'Reply sent');
-              },
-              onError: (error) {
-                showSnackBar(context, 'Error sending reply: $error');
-              },
-            );
+          onSuccess: () {
+            // After successful reply, automatically navigate to chat in StatusReplyHandler
           },
         ),
       ),
@@ -296,12 +298,13 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
     // Resume the timer
     setState(() {
       _isPaused = false;
+      _isShowingReply = false;
     });
     _progressController.forward();
   }
   
-  Future<void> _showReactionPicker() async {
-    if (widget.isMyStatus) return; // Can't react to own status
+  void _shareStatus() {
+    final currentItem = widget.status.items[_currentIndex];
     
     // Pause the timer
     setState(() {
@@ -309,110 +312,94 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
     });
     _progressController.stop();
     
-    // Show reactions
-    final statusProvider = context.read<StatusProvider>();
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
-    final currentItem = widget.status.items[_currentIndex];
-    
-    final modernTheme = context.modernTheme;
-    final primaryColor = modernTheme.primaryColor!;
-    
-    final reaction = await showModalBottomSheet<String>(
+    // Show sharing options
+    showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (context) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          decoration: BoxDecoration(
-            color: modernTheme.surfaceColor!.withOpacity(0.9),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle indicator
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: modernTheme.textSecondaryColor!.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Text(
-                'React to status',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: modernTheme.textColor,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildReactionButton('👍'),
-                  _buildReactionButton('❤️'),
-                  _buildReactionButton('😂'),
-                  _buildReactionButton('😮'),
-                  _buildReactionButton('😢'),
-                  _buildReactionButton('🙏'),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-    
-    // Resume the timer
-    setState(() {
-      _isPaused = false;
+      builder: (context) => _buildShareOptions(currentItem),
+    ).then((_) {
+      // Resume the timer
+      setState(() {
+        _isPaused = false;
+      });
+      _progressController.forward();
     });
-    _progressController.forward();
-    
-    // Send reaction if one was chosen
-    if (reaction != null) {
-      await statusProvider.addReactionToStatus(
-        statusOwnerId: widget.status.uid,
-        statusItemId: currentItem.itemId,
-        reactorId: currentUser.uid,
-        reactorName: currentUser.name,
-        reaction: reaction,
-      );
-    }
   }
   
-  Widget _buildReactionButton(String emoji) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context, emoji),
-      child: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+  Widget _buildShareOptions(StatusItemModel statusItem) {
+    final modernTheme = context.modernTheme;
+    final surface = modernTheme.surfaceColor!;
+    final textColor = modernTheme.textColor!;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle indicator
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2),
             ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            emoji,
-            style: const TextStyle(fontSize: 24),
           ),
-        ),
+          
+          // Title
+          Text(
+            'Share Status',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          // Share options
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor!.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.chat, color: modernTheme.primaryColor),
+            ),
+            title: const Text('Send in Chat'),
+            onTap: () {
+              Navigator.pop(context);
+              showSnackBar(context, 'Forward to chat coming soon');
+            },
+          ),
+          
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.share, color: Colors.green),
+            ),
+            title: const Text('Share Externally'),
+            onTap: () {
+              Navigator.pop(context);
+              showSnackBar(context, 'External sharing coming soon');
+            },
+          ),
+          
+          const SizedBox(height: 10),
+        ],
       ),
     );
   }
@@ -593,6 +580,13 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
                       ),
                     ),
                     
+                    // Share button
+                    if (!widget.isMyStatus)
+                      IconButton(
+                        icon: const Icon(Icons.share, color: Colors.white),
+                        onPressed: _shareStatus,
+                      ),
+                      
                     // Close button
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white),
@@ -625,7 +619,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
-                              vertical: 8,
+                              vertical: 10,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
@@ -653,44 +647,47 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
                         ),
                       ),
                     
-                    // View count
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
-                          width: 0.5,
+                    // View count with viewers indicator
+                    GestureDetector(
+                      onTap: widget.isMyStatus ? _showViewersDialog : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.remove_red_eye,
-                            color: Colors.white,
-                            size: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.1),
+                            width: 0.5,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${widget.status.items[_currentIndex].viewedBy.length}',
-                            style: const TextStyle(
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.remove_red_eye,
                               color: Colors.white,
-                              fontSize: 12,
+                              size: 16,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              '${widget.status.items[_currentIndex].viewedBy.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     
-                    // React button (for viewing others' status)
+                    // Message button (for viewing others' status) - direct to chat
                     if (!widget.isMyStatus)
                       IconButton(
-                        icon: const Icon(Icons.emoji_emotions, color: Colors.white),
-                        onPressed: _showReactionPicker,
+                        icon: const Icon(Icons.chat, color: Colors.white),
+                        onPressed: () => _navigateToChat(),
                       )
                     else
                       const SizedBox(width: 48), // Placeholder for layout
@@ -702,6 +699,125 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
         ),
       ),
     );
+  }
+  
+  // Navigate to chat with the status owner
+  void _navigateToChat() {
+    Navigator.pushNamed(
+      context,
+      Constants.chatScreen,
+      arguments: {
+        Constants.contactUID: widget.status.uid,
+        Constants.contactName: widget.status.userName,
+        Constants.contactImage: widget.status.userImage,
+        Constants.groupId: '',
+      },
+    );
+  }
+  
+  // Show dialog with status viewers
+  void _showViewersDialog() {
+    if (!widget.isMyStatus) return;
+    
+    final currentItem = widget.status.items[_currentIndex];
+    final viewerIds = currentItem.viewedBy;
+    
+    // Pause the timer
+    setState(() {
+      _isPaused = true;
+    });
+    _progressController.stop();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Viewed by'),
+        content: viewerIds.isEmpty
+            ? const Text('No viewers yet')
+            : SizedBox(
+                width: double.maxFinite,
+                height: 200,
+                child: FutureBuilder(
+                  future: _fetchViewerDetails(viewerIds),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    
+                    final viewers = snapshot.data as List<Map<String, String>>;
+                    
+                    return ListView.builder(
+                      itemCount: viewers.length,
+                      itemBuilder: (context, index) {
+                        final viewer = viewers[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage: viewer['image']!.isNotEmpty
+                                ? CachedNetworkImageProvider(viewer['image']!)
+                                : null,
+                            child: viewer['image']!.isEmpty
+                                ? Text(viewer['name']![0])
+                                : null,
+                          ),
+                          title: Text(viewer['name']!),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Resume the timer
+              setState(() {
+                _isPaused = false;
+              });
+              _progressController.forward();
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    ).then((_) {
+      // Resume the timer if dialog is dismissed
+      if (_isPaused) {
+        setState(() {
+          _isPaused = false;
+        });
+        _progressController.forward();
+      }
+    });
+  }
+  
+  // Helper method to fetch details of status viewers
+  Future<List<Map<String, String>>> _fetchViewerDetails(List<String> viewerIds) async {
+    final List<Map<String, String>> viewers = [];
+    
+    // Filter out the current user's ID
+    final currentUserId = context.read<AuthenticationProvider>().userModel!.uid;
+    final otherViewerIds = viewerIds.where((id) => id != currentUserId).toList();
+    
+    // Fetch user details from Firestore
+    final firestore = FirebaseFirestore.instance;
+    
+    for (final id in otherViewerIds) {
+      try {
+        final doc = await firestore.collection(Constants.users).doc(id).get();
+        if (doc.exists) {
+          viewers.add({
+            'id': id,
+            'name': doc.get(Constants.name) ?? 'Unknown',
+            'image': doc.get(Constants.image) ?? '',
+          });
+        }
+      } catch (e) {
+        debugPrint('Error fetching viewer details: $e');
+      }
+    }
+    
+    return viewers;
   }
   
   String _getTimeAgo(DateTime timestamp) {

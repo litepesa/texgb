@@ -10,6 +10,7 @@ import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/modern_colors.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:video_player/video_player.dart';
 
 class CreateStatusScreen extends StatefulWidget {
   const CreateStatusScreen({Key? key}) : super(key: key);
@@ -23,11 +24,33 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   File? _selectedMedia;
   StatusType _selectedType = StatusType.image;
   bool _isProcessing = false;
+  bool _isCreating = false;
+  VideoPlayerController? _videoController;
+  bool _isVideoReady = false;
+  String? _videoDuration;
+  
+  @override
+  void initState() {
+    super.initState();
+    // Show the media picker automatically on screen open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showMediaPicker();
+    });
+  }
   
   @override
   void dispose() {
     _captionController.dispose();
+    _disposeVideo();
     super.dispose();
+  }
+  
+  void _disposeVideo() {
+    if (_videoController != null) {
+      _videoController!.dispose();
+      _videoController = null;
+      _isVideoReady = false;
+    }
   }
   
   Future<void> _pickImage(bool fromCamera) async {
@@ -48,18 +71,25 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     }
   }
   
-  Future<void> _pickVideo() async {
+  Future<void> _pickVideo([bool fromCamera = false]) async {
     try {
       setState(() {
         _isProcessing = true;
       });
       
-      final File? pickedVideo = await pickVideo(
-        onFail: (String message) {
-          showSnackBar(context, message);
-        },
-        maxDuration: const Duration(seconds: 30), // Limit to 30 seconds for status
-      );
+      final File? pickedVideo = fromCamera
+          ? await pickVideoFromCamera(
+              onFail: (String message) {
+                showSnackBar(context, message);
+              },
+              maxDuration: const Duration(seconds: 30), // Limit to 30 seconds for status
+            )
+          : await pickVideo(
+              onFail: (String message) {
+                showSnackBar(context, message);
+              },
+              maxDuration: const Duration(seconds: 30), // Limit to 30 seconds for status
+            );
       
       setState(() {
         _isProcessing = false;
@@ -68,8 +98,14 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
       if (pickedVideo == null) return;
       
       setState(() {
+        // Dispose old video controller if needed
+        _disposeVideo();
+        
         _selectedMedia = pickedVideo;
         _selectedType = StatusType.video;
+        
+        // Initialize video controller for preview
+        _initializeVideoPreview(pickedVideo);
       });
     } catch (e) {
       setState(() {
@@ -77,6 +113,31 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
       });
       showSnackBar(context, 'Error selecting video: $e');
     }
+  }
+  
+  Future<void> _initializeVideoPreview(File videoFile) async {
+    try {
+      _videoController = VideoPlayerController.file(videoFile);
+      await _videoController!.initialize();
+      
+      // Format duration for display
+      final duration = _videoController!.value.duration;
+      _videoDuration = _formatDuration(duration);
+      
+      setState(() {
+        _isVideoReady = true;
+      });
+    } catch (e) {
+      debugPrint('Error initializing video preview: $e');
+    }
+  }
+  
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    
+    return '$minutes:$seconds';
   }
   
   Future<void> _cropImage(String filePath) async {
@@ -110,6 +171,9 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
       });
       
       if (croppedFile != null) {
+        // Dispose any existing video controller
+        _disposeVideo();
+        
         setState(() {
           _selectedMedia = File(croppedFile.path);
           _selectedType = StatusType.image;
@@ -123,28 +187,71 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     }
   }
   
-  void _createStatus() async {
-    if (_selectedMedia == null) {
+  void _createTextStatus() {
+    final text = _captionController.text.trim();
+    if (text.isEmpty) {
+      showSnackBar(context, 'Please enter some text for your status');
+      return;
+    }
+    
+    // Create a text status
+    _createStatus(text, null, StatusType.text);
+  }
+  
+  void _createStatus([String? textContent, File? mediaFile, StatusType? type]) async {
+    // Use parameters if provided, otherwise use state variables
+    final content = textContent ?? _captionController.text.trim();
+    final media = mediaFile ?? _selectedMedia;
+    final statusType = type ?? _selectedType;
+    
+    // For media statuses, ensure we have media
+    if (statusType != StatusType.text && media == null) {
       showSnackBar(context, 'Please select an image or video');
       return;
     }
     
+    setState(() {
+      _isCreating = true;
+    });
+    
     final currentUser = context.read<AuthenticationProvider>().userModel!;
     final statusProvider = context.read<StatusProvider>();
     
-    await statusProvider.createStatus(
-      currentUser: currentUser,
-      mediaFile: _selectedMedia!,
-      type: _selectedType,
-      caption: _captionController.text.trim(),
-      onSuccess: () {
-        Navigator.of(context).pop(); // Return to the status screen
-        showSnackBar(context, 'Status created successfully');
-      },
-      onError: (error) {
-        showSnackBar(context, 'Error creating status: $error');
-      },
-    );
+    if (statusType == StatusType.text) {
+      // For text status, we don't need a file
+      await statusProvider.createTextStatus(
+        currentUser: currentUser,
+        text: content,
+        onSuccess: () {
+          Navigator.of(context).pop(); // Return to the status screen
+          showSnackBar(context, 'Status created successfully');
+        },
+        onError: (error) {
+          setState(() {
+            _isCreating = false;
+          });
+          showSnackBar(context, 'Error creating status: $error');
+        },
+      );
+    } else {
+      // For media status
+      await statusProvider.createStatus(
+        currentUser: currentUser,
+        mediaFile: media!,
+        type: statusType,
+        caption: content.isNotEmpty ? content : null,
+        onSuccess: () {
+          Navigator.of(context).pop(); // Return to the status screen
+          showSnackBar(context, 'Status created successfully');
+        },
+        onError: (error) {
+          setState(() {
+            _isCreating = false;
+          });
+          showSnackBar(context, 'Error creating status: $error');
+        },
+      );
+    }
   }
   
   void _showMediaPicker() {
@@ -234,18 +341,18 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
               },
             ),
             
-            // Video option
+            // Video camera option
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: ModernColors.error.withOpacity(0.1),
+                  color: ModernColors.warning.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.videocam, color: ModernColors.error),
+                child: const Icon(Icons.videocam, color: ModernColors.warning),
               ),
               title: Text(
-                'Record or select video',
+                'Record video',
                 style: TextStyle(
                   color: modernTheme.textColor,
                   fontWeight: FontWeight.w500,
@@ -254,11 +361,35 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
               onTap: () {
                 Navigator.pop(context);
                 HapticFeedback.mediumImpact();
-                _pickVideo();
+                _pickVideo(true); // true for camera
               },
             ),
             
-            // Text option (placeholder for future implementation)
+            // Video gallery option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: ModernColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.video_library, color: ModernColors.error),
+              ),
+              title: Text(
+                'Select video from gallery',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                HapticFeedback.mediumImpact();
+                _pickVideo(false); // false for gallery
+              },
+            ),
+            
+            // Text option
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(10),
@@ -278,12 +409,90 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
               onTap: () {
                 Navigator.pop(context);
                 HapticFeedback.mediumImpact();
-                showSnackBar(context, 'Text status coming soon!');
+                _showTextStatusEditor();
               },
             ),
             
             const SizedBox(height: 24),
           ],
+        ),
+      ),
+    );
+  }
+  
+  void _showTextStatusEditor() {
+    final modernTheme = context.modernTheme;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: modernTheme.surfaceColor,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Text(
+                'Create Text Status',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: modernTheme.textColor,
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Text input
+              TextField(
+                controller: _captionController,
+                maxLength: 100,
+                maxLines: 3,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Enter your status text...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_captionController.text.trim().isEmpty) {
+                        showSnackBar(context, 'Please enter some text');
+                        return;
+                      }
+                      Navigator.pop(context);
+                      _createTextStatus();
+                    },
+                    child: const Text('Post'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -300,26 +509,36 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
       appBar: AppBar(
         title: const Text('Create Status'),
         actions: [
-          TextButton(
-            onPressed: _selectedMedia != null && !_isProcessing
-                ? _createStatus
-                : null,
-            child: Text(
-              'Post',
-              style: TextStyle(
-                color: _selectedMedia != null && !_isProcessing
-                    ? primaryColor
-                    : textSecondaryColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+          if (_selectedMedia != null || _selectedType == StatusType.text)
+            TextButton(
+              onPressed: (_selectedMedia != null || _selectedType == StatusType.text) && !_isProcessing && !_isCreating
+                  ? () => _createStatus()
+                  : null,
+              child: _isCreating
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
+                      'Post',
+                      style: TextStyle(
+                        color: (_selectedMedia != null || _selectedType == StatusType.text) && !_isProcessing && !_isCreating
+                            ? primaryColor
+                            : textSecondaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
             ),
-          ),
         ],
       ),
       body: _isProcessing
           ? _buildLoadingView()
-          : _selectedMedia != null
+          : _selectedMedia != null || _selectedType == StatusType.text
               ? _buildPreviewView()
               : _buildInitialView(),
     );
@@ -409,7 +628,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // Media preview
+                // Media preview - based on selected type
                 if (_selectedType == StatusType.image)
                   Image.file(
                     _selectedMedia!,
@@ -417,41 +636,9 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                     width: double.infinity,
                   )
                 else if (_selectedType == StatusType.video)
-                  Container(
-                    height: 400,
-                    width: double.infinity,
-                    color: Colors.black,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Icon(
-                          Icons.play_circle_fill,
-                          size: 64,
-                          color: Colors.white.withOpacity(0.8),
-                        ),
-                        Positioned(
-                          bottom: 16,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Text(
-                              'Video Preview',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildVideoPreview()
+                else if (_selectedType == StatusType.text)
+                  _buildTextPreview(),
                 
                 // Caption input
                 Padding(
@@ -501,7 +688,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                 ),
               ),
               ElevatedButton(
-                onPressed: _createStatus,
+                onPressed: _isCreating ? null : () => _createStatus(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
@@ -510,12 +697,133 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Post Status'),
+                child: _isCreating
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('Post Status'),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+  
+  Widget _buildVideoPreview() {
+    if (!_isVideoReady || _videoController == null) {
+      return Container(
+        height: 400,
+        width: double.infinity,
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+    
+    return Container(
+      height: 400,
+      width: double.infinity,
+      color: Colors.black,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Video preview
+          AspectRatio(
+            aspectRatio: _videoController!.value.aspectRatio,
+            child: VideoPlayer(_videoController!),
+          ),
+          
+          // Play button overlay
+          IconButton(
+            icon: Icon(
+              _videoController!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 50,
+            ),
+            onPressed: () {
+              setState(() {
+                if (_videoController!.value.isPlaying) {
+                  _videoController!.pause();
+                } else {
+                  _videoController!.play();
+                }
+              });
+            },
+          ),
+          
+          // Duration indicator
+          if (_videoDuration != null)
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _videoDuration!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTextPreview() {
+    final text = _captionController.text.isEmpty 
+        ? 'Enter your text status...'
+        : _captionController.text;
+    
+    return Container(
+      height: 400,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.purple.shade800,
+            Colors.purple.shade500,
+            Colors.indigo.shade500,
+          ],
+        ),
+      ),
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.5),
+                offset: const Offset(2, 2),
+                blurRadius: 4,
+              ),
+            ],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
     );
   }
 }
