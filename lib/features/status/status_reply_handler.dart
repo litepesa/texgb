@@ -52,7 +52,7 @@ class StatusReplyHandler {
         isSeen: false,
         repliedMessage: statusItem.mediaUrl,
         repliedTo: status.userName,
-        repliedMessageType: statusItem.type,
+        repliedMessageType: statusItem.type.toMessageEnum(),
         reactions: [],
         isSeenBy: [currentUser.uid],
         deletedBy: [],

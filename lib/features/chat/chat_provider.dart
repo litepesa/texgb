@@ -244,8 +244,8 @@ class ChatProvider extends ChangeNotifier {
       final Map<String, dynamic> messageData = messageModel.toMap();
       final Map<String, dynamic> contactMessageData = contactMessageModel.toMap();
 
-      // Get current timestamp in milliseconds
-      final int timeStampMillis = messageModel.timeSent.millisecondsSinceEpoch;
+      // Get current timestamp in milliseconds with null safety
+      final int timeStampMillis = messageModel.timeSent?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
 
       // 1. initialize last message data for the sender
       final Map<String, dynamic> senderLastMessageData = {
@@ -255,7 +255,7 @@ class ChatProvider extends ChangeNotifier {
         Constants.contactImage: contactImage,
         Constants.message: messageModel.message,
         Constants.messageType: messageModel.messageType.name,
-        Constants.timeSent: timeStampMillis,  // Store as milliseconds
+        Constants.timeSent: timeStampMillis,
         Constants.isSeen: false,
       };
 
@@ -267,7 +267,7 @@ class ChatProvider extends ChangeNotifier {
         Constants.contactImage: messageModel.senderImage,
         Constants.message: messageModel.message,
         Constants.messageType: messageModel.messageType.name,
-        Constants.timeSent: timeStampMillis,  // Store as milliseconds
+        Constants.timeSent: timeStampMillis,
         Constants.isSeen: false,
       };
       

@@ -70,3 +70,19 @@ extension StatusTypeExtension on StatusType {
     }
   }
 }
+
+// NEW: Extension to convert StatusType to MessageEnum
+extension StatusTypeToMessageEnum on StatusType {
+  MessageEnum toMessageEnum() {
+    switch (this) {
+      case StatusType.text:
+        return MessageEnum.text;
+      case StatusType.image:
+        return MessageEnum.image;
+      case StatusType.video:
+        return MessageEnum.video;
+      default:
+        return MessageEnum.text;
+    }
+  }
+}

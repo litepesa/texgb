@@ -815,7 +815,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             fontWeight: FontWeight.bold,
             shadows: [
               Shadow(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black,
                 offset: const Offset(2, 2),
                 blurRadius: 4,
               ),
