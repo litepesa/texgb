@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/status/screens/status_detail_screen.dart';
+import 'package:textgb/features/status/screens/status_replies_screen.dart';
 import 'package:textgb/features/status/status_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/features/status/widgets/status_circle.dart';
@@ -75,6 +76,61 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
         title: const Text('Status', style: TextStyle(fontSize: 22)),
         elevation: 0,
         actions: [
+          Consumer<StatusProvider>(
+            builder: (context, statusProvider, _) {
+              final unreadCount = statusProvider.unreadRepliesCount;
+              
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.message),
+                    onPressed: () {
+                      if (statusProvider.myStatus != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const StatusRepliesScreen(),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Post a status to receive replies'),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isRefreshing ? null : _refreshStatuses,
@@ -133,6 +189,10 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final status = statusProvider.contactStatuses[index];
+                      // Skip showing contacts that don't have status
+                      if (status.items.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
                       return _buildContactStatusTile(status, currentUser.uid);
                     },
                     childCount: statusProvider.contactStatuses.length,
@@ -219,13 +279,76 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'My Status',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: textColor,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'My Status',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: textColor,
+                ),
+              ),
+              
+              // Show replies button if user has status
+              if (hasStatus)
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const StatusRepliesScreen(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: modernTheme.surfaceVariantColor,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.reply,
+                          size: 16,
+                          color: textSecondaryColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Replies',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textSecondaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        if (statusProvider.unreadRepliesCount > 0)
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: modernTheme.primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              statusProvider.unreadRepliesCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Row(
@@ -279,8 +402,9 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
     final textColor = modernTheme.textColor!;
     final textSecondaryColor = modernTheme.textSecondaryColor!;
     
-    // Check if all status items have been viewed by current user
-    final bool allViewed = status.hasUserViewedAll(currentUserId);
+    // Check if any status items have been viewed by current user
+    // This determines highlighting/ring color but doesn't affect visibility
+    final bool hasUnviewedStatus = !status.hasUserViewedAll(currentUserId);
     
     // Get the most recent status item timestamp
     final latestTimestamp = status.items
@@ -296,7 +420,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
         imageUrl: status.userImage,
         name: status.userName,
         hasStatus: true,
-        isViewed: allViewed,
+        isViewed: !hasUnviewedStatus, // Reverse the logic to highlight unviewed statuses
         onTap: () => _navigateToStatusDetail(status, false),
       ),
       title: Text(

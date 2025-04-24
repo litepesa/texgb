@@ -1,6 +1,6 @@
 import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/message_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -21,11 +21,14 @@ class AlignMessageLeftWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get theme colors
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final receiverBubbleColor = themeExtension?.receiverBubbleColor ?? Colors.white;
-    final receiverTextColor = themeExtension?.receiverTextColor ?? Colors.black;
-    final greyColor = themeExtension?.greyColor ?? Colors.grey;
+    // Get theme colors from ChatThemeExtension instead of WeChatThemeExtension
+    final chatTheme = context.chatTheme;
+    final modernTheme = context.modernTheme;
+    
+    // Get colors from the theme extensions
+    final receiverBubbleColor = chatTheme.receiverBubbleColor ?? Colors.white;
+    final receiverTextColor = chatTheme.receiverTextColor ?? Colors.black;
+    final timestampColor = chatTheme.timestampColor ?? modernTheme.textTertiaryColor ?? Colors.grey;
     
     // Format time
     final DateTime timeToUse = message.timeSent ?? DateTime.now();
@@ -61,7 +64,7 @@ class AlignMessageLeftWidget extends StatelessWidget {
                       message.senderName,
                       style: TextStyle(
                         fontSize: 12,
-                        color: greyColor,
+                        color: modernTheme.textSecondaryColor,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -71,7 +74,7 @@ class AlignMessageLeftWidget extends StatelessWidget {
                 Container(
                   decoration: BoxDecoration(
                     color: receiverBubbleColor,
-                    borderRadius: BorderRadius.circular(4.0),
+                    borderRadius: chatTheme.receiverBubbleRadius ?? BorderRadius.circular(4.0),
                   ),
                   padding: message.messageType == MessageEnum.text
                     ? const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0)
@@ -105,7 +108,7 @@ class AlignMessageLeftWidget extends StatelessWidget {
                     time,
                     style: TextStyle(
                       fontSize: 11,
-                      color: greyColor,
+                      color: timestampColor,
                     ),
                   ),
                 ),

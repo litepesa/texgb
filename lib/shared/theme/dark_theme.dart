@@ -39,6 +39,12 @@ ThemeData modernDarkTheme() {
       systemOverlayStyle: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
+
+        // Added these 3 lines:
+      //systemNavigationBarColor: ModernColors.darkSurface,
+      //systemNavigationBarDividerColor: Colors.transparent,
+      //systemNavigationBarIconBrightness: Brightness.light,
+
       ),
       iconTheme: IconThemeData(
         color: ModernColors.darkText,

@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/chat/chat_provider.dart';
 import 'package:textgb/streams/chats_stream.dart';
@@ -27,8 +27,8 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = context.read<AuthenticationProvider>().userModel!.uid;
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final backgroundColor = themeExtension?.backgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
+    final modernTheme = context.modernTheme;
+    final backgroundColor = modernTheme.backgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
     
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -96,14 +96,14 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
                       Icon(
                         Icons.search,
                         size: 16,
-                        color: themeExtension?.greyColor ?? Colors.grey,
+                        color: modernTheme.textSecondaryColor ?? Colors.grey,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Search results for "${_searchController.text}"',
                         style: TextStyle(
                           fontSize: 13,
-                          color: themeExtension?.greyColor ?? Colors.grey,
+                          color: modernTheme.textSecondaryColor ?? Colors.grey,
                         ),
                       ),
                     ],
@@ -116,7 +116,7 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
                 child: Divider(
                   height: 1,
                   thickness: 0.5,
-                  color: themeExtension?.dividerColor ?? Colors.grey.withOpacity(0.2),
+                  color: modernTheme.dividerColor ?? Colors.grey.withOpacity(0.2),
                 ),
               ),
               

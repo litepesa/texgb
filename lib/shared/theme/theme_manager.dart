@@ -68,40 +68,42 @@ class ThemeManager extends ChangeNotifier {
     switch (_currentTheme) {
       case ThemeOption.light:
         _activeTheme = modernLightTheme();
-        _updateSystemUI(Brightness.light);
         break;
       case ThemeOption.dark:
         _activeTheme = modernDarkTheme();
-        _updateSystemUI(Brightness.dark);
         break;
       case ThemeOption.trueBlack:
         _activeTheme = trueBlackTheme();
-        _updateSystemUI(Brightness.dark);
         break;
       case ThemeOption.system:
         final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
         _activeTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
-        _updateSystemUI(isPlatformDark ? Brightness.dark : Brightness.light);
         break;
     }
+    
+    // Update system navigation bar to match theme
+    updateSystemNavigation();
   }
   
   // Update system UI to match theme
-  void _updateSystemUI(Brightness brightness) {
+  void updateSystemNavigation() {
+    final isDark = _activeTheme.brightness == Brightness.dark;
+    final isTrueBlack = _currentTheme == ThemeOption.trueBlack;
+    
+    Color navBarColor;
+    if (isDark) {
+      navBarColor = isTrueBlack ? Colors.black : _activeTheme.bottomNavigationBarTheme.backgroundColor ?? const Color(0xFF1F1F1F);
+    } else {
+      navBarColor = _activeTheme.bottomNavigationBarTheme.backgroundColor ?? Colors.white;
+    }
+    
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: brightness == Brightness.light 
-            ? Brightness.dark 
-            : Brightness.light,
-        systemNavigationBarColor: brightness == Brightness.light 
-            ? Colors.white 
-            : _currentTheme == ThemeOption.trueBlack 
-                ? Colors.black 
-                : const Color(0xFF1F1F1F),
-        systemNavigationBarIconBrightness: brightness == Brightness.light 
-            ? Brightness.dark 
-            : Brightness.light,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: navBarColor,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
     );
   }

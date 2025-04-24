@@ -10,6 +10,7 @@ import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/status/status_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/features/status/widgets/status_media_viewer.dart';
+import 'package:textgb/features/status/widgets/status_response_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
@@ -241,6 +242,62 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
         showSnackBar(context, 'Error deleting status: $error');
       },
     );
+  }
+  
+  // Show reply input
+  void _showReplyInput() async {
+    if (widget.isMyStatus) return; // Can't reply to own status
+    
+    // Pause the timer
+    setState(() {
+      _isPaused = true;
+    });
+    _progressController.stop();
+    
+    final currentUser = context.read<AuthenticationProvider>().userModel!;
+    final statusProvider = context.read<StatusProvider>();
+    final currentItem = widget.status.items[_currentIndex];
+    
+    // Show bottom sheet with reply input
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: StatusResponseWidget(
+          statusItem: currentItem,
+          status: widget.status,
+          onSend: (message) async {
+            await statusProvider.replyToStatus(
+              statusId: widget.status.statusId,
+              statusItemId: currentItem.itemId,
+              statusOwnerId: widget.status.uid,
+              statusItem: currentItem,
+              senderId: currentUser.uid,
+              senderName: currentUser.name,
+              senderImage: currentUser.image,
+              message: message,
+              onSuccess: () {
+                HapticFeedback.mediumImpact();
+                showSnackBar(context, 'Reply sent');
+              },
+              onError: (error) {
+                showSnackBar(context, 'Error sending reply: $error');
+              },
+            );
+          },
+        ),
+      ),
+    );
+    
+    // Resume the timer
+    setState(() {
+      _isPaused = false;
+    });
+    _progressController.forward();
   }
   
   Future<void> _showReactionPicker() async {
@@ -560,7 +617,41 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
                         onPressed: _deleteCurrentStatus,
                       )
                     else
-                      const SizedBox(width: 48), // Placeholder for layout
+                      // Reply button for other people's status
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: GestureDetector(
+                          onTap: _showReplyInput,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.reply,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'Reply',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     
                     // View count
                     Container(

@@ -33,6 +33,7 @@ class Constants {
   static const String statusId = 'statusId';
   static const String statusUrl = 'statusUrl';
   static const String statusType = 'statusType';
+  static const String statusReplies = 'statusReplies';
   static const String statusViewCount = 'statusViewCount';   // Changed to only track count for privacy
 
   // User-related constants

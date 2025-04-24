@@ -24,7 +24,12 @@ import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/chat/chat_provider.dart';
 import 'package:textgb/features/contacts/contacts_provider.dart';
 import 'package:textgb/features/groups/group_provider.dart';
+import 'package:textgb/shared/theme/system_ui_updater.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
+
+
+// Create a route observer to monitor route changes
+final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -119,6 +124,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             const GroupInformationScreen(),
         Constants.statusScreen: (context) => const StatusScreen(),
         Constants.createStatusScreen: (context) => const CreateStatusScreen(), 
+      },
+      // Add the route observer
+      navigatorObservers: [routeObserver],
+      // Wrap the app with SystemUIUpdater to handle navigation bar colors
+      builder: (context, child) {
+        return SystemUIUpdater(child: child ?? const SizedBox.shrink());
       },
     );
   }

@@ -297,8 +297,8 @@ class _HomeScreenState extends State<HomeScreen>
               label: 'Chats',
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.group, size: 28),
-              activeIcon: Icon(CupertinoIcons.group_solid, size: 28),
+              icon: Icon(CupertinoIcons.person_2, size: 28),
+              activeIcon: Icon(CupertinoIcons.person_2_fill, size: 28),
               label: 'Groups',
             ),
             BottomNavigationBarItem(

@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:math' as Math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_model.dart';
+import 'package:textgb/features/status/status_reply_model.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:uuid/uuid.dart';
@@ -20,6 +22,8 @@ class StatusProvider extends ChangeNotifier {
   
   List<StatusModel> _contactStatuses = [];
   StatusModel? _myStatus;
+  List<StatusReplyModel> _statusReplies = [];
+  int _unreadRepliesCount = 0;
   
   // Getters
   bool get isLoading => _isLoading;
@@ -28,6 +32,8 @@ class StatusProvider extends ChangeNotifier {
   bool get appFreshStart => _appFreshStart;
   List<StatusModel> get contactStatuses => _contactStatuses;
   StatusModel? get myStatus => _myStatus;
+  List<StatusReplyModel> get statusReplies => _statusReplies;
+  int get unreadRepliesCount => _unreadRepliesCount;
   
   // Setters
   void setStatusTabVisible(bool visible) {
@@ -113,6 +119,17 @@ class StatusProvider extends ChangeNotifier {
           'items': activeItems.map((e) => e.toMap()).toList(),
           'expiresAt': expiryTime.millisecondsSinceEpoch,
         });
+        
+        // Update local state
+        _myStatus = StatusModel(
+          statusId: existingStatus.statusId,
+          uid: currentUser.uid,
+          userName: currentUser.name,
+          userImage: currentUser.image,
+          items: activeItems,
+          createdAt: existingStatus.createdAt,
+          expiresAt: expiryTime,
+        );
       } else {
         // Create new status
         final StatusModel newStatus = StatusModel(
@@ -129,6 +146,9 @@ class StatusProvider extends ChangeNotifier {
         await _firestore.collection(Constants.statuses)
             .doc(currentUser.uid)
             .set(newStatus.toMap());
+            
+        // Update local state
+        _myStatus = newStatus;
       }
       
       _isLoading = false;
@@ -194,11 +214,28 @@ class StatusProvider extends ChangeNotifier {
       if (updatedItems.isEmpty) {
         // If no items left, delete the entire status
         await _firestore.collection(Constants.statuses).doc(userId).delete();
+        // Update local state
+        if (_myStatus?.uid == userId) {
+          _myStatus = null;
+        }
       } else {
         // Update with remaining items
         await _firestore.collection(Constants.statuses).doc(userId).update({
           'items': updatedItems.map((e) => e.toMap()).toList(),
         });
+        
+        // Update local state if needed
+        if (_myStatus?.uid == userId) {
+          _myStatus = StatusModel(
+            statusId: status.statusId,
+            uid: status.uid,
+            userName: status.userName,
+            userImage: status.userImage,
+            items: updatedItems,
+            createdAt: status.createdAt,
+            expiresAt: status.expiresAt,
+          );
+        }
       }
       
       _isLoading = false;
@@ -238,30 +275,36 @@ class StatusProvider extends ChangeNotifier {
           myStatusDoc.data() as Map<String, dynamic>
         );
         
-        // Filter out items older than 24 hours
-        final List<StatusItemModel> activeItems = status.items
-            .where((item) => now.difference(item.timestamp).inHours < 24)
-            .toList();
-        
-        if (activeItems.isNotEmpty) {
-          final StatusModel activeStatus = StatusModel(
-            statusId: status.statusId,
-            uid: status.uid,
-            userName: status.userName,
-            userImage: status.userImage,
-            items: activeItems,
-            createdAt: status.createdAt,
-            expiresAt: status.expiresAt,
-          );
-          
-          _myStatus = activeStatus;
-        } else {
-          // If all items are expired, delete the status
+        // Check if the entire status is expired based on expiresAt
+        if (now.isAfter(status.expiresAt)) {
+          // If status is expired, delete it
           await _firestore.collection(Constants.statuses).doc(currentUserId).delete();
+        } else {
+          // Filter out individual items older than 24 hours
+          final List<StatusItemModel> activeItems = status.items
+              .where((item) => now.difference(item.timestamp).inHours < 24)
+              .toList();
+          
+          if (activeItems.isNotEmpty) {
+            final StatusModel activeStatus = StatusModel(
+              statusId: status.statusId,
+              uid: status.uid,
+              userName: status.userName,
+              userImage: status.userImage,
+              items: activeItems,
+              createdAt: status.createdAt,
+              expiresAt: status.expiresAt,
+            );
+            
+            _myStatus = activeStatus;
+          } else {
+            // If all items are expired, delete the status
+            await _firestore.collection(Constants.statuses).doc(currentUserId).delete();
+          }
         }
       }
       
-      // Fetch contacts' statuses
+      // Fetch contacts' statuses only if there are contacts
       if (contactIds.isNotEmpty) {
         final QuerySnapshot statusesSnapshot = await _firestore
             .collection(Constants.statuses)
@@ -273,7 +316,14 @@ class StatusProvider extends ChangeNotifier {
             doc.data() as Map<String, dynamic>
           );
           
-          // Filter out items older than 24 hours
+          // Check if the entire status is expired based on expiresAt
+          if (now.isAfter(status.expiresAt)) {
+            // If status is expired, delete it
+            await _firestore.collection(Constants.statuses).doc(status.uid).delete();
+            continue;
+          }
+          
+          // Filter out individual items older than 24 hours
           final List<StatusItemModel> activeItems = status.items
               .where((item) => now.difference(item.timestamp).inHours < 24)
               .toList();
@@ -306,6 +356,11 @@ class StatusProvider extends ChangeNotifier {
           );
           return latestB.compareTo(latestA);
         });
+      }
+      
+      // Fetch status replies if user has any status
+      if (_myStatus != null) {
+        await fetchStatusReplies(currentUserId);
       }
       
       _isFetching = false;
@@ -488,6 +543,184 @@ class StatusProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error adding reaction to status: $e');
+    }
+  }
+  
+  // Reply to status
+  Future<void> replyToStatus({
+    required String statusId,
+    required String statusItemId,
+    required String statusOwnerId,
+    required StatusItemModel statusItem,
+    required String senderId,
+    required String senderName,
+    required String senderImage,
+    required String message,
+    required Function onSuccess,
+    required Function(String) onError,
+  }) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      // Generate unique ID
+      final String replyId = const Uuid().v4();
+      
+      // Determine the thumbnail URL based on the status type
+      String thumbnailUrl = statusItem.mediaUrl;
+      if (statusItem.type == StatusType.video) {
+        // For videos, we could generate a thumbnail, but for simplicity
+        // we'll just use the original URL (in a real app, you'd generate a thumbnail)
+        thumbnailUrl = statusItem.mediaUrl;
+      }
+      
+      // Create reply model
+      final StatusReplyModel reply = StatusReplyModel(
+        replyId: replyId,
+        statusId: statusId,
+        statusItemId: statusItemId,
+        statusOwnerId: statusOwnerId,
+        senderId: senderId,
+        senderName: senderName,
+        senderImage: senderImage,
+        message: message,
+        statusThumbnailUrl: thumbnailUrl,
+        statusCaption: statusItem.caption ?? '',
+        timestamp: DateTime.now(),
+        isRead: false,
+      );
+      
+      // Save to Firestore in a subcollection of status owner's document
+      await _firestore
+          .collection(Constants.statusReplies)
+          .doc(statusOwnerId)
+          .collection('replies')
+          .doc(replyId)
+          .set(reply.toMap());
+      
+      // Save a copy to the sender's document for tracking their sent replies
+      await _firestore
+          .collection(Constants.statusReplies)
+          .doc(senderId)
+          .collection('sent')
+          .doc(replyId)
+          .set(reply.toMap());
+      
+      _isLoading = false;
+      onSuccess();
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      onError(e.toString());
+      notifyListeners();
+      debugPrint('Error replying to status: $e');
+    }
+  }
+  
+  // Fetch status replies for a user
+  Future<void> fetchStatusReplies(String userId) async {
+    try {
+      // Clear previous data
+      _statusReplies = [];
+      _unreadRepliesCount = 0;
+      
+      // Get all replies for the user's statuses
+      final QuerySnapshot repliesSnapshot = await _firestore
+          .collection(Constants.statusReplies)
+          .doc(userId)
+          .collection('replies')
+          .orderBy('timestamp', descending: true)
+          .get();
+      
+      if (repliesSnapshot.docs.isEmpty) return;
+      
+      // Parse replies and count unread
+      for (final doc in repliesSnapshot.docs) {
+        final StatusReplyModel reply = StatusReplyModel.fromMap(
+          doc.data() as Map<String, dynamic>
+        );
+        
+        // Check if the status is still active
+        final DateTime now = DateTime.now();
+        final DateTime replyTime = reply.timestamp;
+        
+        // Only show replies from the last 24 hours
+        if (now.difference(replyTime).inHours < 24) {
+          _statusReplies.add(reply);
+          
+          // Count unread replies
+          if (!reply.isRead) {
+            _unreadRepliesCount++;
+          }
+        }
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching status replies: $e');
+    }
+  }
+  
+  // Mark status reply as read
+  Future<void> markStatusReplyAsRead(String replyId) async {
+    try {
+      final currentUser = _myStatus?.uid;
+      if (currentUser == null) return;
+      
+      // Update Firestore
+      await _firestore
+          .collection(Constants.statusReplies)
+          .doc(currentUser)
+          .collection('replies')
+          .doc(replyId)
+          .update({'isRead': true});
+      
+      // Update local state
+      final index = _statusReplies.indexWhere((reply) => reply.replyId == replyId);
+      if (index != -1) {
+        final updatedReply = StatusReplyModel(
+          replyId: _statusReplies[index].replyId,
+          statusId: _statusReplies[index].statusId,
+          statusItemId: _statusReplies[index].statusItemId,
+          statusOwnerId: _statusReplies[index].statusOwnerId,
+          senderId: _statusReplies[index].senderId,
+          senderName: _statusReplies[index].senderName,
+          senderImage: _statusReplies[index].senderImage,
+          message: _statusReplies[index].message,
+          statusThumbnailUrl: _statusReplies[index].statusThumbnailUrl,
+          statusCaption: _statusReplies[index].statusCaption,
+          timestamp: _statusReplies[index].timestamp,
+          isRead: true,
+        );
+        
+        _statusReplies[index] = updatedReply;
+        _unreadRepliesCount = Math.max(0, _unreadRepliesCount - 1);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error marking status reply as read: $e');
+    }
+  }
+  
+  // Delete status reply
+  Future<void> deleteStatusReply(String replyId) async {
+    try {
+      final currentUser = _myStatus?.uid;
+      if (currentUser == null) return;
+      
+      // Delete from Firestore
+      await _firestore
+          .collection(Constants.statusReplies)
+          .doc(currentUser)
+          .collection('replies')
+          .doc(replyId)
+          .delete();
+      
+      // Update local state
+      _statusReplies.removeWhere((reply) => reply.replyId == replyId);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error deleting status reply: $e');
     }
   }
 }

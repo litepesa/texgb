@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/groups/group_model.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
@@ -29,7 +29,7 @@ class _PrivateGroupScreenState extends State<PrivateGroupScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = context.read<AuthenticationProvider>().userModel!.uid;
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final modernTheme = context.modernTheme;
     
     return SafeArea(
       child: Column(
@@ -78,7 +78,7 @@ class _PrivateGroupScreenState extends State<PrivateGroupScreen> {
                           'Something went wrong',
                           style: TextStyle(
                             fontSize: 16,
-                            color: themeExtension?.greyColor ?? Colors.grey,
+                            color: modernTheme.textSecondaryColor ?? Colors.grey,
                           ),
                         ),
                       ],
@@ -105,7 +105,7 @@ class _PrivateGroupScreenState extends State<PrivateGroupScreen> {
                         Icon(
                           _searchQuery.isEmpty ? Icons.group : Icons.search_off,
                           size: 64,
-                          color: themeExtension?.greyColor?.withOpacity(0.5) ?? Colors.grey.withOpacity(0.5),
+                          color: modernTheme.textSecondaryColor?.withOpacity(0.5) ?? Colors.grey.withOpacity(0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -115,7 +115,7 @@ class _PrivateGroupScreenState extends State<PrivateGroupScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w500,
-                            color: themeExtension?.greyColor ?? Colors.grey,
+                            color: modernTheme.textSecondaryColor ?? Colors.grey,
                           ),
                         ),
                         if (_searchQuery.isNotEmpty)
@@ -125,7 +125,7 @@ class _PrivateGroupScreenState extends State<PrivateGroupScreen> {
                               'Try a different search term',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: themeExtension?.greyColor ?? Colors.grey,
+                                color: modernTheme.textSecondaryColor ?? Colors.grey,
                               ),
                             ),
                           ),
