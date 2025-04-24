@@ -7,7 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/status/status_provider.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/theme/modern_colors.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 class CreateStatusScreen extends StatefulWidget {
@@ -147,16 +148,15 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   }
   
   void _showMediaPicker() {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final backgroundColor = themeExtension?.backgroundColor ?? Colors.white;
+    final modernTheme = context.modernTheme;
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: backgroundColor,
+      backgroundColor: modernTheme.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
       ),
       builder: (context) => SafeArea(
@@ -169,18 +169,19 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
               height: 4,
               margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.3),
+                color: modernTheme.textSecondaryColor!.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             
-            const Padding(
-              padding: EdgeInsets.all(16.0),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Text(
                 'Create Status',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: modernTheme.textColor,
                 ),
               ),
             ),
@@ -188,14 +189,20 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             // Camera option
             ListTile(
               leading: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  color: ModernColors.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.camera_alt, color: Colors.blue),
+                child: const Icon(Icons.camera_alt, color: ModernColors.primaryBlue),
               ),
-              title: const Text('Take a photo'),
+              title: Text(
+                'Take a photo',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 HapticFeedback.mediumImpact();
@@ -206,14 +213,20 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             // Gallery option
             ListTile(
               leading: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  color: ModernColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.photo_library, color: Colors.green),
+                child: const Icon(Icons.photo_library, color: ModernColors.success),
               ),
-              title: const Text('Choose from gallery'),
+              title: Text(
+                'Choose from gallery',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 HapticFeedback.mediumImpact();
@@ -224,14 +237,20 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             // Video option
             ListTile(
               leading: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  color: ModernColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.videocam, color: Colors.red),
+                child: const Icon(Icons.videocam, color: ModernColors.error),
               ),
-              title: const Text('Record or select video'),
+              title: Text(
+                'Record or select video',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 HapticFeedback.mediumImpact();
@@ -242,14 +261,20 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             // Text option (placeholder for future implementation)
             ListTile(
               leading: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  color: ModernColors.primaryPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.text_fields, color: Colors.purple),
+                child: const Icon(Icons.text_fields, color: ModernColors.primaryPurple),
               ),
-              title: const Text('Text status'),
+              title: Text(
+                'Text status',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 HapticFeedback.mediumImpact();
@@ -257,7 +282,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
               },
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -266,8 +291,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
     
     return Scaffold(
       appBar: AppBar(
@@ -281,8 +308,8 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
               'Post',
               style: TextStyle(
                 color: _selectedMedia != null && !_isProcessing
-                    ? accentColor
-                    : Colors.grey,
+                    ? primaryColor
+                    : textSecondaryColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -299,15 +326,20 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   }
   
   Widget _buildLoadingView() {
-    return const Center(
+    final modernTheme = context.modernTheme;
+    
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
+          CircularProgressIndicator(color: modernTheme.primaryColor),
+          const SizedBox(height: 16),
           Text(
             'Processing media...',
-            style: TextStyle(fontSize: 16),
+            style: TextStyle(
+              fontSize: 16,
+              color: modernTheme.textColor,
+            ),
           ),
         ],
       ),
@@ -315,8 +347,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   }
   
   Widget _buildInitialView() {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
     
     return Center(
       child: Column(
@@ -325,14 +359,15 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
           Icon(
             Icons.add_a_photo,
             size: 80,
-            color: accentColor.withOpacity(0.5),
+            color: primaryColor.withOpacity(0.5),
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Share a moment with your contacts',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 12),
@@ -340,7 +375,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             'Your status will be visible for 24 hours',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: textSecondaryColor,
             ),
           ),
           const SizedBox(height: 32),
@@ -349,9 +384,12 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             icon: const Icon(Icons.add),
             label: const Text('Add Status'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: accentColor,
+              backgroundColor: primaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ],
@@ -360,6 +398,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   }
   
   Widget _buildPreviewView() {
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
+    final surfaceColor = modernTheme.surfaceColor!;
+    
     return Column(
       children: [
         // Media preview
@@ -418,10 +460,14 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                     controller: _captionController,
                     maxLength: 100,
                     maxLines: 3,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Add a caption...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.all(16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                      filled: true,
+                      fillColor: modernTheme.surfaceVariantColor,
                     ),
                   ),
                 ),
@@ -434,7 +480,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         Container(
           padding: const EdgeInsets.all(16.0),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
+            color: surfaceColor,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -450,9 +496,20 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                 onPressed: _showMediaPicker,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Change Media'),
+                style: TextButton.styleFrom(
+                  foregroundColor: primaryColor,
+                ),
               ),
               ElevatedButton(
                 onPressed: _createStatus,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: const Text('Post Status'),
               ),
             ],

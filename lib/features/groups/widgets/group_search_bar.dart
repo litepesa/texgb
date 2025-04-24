@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class GroupSearchBar extends StatelessWidget {
   final TextEditingController controller;
@@ -22,7 +22,15 @@ class GroupSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    // Use the modern theme extensions
+    final modernTheme = context.modernTheme;
+    final chatTheme = context.chatTheme;
+    
+    // Extract colors and values from the modern theme
+    final inputBackground = chatTheme.inputBackgroundColor!;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
+    final dividerColor = modernTheme.dividerColor!;
     
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -34,10 +42,8 @@ class GroupSearchBar extends StatelessWidget {
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16.0),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.grey.shade800 
-                : Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(12),
+            color: inputBackground,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -54,11 +60,11 @@ class GroupSearchBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
             placeholder: placeholder,
             placeholderStyle: TextStyle(
-              color: Theme.of(context).textTheme.bodyMedium!.color?.withOpacity(0.6),
+              color: textSecondaryColor,
               fontSize: 15,
             ),
             style: TextStyle(
-              color: Theme.of(context).textTheme.bodyMedium!.color,
+              color: textColor,
               fontSize: 15,
             ),
             onChanged: onChanged,
@@ -75,20 +81,20 @@ class GroupSearchBar extends StatelessWidget {
         // Results indicator when searching
         if (showResults && searchQuery != null && searchQuery!.isNotEmpty) 
           Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 0),
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 0),
             child: Row(
               children: [
                 Icon(
                   Icons.search,
                   size: 16,
-                  color: themeExtension?.greyColor ?? Colors.grey,
+                  color: textSecondaryColor,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Search results for "$searchQuery"',
                   style: TextStyle(
                     fontSize: 13,
-                    color: themeExtension?.greyColor ?? Colors.grey,
+                    color: textSecondaryColor,
                   ),
                 ),
               ],
@@ -101,7 +107,7 @@ class GroupSearchBar extends StatelessWidget {
           child: Divider(
             height: 1,
             thickness: 0.5,
-            color: themeExtension?.dividerColor ?? Colors.grey.withOpacity(0.2),
+            color: dividerColor,
           ),
         ),
       ],

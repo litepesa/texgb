@@ -12,6 +12,23 @@ import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/main_screen/enhanced_profile_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/shared/utilities/assets_manager.dart';
+
+// Add this as a placeholder for the new Channels screen
+class ChannelsScreen extends StatelessWidget {
+  const ChannelsScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        'Channels Feature Coming Soon',
+        style: TextStyle(fontSize: 20),
+      ),
+    );
+  }
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,11 +41,11 @@ class _HomeScreenState extends State<HomeScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   int pageIndex = 0;
   
-  // Creating separate widget variables with 4 screens instead of 5
+  // Creating separate widget variables with 4 screens
   final Widget chatScreen = const MyChatsScreen();
   final Widget groupScreen = const GroupsScreen();
   final Widget statusScreen = const StatusScreen();
-  final Widget profileScreen = const EnhancedProfileScreen();
+  final Widget channelsScreen = const ChannelsScreen(); // New channels screen
   
   // We'll define these in initState to ensure they match our bottom nav bar
   late final List<Widget> pages;
@@ -38,12 +55,12 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     super.initState();
     
-    // Initialize pages list to match our simplified bottom nav bar (4 tabs instead of 5)
+    // Initialize pages list to match our bottom nav bar (still 4 tabs, but with Channels instead of Profile)
     pages = [
       chatScreen,        // Index 0 - Chats
       groupScreen,       // Index 1 - Groups
-      statusScreen,      // Index 2 - Status Feed (includes camera functionality)
-      profileScreen,     // Index 3 - Profile
+      statusScreen,      // Index 2 - Status Feed
+      channelsScreen,    // Index 3 - Channels (replacing Profile)
     ];
     
     // Set app in fresh start state on initialization
@@ -70,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen>
               value: true,
             );
         // Refresh status feed when app is resumed
-        if (pageIndex == 2) { // Updated index (was 3 before)
+        if (pageIndex == 2) {
           _refreshStatusFeed();
           // Set status tab visibility to true when app resumes on status tab
           context.read<StatusProvider>().setStatusTabVisible(true);
@@ -86,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen>
               value: false,
             );
         // Set status tab visibility to false when app is in background
-        if (pageIndex == 2) { // Updated index (was 3 before)
+        if (pageIndex == 2) {
           context.read<StatusProvider>().setStatusTabVisible(false);
         }
         break;
@@ -138,9 +155,13 @@ class _HomeScreenState extends State<HomeScreen>
     
     // Set elevation for better delineation
     final elevation = isDarkMode ? 1.0 : 2.0;
+
+    // Get the current user data for the profile avatar
+    final authProvider = context.watch<AuthenticationProvider>();
+    final currentUser = authProvider.userModel;
     
     return Scaffold(
-      appBar: pageIndex != 2 && pageIndex != 3 ? AppBar(
+      appBar: pageIndex != 2 ? AppBar(
         elevation: elevation,
         toolbarHeight: 65.0,
         centerTitle: false,
@@ -169,6 +190,41 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
         ),
+        actions: [
+          // Profile avatar with red ring
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: GestureDetector(
+              onTap: () {
+                // Navigate to profile screen when avatar is tapped
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const EnhancedProfileScreen(),
+                  ),
+                );
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.7),
+                    width: 2,
+                  ),
+                ),
+                child: Hero(
+                  tag: 'profile-image',
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.grey[300],
+                    backgroundImage: currentUser?.image != null && currentUser!.image.isNotEmpty
+                      ? CachedNetworkImageProvider(currentUser.image)
+                      : AssetImage(AssetsManager.userImage) as ImageProvider,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ) : null,
       body: IndexedStack(
         index: pageIndex,
@@ -251,9 +307,9 @@ class _HomeScreenState extends State<HomeScreen>
               label: 'Status',
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.person, size: 28),
-              activeIcon: Icon(CupertinoIcons.person_fill, size: 28),
-              label: 'Profile',
+              icon: Icon(CupertinoIcons.rays, size: 28),              // New icon for Channels
+              activeIcon: Icon(CupertinoIcons.rays, size: 28),  // Active icon for Channels
+              label: 'Channels',                                         // New label for Channels
             ),
           ],
         ),
@@ -308,6 +364,18 @@ class _HomeScreenState extends State<HomeScreen>
         backgroundColor: accentColor,
         elevation: 4.0,
         child: const Icon(CupertinoIcons.camera, size: 26),
+      );
+    }
+    // New FAB for Channels tab
+    else if (pageIndex == 3) {
+      return FloatingActionButton(
+        onPressed: () {
+          // You can add navigation to create new channel screen here
+          showSnackBar(context, 'Create new channel feature coming soon!');
+        },
+        backgroundColor: accentColor,
+        elevation: 4.0,
+        child: const Icon(CupertinoIcons.add, size: 26),
       );
     }
     

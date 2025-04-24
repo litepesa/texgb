@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/main_screen/media_viewer_screen.dart';
 
 class MediaMessageDisplay extends StatelessWidget {
@@ -23,10 +23,6 @@ class MediaMessageDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get theme colors
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final greyColor = themeExtension?.greyColor ?? Colors.grey;
-    
     return GestureDetector(
       onTap: viewOnly 
           ? null 
@@ -37,16 +33,18 @@ class MediaMessageDisplay extends StatelessWidget {
           maxHeight: maxHeight,
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(4.0),
+          borderRadius: BorderRadius.circular(context.responsiveTheme.compactRadius / 2),
           child: isImage
-              ? _buildImagePreview(context, greyColor)
-              : _buildVideoPreview(context, greyColor),
+              ? _buildImagePreview(context)
+              : _buildVideoPreview(context),
         ),
       ),
     );
   }
   
-  Widget _buildImagePreview(BuildContext context, Color greyColor) {
+  Widget _buildImagePreview(BuildContext context) {
+    final modernTheme = context.modernTheme;
+    
     return Stack(
       children: [
         // Image
@@ -58,17 +56,22 @@ class MediaMessageDisplay extends StatelessWidget {
           placeholder: (context, url) => Container(
             width: maxWidth,
             height: maxWidth * 0.75,
-            color: Colors.grey[300],
-            child: const Center(
-              child: CircularProgressIndicator(),
+            color: modernTheme.surfaceVariantColor,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: modernTheme.primaryColor,
+              ),
             ),
           ),
           errorWidget: (context, url, error) => Container(
             width: maxWidth,
             height: maxWidth * 0.75,
-            color: Colors.grey[300],
-            child: const Center(
-              child: Icon(Icons.error),
+            color: modernTheme.surfaceVariantColor,
+            child: Center(
+              child: Icon(
+                Icons.error,
+                color: modernTheme.textSecondaryColor,
+              ),
             ),
           ),
         ),
@@ -80,7 +83,10 @@ class MediaMessageDisplay extends StatelessWidget {
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+              padding: EdgeInsets.symmetric(
+                vertical: context.responsiveTheme.compactSpacing * 0.75,
+                horizontal: context.responsiveTheme.compactSpacing * 1.25,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
@@ -108,27 +114,32 @@ class MediaMessageDisplay extends StatelessWidget {
     );
   }
   
-  Widget _buildVideoPreview(BuildContext context, Color greyColor) {
+  Widget _buildVideoPreview(BuildContext context) {
+    final modernTheme = context.modernTheme;
+    final animationTheme = context.animationTheme;
+    
     return Stack(
       children: [
-        // Video thumbnail (placeholder in this case)
+        // Video thumbnail
         Container(
           width: maxWidth,
           height: maxWidth * 0.75,
-          color: Colors.grey[800],
+          color: modernTheme.surfaceVariantColor,
           child: CachedNetworkImage(
             imageUrl: mediaUrl + '?thumbnail=true', // Assuming thumbnail URL can be derived
             fit: BoxFit.cover,
             placeholder: (context, url) => Container(
-              color: Colors.grey[800],
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+              color: modernTheme.surfaceVariantColor,
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: modernTheme.primaryColor,
+                ),
               ),
             ),
-            errorWidget: (context, url, error) => const Center(
+            errorWidget: (context, url, error) => Center(
               child: Icon(
                 Icons.video_library,
-                color: Colors.white,
+                color: modernTheme.textColor,
                 size: 40,
               ),
             ),
@@ -138,10 +149,12 @@ class MediaMessageDisplay extends StatelessWidget {
         // Play button overlay
         Positioned.fill(
           child: Center(
-            child: Container(
-              padding: const EdgeInsets.all(12),
+            child: AnimatedContainer(
+              duration: animationTheme.shortDuration,
+              curve: animationTheme.standardCurve,
+              padding: EdgeInsets.all(context.responsiveTheme.compactSpacing * 1.5),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+                color: modernTheme.primaryColor?.withOpacity(0.7) ?? Colors.black.withOpacity(0.5),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -153,17 +166,20 @@ class MediaMessageDisplay extends StatelessWidget {
           ),
         ),
         
-        // Video duration (we'd need to get this from the actual video)
+        // Video duration indicator
         Positioned(
-          right: 8,
-          bottom: 8,
+          right: context.responsiveTheme.compactSpacing,
+          bottom: context.responsiveTheme.compactSpacing,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.responsiveTheme.compactSpacing * 0.75,
+              vertical: context.responsiveTheme.compactSpacing * 0.25,
+            ),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(context.responsiveTheme.compactRadius / 2),
             ),
-            child: Text(
+            child: const Text(
               "Video",  // Ideally we'd show the duration here
               style: TextStyle(
                 color: Colors.white,

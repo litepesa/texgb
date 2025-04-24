@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:share_plus/share_plus.dart';
 
 class MediaViewerScreen extends StatefulWidget {
@@ -76,8 +76,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
         allowMuting: true,
         showControls: true,
         materialProgressColors: ChewieProgressColors(
-          playedColor: Theme.of(context).extension<WeChatThemeExtension>()?.accentColor ?? Colors.green,
-          handleColor: Theme.of(context).extension<WeChatThemeExtension>()?.accentColor ?? Colors.green,
+          playedColor: Theme.of(context).extension<ModernThemeExtension>()?.accentColor ?? Colors.green,
+          handleColor: Theme.of(context).extension<ModernThemeExtension>()?.accentColor ?? Colors.green,
           bufferedColor: Colors.grey.withOpacity(0.5),
           backgroundColor: Colors.grey.withOpacity(0.3),
         ),
@@ -142,7 +142,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final themeExtension = Theme.of(context).extension<ModernThemeExtension>();
     
     return Scaffold(
       backgroundColor: Colors.black,

@@ -1,6 +1,6 @@
-import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
@@ -24,74 +24,102 @@ import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/chat/chat_provider.dart';
 import 'package:textgb/features/contacts/contacts_provider.dart';
 import 'package:textgb/features/groups/group_provider.dart';
-import 'package:textgb/shared/theme/dark_theme.dart';
-import 'package:textgb/shared/theme/light_theme.dart';
+import 'package:textgb/shared/theme/theme_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Set preferred orientations
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  final savedThemeMode = await AdaptiveTheme.getThemeMode();
+  // Create and initialize theme manager
+  final themeManager = ThemeManager();
+  await themeManager.initialize();
   
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider<ThemeManager>.value(
+          value: themeManager,
+        ),
         ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => GroupProvider()),
         ChangeNotifierProvider(create: (_) => ContactsProvider()),
         ChangeNotifierProvider(create: (_) => StatusProvider()),
       ],
-      child: MyApp(savedThemeMode: savedThemeMode),
+      child: const MyApp(),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key, required this.savedThemeMode});
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
 
-  final AdaptiveThemeMode? savedThemeMode;
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
 
-  // This widget is the root of your application.
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    // Handle system theme changes
+    final themeManager = Provider.of<ThemeManager>(context, listen: false);
+    themeManager.handleSystemThemeChange();
+    super.didChangePlatformBrightness();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AdaptiveTheme(
-      light: wechatLightTheme(), // Using imported light theme
-      dark: wechatDarkTheme(),   // Using imported dark theme
-      initial: savedThemeMode ?? AdaptiveThemeMode.light,
-      builder: (theme, darkTheme) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'TexGB',
-        theme: theme,
-        darkTheme: darkTheme,
-        initialRoute: Constants.landingScreen,
-        routes: {
-          Constants.landingScreen: (context) => const LandingScreen(),
-          Constants.loginScreen: (context) => const LoginScreen(),
-          Constants.otpScreen: (context) => const OtpScreen(),
-          Constants.userInformationScreen: (context) =>
-              const UserInformationScreen(),
-          Constants.homeScreen: (context) => const HomeScreen(),
-          Constants.profileScreen: (context) => const ProfileScreen(),
-          Constants.contactsScreen: (context) => const ContactsScreen(),
-          Constants.addContactScreen: (context) => const AddContactScreen(),
-          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
-          Constants.chatScreen: (context) => const ChatScreen(),
-          Constants.groupMemberRequestsScreen: (context) =>
-              const GroupMemberRequestsScreen(),
-          Constants.groupSettingsScreen: (context) =>
-              const GroupSettingsScreen(),
-          Constants.groupInformationScreen: (context) =>
-              const GroupInformationScreen(),
-
-          Constants.statusScreen: (context) => const StatusScreen(),
-          Constants.createStatusScreen: (context) => const CreateStatusScreen(), 
-        },
-      ),
+    // Listen to theme changes
+    final themeManager = Provider.of<ThemeManager>(context);
+    
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'TexGB',
+      theme: themeManager.activeTheme,
+      initialRoute: Constants.landingScreen,
+      routes: {
+        Constants.landingScreen: (context) => const LandingScreen(),
+        Constants.loginScreen: (context) => const LoginScreen(),
+        Constants.otpScreen: (context) => const OtpScreen(),
+        Constants.userInformationScreen: (context) =>
+            const UserInformationScreen(),
+        Constants.homeScreen: (context) => const HomeScreen(),
+        Constants.profileScreen: (context) => const ProfileScreen(),
+        Constants.contactsScreen: (context) => const ContactsScreen(),
+        Constants.addContactScreen: (context) => const AddContactScreen(),
+        Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
+        Constants.chatScreen: (context) => const ChatScreen(),
+        Constants.groupMemberRequestsScreen: (context) =>
+            const GroupMemberRequestsScreen(),
+        Constants.groupSettingsScreen: (context) =>
+            const GroupSettingsScreen(),
+        Constants.groupInformationScreen: (context) =>
+            const GroupInformationScreen(),
+        Constants.statusScreen: (context) => const StatusScreen(),
+        Constants.createStatusScreen: (context) => const CreateStatusScreen(), 
+      },
     );
   }
 }

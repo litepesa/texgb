@@ -6,7 +6,8 @@ import 'package:textgb/features/status/screens/status_detail_screen.dart';
 import 'package:textgb/features/status/status_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/features/status/widgets/status_circle.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/theme/modern_colors.dart';
 
 class StatusScreen extends StatefulWidget {
   const StatusScreen({Key? key}) : super(key: key);
@@ -62,8 +63,12 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
+    
+    // Use the modern theme extensions
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
     
     return Scaffold(
       appBar: AppBar(
@@ -78,13 +83,13 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
       ),
       body: RefreshIndicator(
         onRefresh: _refreshStatuses,
-        color: accentColor,
+        color: primaryColor,
         child: Consumer2<AuthenticationProvider, StatusProvider>(
           builder: (context, authProvider, statusProvider, _) {
             final currentUser = authProvider.userModel;
             
             if (currentUser == null) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(child: CircularProgressIndicator(color: primaryColor));
             }
             
             if (statusProvider.isFetching) {
@@ -117,7 +122,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: themeExtension?.greyColor ?? Colors.grey,
+                          color: textSecondaryColor,
                         ),
                       ),
                     ),
@@ -139,7 +144,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                     statusProvider.myStatus == null)
                   SliverFillRemaining(
                     hasScrollBody: false,
-                    child: _buildEmptyState(accentColor),
+                    child: _buildEmptyState(primaryColor),
                   ),
                 
                 // Bottom Padding
@@ -153,7 +158,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToCreateStatus,
-        backgroundColor: accentColor,
+        backgroundColor: primaryColor,
         child: const Icon(Icons.camera_alt),
         tooltip: 'Create new status',
       ),
@@ -182,17 +187,20 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
   }
 
   Widget _buildLoadingView() {
-    return const Center(
+    final modernTheme = context.modernTheme;
+    
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
+          CircularProgressIndicator(color: modernTheme.primaryColor),
+          const SizedBox(height: 16),
           Text(
             'Loading statuses...',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
+              color: modernTheme.textColor,
             ),
           ),
         ],
@@ -201,7 +209,9 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
   }
 
   Widget _buildMyStatusSection(StatusProvider statusProvider, String userName, String userImage) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final modernTheme = context.modernTheme;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
     final hasStatus = statusProvider.myStatus != null;
     
     return Container(
@@ -209,11 +219,12 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'My Status',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 16,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -241,7 +252,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: themeExtension?.textColor ?? Colors.black,
+                        color: textColor,
                       ),
                     ),
                     Text(
@@ -250,7 +261,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                           : 'Tap to add status update',
                       style: TextStyle(
                         fontSize: 14,
-                        color: themeExtension?.greyColor ?? Colors.grey,
+                        color: textSecondaryColor,
                       ),
                     ),
                   ],
@@ -264,7 +275,9 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
   }
   
   Widget _buildContactStatusTile(StatusModel status, String currentUserId) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final modernTheme = context.modernTheme;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
     
     // Check if all status items have been viewed by current user
     final bool allViewed = status.hasUserViewedAll(currentUserId);
@@ -290,20 +303,24 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
         status.userName,
         style: TextStyle(
           fontWeight: FontWeight.bold,
-          color: themeExtension?.textColor ?? Colors.black,
+          color: textColor,
         ),
       ),
       subtitle: Text(
         timeAgo,
         style: TextStyle(
-          color: themeExtension?.greyColor ?? Colors.grey,
+          color: textSecondaryColor,
         ),
       ),
       onTap: () => _navigateToStatusDetail(status, false),
     );
   }
   
-  Widget _buildEmptyState(Color accentColor) {
+  Widget _buildEmptyState(Color primaryColor) {
+    final modernTheme = context.modernTheme;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -311,14 +328,15 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
           Icon(
             Icons.photo_camera,
             size: 80,
-            color: accentColor.withOpacity(0.5),
+            color: primaryColor.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No status updates',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -327,7 +345,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[600],
+              color: textSecondaryColor,
             ),
           ),
           const SizedBox(height: 24),
@@ -336,9 +354,12 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
             icon: const Icon(Icons.add_a_photo),
             label: const Text('Create Status'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: accentColor,
+              backgroundColor: primaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ],

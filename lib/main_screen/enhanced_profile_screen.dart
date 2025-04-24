@@ -2,17 +2,20 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/modern_colors.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/constants.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
 class EnhancedProfileScreen extends StatefulWidget {
   const EnhancedProfileScreen({super.key});
@@ -27,6 +30,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
   bool _isUpdatingProfile = false;
   File? _selectedImage;
   bool isDarkMode = false;
+  ThemeOption _currentTheme = ThemeOption.system;
 
   @override
   void initState() {
@@ -42,6 +46,10 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
       // Set theme state AFTER widgets are built
       setState(() {
         isDarkMode = Theme.of(context).brightness == Brightness.dark;
+        
+        // Get current theme option from theme manager if available
+        final themeManager = Provider.of<ThemeManager>(context, listen: false);
+        _currentTheme = themeManager.currentTheme;
       });
     });
   }
@@ -74,7 +82,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop Image',
-            toolbarColor: Theme.of(context).primaryColor,
+            toolbarColor: Theme.of(context).colorScheme.primary,
             toolbarWidgetColor: Colors.white,
             initAspectRatio: CropAspectRatioPreset.square,
             lockAspectRatio: true,
@@ -103,18 +111,28 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
 
   // Show bottom sheet for image selection options
   void _showImagePickerOptions() {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final modernTheme = context.modernTheme;
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: themeExtension?.appBarColor,
+      backgroundColor: modernTheme.surfaceColor,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Sheet handle indicator
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 12),
+              decoration: BoxDecoration(
+                color: modernTheme.textSecondaryColor!.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
               child: Text(
@@ -122,17 +140,17 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.titleLarge?.color,
+                  color: modernTheme.textColor,
                 ),
               ),
             ),
             const Divider(height: 0.5),
             ListTile(
               leading: CircleAvatar(
-                backgroundColor: themeExtension?.accentColor?.withOpacity(0.1),
+                backgroundColor: modernTheme.primaryColor!.withOpacity(0.1),
                 child: Icon(
                   Icons.camera_alt,
-                  color: themeExtension?.accentColor,
+                  color: modernTheme.primaryColor,
                 ),
               ),
               title: Text('Take Photo'),
@@ -140,10 +158,10 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
             ),
             ListTile(
               leading: CircleAvatar(
-                backgroundColor: themeExtension?.accentColor?.withOpacity(0.1),
+                backgroundColor: modernTheme.primaryColor!.withOpacity(0.1),
                 child: Icon(
                   Icons.photo_library,
-                  color: themeExtension?.accentColor,
+                  color: modernTheme.primaryColor,
                 ),
               ),
               title: Text('Choose from Gallery'),
@@ -152,8 +170,8 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
             if (context.read<AuthenticationProvider>().userModel!.image.isNotEmpty)
               ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.red.withOpacity(0.1),
-                  child: const Icon(Icons.delete, color: Colors.red),
+                  backgroundColor: ModernColors.error.withOpacity(0.1),
+                  child: const Icon(Icons.delete, color: ModernColors.error),
                 ),
                 title: const Text('Remove Current Photo'),
                 onTap: () {
@@ -161,7 +179,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                   _showRemovePhotoConfirmation();
                 },
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -170,6 +188,8 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
 
   // Show confirmation dialog for removing profile photo
   void _showRemovePhotoConfirmation() {
+    final modernTheme = context.modernTheme;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -183,7 +203,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: ModernColors.error),
             onPressed: () {
               Navigator.pop(context);
               _removeProfileImage();
@@ -408,23 +428,38 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
     }
   }
 
+  // Set theme based on the selected theme option
+  void _setTheme(ThemeOption option) {
+    final themeManager = Provider.of<ThemeManager>(context, listen: false);
+    themeManager.setTheme(option);
+    setState(() {
+      _currentTheme = option;
+      isDarkMode = option == ThemeOption.dark || option == ThemeOption.trueBlack || 
+        (option == ThemeOption.system && Theme.of(context).brightness == Brightness.dark);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Get theme information in the build method
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final accentColor = themeExtension?.accentColor ?? Theme.of(context).primaryColor;
-    final appBarColor = themeExtension?.appBarColor ?? Theme.of(context).appBarTheme.backgroundColor;
-    final backgroundColor = themeExtension?.backgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
+    // Get theme information using modern theme extensions
+    final modernTheme = context.modernTheme;
+    final animTheme = context.animationTheme;
     
-    // Check the current theme in the build method (more reliable)
-    final currentTheme = Theme.of(context).brightness;
-    isDarkMode = currentTheme == Brightness.dark;
+    // Extract colors from modern theme
+    final primaryColor = modernTheme.primaryColor!;
+    final backgroundColor = modernTheme.backgroundColor!;
+    final surfaceColor = modernTheme.surfaceColor!;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
+    
+    // Check the current theme
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
     final currentUser = context.watch<AuthenticationProvider>().userModel;
     
     if (currentUser == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator(color: primaryColor)),
       );
     }
     
@@ -438,7 +473,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
               SliverToBoxAdapter(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: appBarColor,
+                    color: surfaceColor,
                     borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(24),
                       bottomRight: Radius.circular(24),
@@ -454,6 +489,17 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                   child: SafeArea(
                     child: Column(
                       children: [
+                        // Add back button at the top
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0, top: 8.0),
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: AppBarBackButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ),
+                        ),
+                        
                         const SizedBox(height: 20),
                         
                         // User image with edit button - ENHANCED VERSION
@@ -495,9 +541,10 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                                             width: 120,
                                             height: 120,
                                             color: Colors.grey[300],
-                                            child: const Center(
+                                            child: Center(
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2,
+                                                color: primaryColor,
                                               ),
                                             ),
                                           ),
@@ -536,7 +583,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                    color: accentColor,
+                                    color: primaryColor,
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: backgroundColor,
@@ -569,7 +616,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                           style: GoogleFonts.poppins(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).textTheme.titleLarge?.color,
+                            color: textColor,
                           ),
                         ),
                         
@@ -578,7 +625,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                           currentUser.phoneNumber,
                           style: GoogleFonts.poppins(
                             fontSize: 14,
-                            color: themeExtension?.greyColor ?? Colors.grey,
+                            color: textSecondaryColor,
                           ),
                         ),
                         
@@ -636,9 +683,11 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Tell us something about yourself...',
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                contentPadding: const EdgeInsets.all(12),
+                                contentPadding: const EdgeInsets.all(16),
+                                filled: true,
+                                fillColor: modernTheme.surfaceVariantColor,
                               ),
                             ),
                           )
@@ -651,7 +700,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                               currentUser.aboutMe,
                               style: GoogleFonts.poppins(
                                 fontSize: 16,
-                                color: Theme.of(context).textTheme.bodyMedium?.color,
+                                color: textColor,
                               ),
                             ),
                           ),
@@ -669,7 +718,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                           icon: Icons.block,
                           title: 'Blocked Contacts',
                           subtitle: 'Manage your blocked contacts',
-                          iconColor: Colors.red,
+                          iconColor: ModernColors.error,
                           onTap: () {
                             Navigator.pushNamed(
                               context,
@@ -693,7 +742,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                           icon: Icons.people,
                           title: 'Contacts',
                           subtitle: 'Manage your contacts',
-                          iconColor: Colors.blue,
+                          iconColor: ModernColors.primaryBlue,
                           onTap: () {
                             Navigator.pushNamed(
                               context,
@@ -702,39 +751,28 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                           },
                         ),
                         
-                        // Appearance
+                        // Theme section
                         _buildListTile(
-                          icon: isDarkMode ? Icons.nightlight_round : Icons.wb_sunny,
+                          icon: isDarkMode ? Icons.dark_mode : Icons.light_mode,
                           title: 'Appearance',
-                          subtitle: isDarkMode ? 'Dark Mode' : 'Light Mode',
-                          iconColor: isDarkMode ? Colors.indigo : Colors.amber,
-                          trailing: Switch(
-                            value: isDarkMode,
-                            activeColor: accentColor,
-                            onChanged: (value) {
-                              setState(() {
-                                isDarkMode = value;
-                              });
-                              // Check if the value is true
-                              if (value) {
-                                // Set the theme mode to dark
-                                AdaptiveTheme.of(context).setDark();
-                              } else {
-                                // Set the theme mode to light
-                                AdaptiveTheme.of(context).setLight();
-                              }
+                          subtitle: _getThemeSubtitle(),
+                          iconColor: isDarkMode ? ModernColors.primaryPurple : ModernColors.warning,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.settings),
+                            onPressed: () {
+                              // Show theme selector
+                              showThemeSelector(context);
                             },
                           ),
                           onTap: () {
+                            // Toggle between light and dark
                             setState(() {
-                              isDarkMode = !isDarkMode;
+                              if (isDarkMode) {
+                                _setTheme(ThemeOption.light);
+                              } else {
+                                _setTheme(ThemeOption.dark);
+                              }
                             });
-                            // Toggle theme
-                            if (isDarkMode) {
-                              AdaptiveTheme.of(context).setDark();
-                            } else {
-                              AdaptiveTheme.of(context).setLight();
-                            }
                           },
                         ),
                       ],
@@ -752,7 +790,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
             Positioned.fill(
               child: Container(
                 color: Colors.black54,
-                child: const Center(
+                child: Center(
                   child: CircularProgressIndicator(color: Colors.white),
                 ),
               ),
@@ -762,20 +800,36 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
     );
   }
 
+  // Helper to get theme subtitle text
+  String _getThemeSubtitle() {
+    switch (_currentTheme) {
+      case ThemeOption.light:
+        return 'Light Mode';
+      case ThemeOption.dark:
+        return 'Dark Mode';
+      case ThemeOption.trueBlack:
+        return 'True Black Mode';
+      case ThemeOption.system:
+        return 'System Default';
+      default:
+        return 'System Default';
+    }
+  }
+
   // Helper widget for profile sections
   Widget _buildProfileSection({
     required String title,
     required Widget child,
     Widget? trailing,
   }) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final sectionBgColor = themeExtension?.receiverBubbleColor ?? Theme.of(context).cardColor;
+    final modernTheme = context.modernTheme;
+    final sectionBgColor = modernTheme.surfaceColor!;
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: sectionBgColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -798,7 +852,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.titleLarge?.color,
+                    color: modernTheme.textColor,
                   ),
                 ),
                 if (trailing != null) trailing,
@@ -808,7 +862,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
           
           // Divider
           Divider(
-            color: Colors.grey.withOpacity(0.2),
+            color: modernTheme.dividerColor,
             thickness: 1,
           ),
           
@@ -828,17 +882,20 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
     Widget? trailing,
     VoidCallback? onTap,
   }) {
+    final modernTheme = context.modernTheme;
+    
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: iconColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
           icon,
           color: iconColor,
+          size: 22,
         ),
       ),
       title: Text(
@@ -846,17 +903,21 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
         style: GoogleFonts.poppins(
           fontWeight: FontWeight.w500,
           fontSize: 16,
+          color: modernTheme.textColor,
         ),
       ),
       subtitle: Text(
         subtitle,
         style: GoogleFonts.poppins(
           fontSize: 13,
-          color: Theme.of(context).textTheme.bodySmall?.color,
+          color: modernTheme.textSecondaryColor,
         ),
       ),
       trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
     );
   }
 }

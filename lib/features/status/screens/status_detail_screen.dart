@@ -10,7 +10,7 @@ import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/status/status_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/features/status/widgets/status_media_viewer.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 class StatusDetailScreen extends StatefulWidget {
@@ -257,8 +257,8 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
     final currentUser = context.read<AuthenticationProvider>().userModel!;
     final currentItem = widget.status.items[_currentIndex];
     
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
     
     final reaction = await showModalBottomSheet<String>(
       context: context,
@@ -269,23 +269,34 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor.withOpacity(0.9),
+            color: modernTheme.surfaceColor!.withOpacity(0.9),
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
             ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              // Handle indicator
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: modernTheme.textSecondaryColor!.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
                 'React to status',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: modernTheme.textColor,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -297,6 +308,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
                   _buildReactionButton('🙏'),
                 ],
               ),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -330,6 +342,13 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.2),
           shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Center(
           child: Text(
@@ -343,238 +362,252 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
+    
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Stack(
-          children: [
-            // Status content
-            GestureDetector(
-              onHorizontalDragEnd: _onHorizontalDragEnd,
-              onLongPressStart: _onLongPressStart,
-              onLongPressEnd: _onLongPressEnd,
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: widget.status.items.length,
-                onPageChanged: _onPageChanged,
-                physics: const NeverScrollableScrollPhysics(), // Disable scrolling
-                itemBuilder: (context, index) {
-                  final statusItem = widget.status.items[index];
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Status media content
-                      StatusMediaViewer(
-                        statusItem: statusItem,
-                        isPaused: _isPaused,
-                        onDurationChanged: (duration) {
-                          // Update controller duration for videos
-                          if (statusItem.type == StatusType.video && !_isPaused) {
-                            setState(() {
-                              _progressController.duration = duration;
-                            });
-                            _progressController.forward(from: 0.0);
-                          }
-                        },
-                      ),
-                      
-                      // Semi-transparent overlay
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.center,
-                            colors: [
-                              Colors.black.withOpacity(0.7),
-                              Colors.transparent,
-                            ],
+        child: GestureDetector(
+          onTapUp: _onTap,
+          child: Stack(
+            children: [
+              // Status content
+              GestureDetector(
+                onHorizontalDragEnd: _onHorizontalDragEnd,
+                onLongPressStart: _onLongPressStart,
+                onLongPressEnd: _onLongPressEnd,
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: widget.status.items.length,
+                  onPageChanged: _onPageChanged,
+                  physics: const NeverScrollableScrollPhysics(), // Disable scrolling
+                  itemBuilder: (context, index) {
+                    final statusItem = widget.status.items[index];
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Status media content
+                        StatusMediaViewer(
+                          statusItem: statusItem,
+                          isPaused: _isPaused,
+                          onDurationChanged: (duration) {
+                            // Update controller duration for videos
+                            if (statusItem.type == StatusType.video && !_isPaused) {
+                              setState(() {
+                                _progressController.duration = duration;
+                              });
+                              _progressController.forward(from: 0.0);
+                            }
+                          },
+                        ),
+                        
+                        // Semi-transparent overlay
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.center,
+                              colors: [
+                                Colors.black.withOpacity(0.7),
+                                Colors.transparent,
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      
-                      // Caption at bottom (if any)
-                      if (statusItem.caption != null && statusItem.caption!.isNotEmpty)
-                        Positioned(
-                          bottom: 80,
-                          left: 16,
-                          right: 16,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text(
-                              statusItem.caption!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
+                        
+                        // Caption at bottom (if any)
+                        if (statusItem.caption != null && statusItem.caption!.isNotEmpty)
+                          Positioned(
+                            bottom: 80,
+                            left: 16,
+                            right: 16,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
                               ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            
-            // Progress bars
-            Positioned(
-              top: 8,
-              left: 8,
-              right: 8,
-              child: Row(
-                children: List.generate(
-                  widget.status.items.length,
-                  (index) => Expanded(
-                    child: Container(
-                      height: 3,
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(1),
-                      ),
-                      child: index == _currentIndex
-                          ? AnimatedBuilder(
-                              animation: _progressController,
-                              builder: (context, child) {
-                                return FractionallySizedBox(
-                                  widthFactor: _progressController.value,
-                                  alignment: Alignment.centerLeft,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(1),
-                                    ),
-                                  ),
-                                );
-                              },
-                            )
-                          : FractionallySizedBox(
-                              widthFactor: index < _currentIndex ? 1.0 : 0.0,
-                              alignment: Alignment.centerLeft,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(1),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.1),
+                                  width: 0.5,
                                 ),
                               ),
+                              child: Text(
+                                statusItem.caption!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              
+              // Progress bars
+              Positioned(
+                top: 8,
+                left: 8,
+                right: 8,
+                child: Row(
+                  children: List.generate(
+                    widget.status.items.length,
+                    (index) => Expanded(
+                      child: Container(
+                        height: 3,
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                        child: index == _currentIndex
+                            ? AnimatedBuilder(
+                                animation: _progressController,
+                                builder: (context, child) {
+                                  return FractionallySizedBox(
+                                    widthFactor: _progressController.value,
+                                    alignment: Alignment.centerLeft,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(1),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              )
+                            : FractionallySizedBox(
+                                widthFactor: index < _currentIndex ? 1.0 : 0.0,
+                                alignment: Alignment.centerLeft,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(1),
+                                  ),
+                                ),
+                              ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            
-            // Header (user info)
-            Positioned(
-              top: 20,
-              left: 16,
-              right: 16,
-              child: Row(
-                children: [
-                  // User avatar
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundImage: CachedNetworkImageProvider(widget.status.userImage),
-                  ),
-                  const SizedBox(width: 8),
-                  
-                  // User name and timestamp
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.status.userName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          _getTimeAgo(widget.status.items[_currentIndex].timestamp),
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+              
+              // Header (user info)
+              Positioned(
+                top: 20,
+                left: 16,
+                right: 16,
+                child: Row(
+                  children: [
+                    // User avatar
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundImage: CachedNetworkImageProvider(widget.status.userImage),
                     ),
-                  ),
-                  
-                  // Close button
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Action buttons at bottom
-            Positioned(
-              bottom: 16,
-              left: 16,
-              right: 16,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Delete button (only for own status)
-                  if (widget.isMyStatus)
+                    const SizedBox(width: 8),
+                    
+                    // User name and timestamp
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.status.userName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            _getTimeAgo(widget.status.items[_currentIndex].timestamp),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Close button
                     IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.white),
-                      onPressed: _deleteCurrentStatus,
-                    )
-                  else
-                    const SizedBox(width: 48), // Placeholder for layout
-                  
-                  // View count
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.remove_red_eye,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${widget.status.items[_currentIndex].viewedBy.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  // React button (for viewing others' status)
-                  if (!widget.isMyStatus)
-                    IconButton(
-                      icon: const Icon(Icons.emoji_emotions, color: Colors.white),
-                      onPressed: _showReactionPicker,
-                    )
-                  else
-                    const SizedBox(width: 48), // Placeholder for layout
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              
+              // Action buttons at bottom
+              Positioned(
+                bottom: 16,
+                left: 16,
+                right: 16,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Delete button (only for own status)
+                    if (widget.isMyStatus)
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.white),
+                        onPressed: _deleteCurrentStatus,
+                      )
+                    else
+                      const SizedBox(width: 48), // Placeholder for layout
+                    
+                    // View count
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.1),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.remove_red_eye,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${widget.status.items[_currentIndex].viewedBy.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // React button (for viewing others' status)
+                    if (!widget.isMyStatus)
+                      IconButton(
+                        icon: const Icon(Icons.emoji_emotions, color: Colors.white),
+                        onPressed: _showReactionPicker,
+                      )
+                    else
+                      const SizedBox(width: 48), // Placeholder for layout
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

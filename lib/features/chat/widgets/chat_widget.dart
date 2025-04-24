@@ -1,7 +1,7 @@
 import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/groups/group_model.dart';
 import 'package:textgb/models/last_message_model.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
@@ -25,8 +25,8 @@ class ChatWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Get theme colors
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final greyColor = themeExtension?.greyColor ?? Colors.grey;
+    final modernTheme = context.modernTheme;
+    final responsiveTheme = context.responsiveTheme;
     
     final uid = context.read<AuthenticationProvider>().userModel!.uid;
     
@@ -74,9 +74,10 @@ class ChatWidget extends StatelessWidget {
                   // Name
                   Text(
                     name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
+                      color: modernTheme.textColor,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -91,7 +92,7 @@ class ChatWidget extends StatelessWidget {
                         Text(
                           "You: ",
                           style: TextStyle(
-                            color: greyColor,
+                            color: modernTheme.textSecondaryColor,
                             fontSize: 14,
                           ),
                         ),
@@ -118,7 +119,7 @@ class ChatWidget extends StatelessWidget {
                   timeString,
                   style: TextStyle(
                     fontSize: 12,
-                    color: greyColor,
+                    color: modernTheme.textTertiaryColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -179,8 +180,7 @@ class UnreadMessageCounter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
+    final modernTheme = context.modernTheme;
     
     return StreamBuilder<int>(
       stream: context.read<ChatProvider>().getUnreadMessagesStream(
@@ -205,7 +205,7 @@ class UnreadMessageCounter extends StatelessWidget {
             minWidth: 18,
             minHeight: 18,
           ),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.red,
             shape: BoxShape.circle,
           ),

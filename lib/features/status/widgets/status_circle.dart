@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 
 class StatusCircle extends StatelessWidget {
@@ -25,10 +25,14 @@ class StatusCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
-    final statusCircleColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
-    final greyColor = themeExtension?.greyColor ?? Colors.grey;
-
+    // Using the new theme extensions
+    final modernTheme = context.modernTheme;
+    
+    // Extract colors from the modernTheme
+    final primaryColor = modernTheme.primaryColor!; // Used as accent color
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
+    
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(radius),
@@ -44,8 +48,8 @@ class StatusCircle extends StatelessWidget {
                   border: hasStatus
                       ? Border.all(
                           color: isViewed 
-                              ? greyColor.withOpacity(0.5) 
-                              : statusCircleColor,
+                              ? textSecondaryColor.withOpacity(0.5) 
+                              : primaryColor,
                           width: 2.5,
                         )
                       : null,
@@ -81,7 +85,7 @@ class StatusCircle extends StatelessWidget {
                     ),
                     child: CircleAvatar(
                       radius: 10,
-                      backgroundColor: statusCircleColor,
+                      backgroundColor: primaryColor,
                       child: const Icon(
                         Icons.add,
                         color: Colors.white,
@@ -102,7 +106,7 @@ class StatusCircle extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: themeExtension?.textColor ?? Colors.black,
+                  color: textColor,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

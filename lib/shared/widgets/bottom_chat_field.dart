@@ -8,7 +8,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:textgb/shared/theme/wechat_theme_extension.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/chat/chat_provider.dart';
@@ -432,7 +432,7 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final themeExtension = Theme.of(context).extension<ModernThemeExtension>();
     final backgroundColor = themeExtension?.backgroundColor ?? const Color(0xFFF6F6F6);
     final appBarColor = themeExtension?.appBarColor ?? const Color(0xFFEDEDED);
     final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
@@ -455,7 +455,7 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
     // Check if messages are locked
     final isLocked = groupProvider.groupModel.lockMessages;
     
-    final themeExtension = Theme.of(context).extension<WeChatThemeExtension>();
+    final themeExtension = Theme.of(context).extension<ModernThemeExtension>();
     final backgroundColor = themeExtension?.backgroundColor ?? const Color(0xFFF6F6F6);
     final appBarColor = themeExtension?.appBarColor ?? const Color(0xFFEDEDED);
     final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
@@ -1025,7 +1025,7 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
       height: 220,
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<WeChatThemeExtension>()?.backgroundColor,
+        color: Theme.of(context).extension<ModernThemeExtension>()?.backgroundColor,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16),
           topRight: Radius.circular(16),
