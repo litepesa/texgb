@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/constants.dart';
@@ -41,7 +42,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   @override
   void initState() {
     super.initState();
-    _loadRecentMedia();
+    _requestPermissionsAndLoadMedia();
     
     // Set system overlay style for clean UI
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
@@ -57,53 +58,95 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     super.dispose();
   }
   
-  // Load recent media from device gallery
-  Future<void> _loadRecentMedia() async {
+  // Request permissions using permission_handler and load media
+  Future<void> _requestPermissionsAndLoadMedia() async {
     setState(() {
       _isLoading = true;
     });
     
     try {
-      // Request permission
-      final result = await PhotoManager.requestPermissionExtend();
-      if (result.isAuth) {
-        // Get recent media (both images and videos)
-        final albums = await PhotoManager.getAssetPathList(
-          type: RequestType.common,
-          hasAll: true,
-        );
-        
-        if (albums.isNotEmpty) {
-          final recentAlbum = albums.first;
-          final media = await recentAlbum.getAssetListRange(
-            start: 0,
-            end: 60, // Get 60 recent media files
-          );
-          
-          setState(() {
-            _recentMedia = media;
-          });
-        }
+      // Request both storage and camera permissions
+      Map<Permission, PermissionStatus> statuses = await [
+        Permission.storage,
+        Permission.photos,
+        Permission.videos,
+        Permission.camera,
+      ].request();
+      
+      // Check if we have permission to access photos and videos
+      bool hasMediaPermission = statuses[Permission.photos]!.isGranted || 
+                               statuses[Permission.storage]!.isGranted ||
+                               statuses[Permission.videos]!.isGranted;
+      
+      if (hasMediaPermission) {
+        // Load media using photo_manager
+        await _loadRecentMedia();
       } else {
-        // Handle denied permission
+        // Show instructions if permissions were denied
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Permission to access media was denied. Please enable in settings.'),
+              duration: Duration(seconds: 3),
+              action: SnackBarAction(
+                label: 'Settings',
+                onPressed: () {
+                  openAppSettings();
+                },
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Permission to access gallery was denied'),
+            content: Text('Error requesting permissions: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading media: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+  
+  // Load recent media from device gallery
+  Future<void> _loadRecentMedia() async {
+    try {
+      // Get recent media (both images and videos)
+      final albums = await PhotoManager.getAssetPathList(
+        type: RequestType.common,
+        hasAll: true,
+      );
+      
+      if (albums.isNotEmpty) {
+        final recentAlbum = albums.first;
+        final media = await recentAlbum.getAssetListRange(
+          start: 0,
+          end: 60, // Get 60 recent media files
+        );
+        
+        if (mounted) {
+          setState(() {
+            _recentMedia = media;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading media: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
   
@@ -199,13 +242,27 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     await _videoController!.setLooping(true);
     await _videoController!.play();
     
-    setState(() {
-      _isVideoInitialized = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isVideoInitialized = true;
+      });
+    }
   }
   
   // Take new photo with camera
   Future<void> _takePhoto() async {
+    // Request camera permission first
+    final status = await Permission.camera.request();
+    if (status.isDenied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Camera permission is required to take a photo'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
     try {
       final pickedFile = await ImagePicker().pickImage(
         source: ImageSource.camera,
@@ -255,6 +312,18 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   
   // Record new video with camera
   Future<void> _recordVideo() async {
+    // Request camera permission first
+    final status = await Permission.camera.request();
+    if (status.isDenied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Camera permission is required to record a video'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
     try {
       final pickedFile = await ImagePicker().pickVideo(
         source: ImageSource.camera,
@@ -288,6 +357,112 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         SnackBar(
           content: Text('Error recording video: ${e.toString()}'),
           backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  // Show media picker
+  Future<void> _pickMediaFromGallery() async {
+    // Request permission first
+    final permissionStatus = await Permission.photos.request();
+    
+    if (permissionStatus.isGranted) {
+      // Show bottom sheet to pick media type
+      showModalBottomSheet(
+        context: context,
+        builder: (BuildContext context) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.photo),
+                  title: Text('Pick Image'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final ImagePicker picker = ImagePicker();
+                    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                    if (image != null) {
+                      final file = File(image.path);
+                      
+                      // Check file size
+                      final sizeInMB = await file.length() / (1024 * 1024);
+                      if (sizeInMB > 10) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Image size too large. Maximum allowed is 10MB.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      
+                      setState(() {
+                        _mediaType = StatusType.image;
+                        if (_selectedMedia.length < 9) {
+                          _selectedMedia.add(file);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Maximum 9 images allowed'),
+                              backgroundColor: Colors.amber,
+                            ),
+                          );
+                        }
+                      });
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.videocam),
+                  title: Text('Pick Video'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final ImagePicker picker = ImagePicker();
+                    final XFile? video = await picker.pickVideo(
+                      source: ImageSource.gallery,
+                      maxDuration: const Duration(seconds: 60),
+                    );
+                    if (video != null) {
+                      final file = File(video.path);
+                      
+                      // Check file size
+                      final sizeInMB = await file.length() / (1024 * 1024);
+                      if (sizeInMB > 50) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Video size too large. Maximum allowed is 50MB.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      
+                      await _initializeVideoController(file);
+                      setState(() {
+                        _mediaType = StatusType.video;
+                        _selectedMedia = [file];
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } else {
+      // Show settings option if permission denied
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Permission required to access gallery'),
+          action: SnackBarAction(
+            label: 'Settings',
+            onPressed: () {
+              openAppSettings();
+            },
+          ),
         ),
       );
     }
@@ -519,7 +694,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Recent Media',
+                    'Media',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -527,6 +702,11 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                   ),
                   Row(
                     children: [
+                      // Gallery picker button
+                      IconButton(
+                        icon: Icon(Icons.photo_library),
+                        onPressed: _pickMediaFromGallery,
+                      ),
                       // Camera button for photos
                       IconButton(
                         icon: Icon(Icons.camera_alt),
@@ -546,59 +726,87 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             // Media gallery grid
             _isLoading
                 ? Center(
-                    child: CircularProgressIndicator(
-                      color: modernTheme.primaryColor,
+                    child: Column(
+                      children: [
+                        CircularProgressIndicator(
+                          color: modernTheme.primaryColor,
+                        ),
+                        SizedBox(height: 16),
+                        Text('Loading media...'),
+                      ],
                     ),
                   )
-                : Container(
-                    height: 300,
-                    child: GridView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 2,
-                        mainAxisSpacing: 2,
-                      ),
-                      itemCount: _recentMedia.length,
-                      itemBuilder: (context, index) {
-                        final asset = _recentMedia[index];
-                        return GestureDetector(
-                          onTap: () => _selectFromGallery(asset),
-                          child: Stack(
-                            fit: StackFit.expand,
+                : _recentMedia.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
                             children: [
-                              // Thumbnail
-                              AssetThumbnail(asset: asset),
-                              
-                              // Video indicator
-                              if (asset.type == AssetType.video)
-                                Positioned(
-                                  right: 5,
-                                  bottom: 5,
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.7),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      _formatDuration(asset.duration),
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                              Icon(Icons.photo_library, size: 64, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text(
+                                'No media found or permission denied',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                              SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () => _requestPermissionsAndLoadMedia(),
+                                child: Text('Request Permissions Again'),
+                              ),
                             ],
                           ),
-                        );
-                      },
-                    ),
-                  ),
+                        ),
+                      )
+                    : Container(
+                        height: 300,
+                        child: GridView.builder(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 2,
+                            mainAxisSpacing: 2,
+                          ),
+                          itemCount: _recentMedia.length,
+                          itemBuilder: (context, index) {
+                            final asset = _recentMedia[index];
+                            return GestureDetector(
+                              onTap: () => _selectFromGallery(asset),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Thumbnail
+                                  AssetThumbnail(asset: asset),
+                                  
+                                  // Video indicator
+                                  if (asset.type == AssetType.video)
+                                    Positioned(
+                                      right: 5,
+                                      bottom: 5,
+                                      child: Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.7),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          _formatDuration(asset.duration),
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
           ],
         ),
       ),

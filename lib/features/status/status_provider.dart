@@ -1,3 +1,5 @@
+// lib/features/status/status_provider.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,8 +10,11 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_post_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
+// Define FeedFilterType as a top-level enum outside the class
+enum FeedFilterType { contacts, latest, trending }
+
 class StatusProvider extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.getInstance();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final Uuid _uuid = const Uuid();
   
@@ -22,7 +27,6 @@ class StatusProvider extends ChangeNotifier {
   bool get isStatusTabVisible => _isStatusTabVisible;
   
   // Track feed filter type
-  enum FeedFilterType { contacts, latest, trending }
   FeedFilterType _currentFilter = FeedFilterType.latest;
   FeedFilterType get currentFilter => _currentFilter;
   

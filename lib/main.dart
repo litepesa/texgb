@@ -32,7 +32,7 @@ import 'package:textgb/features/contacts/contacts_provider.dart';
 import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
-
+import 'package:textgb/shared/theme/modern_colors.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();

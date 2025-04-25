@@ -1,3 +1,5 @@
+// lib/features/status/screens/status_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -62,13 +64,13 @@ class _StatusScreenState extends State<StatusScreen> with SingleTickerProviderSt
     final StatusProvider provider = Provider.of<StatusProvider>(context, listen: false);
     switch (_tabController.index) {
       case 0:
-        provider.setFeedFilter(StatusProvider.FeedFilterType.latest);
+        provider.setFeedFilter(FeedFilterType.latest);
         break;
       case 1:
-        provider.setFeedFilter(StatusProvider.FeedFilterType.trending);
+        provider.setFeedFilter(FeedFilterType.trending);
         break;
       case 2:
-        provider.setFeedFilter(StatusProvider.FeedFilterType.contacts);
+        provider.setFeedFilter(FeedFilterType.contacts);
         break;
     }
   }

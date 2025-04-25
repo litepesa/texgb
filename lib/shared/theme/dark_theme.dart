@@ -10,17 +10,24 @@ ThemeData modernDarkTheme() {
   // Define font styles with Google Fonts
   final textTheme = _createTextTheme();
   
+  // Updated colors based on user preferences
+  const newPrimaryGreen = Color(0xFF25D366);  // Green color
+  const newBackground = Color(0xFF30302E);    // Updated background color
+  const newSurface = Color(0xFF262624);       // Updated app bar and surfaces color
+  const pureWhite = Colors.white;             // Pure white for text
+  
   return base.copyWith(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: ModernColors.primaryGreen,
+      seedColor: newPrimaryGreen,
       brightness: Brightness.dark,
-      primary: ModernColors.primaryGreen,
+      primary: newPrimaryGreen,
       secondary: ModernColors.accentBlue,
-      background: ModernColors.darkBackground,
-      surface: ModernColors.darkSurface,
+      background: newBackground,
+      surface: newSurface,
+      surfaceTint: Colors.transparent, // Disable surface tint in Material 3
     ),
-    scaffoldBackgroundColor: ModernColors.darkBackground,
+    scaffoldBackgroundColor: newBackground,
     
     // Extensions
     extensions: [
@@ -31,51 +38,57 @@ ThemeData modernDarkTheme() {
     ],
     
     // AppBar Theme
-    appBarTheme: const AppBarTheme(
-      backgroundColor: ModernColors.darkAppBar,
+    appBarTheme: AppBarTheme(
+      backgroundColor: newSurface,
+      foregroundColor: pureWhite,
       elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent, // Important - removes Material 3 tint
       centerTitle: false,
-      titleTextStyle: TextStyle(
+      titleTextStyle: const TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w600,
-        color: ModernColors.darkText,
+        color: pureWhite,
       ),
-      systemOverlayStyle: SystemUiOverlayStyle(
+      systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      iconTheme: IconThemeData(
-        color: ModernColors.primaryGreen,
+      iconTheme: const IconThemeData(
+        color: newPrimaryGreen,
         size: 24,
       ),
     ),
     
     // Text Theme
-    textTheme: textTheme,
+    textTheme: textTheme.apply(
+      bodyColor: pureWhite,
+      displayColor: pureWhite,
+    ),
     
     // Bottom Navigation Theme
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: ModernColors.darkSurface,
-      selectedItemColor: ModernColors.primaryGreen,
-      unselectedItemColor: ModernColors.darkTextSecondary,
+      backgroundColor: newSurface,
+      selectedItemColor: newPrimaryGreen,
+      unselectedItemColor: Color(0xFFBBBBBB),
       selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
       showSelectedLabels: true,
       showUnselectedLabels: true,
       type: BottomNavigationBarType.fixed,
-      elevation: 8,
+      elevation: 0,
     ),
     
     // Tab Bar Theme
     tabBarTheme: const TabBarTheme(
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(
-          color: ModernColors.primaryGreen,
+          color: newPrimaryGreen,
           width: 2,
         ),
       ),
-      unselectedLabelColor: ModernColors.darkTextSecondary,
-      labelColor: ModernColors.primaryGreen,
+      unselectedLabelColor: Color(0xFFBBBBBB),
+      labelColor: newPrimaryGreen,
       unselectedLabelStyle: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.normal,
@@ -89,7 +102,7 @@ ThemeData modernDarkTheme() {
     // Button Themes
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: ModernColors.primaryGreen,
+        backgroundColor: newPrimaryGreen,
         foregroundColor: Colors.white,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -106,9 +119,9 @@ ThemeData modernDarkTheme() {
     
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: ModernColors.primaryGreen,
+        foregroundColor: newPrimaryGreen,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        side: const BorderSide(color: ModernColors.primaryGreen, width: 1.5),
+        side: const BorderSide(color: newPrimaryGreen, width: 1.5),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
@@ -122,7 +135,7 @@ ThemeData modernDarkTheme() {
     
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: ModernColors.primaryGreen,
+        foregroundColor: newPrimaryGreen,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -134,9 +147,10 @@ ThemeData modernDarkTheme() {
     
     // Card Theme
     cardTheme: CardTheme(
-      color: ModernColors.darkSurface,
-      elevation: 1,
-      shadowColor: Colors.black.withOpacity(0.4),
+      color: newSurface,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
@@ -146,74 +160,77 @@ ThemeData modernDarkTheme() {
     
     // Modal and Dialog Themes
     bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: ModernColors.darkSurface,
-      modalBackgroundColor: ModernColors.darkSurface,
+      backgroundColor: newSurface,
+      modalBackgroundColor: newSurface,
+      surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(20),
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      elevation: 8,
-      shadowColor: Colors.black.withOpacity(0.3),
+      elevation: 0,
+      shadowColor: Colors.transparent,
     ),
     
-    dialogBackgroundColor: ModernColors.darkSurface,
+    dialogBackgroundColor: newSurface,
     dialogTheme: DialogTheme(
+      backgroundColor: newSurface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      backgroundColor: ModernColors.darkSurface,
-      elevation: 8,
+      elevation: 0,
       titleTextStyle: const TextStyle(
-        color: ModernColors.darkText,
+        color: pureWhite,
         fontSize: 18,
         fontWeight: FontWeight.w600,
       ),
       contentTextStyle: const TextStyle(
-        color: ModernColors.darkText,
+        color: pureWhite,
         fontSize: 16,
       ),
     ),
     
     // FAB Theme
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: ModernColors.primaryGreen,
+      backgroundColor: newPrimaryGreen,
       foregroundColor: Colors.white,
       elevation: 2,
       highlightElevation: 4,
       splashColor: Colors.white.withOpacity(0.2),
-      shape: const CircleBorder(),
-      extendedPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
     ),
     
     // List Tile Theme
     listTileTheme: ListTileThemeData(
-      iconColor: ModernColors.darkTextSecondary,
-      textColor: ModernColors.darkText,
-      tileColor: ModernColors.darkSurface,
+      iconColor: const Color(0xFFBBBBBB),
+      textColor: pureWhite,
+      tileColor: newSurface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       minLeadingWidth: 20,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      selectedTileColor: ModernColors.primaryGreen.withOpacity(0.15),
-      selectedColor: ModernColors.primaryGreen,
+      selectedTileColor: newPrimaryGreen.withOpacity(0.15),
+      selectedColor: newPrimaryGreen,
     ),
     
     // Switch Theme
     switchTheme: SwitchThemeData(
       thumbColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return ModernColors.primaryGreen;
+          return newPrimaryGreen;
         }
         return Colors.white;
       }),
       trackColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return ModernColors.primaryGreen.withOpacity(0.3);
+          return newPrimaryGreen.withOpacity(0.3);
         }
-        return ModernColors.darkTextTertiary.withOpacity(0.3);
+        return const Color(0xFFBBBBBB).withOpacity(0.3);
       }),
       trackOutlineColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
@@ -227,7 +244,7 @@ ThemeData modernDarkTheme() {
     checkboxTheme: CheckboxThemeData(
       fillColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return ModernColors.primaryGreen;
+          return newPrimaryGreen;
         }
         return Colors.transparent;
       }),
@@ -238,14 +255,14 @@ ThemeData modernDarkTheme() {
         borderRadius: BorderRadius.circular(4),
       ),
       side: const BorderSide(
-        color: ModernColors.darkTextTertiary,
+        color: Color(0xFFBBBBBB),
         width: 1.5,
       ),
     ),
     
     // Divider Theme
     dividerTheme: const DividerThemeData(
-      color: ModernColors.darkDivider,
+      color: Color(0xFF444442),
       thickness: 1,
       indent: 16,
       endIndent: 16,
@@ -253,14 +270,14 @@ ThemeData modernDarkTheme() {
     
     // Icon Theme
     iconTheme: const IconThemeData(
-      color: ModernColors.darkTextSecondary,
+      color: Color(0xFFBBBBBB),
       size: 24,
     ),
     
     // Input Decoration Theme
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: ModernColors.darkInputBackground,
+      fillColor: const Color(0xFF3A3A38), // Updated input background
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
@@ -272,29 +289,29 @@ ThemeData modernDarkTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
-        borderSide: const BorderSide(color: ModernColors.primaryGreen, width: 1.5),
+        borderSide: const BorderSide(color: newPrimaryGreen, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
         borderSide: const BorderSide(color: ModernColors.error, width: 1.5),
       ),
-      hintStyle: const TextStyle(color: ModernColors.darkTextTertiary),
-      labelStyle: const TextStyle(color: ModernColors.darkTextSecondary),
-      helperStyle: const TextStyle(color: ModernColors.darkTextTertiary, fontSize: 12),
+      hintStyle: const TextStyle(color: Color(0xFF999999)),
+      labelStyle: const TextStyle(color: Color(0xFFBBBBBB)),
+      helperStyle: const TextStyle(color: Color(0xFF999999), fontSize: 12),
       errorStyle: const TextStyle(color: ModernColors.error, fontSize: 12),
-      prefixIconColor: ModernColors.darkTextSecondary,
-      suffixIconColor: ModernColors.darkTextSecondary,
+      prefixIconColor: const Color(0xFFBBBBBB),
+      suffixIconColor: const Color(0xFFBBBBBB),
     ),
     
     // Chip Theme
     chipTheme: ChipThemeData(
-      backgroundColor: ModernColors.darkSurfaceVariant,
-      disabledColor: ModernColors.darkSurfaceVariant.withOpacity(0.5),
-      selectedColor: ModernColors.primaryGreen.withOpacity(0.3),
-      secondarySelectedColor: ModernColors.primaryGreen,
+      backgroundColor: const Color(0xFF3A3A38), // Updated chip background
+      disabledColor: const Color(0xFF3A3A38).withOpacity(0.5),
+      selectedColor: newPrimaryGreen.withOpacity(0.3),
+      secondarySelectedColor: newPrimaryGreen,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       labelStyle: const TextStyle(
-        color: ModernColors.darkText,
+        color: pureWhite,
         fontSize: 14,
         fontWeight: FontWeight.w500,
       ),
@@ -311,18 +328,18 @@ ThemeData modernDarkTheme() {
     
     // Slider Theme
     sliderTheme: const SliderThemeData(
-      activeTrackColor: ModernColors.primaryGreen,
-      inactiveTrackColor: ModernColors.darkTextTertiary,
-      thumbColor: ModernColors.primaryGreen,
-      overlayColor: Color(0x2900A884),
+      activeTrackColor: newPrimaryGreen,
+      inactiveTrackColor: Color(0xFF666666),
+      thumbColor: newPrimaryGreen,
+      overlayColor: Color(0x2925D366),
       trackHeight: 4.0,
     ),
     
     // Progress Indicator Theme
     progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: ModernColors.primaryGreen,
-      circularTrackColor: ModernColors.darkSurfaceVariant,
-      linearTrackColor: ModernColors.darkSurfaceVariant,
+      color: newPrimaryGreen,
+      circularTrackColor: Color(0xFF3A3A38), // Updated progress track color
+      linearTrackColor: Color(0xFF3A3A38),
     ),
     
     // Page Transitions Theme
@@ -335,9 +352,9 @@ ThemeData modernDarkTheme() {
     
     // Snack Bar Theme
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: ModernColors.darkSurfaceVariant,
-      contentTextStyle: const TextStyle(color: ModernColors.darkText),
-      actionTextColor: ModernColors.primaryGreen,
+      backgroundColor: const Color(0xFF3A3A38), // Updated snackbar background
+      contentTextStyle: const TextStyle(color: pureWhite),
+      actionTextColor: newPrimaryGreen,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
@@ -346,111 +363,116 @@ ThemeData modernDarkTheme() {
     
     // Banner Theme
     bannerTheme: const MaterialBannerThemeData(
-      backgroundColor: ModernColors.darkSurfaceVariant,
-      contentTextStyle: TextStyle(color: ModernColors.darkText),
+      backgroundColor: Color(0xFF3A3A38), // Updated banner background
+      contentTextStyle: TextStyle(color: pureWhite),
       padding: EdgeInsets.all(16),
     ),
     
     // Bottom App Bar Theme
     bottomAppBarTheme: const BottomAppBarTheme(
-      color: ModernColors.darkSurface,
-      elevation: 8,
+      color: newSurface,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       shape: CircularNotchedRectangle(),
     ),
   );
 }
 
 TextTheme _createTextTheme() {
+  const pureWhite = Colors.white;
+  const secondaryText = Color(0xFFBBBBBB);
+  
   return TextTheme(
     displayLarge: GoogleFonts.inter(
       fontSize: 57, 
       fontWeight: FontWeight.w400,
       letterSpacing: -0.25,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     displayMedium: GoogleFonts.inter(
       fontSize: 45, 
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     displaySmall: GoogleFonts.inter(
       fontSize: 36, 
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     headlineLarge: GoogleFonts.inter(
       fontSize: 32, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     headlineMedium: GoogleFonts.inter(
       fontSize: 28, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     headlineSmall: GoogleFonts.inter(
       fontSize: 24, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     titleLarge: GoogleFonts.inter(
       fontSize: 22, 
       fontWeight: FontWeight.w500,
       letterSpacing: 0,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     titleMedium: GoogleFonts.inter(
       fontSize: 16, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0.15,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     titleSmall: GoogleFonts.inter(
       fontSize: 14, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0.1,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     bodyLarge: GoogleFonts.inter(
       fontSize: 16, 
       fontWeight: FontWeight.w400,
       letterSpacing: 0.5,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     bodyMedium: GoogleFonts.inter(
       fontSize: 14, 
       fontWeight: FontWeight.w400,
       letterSpacing: 0.25,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     bodySmall: GoogleFonts.inter(
       fontSize: 12, 
       fontWeight: FontWeight.w400,
       letterSpacing: 0.4,
-      color: ModernColors.darkTextSecondary,
+      color: secondaryText,
     ),
     labelLarge: GoogleFonts.inter(
       fontSize: 14, 
       fontWeight: FontWeight.w500,
       letterSpacing: 0.1,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     labelMedium: GoogleFonts.inter(
       fontSize: 12, 
       fontWeight: FontWeight.w500,
       letterSpacing: 0.5,
-      color: ModernColors.darkText,
+      color: pureWhite,
     ),
     labelSmall: GoogleFonts.inter(
       fontSize: 11, 
       fontWeight: FontWeight.w500,
       letterSpacing: 0.5,
-      color: ModernColors.darkTextSecondary,
+      color: secondaryText,
     ),
   );
 }

@@ -44,11 +44,37 @@ class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingOb
   
   void _updateUI() {
     final themeManager = Provider.of<ThemeManager>(context, listen: false);
-    themeManager.updateSystemNavigation();
+    final isDarkMode = themeManager.isDarkMode;
+    
+    // Set the system UI colors based on the current theme
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        // Use the appropriate color based on the theme
+        systemNavigationBarColor: isDarkMode 
+            ? const Color(0xFF262624)  // New dark theme for navigation bar
+            : Colors.white,            // Light theme navigation bar
+        systemNavigationBarIconBrightness: isDarkMode 
+            ? Brightness.light         // White icons for dark theme
+            : Brightness.dark,         // Dark icons for light theme
+        systemNavigationBarDividerColor: Colors.transparent,
+        statusBarIconBrightness: isDarkMode 
+            ? Brightness.light         // White status bar icons for dark theme
+            : Brightness.dark,         // Dark status bar icons for light theme
+      ),
+    );
   }
   
   @override
   Widget build(BuildContext context) {
+    // Listen for theme changes
+    final themeManager = Provider.of<ThemeManager>(context);
+    
+    // Update the UI whenever the theme changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateUI();
+    });
+    
     return widget.child;
   }
 }

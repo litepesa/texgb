@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dark_theme.dart';
 import 'light_theme.dart';
+import 'modern_colors.dart';
 
 enum ThemeOption {
   light,
@@ -84,19 +85,34 @@ class ThemeManager extends ChangeNotifier {
   void updateSystemNavigation() {
     final isDark = _activeTheme.brightness == Brightness.dark;
     
+    // Use explicit colors for better consistency across devices
     Color navBarColor = isDark 
-        ? _activeTheme.bottomNavigationBarTheme.backgroundColor ?? const Color(0xFF1F2C34)
-        : _activeTheme.bottomNavigationBarTheme.backgroundColor ?? Colors.white;
+        ? const Color(0xFF262624)  // Updated dark theme for navigation bar
+        : Colors.white;            // Light theme - use white
     
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         systemNavigationBarColor: navBarColor,
         systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         systemNavigationBarDividerColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
       ),
     );
+    
+    // Apply a second time after a short delay to override any system defaults
+    // This helps on some Android versions that might reset the navigation bar color
+    Future.delayed(const Duration(milliseconds: 100), () {
+      SystemChrome.setSystemUIOverlayStyle(
+        SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: navBarColor,
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        ),
+      );
+    });
   }
   
   // Change theme and save preference

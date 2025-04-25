@@ -22,14 +22,15 @@ class Constants {
   static const String groupMemberRequestsScreen = '/groupMemberRequestsScreen';  // Screen for pending group join requests
   static const String blockedContactsScreen = '/blockedContactsScreen';
   
-  // Status feature routes (our enhanced channel implementation)
+  // Status feature routes
   static const String statusScreen = '/statusScreen';
   static const String createStatusScreen = '/createStatusScreen';
   static const String statusDetailScreen = '/statusDetailScreen';
   static const String myStatusScreen = '/myStatusScreen';
   static const String mediaViewScreen = '/mediaViewScreen';
+  static const String statusCommentsScreen = '/statusCommentsScreen';
   
-  // Legacy Channel feature routes (no longer used but kept for reference)
+  // Channel feature routes
   static const String channelsScreen = '/channelsScreen';
   static const String createChannelScreen = '/createChannelScreen';
   static const String channelDetailScreen = '/channelDetailScreen';
@@ -38,7 +39,7 @@ class Constants {
   static const String exploreChannelsScreen = '/exploreChannelsScreen';
   static const String myChannelsScreen = '/myChannelsScreen';
   
-  // Collection names for Status (our channel implementation)
+  // Collection names for Status
   static const String statuses = 'statuses';
   static const String statusFiles = 'statusFiles';
   static const String statusId = 'statusId';
@@ -47,6 +48,29 @@ class Constants {
   static const String statusReplies = 'statusReplies';
   static const String statusViewCount = 'statusViewCount';   
   static const String statusLikes = 'statusLikes';
+  
+  // Collection names for Channels
+  static const String channels = 'channels';
+  static const String channelPosts = 'channelPosts';
+  static const String channelFiles = 'channelFiles';
+  static const String subscribedChannels = 'subscribedChannels';
+  
+  // Channel model fields
+  static const String channelId = 'channelId';
+  static const String channelName = 'channelName';
+  static const String channelDescription = 'channelDescription';
+  static const String channelImage = 'channelImage';
+  static const String isVerified = 'isVerified';
+  static const String subscribersUIDs = 'subscribersUIDs';
+  static const String adminUIDs = 'adminUIDs';
+  static const String channelSettings = 'channelSettings';
+  static const String lastPostAt = 'lastPostAt';
+  
+  // Channel post model fields
+  static const String postId = 'postId';
+  static const String mediaUrl = 'mediaUrl';
+  static const String postViewCount = 'postViewCount';
+  static const String isPinned = 'isPinned';
   
   // User-related constants
   static const String uid = 'uid';

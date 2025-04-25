@@ -1,4 +1,7 @@
+// lib/features/status/status_post_model.dart
+
 import 'package:textgb/constants.dart';
+import 'package:textgb/enums/enums.dart';
 
 class StatusPostModel {
   final String statusId;
@@ -35,16 +38,27 @@ class StatusPostModel {
     required this.isContactsOnly,
   });
 
-  // Factory constructor to create a StatusPostModel from a map
   factory StatusPostModel.fromMap(Map<String, dynamic> map) {
+    final mediaUrls = List<String>.from(map['mediaUrls'] ?? []);
+    final rawType = map[Constants.statusType] ?? 'text';
+    
+    // Auto-detect type based on media URLs if not explicitly specified
+    final detectedType = mediaUrls.isNotEmpty 
+        ? (_isVideoUrl(mediaUrls.first) 
+            ? StatusType.video 
+            : StatusType.image)
+        : StatusType.text;
+
     return StatusPostModel(
       statusId: map[Constants.statusId] ?? '',
       uid: map[Constants.uid] ?? '',
       username: map[Constants.name] ?? '',
       userImage: map[Constants.image] ?? '',
-      mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
+      mediaUrls: mediaUrls,
       caption: map['caption'] ?? '',
-      type: StatusType.fromString(map[Constants.statusType] ?? 'text'),
+      type: rawType != 'text' 
+          ? StatusTypeExtension.fromString(rawType)
+          : detectedType,
       createdAt: map['createdAt'] != null 
           ? DateTime.parse(map['createdAt']) 
           : DateTime.now(),
@@ -60,7 +74,6 @@ class StatusPostModel {
     );
   }
 
-  // Method to convert StatusPostModel to a map
   Map<String, dynamic> toMap() {
     return {
       Constants.statusId: statusId,
@@ -81,19 +94,49 @@ class StatusPostModel {
     };
   }
 
-  // Getter for like count
+  // Helper method to check if URL points to a video
+  static bool _isVideoUrl(String url) {
+    final lowerUrl = url.toLowerCase();
+    return lowerUrl.endsWith('.mp4') || 
+           lowerUrl.endsWith('.mov') || 
+           lowerUrl.contains('video') ||
+           lowerUrl.contains('stream');
+  }
+
+  /// Validates all media URLs in the post
+  bool get hasValidMediaUrls {
+    if (mediaUrls.isEmpty) return type == StatusType.text;
+    
+    try {
+      for (final url in mediaUrls) {
+        final uri = Uri.parse(url);
+        if (!uri.isAbsolute) return false;
+        
+        // Additional validation based on type
+        if (type == StatusType.video && !_isVideoUrl(url)) {
+          return false;
+        }
+        if (type == StatusType.image && _isVideoUrl(url)) {
+          return false;
+        }
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns the first media URL if valid, otherwise empty string
+  String get firstValidMediaUrl {
+    if (mediaUrls.isEmpty) return '';
+    return hasValidMediaUrls ? mediaUrls.first : '';
+  }
+
   int get likeCount => likeUIDs.length;
-
-  // Check if status is expired
   bool get isExpired => DateTime.now().isAfter(expiresAt);
-
-  // Check if a user has liked this status
   bool isLikedBy(String userId) => likeUIDs.contains(userId);
-
-  // Check if a user has viewed this status
   bool isViewedBy(String userId) => viewerUIDs.contains(userId);
 
-  // Clone with method for updating status data
   StatusPostModel copyWith({
     String? statusId,
     String? uid,
@@ -131,7 +174,6 @@ class StatusPostModel {
   }
 }
 
-// Status comment model for the robust comment system
 class StatusCommentModel {
   final String commentId;
   final String statusId;
@@ -140,7 +182,7 @@ class StatusCommentModel {
   final String userImage;
   final String text;
   final DateTime createdAt;
-  final String? parentCommentId; // For replies to comments
+  final String? parentCommentId;
   final List<String> likeUIDs;
 
   StatusCommentModel({
@@ -155,7 +197,6 @@ class StatusCommentModel {
     required this.likeUIDs,
   });
 
-  // Factory constructor to create a StatusCommentModel from a map
   factory StatusCommentModel.fromMap(Map<String, dynamic> map) {
     return StatusCommentModel(
       commentId: map['commentId'] ?? '',
@@ -172,7 +213,6 @@ class StatusCommentModel {
     );
   }
 
-  // Method to convert StatusCommentModel to a map
   Map<String, dynamic> toMap() {
     return {
       'commentId': commentId,
@@ -187,47 +227,7 @@ class StatusCommentModel {
     };
   }
 
-  // Getter for like count
   int get likeCount => likeUIDs.length;
-
-  // Check if a user has liked this comment
   bool isLikedBy(String userId) => likeUIDs.contains(userId);
-  
-  // Check if this is a reply to another comment
   bool get isReply => parentCommentId != null;
-}
-
-// Enum for Status type (importing from enums.dart)
-enum StatusType {
-  text,
-  image,
-  video,
-}
-
-// Extension on StatusType
-extension StatusTypeExtension on StatusType {
-  String get name {
-    switch (this) {
-      case StatusType.text:
-        return 'text';
-      case StatusType.image:
-        return 'image';
-      case StatusType.video:
-        return 'video';
-      default:
-        return 'text';
-    }
-  }
-  
-  static StatusType fromString(String type) {
-    switch (type.toLowerCase()) {
-      case 'image':
-        return StatusType.image;
-      case 'video':
-        return StatusType.video;
-      case 'text':
-      default:
-        return StatusType.text;
-    }
-  }
 }

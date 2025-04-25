@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/theme_manager.dart';
+import '../theme/modern_colors.dart';
 
 class ThemeSelector extends StatelessWidget {
   const ThemeSelector({super.key});
@@ -70,8 +71,8 @@ class ThemeSelector extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = isDark ? 
-        const Color(0xFF00A884) : // Dark theme primary green
-        const Color(0xFF008069); // Light theme primary teal
+        ModernColors.primaryGreen : // Use the updated green for dark mode
+        ModernColors.primaryTeal;   // Use the teal for light mode
     
     return Material(
       color: isSelected 
@@ -137,8 +138,8 @@ class ThemeToggleButton extends StatelessWidget {
     final themeManager = Provider.of<ThemeManager>(context);
     final isDark = themeManager.isDarkMode;
     final primaryColor = isDark ? 
-        const Color(0xFF00A884) : // Dark theme primary green
-        const Color(0xFF008069); // Light theme primary teal
+        ModernColors.primaryGreen : // Use the updated green for dark mode
+        ModernColors.primaryTeal;   // Use the teal for light mode
     
     return Container(
       width: size,
