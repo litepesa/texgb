@@ -434,7 +434,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
     themeManager.setTheme(option);
     setState(() {
       _currentTheme = option;
-      isDarkMode = option == ThemeOption.dark || option == ThemeOption.trueBlack || 
+      isDarkMode = option == ThemeOption.dark || 
         (option == ThemeOption.system && Theme.of(context).brightness == Brightness.dark);
     });
   }
@@ -742,7 +742,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                           icon: Icons.people,
                           title: 'Contacts',
                           subtitle: 'Manage your contacts',
-                          iconColor: ModernColors.primaryBlue,
+                          iconColor: isDarkMode ? ModernColors.accentBlue : ModernColors.accentTealBlue,
                           onTap: () {
                             Navigator.pushNamed(
                               context,
@@ -756,7 +756,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                           icon: isDarkMode ? Icons.dark_mode : Icons.light_mode,
                           title: 'Appearance',
                           subtitle: _getThemeSubtitle(),
-                          iconColor: isDarkMode ? ModernColors.primaryPurple : ModernColors.warning,
+                          iconColor: isDarkMode ? ModernColors.primaryGreen : ModernColors.primaryTeal,
                           trailing: IconButton(
                             icon: const Icon(Icons.settings),
                             onPressed: () {
@@ -807,8 +807,6 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
         return 'Light Mode';
       case ThemeOption.dark:
         return 'Dark Mode';
-      case ThemeOption.trueBlack:
-        return 'True Black Mode';
       case ThemeOption.system:
         return 'System Default';
       default:

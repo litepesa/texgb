@@ -59,9 +59,9 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
     textSecondaryColor: ModernColors.lightTextSecondary,
     textTertiaryColor: ModernColors.lightTextTertiary,
     dividerColor: ModernColors.lightDivider,
-    primaryColor: ModernColors.primaryBlue,
-    secondaryColor: ModernColors.primaryPurple,
-    accentColor: ModernColors.primaryEmerald,
+    primaryColor: ModernColors.primaryTeal,
+    secondaryColor: ModernColors.accentTealBlue,
+    accentColor: ModernColors.success,
     borderColor: ModernColors.lightBorder,
   );
 
@@ -74,9 +74,9 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
     textSecondaryColor: ModernColors.darkTextSecondary,
     textTertiaryColor: ModernColors.darkTextTertiary,
     dividerColor: ModernColors.darkDivider,
-    primaryColor: ModernColors.primaryBlue,
-    secondaryColor: ModernColors.primaryPurple,
-    accentColor: ModernColors.primaryEmerald,
+    primaryColor: ModernColors.primaryGreen,
+    secondaryColor: ModernColors.accentBlue,
+    accentColor: ModernColors.success,
     borderColor: ModernColors.darkBorder,
   );
 

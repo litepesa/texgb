@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/channels/screens/channels_screen.dart';
 import 'package:textgb/features/groups/screens/create_group_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
@@ -14,21 +15,6 @@ import 'package:textgb/main_screen/enhanced_profile_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
-
-// Add this as a placeholder for the new Channels screen
-class ChannelsScreen extends StatelessWidget {
-  const ChannelsScreen({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'Channels Feature Coming Soon',
-        style: TextStyle(fontSize: 20),
-      ),
-    );
-  }
-}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -45,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen>
   final Widget chatScreen = const MyChatsScreen();
   final Widget groupScreen = const GroupsScreen();
   final Widget statusScreen = const StatusScreen();
-  final Widget channelsScreen = const ChannelsScreen(); // New channels screen
+  final Widget channelsScreen = const ChannelsScreen(); // Updated to use our actual ChannelsScreen
   
   // We'll define these in initState to ensure they match our bottom nav bar
   late final List<Widget> pages;
@@ -307,9 +293,9 @@ class _HomeScreenState extends State<HomeScreen>
               label: 'Status',
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.rays, size: 28),              // New icon for Channels
-              activeIcon: Icon(CupertinoIcons.rays, size: 28),  // Active icon for Channels
-              label: 'Channels',                                         // New label for Channels
+              icon: Icon(CupertinoIcons.rays, size: 28),              // Icon for Channels
+              activeIcon: Icon(CupertinoIcons.rays, size: 28),        // Active icon for Channels
+              label: 'Channels',                                       // Label for Channels
             ),
           ],
         ),
@@ -366,12 +352,11 @@ class _HomeScreenState extends State<HomeScreen>
         child: const Icon(CupertinoIcons.camera, size: 26),
       );
     }
-    // New FAB for Channels tab
+    // FAB for Channels tab - Navigate to create channel
     else if (pageIndex == 3) {
       return FloatingActionButton(
         onPressed: () {
-          // You can add navigation to create new channel screen here
-          showSnackBar(context, 'Create new channel feature coming soon!');
+          Navigator.pushNamed(context, Constants.createChannelScreen);
         },
         backgroundColor: accentColor,
         elevation: 4.0,

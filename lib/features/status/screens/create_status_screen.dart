@@ -155,7 +155,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop Image',
-            toolbarColor: Theme.of(context).primaryColor,
+            toolbarColor: Theme.of(context).colorScheme.primary,
             toolbarWidgetColor: Colors.white,
             lockAspectRatio: true,
           ),
@@ -256,7 +256,11 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   
   void _showMediaPicker() {
     final modernTheme = context.modernTheme;
-    
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark 
+        ? ModernColors.primaryGreen
+        : ModernColors.primaryTeal;
+        
     showModalBottomSheet(
       context: context,
       backgroundColor: modernTheme.surfaceColor,
@@ -298,10 +302,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: ModernColors.primaryBlue.withOpacity(0.1),
+                  color: primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.camera_alt, color: ModernColors.primaryBlue),
+                child: Icon(Icons.camera_alt, color: primaryColor),
               ),
               title: Text(
                 'Take a photo',
@@ -394,10 +398,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: ModernColors.primaryPurple.withOpacity(0.1),
+                  color: (isDark ? ModernColors.accentBlue : ModernColors.accentTealBlue).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.text_fields, color: ModernColors.primaryPurple),
+                child: Icon(Icons.text_fields, color: isDark ? ModernColors.accentBlue : ModernColors.accentTealBlue),
               ),
               title: Text(
                 'Text status',
@@ -422,6 +426,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   
   void _showTextStatusEditor() {
     final modernTheme = context.modernTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark 
+        ? ModernColors.primaryGreen
+        : ModernColors.primaryTeal;
     
     showModalBottomSheet(
       context: context,
@@ -463,7 +471,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                 decoration: InputDecoration(
                   hintText: 'Enter your status text...',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
               ),
@@ -501,6 +509,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = modernTheme.primaryColor!;
     final textColor = modernTheme.textColor!;
     final textSecondaryColor = modernTheme.textSecondaryColor!;
@@ -567,7 +576,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   
   Widget _buildInitialView() {
     final modernTheme = context.modernTheme;
-    final primaryColor = modernTheme.primaryColor!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark 
+        ? ModernColors.primaryGreen
+        : ModernColors.primaryTeal;
     final textColor = modernTheme.textColor!;
     final textSecondaryColor = modernTheme.textSecondaryColor!;
     
@@ -607,7 +619,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(24),
               ),
             ),
           ),
@@ -618,7 +630,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   
   Widget _buildPreviewView() {
     final modernTheme = context.modernTheme;
-    final primaryColor = modernTheme.primaryColor!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark 
+        ? ModernColors.primaryGreen
+        : ModernColors.primaryTeal;
     final surfaceColor = modernTheme.surfaceColor!;
     
     return Column(
@@ -650,7 +665,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                     decoration: InputDecoration(
                       hintText: 'Add a caption...',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(24),
                       ),
                       contentPadding: const EdgeInsets.all(16),
                       filled: true,
@@ -694,7 +709,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
                 child: _isCreating
@@ -787,6 +802,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   }
   
   Widget _buildTextPreview() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final text = _captionController.text.isEmpty 
         ? 'Enter your text status...'
         : _captionController.text;
@@ -798,10 +814,14 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.purple.shade800,
-            Colors.purple.shade500,
-            Colors.indigo.shade500,
+          colors: isDark ? [
+            const Color(0xFF005C4B), // Dark sender bubble color
+            const Color(0xFF00A884), // Primary green
+            const Color(0xFF00A884).withOpacity(0.7),
+          ] : [
+            const Color(0xFF008069), // Primary teal 
+            const Color(0xFF008069).withOpacity(0.8),
+            const Color(0xFF027EB5).withOpacity(0.7), // Accent teal blue
           ],
         ),
       ),
@@ -816,7 +836,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
             shadows: [
               Shadow(
                 color: Colors.black,
-                offset: const Offset(2, 2),
+                offset: Offset(2, 2),
                 blurRadius: 4,
               ),
             ],

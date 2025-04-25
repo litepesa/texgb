@@ -54,17 +54,6 @@ class ThemeSelector extends StatelessWidget {
             isSelected: themeManager.currentTheme == ThemeOption.dark,
             onTap: () => themeManager.setTheme(ThemeOption.dark),
           ),
-          
-          const SizedBox(height: 8),
-          
-          _buildThemeOption(
-            context,
-            title: 'True Black',
-            subtitle: 'OLED-friendly, saves battery',
-            icon: Icons.nights_stay,
-            isSelected: themeManager.currentTheme == ThemeOption.trueBlack,
-            onTap: () => themeManager.setTheme(ThemeOption.trueBlack),
-          ),
         ],
       ),
     );
@@ -79,10 +68,14 @@ class ThemeSelector extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = isDark ? 
+        const Color(0xFF00A884) : // Dark theme primary green
+        const Color(0xFF008069); // Light theme primary teal
     
     return Material(
       color: isSelected 
-          ? theme.colorScheme.primary.withOpacity(0.1)
+          ? primaryColor.withOpacity(0.1)
           : Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
@@ -94,7 +87,7 @@ class ThemeSelector extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: isSelected ? theme.colorScheme.primary : theme.iconTheme.color,
+                color: isSelected ? primaryColor : theme.iconTheme.color,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -105,7 +98,7 @@ class ThemeSelector extends StatelessWidget {
                     Text(
                       title,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: isSelected ? theme.colorScheme.primary : null,
+                        color: isSelected ? primaryColor : null,
                       ),
                     ),
                     Text(
@@ -118,7 +111,7 @@ class ThemeSelector extends StatelessWidget {
               if (isSelected)
                 Icon(
                   Icons.check_circle,
-                  color: theme.colorScheme.primary,
+                  color: primaryColor,
                 ),
             ],
           ),
@@ -143,13 +136,16 @@ class ThemeToggleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeManager = Provider.of<ThemeManager>(context);
     final isDark = themeManager.isDarkMode;
+    final primaryColor = isDark ? 
+        const Color(0xFF00A884) : // Dark theme primary green
+        const Color(0xFF008069); // Light theme primary teal
     
     return Container(
       width: size,
       height: size,
       margin: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
+        color: primaryColor,
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(

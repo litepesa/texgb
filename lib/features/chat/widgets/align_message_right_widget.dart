@@ -20,9 +20,10 @@ class AlignMessageRightWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get theme colors from ChatThemeExtension instead of WeChatThemeExtension
+    // Get theme colors from ChatThemeExtension
     final chatTheme = context.chatTheme;
     final modernTheme = context.modernTheme;
+    final responsiveTheme = context.responsiveTheme;
     
     // Get colors from the theme extensions
     final senderBubbleColor = chatTheme.senderBubbleColor ?? const Color(0xFF95EC69);
@@ -35,58 +36,131 @@ class AlignMessageRightWidget extends StatelessWidget {
     
     final isReplying = message.repliedTo.isNotEmpty;
     
+    // Get the reactions count
+    final hasReactions = message.reactions.isNotEmpty;
+    
+    // Create gradient if in dark mode
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final BoxDecoration bubbleDecoration = isDarkMode
+        ? BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF115740), Color(0xFF064E3B)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: chatTheme.senderBubbleRadius ?? BorderRadius.circular(18.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          )
+        : BoxDecoration(
+            color: senderBubbleColor,
+            borderRadius: chatTheme.senderBubbleRadius ?? BorderRadius.circular(18.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          );
+    
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0, left: 64.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.only(
+        bottom: responsiveTheme.compactSpacing * 1.5, 
+        left: MediaQuery.of(context).size.width * 0.2,
+        right: responsiveTheme.compactSpacing,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Message content column
-          Expanded(
+          // Message bubble with content
+          Container(
+            decoration: bubbleDecoration,
+            padding: message.messageType == MessageEnum.text
+              ? const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0)
+              : const EdgeInsets.all(8.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Message bubble with content
-                Container(
-                  decoration: BoxDecoration(
-                    color: senderBubbleColor,
-                    borderRadius: chatTheme.senderBubbleRadius ?? BorderRadius.circular(4.0),
+                // Reply preview if applicable
+                if (isReplying)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: MessageReplyPreview(
+                      message: message,
+                      viewOnly: viewOnly,
+                    ),
                   ),
-                  padding: message.messageType == MessageEnum.text
-                    ? const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0)
-                    : const EdgeInsets.all(4.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Reply preview if applicable
-                      if (isReplying)
-                        MessageReplyPreview(
-                          message: message,
-                          viewOnly: viewOnly,
+                
+                // Message content
+                DisplayMessageType(
+                  message: message.message,
+                  type: message.messageType,
+                  color: senderTextColor,
+                  isReply: false,
+                  viewOnly: viewOnly,
+                ),
+              ],
+            ),
+          ),
+          
+          // Timestamp and seen status row
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0, right: 8.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Display reaction count if any
+                if (hasReactions)
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey.withOpacity(0.2)
+                          : Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.favorite,
+                          size: 12,
+                          color: modernTheme.textSecondaryColor,
                         ),
-                      
-                      // Message content
-                      DisplayMessageType(
-                        message: message.message,
-                        type: message.messageType,
-                        color: senderTextColor,
-                        isReply: false,
-                        viewOnly: viewOnly,
-                      ),
-                    ],
+                        const SizedBox(width: 2),
+                        Text(
+                          message.reactions.length.toString(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: modernTheme.textSecondaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                Text(
+                  time,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: timestampColor,
                   ),
                 ),
                 
-                // Timestamp
-                Padding(
-                  padding: const EdgeInsets.only(right: 12.0, top: 4.0),
-                  child: Text(
-                    time,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: timestampColor,
-                    ),
-                  ),
+                const SizedBox(width: 4),
+                
+                // Add read receipt indicator
+                Icon(
+                  message.isSeen ? Icons.done_all : Icons.done,
+                  size: 14,
+                  color: message.isSeen ? modernTheme.accentColor! : timestampColor,
                 ),
               ],
             ),

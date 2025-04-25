@@ -4,12 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dark_theme.dart';
 import 'light_theme.dart';
-import 'true_black_theme.dart';
 
 enum ThemeOption {
   light,
   dark,
-  trueBlack,
   system
 }
 
@@ -72,9 +70,6 @@ class ThemeManager extends ChangeNotifier {
       case ThemeOption.dark:
         _activeTheme = modernDarkTheme();
         break;
-      case ThemeOption.trueBlack:
-        _activeTheme = trueBlackTheme();
-        break;
       case ThemeOption.system:
         final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
         _activeTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
@@ -88,14 +83,10 @@ class ThemeManager extends ChangeNotifier {
   // Update system UI to match theme
   void updateSystemNavigation() {
     final isDark = _activeTheme.brightness == Brightness.dark;
-    final isTrueBlack = _currentTheme == ThemeOption.trueBlack;
     
-    Color navBarColor;
-    if (isDark) {
-      navBarColor = isTrueBlack ? Colors.black : _activeTheme.bottomNavigationBarTheme.backgroundColor ?? const Color(0xFF1F1F1F);
-    } else {
-      navBarColor = _activeTheme.bottomNavigationBarTheme.backgroundColor ?? Colors.white;
-    }
+    Color navBarColor = isDark 
+        ? _activeTheme.bottomNavigationBarTheme.backgroundColor ?? const Color(0xFF1F2C34)
+        : _activeTheme.bottomNavigationBarTheme.backgroundColor ?? Colors.white;
     
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(

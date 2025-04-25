@@ -13,8 +13,12 @@ ThemeData modernDarkTheme() {
   return base.copyWith(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: ModernColors.primaryBlue,
+      seedColor: ModernColors.primaryGreen,
       brightness: Brightness.dark,
+      primary: ModernColors.primaryGreen,
+      secondary: ModernColors.accentBlue,
+      background: ModernColors.darkBackground,
+      surface: ModernColors.darkSurface,
     ),
     scaffoldBackgroundColor: ModernColors.darkBackground,
     
@@ -39,15 +43,9 @@ ThemeData modernDarkTheme() {
       systemOverlayStyle: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-
-        // Added these 3 lines:
-      //systemNavigationBarColor: ModernColors.darkSurface,
-      //systemNavigationBarDividerColor: Colors.transparent,
-      //systemNavigationBarIconBrightness: Brightness.light,
-
       ),
       iconTheme: IconThemeData(
-        color: ModernColors.darkText,
+        color: ModernColors.primaryGreen,
         size: 24,
       ),
     ),
@@ -58,7 +56,7 @@ ThemeData modernDarkTheme() {
     // Bottom Navigation Theme
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: ModernColors.darkSurface,
-      selectedItemColor: ModernColors.primaryBlue,
+      selectedItemColor: ModernColors.primaryGreen,
       unselectedItemColor: ModernColors.darkTextSecondary,
       selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
@@ -72,12 +70,12 @@ ThemeData modernDarkTheme() {
     tabBarTheme: const TabBarTheme(
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(
-          color: ModernColors.primaryBlue,
+          color: ModernColors.primaryGreen,
           width: 2,
         ),
       ),
       unselectedLabelColor: ModernColors.darkTextSecondary,
-      labelColor: ModernColors.primaryBlue,
+      labelColor: ModernColors.primaryGreen,
       unselectedLabelStyle: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.normal,
@@ -91,12 +89,12 @@ ThemeData modernDarkTheme() {
     // Button Themes
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: ModernColors.primaryBlue,
+        backgroundColor: ModernColors.primaryGreen,
         foregroundColor: Colors.white,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(24),
         ),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -108,11 +106,11 @@ ThemeData modernDarkTheme() {
     
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: ModernColors.primaryBlue,
+        foregroundColor: ModernColors.primaryGreen,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        side: const BorderSide(color: ModernColors.primaryBlue, width: 1.5),
+        side: const BorderSide(color: ModernColors.primaryGreen, width: 1.5),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(24),
         ),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -124,7 +122,7 @@ ThemeData modernDarkTheme() {
     
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: ModernColors.primaryBlue,
+        foregroundColor: ModernColors.primaryGreen,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -140,29 +138,30 @@ ThemeData modernDarkTheme() {
       elevation: 1,
       shadowColor: Colors.black.withOpacity(0.4),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
       ),
       clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
     ),
     
     // Modal and Dialog Themes
-    bottomSheetTheme: const BottomSheetThemeData(
+    bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: ModernColors.darkSurface,
       modalBackgroundColor: ModernColors.darkSurface,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
+          top: Radius.circular(20),
         ),
       ),
       clipBehavior: Clip.antiAlias,
       elevation: 8,
+      shadowColor: Colors.black.withOpacity(0.3),
     ),
     
     dialogBackgroundColor: ModernColors.darkSurface,
     dialogTheme: DialogTheme(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       backgroundColor: ModernColors.darkSurface,
       elevation: 8,
@@ -179,14 +178,13 @@ ThemeData modernDarkTheme() {
     
     // FAB Theme
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: ModernColors.primaryBlue,
+      backgroundColor: ModernColors.primaryGreen,
       foregroundColor: Colors.white,
       elevation: 2,
       highlightElevation: 4,
       splashColor: Colors.white.withOpacity(0.2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: const CircleBorder(),
+      extendedPadding: const EdgeInsets.all(16),
     ),
     
     // List Tile Theme
@@ -199,21 +197,21 @@ ThemeData modernDarkTheme() {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      selectedTileColor: ModernColors.primaryBlue.withOpacity(0.15),
-      selectedColor: ModernColors.primaryBlue,
+      selectedTileColor: ModernColors.primaryGreen.withOpacity(0.15),
+      selectedColor: ModernColors.primaryGreen,
     ),
     
     // Switch Theme
     switchTheme: SwitchThemeData(
       thumbColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return ModernColors.primaryBlue;
+          return ModernColors.primaryGreen;
         }
         return Colors.white;
       }),
       trackColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return ModernColors.primaryBlue.withOpacity(0.3);
+          return ModernColors.primaryGreen.withOpacity(0.3);
         }
         return ModernColors.darkTextTertiary.withOpacity(0.3);
       }),
@@ -229,7 +227,7 @@ ThemeData modernDarkTheme() {
     checkboxTheme: CheckboxThemeData(
       fillColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return ModernColors.primaryBlue;
+          return ModernColors.primaryGreen;
         }
         return Colors.transparent;
       }),
@@ -265,19 +263,19 @@ ThemeData modernDarkTheme() {
       fillColor: ModernColors.darkInputBackground,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: ModernColors.primaryBlue, width: 1.5),
+        borderRadius: BorderRadius.circular(24),
+        borderSide: const BorderSide(color: ModernColors.primaryGreen, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         borderSide: const BorderSide(color: ModernColors.error, width: 1.5),
       ),
       hintStyle: const TextStyle(color: ModernColors.darkTextTertiary),
@@ -292,8 +290,8 @@ ThemeData modernDarkTheme() {
     chipTheme: ChipThemeData(
       backgroundColor: ModernColors.darkSurfaceVariant,
       disabledColor: ModernColors.darkSurfaceVariant.withOpacity(0.5),
-      selectedColor: ModernColors.primaryBlue.withOpacity(0.3),
-      secondarySelectedColor: ModernColors.primaryBlue,
+      selectedColor: ModernColors.primaryGreen.withOpacity(0.3),
+      secondarySelectedColor: ModernColors.primaryGreen,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       labelStyle: const TextStyle(
         color: ModernColors.darkText,
@@ -306,23 +304,23 @@ ThemeData modernDarkTheme() {
         fontWeight: FontWeight.w500,
       ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
       ),
       elevation: 0,
     ),
     
     // Slider Theme
     sliderTheme: const SliderThemeData(
-      activeTrackColor: ModernColors.primaryBlue,
+      activeTrackColor: ModernColors.primaryGreen,
       inactiveTrackColor: ModernColors.darkTextTertiary,
-      thumbColor: ModernColors.primaryBlue,
-      overlayColor: Color(0x293B82F6),
+      thumbColor: ModernColors.primaryGreen,
+      overlayColor: Color(0x2900A884),
       trackHeight: 4.0,
     ),
     
     // Progress Indicator Theme
     progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: ModernColors.primaryBlue,
+      color: ModernColors.primaryGreen,
       circularTrackColor: ModernColors.darkSurfaceVariant,
       linearTrackColor: ModernColors.darkSurfaceVariant,
     ),
@@ -339,7 +337,7 @@ ThemeData modernDarkTheme() {
     snackBarTheme: SnackBarThemeData(
       backgroundColor: ModernColors.darkSurfaceVariant,
       contentTextStyle: const TextStyle(color: ModernColors.darkText),
-      actionTextColor: ModernColors.primaryBlue,
+      actionTextColor: ModernColors.primaryGreen,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),

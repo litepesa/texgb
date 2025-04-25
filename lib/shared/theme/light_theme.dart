@@ -13,8 +13,10 @@ ThemeData modernLightTheme() {
   return base.copyWith(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: ModernColors.primaryBlue,
+      seedColor: ModernColors.primaryTeal,
       brightness: Brightness.light,
+      primary: ModernColors.primaryTeal,
+      secondary: ModernColors.accentTealBlue,
     ),
     scaffoldBackgroundColor: ModernColors.lightBackground,
     
@@ -41,7 +43,7 @@ ThemeData modernLightTheme() {
         statusBarIconBrightness: Brightness.dark,
       ),
       iconTheme: IconThemeData(
-        color: ModernColors.lightText,
+        color: ModernColors.primaryTeal,
         size: 24,
       ),
     ),
@@ -52,7 +54,7 @@ ThemeData modernLightTheme() {
     // Bottom Navigation Theme
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: ModernColors.lightSurface,
-      selectedItemColor: ModernColors.primaryBlue,
+      selectedItemColor: ModernColors.primaryTeal,
       unselectedItemColor: ModernColors.lightTextSecondary,
       selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
@@ -66,12 +68,12 @@ ThemeData modernLightTheme() {
     tabBarTheme: const TabBarTheme(
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(
-          color: ModernColors.primaryBlue,
+          color: ModernColors.primaryTeal,
           width: 2,
         ),
       ),
       unselectedLabelColor: ModernColors.lightTextSecondary,
-      labelColor: ModernColors.primaryBlue,
+      labelColor: ModernColors.primaryTeal,
       unselectedLabelStyle: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.normal,
@@ -85,12 +87,12 @@ ThemeData modernLightTheme() {
     // Button Themes
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: ModernColors.primaryBlue,
+        backgroundColor: ModernColors.primaryTeal,
         foregroundColor: Colors.white,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(24),
         ),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -102,11 +104,11 @@ ThemeData modernLightTheme() {
     
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: ModernColors.primaryBlue,
+        foregroundColor: ModernColors.primaryTeal,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        side: const BorderSide(color: ModernColors.primaryBlue, width: 1.5),
+        side: const BorderSide(color: ModernColors.primaryTeal, width: 1.5),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(24),
         ),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -118,7 +120,7 @@ ThemeData modernLightTheme() {
     
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: ModernColors.primaryBlue,
+        foregroundColor: ModernColors.primaryTeal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -134,29 +136,30 @@ ThemeData modernLightTheme() {
       elevation: 1,
       shadowColor: Colors.black.withOpacity(0.1),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
       ),
       clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
     ),
     
     // Modal and Dialog Themes
-    bottomSheetTheme: const BottomSheetThemeData(
+    bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: ModernColors.lightSurface,
       modalBackgroundColor: ModernColors.lightSurface,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
+          top: Radius.circular(20),
         ),
       ),
       clipBehavior: Clip.antiAlias,
       elevation: 8,
+      shadowColor: Colors.black.withOpacity(0.1),
     ),
     
     dialogBackgroundColor: ModernColors.lightSurface,
     dialogTheme: DialogTheme(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       backgroundColor: ModernColors.lightSurface,
       elevation: 8,
@@ -173,14 +176,13 @@ ThemeData modernLightTheme() {
     
     // FAB Theme
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: ModernColors.primaryBlue,
+      backgroundColor: ModernColors.primaryTeal,
       foregroundColor: Colors.white,
       elevation: 2,
       highlightElevation: 4,
       splashColor: Colors.white.withOpacity(0.2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: const CircleBorder(),
+      extendedPadding: const EdgeInsets.all(16),
     ),
     
     // List Tile Theme
@@ -193,21 +195,21 @@ ThemeData modernLightTheme() {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      selectedTileColor: ModernColors.primaryBlue.withOpacity(0.05),
-      selectedColor: ModernColors.primaryBlue,
+      selectedTileColor: ModernColors.primaryTeal.withOpacity(0.05),
+      selectedColor: ModernColors.primaryTeal,
     ),
     
     // Switch Theme
     switchTheme: SwitchThemeData(
       thumbColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return ModernColors.primaryBlue;
+          return ModernColors.primaryTeal;
         }
         return Colors.white;
       }),
       trackColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return ModernColors.primaryBlue.withOpacity(0.3);
+          return ModernColors.primaryTeal.withOpacity(0.3);
         }
         return ModernColors.lightTextTertiary.withOpacity(0.3);
       }),
@@ -223,7 +225,7 @@ ThemeData modernLightTheme() {
     checkboxTheme: CheckboxThemeData(
       fillColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return ModernColors.primaryBlue;
+          return ModernColors.primaryTeal;
         }
         return Colors.transparent;
       }),
@@ -259,19 +261,19 @@ ThemeData modernLightTheme() {
       fillColor: ModernColors.lightInputBackground,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: ModernColors.primaryBlue, width: 1.5),
+        borderRadius: BorderRadius.circular(24),
+        borderSide: const BorderSide(color: ModernColors.primaryTeal, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         borderSide: const BorderSide(color: ModernColors.error, width: 1.5),
       ),
       hintStyle: const TextStyle(color: ModernColors.lightTextTertiary),
@@ -286,8 +288,8 @@ ThemeData modernLightTheme() {
     chipTheme: ChipThemeData(
       backgroundColor: ModernColors.lightSurfaceVariant,
       disabledColor: ModernColors.lightSurfaceVariant.withOpacity(0.5),
-      selectedColor: ModernColors.primaryBlue.withOpacity(0.2),
-      secondarySelectedColor: ModernColors.primaryBlue,
+      selectedColor: ModernColors.primaryTeal.withOpacity(0.2),
+      secondarySelectedColor: ModernColors.primaryTeal,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       labelStyle: const TextStyle(
         color: ModernColors.lightText,
@@ -300,23 +302,23 @@ ThemeData modernLightTheme() {
         fontWeight: FontWeight.w500,
       ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
       ),
       elevation: 0,
     ),
     
     // Slider Theme
     sliderTheme: const SliderThemeData(
-      activeTrackColor: ModernColors.primaryBlue,
+      activeTrackColor: ModernColors.primaryTeal,
       inactiveTrackColor: ModernColors.lightTextTertiary,
-      thumbColor: ModernColors.primaryBlue,
-      overlayColor: Color(0x293B82F6),
+      thumbColor: ModernColors.primaryTeal,
+      overlayColor: Color(0x29008069),
       trackHeight: 4.0,
     ),
     
     // Progress Indicator Theme
     progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: ModernColors.primaryBlue,
+      color: ModernColors.primaryTeal,
       circularTrackColor: ModernColors.lightSurfaceVariant,
       linearTrackColor: ModernColors.lightSurfaceVariant,
     ),
@@ -331,9 +333,9 @@ ThemeData modernLightTheme() {
     
     // Snack Bar Theme
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: ModernColors.darkSurface,
-      contentTextStyle: const TextStyle(color: Colors.white),
-      actionTextColor: ModernColors.primaryBlue,
+      backgroundColor: Colors.white,
+      contentTextStyle: const TextStyle(color: ModernColors.lightText),
+      actionTextColor: ModernColors.primaryTeal,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),

@@ -21,9 +21,11 @@ class AlignMessageLeftWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get theme colors from ChatThemeExtension instead of WeChatThemeExtension
+    // Get theme colors from ChatThemeExtension
     final chatTheme = context.chatTheme;
     final modernTheme = context.modernTheme;
+    final responsiveTheme = context.responsiveTheme;
+    final animationTheme = context.animationTheme;
     
     // Get colors from the theme extensions
     final receiverBubbleColor = chatTheme.receiverBubbleColor ?? Colors.white;
@@ -36,14 +38,33 @@ class AlignMessageLeftWidget extends StatelessWidget {
     
     final isReplying = message.repliedTo.isNotEmpty;
     
+    // Get the reactions count
+    final hasReactions = message.reactions.isNotEmpty;
+    
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0, right: 64.0),
+      padding: EdgeInsets.only(
+        bottom: responsiveTheme.compactSpacing * 1.5, 
+        right: MediaQuery.of(context).size.width * 0.2,
+        left: responsiveTheme.compactSpacing,
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Avatar
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0, top: 2.0),
+          // Avatar with animated container for hover effects
+          AnimatedContainer(
+            duration: animationTheme.shortDuration,
+            curve: animationTheme.standardCurve,
+            margin: const EdgeInsets.only(right: 8.0),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: userImageWidget(
               imageUrl: message.senderImage,
               radius: 18,
@@ -59,13 +80,13 @@ class AlignMessageLeftWidget extends StatelessWidget {
                 // Show sender name if it's a group chat
                 if (isGroupChat)
                   Padding(
-                    padding: const EdgeInsets.only(left: 12.0, bottom: 2.0),
+                    padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
                     child: Text(
                       message.senderName,
                       style: TextStyle(
-                        fontSize: 12,
-                        color: modernTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                        color: modernTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -74,19 +95,29 @@ class AlignMessageLeftWidget extends StatelessWidget {
                 Container(
                   decoration: BoxDecoration(
                     color: receiverBubbleColor,
-                    borderRadius: chatTheme.receiverBubbleRadius ?? BorderRadius.circular(4.0),
+                    borderRadius: chatTheme.receiverBubbleRadius ?? BorderRadius.circular(18.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                   padding: message.messageType == MessageEnum.text
-                    ? const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0)
-                    : const EdgeInsets.all(4.0),
+                    ? const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0)
+                    : const EdgeInsets.all(8.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Reply preview if applicable
                       if (isReplying)
-                        MessageReplyPreview(
-                          message: message,
-                          viewOnly: viewOnly,
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: MessageReplyPreview(
+                            message: message,
+                            viewOnly: viewOnly,
+                          ),
                         ),
                       
                       // Message content
@@ -101,15 +132,52 @@ class AlignMessageLeftWidget extends StatelessWidget {
                   ),
                 ),
                 
-                // Timestamp
+                // Timestamp and reactions row
                 Padding(
-                  padding: const EdgeInsets.only(left: 12.0, top: 4.0),
-                  child: Text(
-                    time,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: timestampColor,
-                    ),
+                  padding: const EdgeInsets.only(left: 12.0, top: 4.0, right: 8.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: timestampColor,
+                        ),
+                      ),
+                      
+                      // Display reaction count if any
+                      if (hasReactions) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey.withOpacity(0.2)
+                                : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.favorite,
+                                size: 12,
+                                color: modernTheme.textSecondaryColor,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                message.reactions.length.toString(),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: modernTheme.textSecondaryColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],

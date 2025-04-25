@@ -7,6 +7,12 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/channels/channel_provider.dart';
+import 'package:textgb/features/channels/screens/channel_detail_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_screen.dart';
+import 'package:textgb/features/channels/screens/explore_channels_screen.dart';
+import 'package:textgb/features/channels/screens/my_channels_screen.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
@@ -60,6 +66,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => GroupProvider()),
         ChangeNotifierProvider(create: (_) => ContactsProvider()),
         ChangeNotifierProvider(create: (_) => StatusProvider()),
+        ChangeNotifierProvider(create: (_) => ChannelProvider()),
       ],
       child: const MyApp(),
     ),
@@ -123,7 +130,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Constants.groupInformationScreen: (context) =>
             const GroupInformationScreen(),
         Constants.statusScreen: (context) => const StatusScreen(),
-        Constants.createStatusScreen: (context) => const CreateStatusScreen(), 
+        Constants.createStatusScreen: (context) => const CreateStatusScreen(),
+        Constants.createChannelScreen: (context) => const CreateChannelScreen(),
+        Constants.exploreChannelsScreen: (context) => const ExploreChannelsScreen(),
+        Constants.myChannelsScreen: (context) => const MyChannelsScreen(),
+      },
+      // Use onGenerateRoute for routes that need parameters
+      onGenerateRoute: (settings) {
+        if (settings.name == Constants.channelDetailScreen) {
+          final String channelId = settings.arguments as String;
+          return MaterialPageRoute(
+            builder: (context) => ChannelDetailScreen(channelId: channelId),
+          );
+        } else if (settings.name == Constants.createChannelPostScreen) {
+          final String channelId = settings.arguments as String;
+          return MaterialPageRoute(
+            builder: (context) => CreateChannelPostScreen(channelId: channelId),
+          );
+        }
+        return null;
       },
       // Add the route observer
       navigatorObservers: [routeObserver],
