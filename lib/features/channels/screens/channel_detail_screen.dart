@@ -277,6 +277,7 @@ class _ChannelDetailScreenState extends State<ChannelDetailScreen> {
   Widget _buildChannelHeader(ChannelModel channel) {
     final modernTheme = context.modernTheme;
     final accentColor = modernTheme.primaryColor!;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -345,33 +346,45 @@ class _ChannelDetailScreenState extends State<ChannelDetailScreen> {
                         ),
                       ),
                     const SizedBox(height: 12),
-                    // Subscribe button
+                    
+                    // COMPLETELY REDESIGNED SUBSCRIBE BUTTON FOR MAXIMUM VISIBILITY
                     SizedBox(
                       width: 140,
                       height: 36,
-                      child: ElevatedButton(
-                        onPressed: _toggleSubscription,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isSubscribed
-                              ? modernTheme.surfaceColor
-                              : accentColor,
-                          foregroundColor: _isSubscribed
-                              ? accentColor
-                              : Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(
-                              color: accentColor,
-                              width: 1.5,
-                            ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _isSubscribed ? Colors.white : accentColor,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: accentColor,
+                            width: 1.5,
                           ),
-                          elevation: 0,
+                          // Add shadow for better visibility
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          _isSubscribed ? 'Subscribed' : 'Subscribe',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _toggleSubscription,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Center(
+                              child: Text(
+                                _isSubscribed ? 'Subscribed' : 'Subscribe',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  // Force contrasting colors regardless of theme
+                                  color: _isSubscribed ? accentColor : isDarkMode ? Colors.black : Colors.white,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),

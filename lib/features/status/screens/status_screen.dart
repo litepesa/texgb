@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/status/screens/status_detail_screen.dart';
-import 'package:textgb/features/status/status_model.dart';
+import 'package:textgb/features/status/status_post_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/status/widgets/status_video_player.dart';
+import 'package:textgb/features/status/widgets/status_comments_sheet.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/shared/utilities/assets_manager.dart';
 
 class StatusScreen extends StatefulWidget {
   const StatusScreen({Key? key}) : super(key: key);
@@ -18,768 +19,504 @@ class StatusScreen extends StatefulWidget {
   State<StatusScreen> createState() => _StatusScreenState();
 }
 
-class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClientMixin {
-  late ScrollController _scrollController;
-  bool _isRefreshing = false;
-
-  @override
-  bool get wantKeepAlive => true;
-
+class _StatusScreenState extends State<StatusScreen> with SingleTickerProviderStateMixin {
+  final PageController _pageController = PageController();
+  late TabController _tabController;
+  bool _isSearchVisible = false;
+  final TextEditingController _searchController = TextEditingController();
+  
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
+    _tabController = TabController(length: 3, vsync: this);
     
-    // Load statuses on first render
+    // Listen to tab changes to update filter
+    _tabController.addListener(_handleTabChange);
+    
+    // Set system UI overlay style for immersive experience
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.black,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ));
+    
+    // Initial fetch
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshStatuses();
+      _fetchStatuses();
     });
   }
-
+  
   @override
   void dispose() {
-    _scrollController.dispose();
+    _pageController.dispose();
+    _tabController.removeListener(_handleTabChange);
+    _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
-
-  Future<void> _refreshStatuses() async {
-    setState(() {
-      _isRefreshing = true;
-    });
+  
+  void _handleTabChange() {
+    if (!_tabController.indexIsChanging) return;
     
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
-    final statusProvider = context.read<StatusProvider>();
-    
-    await statusProvider.fetchStatuses(
-      currentUserId: currentUser.uid,
-      contactIds: currentUser.contactsUIDs,
-    );
-    
-    if (mounted) {
-      setState(() {
-        _isRefreshing = false;
-      });
+    final StatusProvider provider = Provider.of<StatusProvider>(context, listen: false);
+    switch (_tabController.index) {
+      case 0:
+        provider.setFeedFilter(StatusProvider.FeedFilterType.latest);
+        break;
+      case 1:
+        provider.setFeedFilter(StatusProvider.FeedFilterType.trending);
+        break;
+      case 2:
+        provider.setFeedFilter(StatusProvider.FeedFilterType.contacts);
+        break;
     }
   }
-
+  
+  void _fetchStatuses() {
+    final currentUser = Provider.of<AuthenticationProvider>(context, listen: false).userModel;
+    if (currentUser != null) {
+      Provider.of<StatusProvider>(context, listen: false).fetchStatuses(
+        currentUserId: currentUser.uid,
+        contactIds: currentUser.contactsUIDs,
+      );
+    }
+  }
+  
+  void _toggleSearch() {
+    setState(() {
+      _isSearchVisible = !_isSearchVisible;
+      if (!_isSearchVisible) {
+        _searchController.clear();
+        Provider.of<StatusProvider>(context, listen: false).setSearchQuery('');
+      }
+    });
+  }
+  
+  void _handleSearch(String query) {
+    Provider.of<StatusProvider>(context, listen: false).setSearchQuery(query);
+  }
+  
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-    
-    // Use the modern theme extensions
     final modernTheme = context.modernTheme;
-    final primaryColor = modernTheme.primaryColor!;
-    final textColor = modernTheme.textColor!;
-    final textSecondaryColor = modernTheme.textSecondaryColor!;
-    final surfaceColor = modernTheme.surfaceColor!;
+    final statusProvider = Provider.of<StatusProvider>(context);
+    final authProvider = Provider.of<AuthenticationProvider>(context);
+    final currentUser = authProvider.userModel;
+    
+    final posts = statusProvider.filteredStatusPosts;
+    final isLoading = statusProvider.isLoading;
     
     return Scaffold(
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Status', style: TextStyle(fontSize: 22)),
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: _isSearchVisible ? BackButton(
+          color: Colors.white,
+          onPressed: _toggleSearch,
+        ) : null,
+        title: _isSearchVisible 
+          ? TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search status posts...',
+                hintStyle: TextStyle(color: Colors.white70),
+                border: InputBorder.none,
+              ),
+              style: TextStyle(color: Colors.white),
+              cursorColor: Colors.white,
+              onChanged: _handleSearch,
+              autofocus: true,
+            )
+          : Text('Status', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _isRefreshing ? null : _refreshStatuses,
+            icon: Icon(_isSearchVisible ? Icons.clear : Icons.search, color: Colors.white),
+            onPressed: _toggleSearch,
           ),
         ],
-      ),
-      body: Consumer2<AuthenticationProvider, StatusProvider>(
-        builder: (context, authProvider, statusProvider, _) {
-          final currentUser = authProvider.userModel;
-          
-          if (currentUser == null) {
-            return Center(child: CircularProgressIndicator(color: primaryColor));
-          }
-          
-          if (statusProvider.isFetching || _isRefreshing) {
-            return _buildLoadingView(primaryColor);
-          }
-          
-          final myStatus = statusProvider.myStatus;
-          final contactStatuses = statusProvider.contactStatuses;
-          
-          // Show empty state if no statuses (yours or contacts')
-          if (myStatus == null && contactStatuses.isEmpty) {
-            return _buildEmptyState(primaryColor);
-          }
-          
-          return RefreshIndicator(
-            onRefresh: _refreshStatuses,
-            color: primaryColor,
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                // My Status Section
-                SliverToBoxAdapter(
-                  child: _buildMyStatusSection(
-                    myStatus,
-                    currentUser.name,
-                    currentUser.image,
-                    statusProvider,
-                  ),
-                ),
-                
-                // Recent Updates Header - only show if there are contact statuses
-                if (contactStatuses.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        left: 16.0,
-                        right: 16.0,
-                        top: 16.0,
-                        bottom: 8.0,
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Recent Updates',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: textSecondaryColor,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${contactStatuses.length}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                
-                // Contacts' Statuses
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final status = contactStatuses[index];
-                      return _buildContactStatusTile(
-                        status, 
-                        currentUser.uid, 
-                        primaryColor
-                      );
-                    },
-                    childCount: contactStatuses.length,
-                  ),
-                ),
-                
-                // Bottom Padding
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 80),
-                ),
+        bottom: _isSearchVisible 
+          ? null 
+          : TabBar(
+              controller: _tabController,
+              indicatorColor: modernTheme.primaryColor!,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              tabs: const [
+                Tab(text: 'Latest'),
+                Tab(text: 'Trending'),
+                Tab(text: 'Contacts'),
               ],
             ),
-          );
-        },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToCreateStatus(context),
-        backgroundColor: primaryColor,
-        child: const Icon(Icons.camera_alt),
-        tooltip: 'Create new status',
-      ),
-    );
-  }
-
-  Widget _buildLoadingView(Color primaryColor) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: primaryColor),
-          const SizedBox(height: 16),
-          const Text(
-            'Loading statuses...',
-            style: TextStyle(fontSize: 16),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(Color primaryColor) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.photo_camera,
-            size: 80,
-            color: primaryColor.withOpacity(0.5),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'No status updates',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              'Be the first to share a status update with your contacts',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () => _navigateToCreateStatus(context),
-            icon: const Icon(Icons.add_a_photo),
-            label: const Text('Create Status'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMyStatusSection(
-    StatusModel? myStatus,
-    String userName, 
-    String userImage,
-    StatusProvider statusProvider,
-  ) {
-    final modernTheme = context.modernTheme;
-    final primaryColor = modernTheme.primaryColor!;
-    final textColor = modernTheme.textColor!;
-    final textSecondaryColor = modernTheme.textSecondaryColor!;
-    final surfaceColor = modernTheme.surfaceColor!;
-    final hasStatus = myStatus != null;
-    
-    return Card(
-      margin: const EdgeInsets.all(12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: modernTheme.dividerColor ?? Colors.grey.withOpacity(0.2),
-          width: 0.5,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                const Icon(Icons.person, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'My Status',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: textColor,
-                  ),
-                ),
-                const Spacer(),
-                if (hasStatus)
+      body: isLoading 
+        ? Center(child: CircularProgressIndicator(color: modernTheme.primaryColor))
+        : posts.isEmpty 
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.video_library_outlined, size: 64, color: Colors.white54),
+                  SizedBox(height: 16),
                   Text(
-                    'Expires in ${_getExpiryTime(myStatus!)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: textSecondaryColor,
-                    ),
+                    'No status posts found',
+                    style: TextStyle(color: Colors.white, fontSize: 18),
                   ),
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Status content/preview
-            Row(
-              children: [
-                // Status avatar with indicator
-                _buildStatusAvatar(
-                  userImage,
-                  hasStatus,
-                  () {
-                    if (hasStatus) {
-                      _navigateToStatusDetail(context, myStatus!, true);
-                    } else {
-                      _navigateToCreateStatus(context);
-                    }
-                  },
-                  isMyStatus: true,
-                  primaryColor: primaryColor,
-                ),
-                
-                const SizedBox(width: 16),
-                
-                // Status info and actions
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        hasStatus ? 'Your Status' : 'Create a Status',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: textColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        hasStatus 
-                            ? 'Tap to view your status'
-                            : 'Share photos, videos, or text updates',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: textSecondaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Action buttons
-                if (hasStatus) ...[
-                  IconButton(
-                    icon: Icon(
-                      Icons.visibility,
-                      color: primaryColor,
-                    ),
-                    onPressed: () => _showViewersDialog(myStatus!),
-                    tooltip: 'View count',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_outline),
-                    onPressed: () => _navigateToCreateStatus(context),
-                    tooltip: 'Add status',
+                  SizedBox(height: 8),
+                  Text(
+                    'Create a new post or check back later',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],
-              ],
-            ),
-            
-            if (hasStatus) ...[
-              const SizedBox(height: 16),
-              // Status preview thumbnails
-              SizedBox(
-                height: 60,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: myStatus!.items.length,
-                  itemBuilder: (context, index) {
-                    final item = myStatus.items[index];
-                    return GestureDetector(
-                      onTap: () => _navigateToStatusDetail(context, myStatus, true, initialIndex: index),
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: primaryColor.withOpacity(0.5),
-                            width: 2,
-                          ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: _buildStatusItemThumbnail(item),
-                        ),
-                      ),
-                    );
-                  },
-                ),
               ),
-            ],
-          ],
-        ),
+            )
+          : PageView.builder(
+              controller: _pageController,
+              scrollDirection: Axis.vertical,
+              itemCount: posts.length,
+              onPageChanged: (index) {
+                if (currentUser != null) {
+                  statusProvider.viewStatusPost(
+                    statusId: posts[index].statusId,
+                    viewerUid: currentUser.uid,
+                  );
+                }
+              },
+              itemBuilder: (context, index) {
+                final post = posts[index];
+                return StatusPostView(
+                  post: post,
+                  currentUserId: currentUser?.uid ?? '',
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: modernTheme.primaryColor,
+        onPressed: () async {
+          if (currentUser == null) return;
+          
+          final hasPostedToday = await statusProvider.hasUserPostedToday(currentUser.uid);
+          
+          if (hasPostedToday) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('You can only post once per day'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+          
+          Navigator.pushNamed(context, Constants.createStatusScreen);
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class StatusPostView extends StatefulWidget {
+  final StatusPostModel post;
+  final String currentUserId;
+  
+  const StatusPostView({
+    Key? key,
+    required this.post,
+    required this.currentUserId,
+  }) : super(key: key);
+
+  @override
+  State<StatusPostView> createState() => _StatusPostViewState();
+}
+
+class _StatusPostViewState extends State<StatusPostView> with AutomaticKeepAliveClientMixin {
+  bool _isLiked = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    _isLiked = widget.post.likeUIDs.contains(widget.currentUserId);
+  }
+  
+  @override
+  void didUpdateWidget(covariant StatusPostView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.statusId != widget.post.statusId) {
+      _isLiked = widget.post.likeUIDs.contains(widget.currentUserId);
+    }
+  }
+  
+  void _toggleLike() {
+    setState(() {
+      _isLiked = !_isLiked;
+    });
+    
+    Provider.of<StatusProvider>(context, listen: false).toggleLikeStatusPost(
+      statusId: widget.post.statusId,
+      userUid: widget.currentUserId,
+    );
+  }
+  
+  void _showComments() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatusCommentsSheet(
+        statusId: widget.post.statusId,
+        currentUserId: widget.currentUserId,
       ),
     );
   }
   
-  Widget _buildStatusAvatar(
-    String imageUrl, 
-    bool hasStatus, 
-    VoidCallback onTap, 
-    {bool isMyStatus = false, 
-    required Color primaryColor}
-  ) {
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final modernTheme = context.modernTheme;
+    
     return Stack(
+      fit: StackFit.expand,
       children: [
-        // Circular avatar with border
+        // Content - Video or Image(s)
+        widget.post.type == StatusType.video 
+            ? StatusVideoPlayer(
+                videoUrl: widget.post.mediaUrls.first,
+                autoPlay: true,
+              )
+            : widget.post.mediaUrls.length > 1 
+                ? _buildImageCarousel(widget.post.mediaUrls)
+                : CachedNetworkImage(
+                    imageUrl: widget.post.mediaUrls.first,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: modernTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.black,
+                      child: Icon(Icons.error, color: Colors.white),
+                    ),
+                  ),
+        
+        // Gradient overlay for better text visibility
         Container(
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: hasStatus
-                ? Border.all(
-                    color: primaryColor,
-                    width: 2,
-                  )
-                : null,
-          ),
-          child: CircleAvatar(
-            radius: 30,
-            backgroundImage: CachedNetworkImageProvider(imageUrl),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.3),
+                Colors.transparent,
+                Colors.transparent,
+                Colors.black.withOpacity(0.8),
+              ],
+              stops: const [0.0, 0.2, 0.8, 1.0],
+            ),
           ),
         ),
         
-        // Add button for "my status"
-        if (isMyStatus)
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+        // User info and caption
+        Positioned(
+          left: 16,
+          right: 100,
+          bottom: 20,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // User info
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.grey[300],
+                    backgroundImage: widget.post.userImage.isNotEmpty
+                        ? CachedNetworkImageProvider(widget.post.userImage)
+                        : AssetImage(AssetsManager.userImage) as ImageProvider,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    widget.post.username,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
-              child: CircleAvatar(
-                radius: 12,
-                backgroundColor: hasStatus ? Colors.green : primaryColor,
-                child: Icon(
-                  hasStatus ? Icons.add : Icons.camera_alt,
-                  color: Colors.white,
-                  size: 16,
+              
+              SizedBox(height: 10),
+              
+              // Caption
+              if (widget.post.caption.isNotEmpty)
+                Text(
+                  widget.post.caption,
+                  style: TextStyle(color: Colors.white),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              
+              SizedBox(height: 6),
+              
+              // Time ago
+              Text(
+                _timeAgo(widget.post.createdAt),
+                style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
-            ),
+            ],
           ),
+        ),
         
-        // Clickable overlay
-        Positioned.fill(
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: onTap,
-            ),
+        // Action buttons
+        Positioned(
+          right: 16,
+          bottom: 60,
+          child: Column(
+            children: [
+              // Like button
+              IconButton(
+                icon: Icon(
+                  _isLiked ? Icons.favorite : Icons.favorite_border,
+                  color: _isLiked ? Colors.red : Colors.white,
+                  size: 30,
+                ),
+                onPressed: _toggleLike,
+              ),
+              Text(
+                '${widget.post.likeUIDs.length}',
+                style: TextStyle(color: Colors.white),
+              ),
+              
+              SizedBox(height: 20),
+              
+              // Comment button
+              IconButton(
+                icon: Icon(
+                  Icons.chat_bubble_outline,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: _showComments,
+              ),
+              Text(
+                'Comment',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+              
+              SizedBox(height: 20),
+              
+              // Views indicator
+              Icon(
+                Icons.visibility_outlined,
+                color: Colors.white,
+                size: 28,
+              ),
+              Text(
+                '${widget.post.viewCount}',
+                style: TextStyle(color: Colors.white),
+              ),
+              
+              SizedBox(height: 20),
+              
+              // Expiry indicator
+              Column(
+                children: [
+                  Icon(
+                    Icons.timer_outlined,
+                    color: Colors.white70,
+                    size: 22,
+                  ),
+                  Text(
+                    _timeLeft(widget.post.expiresAt),
+                    style: TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ],
     );
   }
   
-  Widget _buildContactStatusTile(StatusModel status, String currentUserId, Color primaryColor) {
-    final modernTheme = context.modernTheme;
-    final textColor = modernTheme.textColor!;
-    final textSecondaryColor = modernTheme.textSecondaryColor!;
-    
-    // Check if any status items have been viewed by current user
-    final bool hasUnviewedStatus = !status.hasUserViewedAll(currentUserId);
-    
-    // Get the most recent status item timestamp
-    final latestTimestamp = status.items
-        .map((item) => item.timestamp)
-        .reduce((a, b) => a.isAfter(b) ? a : b);
-    
-    // Format time
-    final timeAgo = _getTimeAgo(latestTimestamp);
-    
-    // Count how many statuses the contact has
-    final statusCount = status.items.length;
-    
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _navigateToStatusDetail(context, status, false),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            children: [
-              // Status avatar with indicator
-              _buildStatusAvatar(
-                status.userImage,
-                true,
-                () => _navigateToStatusDetail(context, status, false),
-                isMyStatus: false,
-                primaryColor: hasUnviewedStatus ? primaryColor : Colors.grey,
-              ),
-              
-              const SizedBox(width: 16),
-              
-              // Status info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      status.userName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          timeAgo,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: textSecondaryColor,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '$statusCount ${statusCount == 1 ? 'update' : 'updates'}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: primaryColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Preview indicator
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: hasUnviewedStatus ? primaryColor : Colors.grey.withOpacity(0.3),
-                    width: 2,
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: _buildStatusItemThumbnail(status.items.first),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildStatusItemThumbnail(StatusItemModel item) {
-    switch (item.type) {
-      case StatusType.image:
-        return CachedNetworkImage(
-          imageUrl: item.mediaUrl,
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            color: Colors.grey[300],
-            child: const Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-              ),
-            ),
-          ),
-          errorWidget: (context, url, error) => Container(
-            color: Colors.grey[300],
-            child: const Icon(Icons.image, color: Colors.white),
-          ),
-        );
-      case StatusType.video:
+  Widget _buildImageCarousel(List<String> imageUrls) {
+    return PageView.builder(
+      itemCount: imageUrls.length,
+      itemBuilder: (context, index) {
         return Stack(
-          fit: StackFit.expand,
           children: [
             CachedNetworkImage(
-              imageUrl: item.mediaUrl,
+              imageUrl: imageUrls[index],
               fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
               placeholder: (context, url) => Container(
-                color: Colors.grey[300],
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.grey[300],
-              ),
-            ),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ),
-          ],
-        );
-      case StatusType.text:
-        return Container(
-          color: Colors.purple,
-          child: const Center(
-            child: Icon(Icons.text_fields, color: Colors.white),
-          ),
-        );
-      default:
-        return Container(
-          color: Colors.grey[300],
-        );
-    }
-  }
-  
-  void _navigateToCreateStatus(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreateStatusScreen(),
-      ),
-    ).then((_) => _refreshStatuses());
-  }
-  
-  void _navigateToStatusDetail(
-    BuildContext context, 
-    StatusModel status, 
-    bool isMyStatus, 
-    {int initialIndex = 0}
-  ) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => StatusDetailScreen(
-          status: status,
-          isMyStatus: isMyStatus,
-          initialIndex: initialIndex,
-        ),
-      ),
-    ).then((_) => _refreshStatuses());
-  }
-  
-  void _showViewersDialog(StatusModel status) {
-    final modernTheme = context.modernTheme;
-    
-    // Get total view count across all status items
-    int totalViews = 0;
-    for (var item in status.items) {
-      // Don't count the creator's view
-      totalViews += item.viewedBy.length > 0 ? item.viewedBy.length - 1 : 0;
-    }
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.visibility, size: 24),
-            const SizedBox(width: 8),
-            Text('Status Views ($totalViews)'),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 200,
-          child: ListView.builder(
-            itemCount: status.items.length,
-            itemBuilder: (context, index) {
-              final item = status.items[index];
-              // Don't count the creator's view
-              final viewers = item.viewedBy.length > 0 ? item.viewedBy.length - 1 : 0;
-              
-              return ListTile(
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: _buildStatusItemThumbnail(item),
+                color: Colors.black,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: context.modernTheme.primaryColor,
                   ),
                 ),
-                title: Text(
-                  item.type == StatusType.text
-                      ? 'Text status'
-                      : item.type == StatusType.image
-                          ? 'Photo status'
-                          : 'Video status',
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.black,
+                child: Icon(Icons.error, color: Colors.white),
+              ),
+            ),
+            
+            // Image counter indicator
+            Positioned(
+              top: 60,
+              right: 10,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                subtitle: Text(
-                  item.caption?.isNotEmpty == true
-                      ? item.caption!
-                      : _getTimeAgo(item.timestamp),
+                child: Text(
+                  '${index + 1}/${imageUrls.length}',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.visibility, size: 16),
-                    const SizedBox(width: 4),
-                    Text('$viewers'),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
   
-  String _getTimeAgo(DateTime timestamp) {
+  String _timeAgo(DateTime dateTime) {
     final now = DateTime.now();
-    final difference = now.difference(timestamp);
+    final difference = now.difference(dateTime);
     
-    if (difference.inSeconds < 60) {
-      return 'Just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
       return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
     } else {
-      return 'Yesterday';
+      return 'Just now';
     }
   }
   
-  String _getExpiryTime(StatusModel status) {
+  String _timeLeft(DateTime expiryDate) {
     final now = DateTime.now();
-    final difference = status.expiresAt.difference(now);
+    final difference = expiryDate.difference(now);
     
-    if (difference.inHours > 0) {
-      return '${difference.inHours}h ${difference.inMinutes.remainder(60)}m';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m';
-    } else {
-      return 'Expiring soon';
-    }
+    final hours = difference.inHours;
+    final minutes = difference.inMinutes % 60;
+    
+    return '$hours:${minutes.toString().padLeft(2, '0')}';
   }
+  
+  @override
+  bool get wantKeepAlive => true;
 }
