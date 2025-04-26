@@ -409,6 +409,24 @@ class StatusProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<List<StatusPostModel>> fetchUserStatusPosts(String uid) async {
+    try {
+      // Query for all posts by this user (including expired ones)
+      final snapshot = await _firestore
+          .collection(Constants.statuses)
+          .where(Constants.uid, isEqualTo: uid)
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      return snapshot.docs
+          .map((doc) => StatusPostModel.fromMap(doc.data()))
+          .toList();
+    } catch (e) {
+      debugPrint('Error fetching user status posts: $e');
+      return [];
+    }
+  }
   
   // Check if user has posted today
   Future<bool> hasUserPostedToday(String uid) async {

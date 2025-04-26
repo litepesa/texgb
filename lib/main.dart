@@ -16,6 +16,7 @@ import 'package:textgb/features/channels/screens/my_channels_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/my_status_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/firebase_options.dart';
@@ -208,6 +209,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Constants.createChannelScreen: (context) => const CreateChannelScreen(),
         Constants.exploreChannelsScreen: (context) => const ExploreChannelsScreen(),
         Constants.myChannelsScreen: (context) => const MyChannelsScreen(),
+        Constants.myStatusScreen: (context) => const MyStatusScreen(),
       },
       // Use onGenerateRoute for routes that need parameters
       onGenerateRoute: (settings) {

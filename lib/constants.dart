@@ -28,9 +28,10 @@ class Constants {
   static const String statusScreen = '/statusScreen';
   static const String createStatusScreen = '/createStatusScreen';
   static const String statusDetailScreen = '/statusDetailScreen';
-  static const String myStatusScreen = '/myStatusScreen';
+  //static const String myStatusScreen = '/myStatusScreen';
   static const String mediaViewScreen = '/mediaViewScreen';
   static const String statusCommentsScreen = '/statusCommentsScreen';
+  static const String myStatusScreen = '/my-status';
   
   // Channel feature routes
   static const String channelsScreen = '/channelsScreen';

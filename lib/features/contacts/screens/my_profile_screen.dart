@@ -752,6 +752,44 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                   
                   const SizedBox(height: 16),
                   
+                  // Status section
+                  _buildProfileSection(
+                    title: 'Status',
+                    child: Column(
+                      children: [
+                        // My Status Posts
+                        _buildListTile(
+                          icon: Icons.video_library,
+                          title: 'My Status Posts',
+                          subtitle: 'Manage your posts and view analytics',
+                          iconColor: isDarkMode ? ModernColors.accentBlue : ModernColors.accentBlue,
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              Constants.myStatusScreen,
+                            );
+                          },
+                        ),
+                        
+                        // Create New Status
+                        _buildListTile(
+                          icon: Icons.add_circle,
+                          title: 'Create New Status',
+                          subtitle: 'Share a photo or video update',
+                          iconColor: isDarkMode ? ModernColors.primaryGreen : ModernColors.primaryTeal,
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              Constants.createStatusScreen,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
                   // Account section
                   _buildProfileSection(
                     title: 'Account',
@@ -939,7 +977,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   }
 
   // Helper widget for list tiles
-  // Helper widget for list tiles (continued)
   Widget _buildListTile({
     required IconData icon,
     required String title,
@@ -985,5 +1022,4 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
     );
-  }
-}
+  }}
