@@ -1,5 +1,3 @@
-// lib/features/status/screens/status_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -407,7 +405,7 @@ class _StatusPostViewState extends State<StatusPostView> with AutomaticKeepAlive
               
               SizedBox(height: 6),
               
-              // Time ago
+              // Time ago only
               Text(
                 _timeAgo(widget.post.createdAt),
                 style: TextStyle(color: Colors.white70, fontSize: 12),
@@ -416,7 +414,7 @@ class _StatusPostViewState extends State<StatusPostView> with AutomaticKeepAlive
           ),
         ),
         
-        // Action buttons
+        // Action buttons - ONLY 3 elements: Like, Comment, Post
         Positioned(
           right: 16,
           bottom: 60,
@@ -466,36 +464,6 @@ class _StatusPostViewState extends State<StatusPostView> with AutomaticKeepAlive
               Text(
                 'Post',
                 style: TextStyle(color: Colors.white, fontSize: 12),
-              ),
-              
-              SizedBox(height: 20),
-              
-              // Views indicator
-              Icon(
-                Icons.visibility_outlined,
-                color: Colors.white,
-                size: 28,
-              ),
-              Text(
-                '${widget.post.viewCount}',
-                style: TextStyle(color: Colors.white),
-              ),
-              
-              SizedBox(height: 20),
-              
-              // Expiry indicator
-              Column(
-                children: [
-                  Icon(
-                    Icons.timer_outlined,
-                    color: Colors.white70,
-                    size: 22,
-                  ),
-                  Text(
-                    _timeLeft(widget.post.expiresAt),
-                    style: TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
-                ],
               ),
             ],
           ),

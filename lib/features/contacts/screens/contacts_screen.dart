@@ -66,6 +66,9 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    // Get the background color of the scaffold
+    final scaffoldBackgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    
     return Scaffold(
       appBar: AppBar(
         leading: AppBarBackButton(
@@ -409,23 +412,27 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
   }
   
   Widget _buildContactTile(UserModel contact) {
-    return ListTile(
-      leading: userImageWidget(
-        imageUrl: contact.image,
-        radius: 24,
-        onTap: () {},
-      ),
-      title: Text(contact.name),
-      subtitle: Text(
-        contact.phoneNumber,
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey[600],
+    // Use a container with the background color matching the scaffold
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: ListTile(
+        leading: userImageWidget(
+          imageUrl: contact.image,
+          radius: 24,
+          onTap: () {},
         ),
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.message),
-        onPressed: () {
+        title: Text(contact.name),
+        subtitle: Text(
+          contact.phoneNumber,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+        // Remove trailing elements (message icon)
+        // But keep the original onTap behavior
+        onTap: () {
+          // Navigate to chat screen on tap (original functionality)
           Navigator.pushNamed(
             context,
             Constants.chatScreen,
@@ -438,48 +445,38 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
           );
         },
       ),
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          Constants.contactProfileScreen,
-          arguments: contact.uid,
-        );
-      },
     );
   }
   
   Widget _buildSuggestionTile(UserModel contact) {
-    return ListTile(
-      leading: userImageWidget(
-        imageUrl: contact.image,
-        radius: 24,
-        onTap: () {},
-      ),
-      title: Text(contact.name),
-      subtitle: Text(
-        contact.phoneNumber,
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey[600],
+    // Use a container with the background color matching the scaffold
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: ListTile(
+        leading: userImageWidget(
+          imageUrl: contact.image,
+          radius: 24,
+          onTap: () {},
         ),
-      ),
-      trailing: Consumer<ContactsProvider>(
-        builder: (context, provider, child) {
-          return ElevatedButton(
-            onPressed: provider.isLoading 
-              ? null 
-              : () => provider.addSuggestedContact(contact, context),
-            child: const Text('Add'),
+        title: Text(contact.name),
+        subtitle: Text(
+          contact.phoneNumber,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+        // Remove trailing elements (add button)
+        // But keep the original onTap behavior
+        onTap: () {
+          // Original behavior - navigate to profile
+          Navigator.pushNamed(
+            context,
+            Constants.contactProfileScreen,
+            arguments: contact.uid,
           );
         },
       ),
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          Constants.contactProfileScreen,
-          arguments: contact.uid,
-        );
-      },
     );
   }
   

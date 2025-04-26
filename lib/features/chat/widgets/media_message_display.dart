@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/main_screen/media_viewer_screen.dart';
+import 'package:textgb/features/chat/screens/media_viewer_screen.dart';
+import 'package:video_player/video_player.dart';
+import 'dart:math' as math;
 
-class MediaMessageDisplay extends StatelessWidget {
+class MediaMessageDisplay extends StatefulWidget {
   final String mediaUrl;
   final bool isImage;
   final bool viewOnly;
@@ -22,19 +24,63 @@ class MediaMessageDisplay extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<MediaMessageDisplay> createState() => _MediaMessageDisplayState();
+}
+
+class _MediaMessageDisplayState extends State<MediaMessageDisplay> {
+  VideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isImage) {
+      _initializeVideoController();
+    }
+  }
+  
+  Future<void> _initializeVideoController() async {
+    _videoController = VideoPlayerController.network(widget.mediaUrl);
+    
+    try {
+      await _videoController!.initialize();
+      // Ensure the first frame is shown
+      if (mounted) {
+        setState(() {
+          _isVideoInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing video: $e');
+      // Video failed to initialize
+      if (mounted) {
+        setState(() {
+          _isVideoInitialized = false;
+        });
+      }
+    }
+  }
+  
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: viewOnly 
+      onTap: widget.viewOnly 
           ? null 
           : () => _openMediaViewer(context),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: maxWidth,
-          maxHeight: maxHeight,
+          maxWidth: widget.maxWidth,
+          maxHeight: widget.maxHeight,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(context.responsiveTheme.compactRadius / 2),
-          child: isImage
+          child: widget.isImage
               ? _buildImagePreview(context)
               : _buildVideoPreview(context),
         ),
@@ -49,13 +95,13 @@ class MediaMessageDisplay extends StatelessWidget {
       children: [
         // Image
         CachedNetworkImage(
-          imageUrl: mediaUrl,
+          imageUrl: widget.mediaUrl,
           fit: BoxFit.cover,
-          width: maxWidth,
-          height: isSquareImage() ? maxWidth : null,
+          width: widget.maxWidth,
+          height: isSquareImage() ? widget.maxWidth : null,
           placeholder: (context, url) => Container(
-            width: maxWidth,
-            height: maxWidth * 0.75,
+            width: widget.maxWidth,
+            height: widget.maxWidth * 0.75,
             color: modernTheme.surfaceVariantColor,
             child: Center(
               child: CircularProgressIndicator(
@@ -64,8 +110,8 @@ class MediaMessageDisplay extends StatelessWidget {
             ),
           ),
           errorWidget: (context, url, error) => Container(
-            width: maxWidth,
-            height: maxWidth * 0.75,
+            width: widget.maxWidth,
+            height: widget.maxWidth * 0.75,
             color: modernTheme.surfaceVariantColor,
             child: Center(
               child: Icon(
@@ -77,7 +123,7 @@ class MediaMessageDisplay extends StatelessWidget {
         ),
         
         // Caption if provided
-        if (caption != null && caption!.isNotEmpty)
+        if (widget.caption != null && widget.caption!.isNotEmpty)
           Positioned(
             bottom: 0,
             left: 0,
@@ -99,7 +145,7 @@ class MediaMessageDisplay extends StatelessWidget {
                 ),
               ),
               child: Text(
-                caption!,
+                widget.caption!,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
@@ -120,30 +166,36 @@ class MediaMessageDisplay extends StatelessWidget {
     
     return Stack(
       children: [
-        // Video thumbnail
+        // Video thumbnail using video_player with adaptive sizing for different aspect ratios
         Container(
-          width: maxWidth,
-          height: maxWidth * 0.75,
-          color: modernTheme.surfaceVariantColor,
-          child: CachedNetworkImage(
-            imageUrl: mediaUrl + '?thumbnail=true', // Assuming thumbnail URL can be derived
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              color: modernTheme.surfaceVariantColor,
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: modernTheme.primaryColor,
-                ),
-              ),
-            ),
-            errorWidget: (context, url, error) => Center(
-              child: Icon(
-                Icons.video_library,
-                color: modernTheme.textColor,
-                size: 40,
-              ),
-            ),
+          constraints: BoxConstraints(
+            maxWidth: widget.maxWidth,
+            // Minimum height to avoid tiny vertical videos
+            minHeight: 120,
+            // Maximum height for tall videos
+            maxHeight: _isVideoInitialized && _videoController != null
+                ? _calculateOptimalVideoHeight()
+                : widget.maxWidth * 1.5, // Default max height for loading state
           ),
+          color: modernTheme.surfaceVariantColor,
+          child: _isVideoInitialized && _videoController != null
+              ? FittedBox(
+                  fit: BoxFit.contain,
+                  child: SizedBox(
+                    width: _videoController!.value.size.width,
+                    height: _videoController!.value.size.height,
+                    child: VideoPlayer(_videoController!),
+                  ),
+                )
+              : Center(
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(
+                      color: modernTheme.primaryColor,
+                    ),
+                  ),
+                ),
         ),
         
         // Play button overlay
@@ -167,30 +219,58 @@ class MediaMessageDisplay extends StatelessWidget {
         ),
         
         // Video duration indicator
-        Positioned(
-          right: context.responsiveTheme.compactSpacing,
-          bottom: context.responsiveTheme.compactSpacing,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.responsiveTheme.compactSpacing * 0.75,
-              vertical: context.responsiveTheme.compactSpacing * 0.25,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(context.responsiveTheme.compactRadius / 2),
-            ),
-            child: const Text(
-              "Video",  // Ideally we'd show the duration here
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+        if (_isVideoInitialized && _videoController != null)
+          Positioned(
+            right: context.responsiveTheme.compactSpacing,
+            bottom: context.responsiveTheme.compactSpacing,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.responsiveTheme.compactSpacing * 0.75,
+                vertical: context.responsiveTheme.compactSpacing * 0.25,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(context.responsiveTheme.compactRadius / 2),
+              ),
+              child: Text(
+                _formatDuration(_videoController!.value.duration),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
+  }
+  
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$twoDigitMinutes:$twoDigitSeconds";
+  }
+  
+  // Calculate the optimal height based on the video's aspect ratio
+  double _calculateOptimalVideoHeight() {
+    if (_videoController == null || !_isVideoInitialized) {
+      return widget.maxWidth * 0.75; // Default fallback ratio
+    }
+    
+    final videoRatio = _videoController!.value.aspectRatio;
+    
+    // For vertical videos (ratio < 1)
+    if (videoRatio < 1) {
+      // Use a taller container, but not too tall
+      return math.min(widget.maxWidth / videoRatio, widget.maxWidth * 1.8);
+    } 
+    // For square or horizontal videos (ratio >= 1)
+    else {
+      // Use standard height calculation, but ensure minimum height
+      return math.max(widget.maxWidth / videoRatio, 120);
+    }
   }
   
   bool isSquareImage() {
@@ -204,9 +284,9 @@ class MediaMessageDisplay extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (context) => MediaViewerScreen(
-          mediaUrl: mediaUrl,
-          isImage: isImage,
-          caption: caption,
+          mediaUrl: widget.mediaUrl,
+          isImage: widget.isImage,
+          caption: widget.caption,
         ),
       ),
     );
