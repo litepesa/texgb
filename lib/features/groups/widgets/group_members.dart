@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
@@ -16,48 +15,58 @@ class GroupMembers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String getFormatedNames(List<String> names) {
-      List<String> newNamesList = names.map((e) {
-        return e == context.read<AuthenticationProvider>().userModel!.name
-            ? 'You'
-            : e;
-      }).toList();
-      return newNamesList.length == 2
-          ? '${newNamesList[0]} and ${newNamesList[1]}'
-          : newNamesList.length > 2
-              ? '${newNamesList.sublist(0, newNamesList.length - 1).join(', ')} and ${newNamesList.last}'
-              : newNamesList.first;
-    }
-
+    final currentUserId = context.read<AuthenticationProvider>().userModel!.uid;
+    
     return StreamBuilder(
       stream: context
           .read<GroupProvider>()
           .streamGroupMembersData(membersUIDs: membersUIDs),
       builder: (context, AsyncSnapshot<List<DocumentSnapshot>> snapshot) {
         if (snapshot.hasError) {
-          return const Center(child: Text('Something went wrong'));
+          return const Text('Error loading members',
+              style: TextStyle(fontSize: 12, color: Colors.grey));
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: SizedBox());
+          return const Text('Loading members...',
+              style: TextStyle(fontSize: 12, color: Colors.grey));
         }
 
         final members = snapshot.data;
+        if (members == null || members.isEmpty) {
+          return const Text('No members',
+              style: TextStyle(fontSize: 12, color: Colors.grey));
+        }
 
-        // get a list of names
+        // Get a list of names
         final List<String> names = [];
-        // loop through the members
-        for (var member in members!) {
-          names.add(member[Constants.name]);
+        // Loop through the members
+        for (var member in members) {
+          if (member.data() == null) continue;
+          
+          final Map<String, dynamic> memberData = member.data() as Map<String, dynamic>;
+          final String memberName = memberData[Constants.name] ?? 'Unknown';
+          final String memberId = memberData[Constants.uid] ?? '';
+          
+          // Replace current user's name with "You"
+          names.add(memberId == currentUserId ? 'You' : memberName);
         }
 
         return Text(
-          getFormatedNames(names),
+          _formatMemberNames(names),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300),
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
         );
       },
     );
+  }
+  
+  String _formatMemberNames(List<String> names) {
+    if (names.isEmpty) return 'No members';
+    if (names.length == 1) return names.first;
+    if (names.length == 2) return '${names[0]} and ${names[1]}';
+    
+    return '${names[0]}, ${names[1]} and ${names.length - 2} more';
   }
 }

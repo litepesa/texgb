@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/channels_screen.dart';
-import 'package:textgb/features/groups/screens/create_group_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/features/groups/screens/groups_screen.dart';
@@ -325,16 +324,9 @@ class _HomeScreenState extends State<HomeScreen>
     else if (pageIndex == 1) {
       return FloatingActionButton(
         onPressed: () {
-          context
-              .read<GroupProvider>()
-              .clearGroupMembersList()
-              .whenComplete(() {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const CreateGroupScreen(),
-              ),
-            );
-          });
+          // Clear the group data before creating a new group
+          context.read<GroupProvider>().clearGroupData();
+          Navigator.pushNamed(context, Constants.createGroupScreen);
         },
         backgroundColor: accentColor,
         elevation: 4.0, // Increased elevation for better visibility

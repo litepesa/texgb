@@ -13,8 +13,6 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 import 'package:textgb/features/contacts/widgets/contact_list.dart';
 import 'package:textgb/widgets/display_user_image.dart';
-import 'package:textgb/features/groups/widgets/group_type_list_tile.dart';
-import 'package:textgb/widgets/settings_list_tile.dart';
 
 class CreateGroupScreen extends StatefulWidget {
   const CreateGroupScreen({super.key});
@@ -30,7 +28,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   final TextEditingController groupDescriptionController =
       TextEditingController();
   File? finalFileImage;
-  String userImage = '';
   String _searchQuery = '';
 
   void selectImage(bool fromCamera) async {
@@ -96,23 +93,17 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void dispose() {
     groupNameController.dispose();
     groupDescriptionController.dispose();
     super.dispose();
   }
 
-  GroupType groupValue = GroupType.private;
-
   // create group
   void createGroup() {
     final uid = context.read<AuthenticationProvider>().userModel!.uid;
     final groupProvider = context.read<GroupProvider>();
+    
     // check if the group name is empty
     if (groupNameController.text.isEmpty) {
       showSnackBar(context, 'Please enter group name');
@@ -130,6 +121,12 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       showSnackBar(context, 'Please enter group description');
       return;
     }
+    
+    // Check if any members are selected
+    if (groupProvider.getGroupMembersUIDs().isEmpty) {
+      showSnackBar(context, 'Please add at least one member to the group');
+      return;
+    }
 
     GroupModel groupModel = GroupModel(
       creatorUID: uid,
@@ -143,14 +140,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       messageId: '',
       timeSent: DateTime.now(),
       createdAt: DateTime.now(),
-      isPrivate: groupValue == GroupType.private ? true : false,
-      editSettings: true,
-      approveMembers: false,
-      lockMessages: false,
-      requestToJoing: false,
+      onlyAdminsCanSendMessages: false,
+      onlyAdminsCanEditInfo: true,
       membersUIDs: [],
       adminsUIDs: [],
-      awaitingApprovalUIDs: [],
     );
 
     // create group
@@ -169,6 +162,8 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = context.watch<GroupProvider>().isLoading;
+    
     return Scaffold(
       appBar: AppBar(
         leading: AppBarBackButton(
@@ -179,157 +174,132 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: CircleAvatar(
-              child: context.watch<GroupProvider>().isSloading
-                  ? const CircularProgressIndicator()
-                  : IconButton(
-                      onPressed: () {
-                        // create group
-                        createGroup();
-                      },
-                      icon: const Icon(Icons.check)),
-            ),
+            child: isLoading
+                ? const CircularProgressIndicator()
+                : IconButton(
+                    onPressed: createGroup,
+                    icon: const Icon(Icons.check),
+                  ),
           )
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 10.0,
-          horizontal: 10.0,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                DisplayUserImage(
-                  finalFileImage: finalFileImage,
-                  radius: 60,
-                  onPressed: () {
-                    showBottomSheet();
-                  },
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: 16.0,
+            horizontal: 16.0,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Group image and basic info
+              Center(
+                child: Column(
+                  children: [
+                    DisplayUserImage(
+                      finalFileImage: finalFileImage,
+                      radius: 60,
+                      onPressed: showBottomSheet,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Tap to add a group icon',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                buildGroupType(),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // texField for group name
-            TextField(
-              controller: groupNameController,
-              maxLength: 25,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                hintText: 'Group Name',
-                label: Text('Group Name'),
-                counterText: '',
-                border: OutlineInputBorder(),
               ),
-            ),
-            const SizedBox(height: 10),
-            // textField for group description
-            TextField(
-              controller: groupDescriptionController,
-              maxLength: 100,
-              textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                hintText: 'Group Description',
-                label: Text('Group Description'),
-                counterText: '',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  left: 8.0,
-                  right: 8.0,
+              const SizedBox(height: 24),
+              
+              // Group name field
+              TextField(
+                controller: groupNameController,
+                maxLength: 25,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  hintText: 'Group Name',
+                  label: Text('Group Name'),
+                  counterText: '',
+                  border: OutlineInputBorder(),
                 ),
-                child: SettingsListTile(
-                    title: 'Group Settings',
-                    icon: Icons.settings,
-                    iconContainerColor: Colors.deepPurple,
-                    onTap: () {
-                      // navigate to group settings screen
-                      Navigator.pushNamed(
-                          context, Constants.groupSettingsScreen);
-                    }),
               ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Select Group Members',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 16),
+              
+              // Group description field
+              TextField(
+                controller: groupDescriptionController,
+                maxLength: 100,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  hintText: 'Group Description',
+                  label: Text('Group Description'),
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-
-            // Search bar for filtering contacts
-            CupertinoSearchTextField(
-              placeholder: 'Search contacts',
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.dark 
-                  ? Colors.white 
-                  : Colors.black,
+              const SizedBox(height: 24),
+              
+              // Participants section
+              const Text(
+                'Add Participants',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-            ),
-
-            const SizedBox(height: 10),
-
-            // List of contacts to add to the group
-            Expanded(
-              child: ContactList(
-                viewType: ContactViewType.groupView,
-                searchQuery: _searchQuery,
+              const SizedBox(height: 8),
+              
+              // Search bar for filtering contacts
+              CupertinoSearchTextField(
+                placeholder: 'Search contacts',
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark 
+                    ? Colors.white 
+                    : Colors.black,
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              
+              // Selected participants count
+              Consumer<GroupProvider>(
+                builder: (context, provider, _) {
+                  final count = provider.groupMembersList.length;
+                  return count > 0
+                      ? Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            'Selected participants: $count',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink();
+                },
+              ),
+              
+              // List of contacts to add to the group
+              Container(
+                height: 300,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ContactList(
+                  viewType: ContactViewType.groupView,
+                  searchQuery: _searchQuery,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  Column buildGroupType() {
-    return Column(
-      children: [
-        SizedBox(
-          width: MediaQuery.of(context).size.width * 0.3,
-          child: GroupTypeListTile(
-            title: GroupType.private.name,
-            value: GroupType.private,
-            groupValue: groupValue,
-            onChanged: (value) {
-              setState(() {
-                groupValue = value!;
-              });
-            },
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: MediaQuery.of(context).size.width * 0.3,
-          child: GroupTypeListTile(
-            title: GroupType.public.name,
-            value: GroupType.public,
-            groupValue: groupValue,
-            onChanged: (value) {
-              setState(() {
-                groupValue = value!;
-              });
-            },
-          ),
-        ),
-      ],
     );
   }
 }

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 /// Modern color system for the application with updated light and dark mode colors
 class ModernColors {
   // Primary brand colors
-  static const primaryGreen = Color(0xFF25D366);  // Updated green for both themes
-  static const primaryTeal = Color(0xFF25D366);   // Now using the same green for light mode
+  static const primaryGreen = Color(0xFF25D366);  // Dark theme green
+  static const primaryTeal = Color(0xFF228B22);   // Light theme green (updated)
   static const accentBlue = Color(0xFF53BDEB);    // Accent blue for dark mode
   static const accentTealBlue = Color(0xFF027EB5); // Accent blue for light mode
 
@@ -14,7 +14,7 @@ class ModernColors {
   static const error = Color(0xFFE55252);        // Error actions/states
   static const info = Color(0xFF53BDEB);         // Information actions/states
 
-  // Light theme colors (updated)
+  // Light theme colors
   static const lightBackground = Color(0xFFFAF9F5);  // Off-white background
   static const lightSurface = Color(0xFFFAF9F5);     // Off-white surface
   static const lightSurfaceVariant = Color(0xFFF0EFE9); // Light chat background
@@ -47,9 +47,12 @@ class ModernColors {
   static const darkInputBackground = Color(0xFF3A3A38);  // Dark input background
 
   // UI element colors
-  static const gradient1 = [Color(0xFF25D366), Color(0xFF066C38)];  // Green gradient
+  static const gradient1 = [Color(0xFF25D366), Color(0xFF066C38)];  // Green gradient for dark theme
   static const gradient2 = [Color(0xFF53BDEB), Color(0xFF027EB5)];  // Blue gradient
-
+  
+  // Light theme gradients
+  static const lightGradient1 = [Color(0xFF228B22), Color(0xFF176D17)]; // Green gradient for light theme
+  
   // State colors for interactive elements
   static const rippleLight = Color(0x1F000000);  // 12% black
   static const rippleDark = Color(0x1FFFFFFF);   // 12% white

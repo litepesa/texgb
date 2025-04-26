@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
@@ -35,6 +37,9 @@ class BottomChatField extends StatefulWidget {
 }
 
 class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProviderStateMixin {
+  // Firebase firestore instance
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
   // Animation controller for transitions
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -437,112 +442,136 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
     final appBarColor = themeExtension?.appBarColor ?? const Color(0xFFEDEDED);
     final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
     
-    return widget.groupId.isNotEmpty
-        ? buildLoackedMessages()
-        : buildBottomChatField(backgroundColor, appBarColor, accentColor);
+    // Get bottom padding for system navigation
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    
+    return SafeArea(
+      bottom: true,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: bottomPadding > 0 ? bottomPadding : 0,
+        ),
+        child: widget.groupId.isNotEmpty
+            ? buildGroupChatField(backgroundColor, appBarColor, accentColor)
+            : buildBottomChatField(backgroundColor, appBarColor, accentColor),
+      ),
+    );
   }
 
-  Widget buildLoackedMessages() {
+  Widget buildGroupChatField(Color backgroundColor, Color appBarColor, Color accentColor) {
     final uid = context.read<AuthenticationProvider>().userModel!.uid;
-
     final groupProvider = context.read<GroupProvider>();
-    // Check if is admin
-    final isAdmin = groupProvider.groupModel.adminsUIDs.contains(uid);
-
-    // Check if is member
+    
+    // Try to get the group model if it's not loaded yet
+    if (groupProvider.groupModel.groupId.isEmpty && widget.groupId.isNotEmpty) {
+      groupProvider.getGroupById(widget.groupId).then((group) {
+        if (group != null) {
+          groupProvider.setGroupModel(groupModel: group);
+        }
+      });
+    }
+    
+    // Check if user is a member of the group
     final isMember = groupProvider.groupModel.membersUIDs.contains(uid);
-
-    // Check if messages are locked
-    final isLocked = groupProvider.groupModel.lockMessages;
-    
-    final themeExtension = Theme.of(context).extension<ModernThemeExtension>();
-    final backgroundColor = themeExtension?.backgroundColor ?? const Color(0xFFF6F6F6);
-    final appBarColor = themeExtension?.appBarColor ?? const Color(0xFFEDEDED);
-    final accentColor = themeExtension?.accentColor ?? const Color(0xFF07C160);
-    
-    return isAdmin
-        ? buildBottomChatField(backgroundColor, appBarColor, accentColor)
-        : isMember
-            ? buildisMember(isLocked, backgroundColor, appBarColor, accentColor)
-            : Container(
-                height: 60,
-                decoration: BoxDecoration(
-                  color: appBarColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 3,
-                      offset: const Offset(0, -1),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: TextButton(
-                    onPressed: () async {
-                      HapticFeedback.lightImpact();
-                      // Send request to join group
-                      await groupProvider
-                          .sendRequestToJoinGroup(
-                        groupId: groupProvider.groupModel.groupId,
-                        uid: uid,
-                        groupName: groupProvider.groupModel.groupName,
-                        groupImage: groupProvider.groupModel.groupImage,
-                      )
-                          .whenComplete(() {
-                        showSnackBar(context, 'Request sent');
-                      });
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      backgroundColor: Colors.red.withOpacity(0.1),
-                    ),
-                    child: const Text(
-                      'Send request to join group',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              );
-  }
-
-  buildisMember(bool isLocked, Color backgroundColor, Color appBarColor, Color accentColor) {
-    return isLocked
-        ? Container(
-            height: 50,
-            color: appBarColor,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.lock, color: Colors.red, size: 16),
-                  SizedBox(width: 8),
-                  Text(
-                    'Only admins can send messages',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
+    if (!isMember) {
+      return Container(
+        height: 60,
+        decoration: BoxDecoration(
+          color: appBarColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 3,
+              offset: const Offset(0, -1),
             ),
-          )
-        : buildBottomChatField(backgroundColor, appBarColor, accentColor);
+          ],
+        ),
+        child: Center(
+          child: ElevatedButton(
+            onPressed: () async {
+              HapticFeedback.lightImpact();
+              try {
+                // Get group data if we don't have it
+                final group = groupProvider.groupModel.groupId.isEmpty ? 
+                    await groupProvider.getGroupById(widget.groupId) : 
+                    groupProvider.groupModel;
+                    
+                if (group == null) {
+                  showSnackBar(context, 'Could not find group information');
+                  return;
+                }
+                    
+                // Add current user as member
+                await _firestore.collection(Constants.groups).doc(widget.groupId).update({
+                  Constants.membersUIDs: FieldValue.arrayUnion([uid]),
+                });
+                
+                // Update local model
+                if (mounted) {
+                  showSnackBar(context, 'You have joined the group');
+                  // Refresh group data
+                  final updatedGroup = await groupProvider.getGroupById(widget.groupId);
+                  if (updatedGroup != null) {
+                    groupProvider.setGroupModel(groupModel: updatedGroup);
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  showSnackBar(context, 'Failed to join group: $e');
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              backgroundColor: accentColor,
+            ),
+            child: const Text('Join Group'),
+          ),
+        ),
+      );
+    }
+    
+    // Check if user is admin
+    final isAdmin = groupProvider.groupModel.adminsUIDs.contains(uid);
+    
+    // Check if messages are locked (only admins can send)
+    final onlyAdminsCanSend = groupProvider.groupModel.onlyAdminsCanSendMessages;
+    
+    // If messages are locked and user is not admin
+    if (onlyAdminsCanSend && !isAdmin) {
+      return Container(
+        height: 50,
+        color: appBarColor,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock, color: Colors.grey, size: 16),
+              SizedBox(width: 8),
+              Text(
+                'Only admins can send messages',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // User can send messages
+    return buildBottomChatField(backgroundColor, appBarColor, accentColor);
   }
 
   Widget buildBottomChatField(Color backgroundColor, Color appBarColor, Color accentColor) {
@@ -969,12 +998,12 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
   }
   
   Widget buildMoreOptionsGrid(BuildContext context, Color accentColor) {
-    // WeChat-style feature grid
+    // Feature grid with options relevant to the app's capabilities
     final items = [
       {
         'icon': Icons.photo_library,
         'color': Colors.green,
-        'label': 'Photos',
+        'label': 'Gallery',
         'onTap': () => selectImage(false),
       },
       {
@@ -998,23 +1027,23 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
       {
         'icon': Icons.mic,
         'color': Colors.purple,
-        'label': 'Voice',
+        'label': 'Audio',
         'onTap': startRecording,
       },
       {
         'icon': Icons.insert_drive_file,
         'color': Colors.indigo,
-        'label': 'Files',
+        'label': 'Documents',
         'onTap': () {},  // Placeholder
       },
       {
-        'icon': Icons.person,
+        'icon': Icons.contacts,
         'color': accentColor,
         'label': 'Contact',
         'onTap': () {},  // Placeholder
       },
       {
-        'icon': Icons.sticky_note_2_outlined,
+        'icon': Icons.photo,
         'color': Colors.amber,
         'label': 'Stickers',
         'onTap': () {},  // Placeholder

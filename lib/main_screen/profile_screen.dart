@@ -1,4 +1,3 @@
-import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +7,7 @@ import 'package:textgb/models/user_model.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
-import 'package:textgb/features/groups/widgets/group_details_card.dart';
+import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/widgets/settings_list_tile.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -23,20 +22,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // get the saved theme mode
   void getThemeMode() async {
-    // get the saved theme mode
-    final savedThemeMode = await AdaptiveTheme.getThemeMode();
+    // get the theme manager
+    final themeManager = Provider.of<ThemeManager>(context, listen: false);
     // check if the saved theme mode is dark
-    if (savedThemeMode == AdaptiveThemeMode.dark) {
-      // set the isDarkMode to true
-      setState(() {
-        isDarkMode = true;
-      });
-    } else {
-      // set the isDarkMode to false
-      setState(() {
-        isDarkMode = false;
-      });
-    }
+    setState(() {
+      isDarkMode = themeManager.isDarkMode;
+    });
   }
 
   @override
@@ -138,9 +129,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  InfoDetailsCard(
-                    userModel: userModel,
-                  ),
+                  _buildProfileCard(userModel),
                   if (isBlocked) 
                     _buildBlockedBanner(),
                   
@@ -166,6 +155,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildProfileCard(UserModel userModel) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                userImageWidget(
+                  imageUrl: userModel.image,
+                  radius: 50,
+                  onTap: () {},
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userModel.name,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        userModel.phoneNumber,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: userModel.isOnline ? Colors.green : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            userModel.isOnline ? 'Online' : 'Offline',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(
+              color: Colors.grey,
+              thickness: 1,
+              height: 32,
+            ),
+            const Text(
+              'About Me',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              userModel.aboutMe.isEmpty ? 'No about information provided' : userModel.aboutMe,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -262,6 +339,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildSettingsCards(BuildContext context) {
+    final themeManager = Provider.of<ThemeManager>(context, listen: false);
+    
     return Column(
       children: [
         Card(
@@ -370,10 +449,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // check if the value is true
                   if (value) {
                     // set the theme mode to dark
-                    AdaptiveTheme.of(context).setDark();
+                    themeManager.setDarkMode();
                   } else {
                     // set the theme mode to light
-                    AdaptiveTheme.of(context).setLight();
+                    themeManager.setLightMode();
                   }
                 }),
           ),

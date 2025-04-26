@@ -11,7 +11,7 @@ ThemeData modernLightTheme() {
   final textTheme = _createTextTheme();
   
   // Updated colors for consistency with dark theme
-  const newPrimaryGreen = Color(0xFF25D366);  // Same green as dark theme
+  const newPrimaryGreen = Color(0xFF228B22);  // Updated green for light theme
   const newBackground = Color(0xFFFAF9F5);    // Off-white background
   const newSurface = Color(0xFFFAF9F5);       // Off-white surface
   const darkText = Color(0xFF121212);         // Nearly black text
@@ -197,8 +197,9 @@ ThemeData modernLightTheme() {
       elevation: 2,
       highlightElevation: 4,
       splashColor: Colors.white.withOpacity(0.2),
-      shape: const CircleBorder(),
-      extendedPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
     ),
     
     // List Tile Theme
@@ -328,7 +329,7 @@ ThemeData modernLightTheme() {
       activeTrackColor: newPrimaryGreen,
       inactiveTrackColor: Color(0xFF767676), // Tertiary text
       thumbColor: newPrimaryGreen,
-      overlayColor: Color(0x2925D366),
+      overlayColor: Color(0x29228B22),
       trackHeight: 4.0,
     ),
     

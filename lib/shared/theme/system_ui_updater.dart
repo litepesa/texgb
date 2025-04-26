@@ -46,23 +46,48 @@ class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingOb
     final themeManager = Provider.of<ThemeManager>(context, listen: false);
     final isDarkMode = themeManager.isDarkMode;
     
+    // Force edge-to-edge mode for better control of system bars
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
+    );
+    
     // Set the system UI colors based on the current theme
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         // Use the appropriate color based on the theme
         systemNavigationBarColor: isDarkMode 
-            ? const Color(0xFF262624)  // New dark theme for navigation bar
-            : Colors.white,            // Light theme navigation bar
+            ? const Color(0xFF262624)  // Dark theme navigation bar
+            : const Color(0xFFFAF9F5), // Light theme navigation bar
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false, // Prevent Android from overriding colors
         systemNavigationBarIconBrightness: isDarkMode 
             ? Brightness.light         // White icons for dark theme
             : Brightness.dark,         // Dark icons for light theme
-        systemNavigationBarDividerColor: Colors.transparent,
         statusBarIconBrightness: isDarkMode 
             ? Brightness.light         // White status bar icons for dark theme
             : Brightness.dark,         // Dark status bar icons for light theme
       ),
     );
+    
+    // Apply a second time after a short delay to override any system defaults
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: isDarkMode 
+                ? const Color(0xFF262624)  // Dark theme navigation bar
+                : const Color(0xFFFAF9F5), // Light theme navigation bar
+            systemNavigationBarDividerColor: Colors.transparent,
+            systemNavigationBarContrastEnforced: false,
+            systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+            statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+          ),
+        );
+      }
+    });
   }
   
   @override

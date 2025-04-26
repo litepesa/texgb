@@ -13,14 +13,10 @@ class GroupModel {
   String messageId;
   DateTime timeSent;
   DateTime createdAt;
-  bool isPrivate;
-  bool editSettings;
-  bool approveMembers;
-  bool lockMessages;
-  bool requestToJoing;
+  bool onlyAdminsCanSendMessages;
+  bool onlyAdminsCanEditInfo;
   List<String> membersUIDs;
   List<String> adminsUIDs;
-  List<String> awaitingApprovalUIDs;
 
   GroupModel({
     required this.creatorUID,
@@ -34,14 +30,10 @@ class GroupModel {
     required this.messageId,
     required this.timeSent,
     required this.createdAt,
-    required this.isPrivate,
-    required this.editSettings,
-    required this.approveMembers,
-    required this.lockMessages,
-    required this.requestToJoing,
+    required this.onlyAdminsCanSendMessages,
+    required this.onlyAdminsCanEditInfo,
     required this.membersUIDs,
     required this.adminsUIDs,
-    required this.awaitingApprovalUIDs,
   });
 
   // to map
@@ -58,14 +50,10 @@ class GroupModel {
       Constants.messageId: messageId,
       Constants.timeSent: timeSent.millisecondsSinceEpoch,
       Constants.createdAt: createdAt.millisecondsSinceEpoch,
-      Constants.isPrivate: isPrivate,
-      Constants.editSettings: editSettings,
-      Constants.approveMembers: approveMembers,
-      Constants.lockMessages: lockMessages,
-      Constants.requestToJoin: requestToJoing,
+      Constants.lockMessages: onlyAdminsCanSendMessages,
+      Constants.editSettings: onlyAdminsCanEditInfo,
       Constants.membersUIDs: membersUIDs,
       Constants.adminsUIDs: adminsUIDs,
-      Constants.awaitingApprovalUIDs: awaitingApprovalUIDs,
     };
   }
 
@@ -85,15 +73,10 @@ class GroupModel {
           map[Constants.timeSent] ?? DateTime.now().millisecondsSinceEpoch),
       createdAt: DateTime.fromMillisecondsSinceEpoch(
           map[Constants.createdAt] ?? DateTime.now().millisecondsSinceEpoch),
-      isPrivate: map[Constants.isPrivate] ?? false,
-      editSettings: map[Constants.editSettings] ?? false,
-      approveMembers: map[Constants.approveMembers] ?? false,
-      lockMessages: map[Constants.lockMessages] ?? false,
-      requestToJoing: map[Constants.requestToJoin] ?? false,
+      onlyAdminsCanSendMessages: map[Constants.lockMessages] ?? false,
+      onlyAdminsCanEditInfo: map[Constants.editSettings] ?? true,
       membersUIDs: List<String>.from(map[Constants.membersUIDs] ?? []),
       adminsUIDs: List<String>.from(map[Constants.adminsUIDs] ?? []),
-      awaitingApprovalUIDs:
-          List<String>.from(map[Constants.awaitingApprovalUIDs] ?? []),
     );
   }
 }

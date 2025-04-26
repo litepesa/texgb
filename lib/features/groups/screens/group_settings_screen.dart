@@ -1,12 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:textgb/enums/enums.dart';
-import 'package:textgb/models/user_model.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/features/groups/group_provider.dart';
-import 'package:textgb/features/contacts/widgets/contact_widget.dart';
-import 'package:textgb/widgets/settings_list_tile.dart';
-import 'package:textgb/widgets/settings_switch_list_tile.dart';
+import 'package:textgb/models/user_model.dart';
+import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
 class GroupSettingsScreen extends StatefulWidget {
   const GroupSettingsScreen({super.key});
@@ -16,198 +14,180 @@ class GroupSettingsScreen extends StatefulWidget {
 }
 
 class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
-  String getGroupAdminsNames({
-    required GroupProvider groupProvider,
-    required String uid,
-  }) {
-    // check if there are group members
-    if (groupProvider.groupMembersList.isEmpty) {
-      return 'To assign Admin roles, please add group members in the previous screen';
-    } else {
-      List<String> groupAdminsNames = [];
-
-      // get the list of group admins
-      List<UserModel> groupAdminsList = groupProvider.groupAdminsList;
-
-      // get a list of names from the group admins list
-      List<String> groupAdminsNamesList = groupAdminsList.map((groupAdmin) {
-        return groupAdmin.uid == uid ? 'You' : groupAdmin.name;
-      }).toList();
-
-      // add these names to the groupAdminsNames list
-      groupAdminsNames.addAll(groupAdminsNamesList);
-
-      return groupAdminsNames.length == 2
-          ? '${groupAdminsNames[0]} and ${groupAdminsNames[1]}'
-          : groupAdminsNames.length > 2
-              ? '${groupAdminsNames.sublist(0, groupAdminsNames.length - 1).join(', ')} and ${groupAdminsNames.last}'
-              : 'You';
-    }
-  }
-
-  Color getAdminsContainerColor({
-    required GroupProvider groupProvider,
-  }) {
-    // check if there are group members
-    if (groupProvider.groupMembersList.isEmpty) {
-      return Theme.of(context).disabledColor;
-    } else {
-      return Theme.of(context).cardColor;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // get the list of group admins
-    List<UserModel> groupAdminsList =
-        context.read<GroupProvider>().groupAdminsList;
-
-    final uid = context.read<AuthenticationProvider>().userModel!.uid;
-
-    return Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          title: const Text('Group Settings'),
-        ),
-        body: Consumer<GroupProvider>(
-          builder: (context, groupProvider, child) {
-            return Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 20.0, horizontal: 10.0),
-              child: Column(
-                children: [
-                  SettingsSwitchListTile(
-                    title: 'Edit Group Settings',
-                    subtitle:
-                        'Only Admins can change group info, name, image and description',
-                    icon: Icons.edit,
-                    containerColor: Colors.green,
-                    value: groupProvider.groupModel.editSettings,
-                    onChanged: (value) {
-                      groupProvider.setEditSettings(value: value);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  SettingsSwitchListTile(
-                    title: 'Approve New Members',
-                    subtitle:
-                        'New Members will be added only after admin approval',
-                    icon: Icons.approval,
-                    containerColor: Colors.blue,
-                    value: groupProvider.groupModel.approveMembers,
-                    onChanged: (value) {
-                      groupProvider.setApproveNewMembers(value: value);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  groupProvider.groupModel.approveMembers
-                      ? SettingsSwitchListTile(
-                          title: 'Request to Join',
-                          subtitle:
-                              'Request incoming members to join the group, before viewing group content',
-                          icon: Icons.request_page,
-                          containerColor: Colors.orange,
-                          value: groupProvider.groupModel.requestToJoing,
-                          onChanged: (value) {
-                            groupProvider.setRequestToJoin(value: value);
-                          },
-                        )
-                      : const SizedBox.shrink(),
-                  const SizedBox(height: 10),
-                  SettingsSwitchListTile(
-                    title: 'Lock Messages',
-                    subtitle:
-                        'Only Admins can send messages, other members can only read messages',
-                    icon: Icons.lock,
-                    containerColor: Colors.deepPurple,
-                    value: groupProvider.groupModel.lockMessages,
-                    onChanged: (value) {
-                      groupProvider.setLockMessages(value: value);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  Card(
-                    color:
-                        getAdminsContainerColor(groupProvider: groupProvider),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 8.0, right: 8.0),
-                      child: SettingsListTile(
-                          title: 'Group Admins',
-                          subtitle: getGroupAdminsNames(
-                              groupProvider: groupProvider, uid: uid),
-                          icon: Icons.admin_panel_settings,
-                          iconContainerColor: Colors.red,
-                          onTap: () {
-                            // check if there are group members
-                            if (groupProvider.groupMembersList.isEmpty) {
-                              return;
-                            }
-                            // show bottom sheet to select admins
-                            showBottomSheet(
-                                context: context,
-                                builder: (context) {
-                                  return SizedBox(
-                                    height: MediaQuery.of(context).size.height *
-                                        0.9,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Column(
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              const Text(
-                                                'Select Group Admins',
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text(
-                                                  'Done',
-                                                  style: TextStyle(
-                                                      color: Colors.blue,
-                                                      fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Expanded(
-                                            child: ListView.builder(
-                                              itemCount: groupProvider
-                                                  .groupMembersList.length,
-                                              itemBuilder: (context, index) {
-                                                final member = groupProvider
-                                                    .groupMembersList[index];
-                                                return ContactWidget(
-                                                  contact: member,
-                                                  viewType:
-                                                      ContactViewType.groupView,
-                                                  isAdminView: true,
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                });
-                          }),
-                    ),
-                  )
-                ],
+    return Consumer<GroupProvider>(
+      builder: (context, groupProvider, child) {
+        return Scaffold(
+          appBar: AppBar(
+            leading: AppBarBackButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+            title: const Text('Group Settings'),
+            centerTitle: true,
+          ),
+          body: ListView(
+            children: [
+              const SizedBox(height: 16),
+              
+              // Group admin controls section
+              _buildSectionHeader('Admin Controls'),
+              
+              // Only admins can edit group info
+              SwitchListTile(
+                title: const Text('Only admins can edit group info'),
+                subtitle: const Text('Name, description, and group icon'),
+                value: groupProvider.groupModel.onlyAdminsCanEditInfo,
+                onChanged: (value) {
+                  groupProvider.setOnlyAdminsCanEditInfo(value: value);
+                },
               ),
-            );
-          },
-        ));
+              
+              // Only admins can send messages
+              SwitchListTile(
+                title: const Text('Only admins can send messages'),
+                subtitle: const Text('Other members can only read messages'),
+                value: groupProvider.groupModel.onlyAdminsCanSendMessages,
+                onChanged: (value) {
+                  groupProvider.setOnlyAdminsCanSendMessages(value: value);
+                },
+              ),
+              
+              const Divider(),
+              
+              // Privacy and notifications section
+              _buildSectionHeader('Privacy'),
+              
+              // Media visibility
+              ListTile(
+                title: const Text('Media visibility'),
+                subtitle: const Text('Show newly downloaded media from this group in your device\'s gallery'),
+                trailing: Switch(
+                  value: true, // This would be connected to actual app settings
+                  onChanged: (value) {
+                    // Implement media visibility settings change
+                  },
+                ),
+              ),
+              
+              // Disappearing messages
+              ListTile(
+                title: const Text('Disappearing messages'),
+                subtitle: const Text('Off'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  // Navigate to disappearing messages settings
+                },
+              ),
+              
+              // Encryption info
+              ListTile(
+                title: const Text('Encryption'),
+                subtitle: const Text('Messages and calls are end-to-end encrypted'),
+                trailing: const Icon(Icons.lock, size: 16),
+                onTap: () {
+                  // Show encryption info dialog
+                  _showEncryptionInfoDialog();
+                },
+              ),
+              
+              const Divider(),
+              
+              // Group info section
+              _buildSectionHeader('Group Info'),
+              
+              // Created at info
+              ListTile(
+                title: const Text('Created at'),
+                subtitle: Text(_formatDate(groupProvider.groupModel.createdAt)),
+              ),
+              
+              // Creator info
+              FutureBuilder<List<UserModel>>(
+                future: _getCreator(groupProvider),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const ListTile(
+                      title: Text('Created by'),
+                      subtitle: Text('Loading...'),
+                    );
+                  }
+                  
+                  final creator = snapshot.data?.first;
+                  return ListTile(
+                    title: const Text('Created by'),
+                    subtitle: Text(creator?.name ?? 'Unknown'),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+  
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+  
+  Future<List<UserModel>> _getCreator(GroupProvider provider) async {
+    // Get the creator user model
+    final creatorUID = provider.groupModel.creatorUID;
+    final creatorDoc = await FirebaseFirestore.instance
+        .collection(Constants.users)
+        .doc(creatorUID)
+        .get();
+    
+    if (creatorDoc.exists) {
+      return [UserModel.fromMap(creatorDoc.data()!)];
+    }
+    
+    return [];
+  }
+  
+  void _showEncryptionInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('End-to-end encrypted'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lock, size: 64, color: Colors.green),
+            const SizedBox(height: 16),
+            const Text(
+              'Messages and calls in this chat are secured with end-to-end encryption. '
+              'This means your messages stay between you and the people you choose. '
+              'Not even the app can read the content of your messages.',
+              style: TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 }

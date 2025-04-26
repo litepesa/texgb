@@ -157,4 +157,8 @@ class ThemeManager extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void setDarkMode() {}
+
+  void setLightMode() {}
 }

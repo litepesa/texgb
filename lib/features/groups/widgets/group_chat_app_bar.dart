@@ -7,21 +7,15 @@ import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/features/groups/widgets/group_members.dart';
 
-class GroupChatAppBar extends StatefulWidget {
+class GroupChatAppBar extends StatelessWidget {
   const GroupChatAppBar({super.key, required this.groupId});
 
   final String groupId;
 
   @override
-  State<GroupChatAppBar> createState() => _GroupChatAppBarState();
-}
-
-class _GroupChatAppBarState extends State<GroupChatAppBar> {
-  @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream:
-          context.read<GroupProvider>().groupStream(groupId: widget.groupId),
+      stream: context.read<GroupProvider>().groupStream(groupId: groupId),
       builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
         if (snapshot.hasError) {
           return const Center(child: Text('Something went wrong'));
@@ -31,16 +25,16 @@ class _GroupChatAppBarState extends State<GroupChatAppBar> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final groupModel =
-            GroupModel.fromMap(snapshot.data!.data() as Map<String, dynamic>);
+        final groupModel = GroupModel.fromMap(snapshot.data!.data() as Map<String, dynamic>);
 
         return GestureDetector(
           onTap: () {
-            // navigate to group information screen
-            context
-                .read<GroupProvider>()
-                .updateGroupMembersList()
+            // Navigate to group information screen
+            context.read<GroupProvider>()
+                .setGroupModel(groupModel: groupModel)
                 .whenComplete(() {
+              context.read<GroupProvider>().updateGroupMembersList();
+              context.read<GroupProvider>().updateGroupAdminsList();
               Navigator.pushNamed(context, Constants.groupInformationScreen);
             });
           },
@@ -50,16 +44,33 @@ class _GroupChatAppBarState extends State<GroupChatAppBar> {
                 imageUrl: groupModel.groupImage,
                 radius: 20,
                 onTap: () {
-                  // navigate to group settings screen
+                  // Navigate to group information screen
+                  context.read<GroupProvider>()
+                      .setGroupModel(groupModel: groupModel)
+                      .whenComplete(() {
+                    context.read<GroupProvider>().updateGroupMembersList();
+                    context.read<GroupProvider>().updateGroupAdminsList();
+                    Navigator.pushNamed(context, Constants.groupInformationScreen);
+                  });
                 },
               ),
               const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(groupModel.groupName),
-                  GroupMembers(membersUIDs: groupModel.membersUIDs),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      groupModel.groupName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    GroupMembers(membersUIDs: groupModel.membersUIDs),
+                  ],
+                ),
               ),
             ],
           ),

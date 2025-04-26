@@ -19,7 +19,8 @@ class Constants {
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   static const String groupSettingsScreen = '/groupSettingsScreen';
   static const String groupInformationScreen = '/groupInformationScreen';
-  static const String groupMemberRequestsScreen = '/groupMemberRequestsScreen';  // Screen for pending group join requests
+  static const String groupsScreen = '/groupsScreen';
+  static const String createGroupScreen = '/createGroupScreen';
   static const String blockedContactsScreen = '/blockedContactsScreen';
   
   // Status feature routes

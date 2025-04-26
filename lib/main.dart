@@ -22,7 +22,6 @@ import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/groups/screens/group_information_screen.dart';
-import 'package:textgb/features/groups/screens/group_member_requests_screen.dart';
 import 'package:textgb/features/groups/screens/group_settings_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/main_screen/profile_screen.dart';
@@ -32,7 +31,7 @@ import 'package:textgb/features/contacts/contacts_provider.dart';
 import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
-import 'package:textgb/shared/theme/modern_colors.dart';
+import 'dart:async';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -45,6 +44,29 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  
+  // Force edge-to-edge mode for better control of system bars
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
+    overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
+  );
+  
+  // Get the platform brightness to set initial theme
+  final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+  
+  // Initial setup of system UI based on platform brightness
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: isPlatformDark 
+          ? const Color(0xFF262624)  // Dark theme navigation bar
+          : const Color(0xFFFAF9F5), // Light theme navigation bar
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false, // Prevent Android from overriding colors
+      systemNavigationBarIconBrightness: isPlatformDark ? Brightness.light : Brightness.dark,
+      statusBarIconBrightness: isPlatformDark ? Brightness.light : Brightness.dark,
+    ),
+  );
   
   // Initialize Firebase
   await Firebase.initializeApp(
@@ -81,16 +103,57 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  Timer? _uiUpdateTimer;
+  
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    
+    // Apply direct system navigation bar fix with a short delay to ensure it's applied after everything is initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _forceUpdateSystemUI();
+    });
+    
+    // Schedule periodic updates to ensure the navigation bar stays the correct color
+    // This helps on certain Android versions that might reset the navigation bar
+    _uiUpdateTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (mounted) {
+        _forceUpdateSystemUI();
+      } else {
+        timer.cancel();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _uiUpdateTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+  
+  void _forceUpdateSystemUI() {
+    final themeManager = Provider.of<ThemeManager>(context, listen: false);
+    final isDarkMode = themeManager.isDarkMode;
+    
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
+    );
+    
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: isDarkMode 
+            ? const Color(0xFF262624)  // Dark theme navigation bar
+            : const Color(0xFFFAF9F5), // Light theme navigation bar
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+        systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+        statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      ),
+    );
   }
 
   @override
@@ -98,6 +161,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Handle system theme changes
     final themeManager = Provider.of<ThemeManager>(context, listen: false);
     themeManager.handleSystemThemeChange();
+    _forceUpdateSystemUI();
     super.didChangePlatformBrightness();
   }
 
@@ -105,6 +169,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     // Listen to theme changes
     final themeManager = Provider.of<ThemeManager>(context);
+    
+    // Force update system UI every time the theme changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _forceUpdateSystemUI();
+    });
     
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -123,8 +192,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Constants.addContactScreen: (context) => const AddContactScreen(),
         Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
         Constants.chatScreen: (context) => const ChatScreen(),
-        Constants.groupMemberRequestsScreen: (context) =>
-            const GroupMemberRequestsScreen(),
         Constants.groupSettingsScreen: (context) =>
             const GroupSettingsScreen(),
         Constants.groupInformationScreen: (context) =>
