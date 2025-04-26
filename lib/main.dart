@@ -58,9 +58,7 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(
     SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      systemNavigationBarColor: isPlatformDark 
-          ? const Color(0xFF262624)  // Dark theme navigation bar
-          : const Color(0xFFFAF9F5), // Light theme navigation bar
+      systemNavigationBarColor: Colors.transparent,  // Set to transparent
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false, // Prevent Android from overriding colors
       systemNavigationBarIconBrightness: isPlatformDark ? Brightness.light : Brightness.dark,
@@ -145,9 +143,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        systemNavigationBarColor: isDarkMode 
-            ? const Color(0xFF262624)  // Dark theme navigation bar
-            : const Color(0xFFFAF9F5), // Light theme navigation bar
+        systemNavigationBarColor: Colors.transparent, // Set to transparent
         systemNavigationBarDividerColor: Colors.transparent,
         systemNavigationBarContrastEnforced: false,
         systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,

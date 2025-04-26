@@ -85,15 +85,11 @@ class ThemeManager extends ChangeNotifier {
   void updateSystemNavigation() {
     final isDark = _activeTheme.brightness == Brightness.dark;
     
-    // Use explicit colors for better consistency across devices
-    Color navBarColor = isDark 
-        ? const Color(0xFF262624)  // Updated dark theme for navigation bar
-        : Colors.white;            // Light theme - use white
-    
+    // Set system navigation bar to transparent
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        systemNavigationBarColor: navBarColor,
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         systemNavigationBarDividerColor: Colors.transparent,
         statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
@@ -106,7 +102,7 @@ class ThemeManager extends ChangeNotifier {
       SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
-          systemNavigationBarColor: navBarColor,
+          systemNavigationBarColor: Colors.transparent,
           systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
           systemNavigationBarDividerColor: Colors.transparent,
           statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,

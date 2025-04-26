@@ -99,6 +99,26 @@ class _StatusScreenState extends State<StatusScreen> with SingleTickerProviderSt
     Provider.of<StatusProvider>(context, listen: false).setSearchQuery(query);
   }
   
+  void _handleCreatePost() async {
+    final currentUser = Provider.of<AuthenticationProvider>(context, listen: false).userModel;
+    if (currentUser == null) return;
+    
+    final statusProvider = Provider.of<StatusProvider>(context, listen: false);
+    final hasPostedToday = await statusProvider.hasUserPostedToday(currentUser.uid);
+    
+    if (hasPostedToday) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You can only post once per day'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    Navigator.pushNamed(context, Constants.createStatusScreen);
+  }
+  
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
@@ -112,46 +132,63 @@ class _StatusScreenState extends State<StatusScreen> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: _isSearchVisible ? BackButton(
-          color: Colors.white,
-          onPressed: _toggleSearch,
-        ) : null,
-        title: _isSearchVisible 
-          ? TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search status posts...',
-                hintStyle: TextStyle(color: Colors.white70),
-                border: InputBorder.none,
+      floatingActionButton: null, // Explicitly setting to null to ensure it's not displayed
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(kToolbarHeight),
+        child: Container(
+          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+          child: _isSearchVisible 
+            ? Container(
+                color: Colors.black54,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: _toggleSearch,
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search status posts...',
+                          hintStyle: TextStyle(color: Colors.white70),
+                          border: InputBorder.none,
+                        ),
+                        style: TextStyle(color: Colors.white),
+                        cursorColor: Colors.white,
+                        onChanged: _handleSearch,
+                        autofocus: true,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.clear, color: Colors.white),
+                      onPressed: _toggleSearch,
+                    ),
+                  ],
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Tab buttons in a row
+                    Row(
+                      children: [
+                        _buildTabButton(0, 'Latest'),
+                        _buildTabButton(1, 'Trending'),
+                        _buildTabButton(2, 'Contacts'),
+                      ],
+                    ),
+                    // Search icon
+                    IconButton(
+                      icon: Icon(Icons.search, color: Colors.white),
+                      onPressed: _toggleSearch,
+                    ),
+                  ],
+                ),
               ),
-              style: TextStyle(color: Colors.white),
-              cursorColor: Colors.white,
-              onChanged: _handleSearch,
-              autofocus: true,
-            )
-          : Text('Status', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: Icon(_isSearchVisible ? Icons.clear : Icons.search, color: Colors.white),
-            onPressed: _toggleSearch,
-          ),
-        ],
-        bottom: _isSearchVisible 
-          ? null 
-          : TabBar(
-              controller: _tabController,
-              indicatorColor: modernTheme.primaryColor!,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              tabs: const [
-                Tab(text: 'Latest'),
-                Tab(text: 'Trending'),
-                Tab(text: 'Contacts'),
-              ],
-            ),
+        ),
       ),
       body: isLoading 
         ? Center(child: CircularProgressIndicator(color: modernTheme.primaryColor))
@@ -191,42 +228,46 @@ class _StatusScreenState extends State<StatusScreen> with SingleTickerProviderSt
                 return StatusPostView(
                   post: post,
                   currentUserId: currentUser?.uid ?? '',
+                  onCreatePost: _handleCreatePost,
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        onPressed: () async {
-          if (currentUser == null) return;
-          
-          final hasPostedToday = await statusProvider.hasUserPostedToday(currentUser.uid);
-          
-          if (hasPostedToday) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('You can only post once per day'),
-                backgroundColor: Colors.red,
-              ),
-            );
-            return;
-          }
-          
-          Navigator.pushNamed(context, Constants.createStatusScreen);
-        },
-        child: const Icon(Icons.add),
-      ),
     );
   }
+  
+  Widget _buildTabButton(int index, String label) {
+  final isSelected = _tabController.index == index;
+  final modernTheme = context.modernTheme;
+  
+  return GestureDetector(
+    onTap: () {
+      _tabController.animateTo(index);
+    },
+    child: Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      // Removed the border decoration
+      child: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Colors.white : Colors.white70,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+    ),
+  );
+ }
 }
 
 class StatusPostView extends StatefulWidget {
   final StatusPostModel post;
   final String currentUserId;
+  final VoidCallback onCreatePost;
   
   const StatusPostView({
     Key? key,
     required this.post,
     required this.currentUserId,
+    required this.onCreatePost,
   }) : super(key: key);
 
   @override
@@ -408,6 +449,22 @@ class _StatusPostViewState extends State<StatusPostView> with AutomaticKeepAlive
               ),
               Text(
                 'Comment',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+              
+              SizedBox(height: 20),
+              
+              // Post button (formerly FAB)
+              IconButton(
+                icon: Icon(
+                  Icons.add,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: widget.onCreatePost,
+              ),
+              Text(
+                'Post',
                 style: TextStyle(color: Colors.white, fontSize: 12),
               ),
               

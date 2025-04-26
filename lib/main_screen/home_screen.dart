@@ -125,8 +125,10 @@ class _HomeScreenState extends State<HomeScreen>
     final appBarColor = modernTheme.appBarColor!;
     final surfaceColor = modernTheme.surfaceColor!;
     
-    // Use same color for bottom nav
-    final bottomNavColor = surfaceColor;
+    // Determine bottom nav color based on selected tab
+    final bottomNavColor = pageIndex == 2 
+        ? Colors.black  // Force black color when status tab is selected
+        : surfaceColor; // Use theme surface color for other tabs
     
     // Get text colors
     final textColor = modernTheme.textColor!;
@@ -215,87 +217,90 @@ class _HomeScreenState extends State<HomeScreen>
         index: pageIndex,
         children: pages,
       ),
-      bottomNavigationBar: Container(
-        // Add a top divider to better separate the content from navigation
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: modernTheme.dividerColor!,
-              width: 0.5,
+      // Custom bottom nav bar that extends into system nav area
+      bottomNavigationBar: Material(
+        color: bottomNavColor,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top divider for the bottom nav
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: modernTheme.dividerColor,
             ),
-          ),
-          // Add a subtle shadow for depth in light mode
-          boxShadow: !isDarkMode && pageIndex != 2 ? [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 3,
-              offset: const Offset(0, -1),
+            // Bottom navigation bar (standard height)
+            BottomNavigationBar(
+              onTap: (index) {
+                // If switching FROM status tab, ensure videos are paused by setting visibility flag
+                if (pageIndex == 2 && index != 2) {
+                  // We're switching away from status tab
+                  context.read<StatusProvider>().setStatusTabVisible(false);
+                } else if (index == 2 && pageIndex != 2) {
+                  // We're switching TO status tab, set visibility to true
+                  context.read<StatusProvider>().setStatusTabVisible(true);
+                  
+                  // Set app as no longer in fresh start when user actively selects the status tab
+                  context.read<StatusProvider>().setAppFreshStart(false);
+                }
+                
+                setState(() {
+                  pageIndex = index;
+                });
+                
+                // If status tab is selected, refresh status data
+                if (index == 2) {
+                  _refreshStatusFeed();
+                }
+              },
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.transparent, // Make transparent to inherit from Material
+              selectedItemColor: pageIndex == 2 ? Colors.red : selectedItemColor,
+              unselectedItemColor: pageIndex == 2 ? Colors.white70 : unselectedItemColor,
+              showUnselectedLabels: true,
+              showSelectedLabels: true,
+              currentIndex: pageIndex,
+              elevation: 0, // No elevation
+              selectedLabelStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                height: 1.6,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+                height: 1.6,
+              ),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.chat_bubble_text, size: 30),
+                  //activeIcon: Icon(CupertinoIcons.chat_bubble_2_fill, size: 28),
+                  label: 'Chats',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.person_2, size: 30),
+                  //activeIcon: Icon(CupertinoIcons.person_2_fill, size: 28),
+                  label: 'Groups',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.rays, size: 30),
+                  //activeIcon: Icon(CupertinoIcons.camera_fill, size: 28),
+                  label: 'Status',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.camera, size: 30),
+                  //activeIcon: Icon(CupertinoIcons.rays, size: 28),
+                  label: 'Channels',
+                ),
+              ],
             ),
-          ] : null,
-        ),
-        child: BottomNavigationBar(
-          onTap: (index) {
-            // If switching FROM status tab, ensure videos are paused by setting visibility flag
-            if (pageIndex == 2 && index != 2) {
-              // We're switching away from status tab
-              context.read<StatusProvider>().setStatusTabVisible(false);
-            } else if (index == 2 && pageIndex != 2) {
-              // We're switching TO status tab, set visibility to true
-              context.read<StatusProvider>().setStatusTabVisible(true);
-              
-              // Set app as no longer in fresh start when user actively selects the status tab
-              context.read<StatusProvider>().setAppFreshStart(false);
-            }
-            
-            setState(() {
-              pageIndex = index;
-            });
-            
-            // If status tab is selected, refresh status data
-            if (index == 2) {
-              _refreshStatusFeed();
-            }
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: bottomNavColor,
-          selectedItemColor: selectedItemColor,
-          unselectedItemColor: unselectedItemColor,
-          showUnselectedLabels: true,
-          showSelectedLabels: true,
-          currentIndex: pageIndex,
-          elevation: elevation, // Match app bar elevation
-          // Improve padding for better touch targets
-          selectedLabelStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            height: 1.6,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.normal,
-            height: 1.6,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.chat_bubble_2, size: 28),
-              activeIcon: Icon(CupertinoIcons.chat_bubble_2_fill, size: 28),
-              label: 'Chats',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.person_2, size: 28),
-              activeIcon: Icon(CupertinoIcons.person_2_fill, size: 28),
-              label: 'Groups',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.camera, size: 28),
-              activeIcon: Icon(CupertinoIcons.camera_fill, size: 28),
-              label: 'Status',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.rays, size: 28),              // Icon for Channels
-              activeIcon: Icon(CupertinoIcons.rays, size: 28),        // Active icon for Channels
-              label: 'Channels',                                       // Label for Channels
-            ),
+            // Extra padding that extends into system navigation area
+            MediaQuery.of(context).padding.bottom > 0
+              ? Container(
+                  height: MediaQuery.of(context).padding.bottom,
+                  color: bottomNavColor, // Same color as bottom nav
+                )
+              : const SizedBox.shrink(),
           ],
         ),
       ),
@@ -334,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen>
       );
     }
     // Status create button for Status tab
-    else if (pageIndex == 2) {
+    /*else if (pageIndex == 2) {
       return FloatingActionButton(
         onPressed: () {
           Navigator.pushNamed(context, Constants.createStatusScreen);
@@ -343,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen>
         elevation: 4.0,
         child: const Icon(CupertinoIcons.camera, size: 26),
       );
-    }
+    }*/
     // FAB for Channels tab - Navigate to create channel
     else if (pageIndex == 3) {
       return FloatingActionButton(

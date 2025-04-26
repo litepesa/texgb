@@ -644,9 +644,9 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                 : Text(
                     'Post',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFF008069),
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 18,
                     ),
                   ),
           ),

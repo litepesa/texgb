@@ -52,14 +52,12 @@ class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingOb
       overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
     );
     
-    // Set the system UI colors based on the current theme
+    // Set the system UI colors based on the current theme - using transparent for nav bar
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        // Use the appropriate color based on the theme
-        systemNavigationBarColor: isDarkMode 
-            ? const Color(0xFF262624)  // Dark theme navigation bar
-            : const Color(0xFFFAF9F5), // Light theme navigation bar
+        // Make navigation bar transparent
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarDividerColor: Colors.transparent,
         systemNavigationBarContrastEnforced: false, // Prevent Android from overriding colors
         systemNavigationBarIconBrightness: isDarkMode 
@@ -77,9 +75,7 @@ class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingOb
         SystemChrome.setSystemUIOverlayStyle(
           SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
-            systemNavigationBarColor: isDarkMode 
-                ? const Color(0xFF262624)  // Dark theme navigation bar
-                : const Color(0xFFFAF9F5), // Light theme navigation bar
+            systemNavigationBarColor: Colors.transparent,
             systemNavigationBarDividerColor: Colors.transparent,
             systemNavigationBarContrastEnforced: false,
             systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
