@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/channels_screen.dart';
+import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/features/groups/screens/groups_screen.dart';
@@ -10,7 +11,6 @@ import 'package:textgb/features/chat/screens/my_chats_screen.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-import 'package:textgb/main_screen/enhanced_profile_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
@@ -186,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen>
                 // Navigate to profile screen when avatar is tapped
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => const EnhancedProfileScreen(),
+                    builder: (context) => const MyProfileScreen(),
                   ),
                 );
               },

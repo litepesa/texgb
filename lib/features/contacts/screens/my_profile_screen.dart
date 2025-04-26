@@ -15,16 +15,15 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
-class EnhancedProfileScreen extends StatefulWidget {
-  const EnhancedProfileScreen({super.key});
+class MyProfileScreen extends StatefulWidget {
+  const MyProfileScreen({super.key});
 
   @override
-  State<EnhancedProfileScreen> createState() => _EnhancedProfileScreenState();
+  State<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
+class _MyProfileScreenState extends State<MyProfileScreen> {
   final TextEditingController _aboutMeController = TextEditingController();
   bool _isEditingAboutMe = false;
   bool _isUpdatingProfile = false;
@@ -39,9 +38,13 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
     // Initialize the about me text controller with current value when the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final currentUser = context.read<AuthenticationProvider>().userModel;
-      if (currentUser != null) {
-        _aboutMeController.text = currentUser.aboutMe;
+      // Safety check to ensure this screen is only used for the current user
+      if (currentUser == null) {
+        Navigator.pop(context);
+        return;
       }
+      
+      _aboutMeController.text = currentUser.aboutMe;
       
       // Set theme state AFTER widgets are built
       setState(() {
@@ -463,8 +466,22 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
       );
     }
     
+    // Verify this is the current user's profile
+    final isCurrentUser = currentUser.uid == FirebaseAuth.instance.currentUser?.uid;
+    if (!isCurrentUser) {
+      // If not the current user, navigate back
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pop(context);
+      });
+      return const Scaffold(body: Center(child: Text('Unauthorized access')));
+    }
+    
     return Scaffold(
       backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: const Text('My Profile'),
+        centerTitle: true,
+      ),
       body: Stack(
         children: [
           CustomScrollView(
@@ -489,17 +506,6 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                   child: SafeArea(
                     child: Column(
                       children: [
-                        // Add back button at the top
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8.0, top: 8.0),
-                          child: Align(
-                            alignment: Alignment.topLeft,
-                            child: AppBarBackButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          ),
-                        ),
-                        
                         const SizedBox(height: 20),
                         
                         // User image with edit button - ENHANCED VERSION
@@ -620,7 +626,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                           ),
                         ),
                         
-                        // User phone number
+                        // Only show phone number to the user themselves
                         Text(
                           currentUser.phoneNumber,
                           style: GoogleFonts.poppins(
@@ -713,6 +719,20 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                     title: 'Privacy',
                     child: Column(
                       children: [
+                        // Privacy Settings
+                        _buildListTile(
+                          icon: Icons.shield,
+                          title: 'Privacy Settings',
+                          subtitle: 'Manage your privacy preferences',
+                          iconColor: ModernColors.primaryGreen,
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              Constants.privacySettingsScreen,
+                            );
+                          },
+                        ),
+                        
                         // Blocked Contacts
                         _buildListTile(
                           icon: Icons.block,
@@ -773,6 +793,53 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
                                 _setTheme(ThemeOption.dark);
                               }
                             });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Logout section
+                  _buildProfileSection(
+                    title: 'Account Actions',
+                    child: Column(
+                      children: [
+                        _buildListTile(
+                          icon: Icons.logout,
+                          title: 'Logout',
+                          subtitle: 'Sign out of your account',
+                          iconColor: ModernColors.error,
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Logout'),
+                                content: const Text('Are you sure you want to logout?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    style: TextButton.styleFrom(foregroundColor: ModernColors.error),
+                                    onPressed: () {
+                                      context.read<AuthenticationProvider>().logout()
+                                      .then((_) {
+                                        Navigator.pop(context);
+                                        Navigator.pushNamedAndRemoveUntil(
+                                          context,
+                                          Constants.loginScreen,
+                                          (route) => false,
+                                        );
+                                      });
+                                    },
+                                    child: const Text('Logout'),
+                                  ),
+                                ],
+                              ),
+                            );
                           },
                         ),
                       ],
@@ -872,6 +939,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen> {
   }
 
   // Helper widget for list tiles
+  // Helper widget for list tiles (continued)
   Widget _buildListTile({
     required IconData icon,
     required String title,

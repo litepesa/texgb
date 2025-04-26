@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class ModernColors {
   // Primary brand colors
   static const primaryGreen = Color(0xFF25D366);  // Dark theme green
-  static const primaryTeal = Color(0xFF228B22);   // Light theme green (updated)
+  static const primaryTeal = Color(0xFF1E9E1E);   // Updated light theme green for better visibility
   static const accentBlue = Color(0xFF53BDEB);    // Accent blue for dark mode
   static const accentTealBlue = Color(0xFF027EB5); // Accent blue for light mode
 
@@ -14,23 +14,23 @@ class ModernColors {
   static const error = Color(0xFFE55252);        // Error actions/states
   static const info = Color(0xFF53BDEB);         // Information actions/states
 
-  // Light theme colors
-  static const lightBackground = Color(0xFFFAF9F5);  // Off-white background
-  static const lightSurface = Color(0xFFFAF9F5);     // Off-white surface
-  static const lightSurfaceVariant = Color(0xFFF0EFE9); // Light chat background
-  static const lightAppBar = Color(0xFFFAF9F5);      // Off-white app bar
-  static const lightBorder = Color(0xFFE4E4E4);      // Light dividers/borders
+  // Light theme colors - Updated for better visibility
+  static const lightBackground = Color(0xFFF8F7F2);  // Slightly darker off-white background
+  static const lightSurface = Color(0xFFFFFFFF);     // Pure white surface for better contrast
+  static const lightSurfaceVariant = Color(0xFFEAE9E3); // Darker chat background for better visibility
+  static const lightAppBar = Color(0xFFFFFFFF);      // Pure white app bar
+  static const lightBorder = Color(0xFFE8E8E8);      // Slightly darker borders for visibility
   static const lightText = Color(0xFF121212);        // Dark text for light mode
-  static const lightTextSecondary = Color(0xFF3C3C3C); // Secondary text
-  static const lightTextTertiary = Color(0xFF767676);  // Tertiary text
-  static const lightDivider = Color(0xFFE4E4E4);     // Light dividers
-  static const lightChatBackground = Color(0xFFF4F3EF); // Light chat background
+  static const lightTextSecondary = Color(0xFF303030); // Darker secondary text for better contrast
+  static const lightTextTertiary = Color(0xFF555555);  // Darker tertiary text for better contrast
+  static const lightDivider = Color(0xFFD8D8D8);     // Darker dividers for better visibility
+  static const lightChatBackground = Color(0xFFF0EFE9); // Light chat background
   static const lightSenderBubble = Color(0xFFDCF8C6);  // Light green sender bubble
   static const lightReceiverBubble = Color(0xFFFFFFFF); // White receiver bubble
-  static const lightSystemMessage = Color(0xFFF0EFE9);  // Light system message
-  static const lightInputBackground = Color(0xFFF0EFE9); // Light input background
+  static const lightSystemMessage = Color(0xFFEAE9E3);  // Darker system message for better visibility
+  static const lightInputBackground = Color(0xFFEAE9E3); // Darker input background for better visibility
 
-  // Dark theme colors
+  // Dark theme colors - Unchanged to preserve dark mode
   static const darkBackground = Color(0xFF30302E);       // Dark background
   static const darkSurfaceVariant = Color(0xFF3A3A38);   // Dark surface variant
   static const darkSurface = Color(0xFF262624);          // Dark surface
@@ -50,14 +50,14 @@ class ModernColors {
   static const gradient1 = [Color(0xFF25D366), Color(0xFF066C38)];  // Green gradient for dark theme
   static const gradient2 = [Color(0xFF53BDEB), Color(0xFF027EB5)];  // Blue gradient
   
-  // Light theme gradients
-  static const lightGradient1 = [Color(0xFF228B22), Color(0xFF176D17)]; // Green gradient for light theme
+  // Light theme gradients - Updated for better visibility
+  static const lightGradient1 = [Color(0xFF1E9E1E), Color(0xFF176D17)]; // Green gradient for light theme
   
   // State colors for interactive elements
   static const rippleLight = Color(0x1F000000);  // 12% black
   static const rippleDark = Color(0x1FFFFFFF);   // 12% white
   
   // Overlay colors
-  static const overlayLight = Color(0xB3FAF9F5);  // 70% off-white
-  static const overlayDark = Color(0xB330302E);   // 70% dark background
+  static const overlayLight = Color(0xB3F8F7F2);  // 70% updated off-white
+  static const overlayDark = Color(0xB330302E);   // 70% dark background - unchanged
 }

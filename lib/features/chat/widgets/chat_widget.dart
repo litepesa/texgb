@@ -1,7 +1,10 @@
+// lib/features/chat/widgets/chat_widget.dart
+
 import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/enums/enums.dart';
+import 'package:textgb/features/chat/widgets/unread_message_counter.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/groups/group_model.dart';
 import 'package:textgb/models/last_message_model.dart';
@@ -59,9 +62,6 @@ class ChatWidget extends StatelessWidget {
         ? chat!.messageType 
         : (group!.messageType as String?)?.toMessageEnum() ?? MessageEnum.text;
     
-    // Check if it's a recent conversation (within the last 24 hours)
-    final bool isRecent = DateTime.now().difference(timeToUse).inHours < 24;
-    
     // Check if it has unread messages
     final bool hasUnreadMessages = chat != null ? !chat!.isSeen && senderUID != uid : false;
     
@@ -80,60 +80,14 @@ class ChatWidget extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
           child: Row(
             children: [
-              // Contact/Group avatar with online status
-              Stack(
-                children: [
-                  Hero(
-                    tag: 'avatar-$contactUID',
-                    child: userImageWidget(
-                      imageUrl: imageUrl,
-                      radius: 28,
-                      onTap: () {},
-                    ),
-                  ),
-                  
-                  // Add online status indicator for personal chats
-                  if (!isGroup && chat != null && chat!.contactUID != uid) 
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: isRecent ? modernTheme.accentColor : Colors.grey,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                  // Add group icon for group chats
-                  if (isGroup)
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: modernTheme.primaryColor,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            width: 2,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.group,
-                          size: 10,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                ],
+              // Contact/Group avatar (removed online status indicator)
+              Hero(
+                tag: 'avatar-$contactUID',
+                child: userImageWidget(
+                  imageUrl: imageUrl,
+                  radius: 28,
+                  onTap: () {},
+                ),
               ),
               const SizedBox(width: 16),
               
@@ -177,23 +131,12 @@ class ChatWidget extends StatelessWidget {
                           ),
                         ),
                         
-                        // Timestamp with enhanced styling
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isRecent ? 6 : 0,
-                            vertical: isRecent ? 2 : 0,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isRecent ? modernTheme.primaryColor!.withOpacity(0.1) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            timeString,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isRecent ? FontWeight.w500 : FontWeight.normal,
-                              color: isRecent ? modernTheme.primaryColor : modernTheme.textTertiaryColor,
-                            ),
+                        // Timestamp
+                        Text(
+                          timeString,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: modernTheme.textTertiaryColor,
                           ),
                         ),
                       ],
@@ -321,71 +264,5 @@ class ChatWidget extends StatelessWidget {
     else {
       return formatDate(date, [M, ' ', d, ', ', yy]);
     }
-  }
-}
-
-class UnreadMessageCounter extends StatelessWidget {
-  const UnreadMessageCounter({
-    super.key,
-    required this.uid,
-    required this.contactUID,
-    required this.isGroup,
-  });
-
-  final String uid;
-  final String contactUID;
-  final bool isGroup;
-
-  @override
-  Widget build(BuildContext context) {
-    final modernTheme = context.modernTheme;
-    
-    return StreamBuilder<int>(
-      stream: context.read<ChatProvider>().getUnreadMessagesStream(
-        userId: uid,
-        contactUID: contactUID,
-        isGroup: isGroup,
-      ),
-      builder: (context, snapshot) {
-        if (snapshot.hasError || 
-            snapshot.connectionState == ConnectionState.waiting ||
-            !snapshot.hasData ||
-            snapshot.data == 0) {
-          return const SizedBox.shrink();
-        }
-        
-        final unreadCount = snapshot.data!;
-        
-        // Modern badge style for unread counter
-        return Container(
-          padding: const EdgeInsets.all(6),
-          constraints: const BoxConstraints(
-            minWidth: 20,
-            minHeight: 20,
-          ),
-          decoration: BoxDecoration(
-            color: modernTheme.primaryColor,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: modernTheme.primaryColor!.withOpacity(0.3),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              unreadCount > 99 ? '99+' : unreadCount.toString(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        );
-      },
-    );
   }
 }

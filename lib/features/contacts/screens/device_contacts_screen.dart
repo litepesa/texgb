@@ -275,7 +275,7 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
             onTap: () {
               Navigator.pushNamed(
                 context,
-                Constants.profileScreen,
+                Constants.contactProfileScreen,
                 arguments: contact.uid,
               );
             },

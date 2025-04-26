@@ -13,6 +13,8 @@ import 'package:textgb/features/channels/screens/create_channel_post_screen.dart
 import 'package:textgb/features/channels/screens/create_channel_screen.dart';
 import 'package:textgb/features/channels/screens/explore_channels_screen.dart';
 import 'package:textgb/features/channels/screens/my_channels_screen.dart';
+import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
+import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
@@ -24,7 +26,7 @@ import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/groups/screens/group_information_screen.dart';
 import 'package:textgb/features/groups/screens/group_settings_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
-import 'package:textgb/main_screen/profile_screen.dart';
+import 'package:textgb/features/settings/screens/privacy_settings_screen.dart'; // New import
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/chat/chat_provider.dart';
 import 'package:textgb/features/contacts/contacts_provider.dart';
@@ -183,7 +185,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Constants.userInformationScreen: (context) =>
             const UserInformationScreen(),
         Constants.homeScreen: (context) => const HomeScreen(),
-        Constants.profileScreen: (context) => const ProfileScreen(),
+        
+        // Updated route for contact profile (viewing others)
+        Constants.contactProfileScreen: (context) => const ContactProfileScreen(),
+        
+        // New route for personal profile management
+        Constants.myProfileScreen: (context) => const MyProfileScreen(),
+        
+        // Add privacy settings screen
+        Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
+        
         Constants.contactsScreen: (context) => const ContactsScreen(),
         Constants.addContactScreen: (context) => const AddContactScreen(),
         Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
@@ -211,6 +222,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             builder: (context) => CreateChannelPostScreen(channelId: channelId),
           );
         }
+        
+        // Support legacy profileScreen route for backward compatibility
+        if (settings.name == Constants.myProfileScreen) {
+          // Check if it's for the current user or another user
+          final String uid = settings.arguments as String;
+          final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+          
+          if (uid == authProvider.userModel?.uid) {
+            // If it's the current user, redirect to my profile screen
+            return MaterialPageRoute(
+              builder: (context) => const MyProfileScreen(),
+            );
+          } else {
+            // If it's another user, redirect to contact profile screen
+            return MaterialPageRoute(
+              builder: (context) => const ContactProfileScreen(),
+              settings: settings, // Pass the original settings to preserve arguments
+            );
+          }
+        }
+        
         return null;
       },
       // Add the route observer

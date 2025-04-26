@@ -1,3 +1,5 @@
+// lib/features/chat/widgets/chat_app_bar.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,7 +8,6 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-import 'package:timeago/timeago.dart' as timeago;
 
 class ChatAppBar extends StatefulWidget {
   const ChatAppBar({super.key, required this.contactUID});
@@ -36,9 +37,6 @@ class _ChatAppBarState extends State<ChatAppBar> {
         final userModel =
             UserModel.fromMap(snapshot.data!.data() as Map<String, dynamic>);
 
-        DateTime lastSeen =
-            DateTime.fromMillisecondsSinceEpoch(int.parse(userModel.lastSeen));
-
         return Row(
           children: [
             userImageWidget(
@@ -46,32 +44,16 @@ class _ChatAppBarState extends State<ChatAppBar> {
               radius: 20,
               onTap: () {
                 // navigate to this friends profile with uid as argument
-                Navigator.pushNamed(context, Constants.profileScreen,
+                Navigator.pushNamed(context, Constants.contactProfileScreen,
                     arguments: userModel.uid);
               },
             ),
             const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  userModel.name,
-                  style: GoogleFonts.openSans(
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  userModel.isOnline
-                      ? 'Online'
-                      : 'Last seen ${timeago.format(lastSeen)}',
-                  style: GoogleFonts.openSans(
-                    fontSize: 12,
-                    color: userModel.isOnline
-                        ? Colors.green
-                        : Colors.grey.shade600,
-                  ),
-                ),
-              ],
+            Text(
+              userModel.name,
+              style: GoogleFonts.openSans(
+                fontSize: 16,
+              ),
             ),
           ],
         );

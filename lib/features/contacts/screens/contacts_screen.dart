@@ -441,7 +441,7 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
       onTap: () {
         Navigator.pushNamed(
           context,
-          Constants.profileScreen,
+          Constants.contactProfileScreen,
           arguments: contact.uid,
         );
       },
@@ -476,7 +476,7 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
       onTap: () {
         Navigator.pushNamed(
           context,
-          Constants.profileScreen,
+          Constants.contactProfileScreen,
           arguments: contact.uid,
         );
       },

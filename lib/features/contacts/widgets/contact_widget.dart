@@ -118,7 +118,7 @@ class ContactWidget extends StatelessWidget {
         // Navigate to profile screen
         Navigator.pushNamed(
           context,
-          Constants.profileScreen,
+          Constants.contactProfileScreen,
           arguments: contact.uid,
         );
         break;
@@ -126,7 +126,7 @@ class ContactWidget extends StatelessWidget {
         // Navigate to profile screen
         Navigator.pushNamed(
           context,
-          Constants.profileScreen,
+          Constants.contactProfileScreen,
           arguments: contact.uid,
         );
         break;
@@ -135,7 +135,7 @@ class ContactWidget extends StatelessWidget {
           // Navigate to profile screen
           Navigator.pushNamed(
             context,
-            Constants.profileScreen,
+            Constants.contactProfileScreen,
             arguments: contact.uid,
           );
         }
@@ -173,7 +173,7 @@ class ContactWidget extends StatelessWidget {
                   Navigator.pop(context);
                   Navigator.pushNamed(
                     context,
-                    Constants.profileScreen,
+                    Constants.contactProfileScreen,
                     arguments: contact.uid,
                   );
                 },

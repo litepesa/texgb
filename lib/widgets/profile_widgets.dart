@@ -29,11 +29,19 @@ class ProfileWidget extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: InkWell(
         onTap: onTap ?? () {
-          Navigator.pushNamed(
-            context,
-            Constants.profileScreen,
-            arguments: userModel.uid,
-          );
+          // Route to the appropriate profile screen based on whether it's current user or not
+          if (isCurrentUser) {
+            Navigator.pushNamed(
+              context,
+              Constants.myProfileScreen, // Use MyProfileScreen for current user
+            );
+          } else {
+            Navigator.pushNamed(
+              context,
+              Constants.contactProfileScreen, // Use ContactProfileScreen for other users
+              arguments: userModel.uid,
+            );
+          }
         },
         child: Column(
           children: [
@@ -75,57 +83,11 @@ class ProfileWidget extends StatelessWidget {
                     )
                   : null,
             ),
+            
+            // Removed online status indicator for privacy
+            // Removed phone number display for privacy
 
-            // Status and last seen
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: userModel.isOnline ? Colors.green : Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    userModel.isOnline ? 'Online' : 'Last seen recently',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Phone number info
-            if (!isBlocked)
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.phone,
-                      size: 14,
-                      color: Colors.grey[600],
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      userModel.phoneNumber,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Action buttons
+            // Action buttons - No direct message option for privacy
             if (showActions && !isCurrentUser)
               Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -150,25 +112,8 @@ class ProfileWidget extends StatelessWidget {
                         ),
                       )
                     else ...[
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              Constants.chatScreen,
-                              arguments: {
-                                Constants.contactUID: userModel.uid,
-                                Constants.contactName: userModel.name,
-                                Constants.contactImage: userModel.image,
-                                Constants.groupId: '',
-                              },
-                            );
-                          },
-                          icon: const Icon(Icons.message),
-                          label: const Text('Message'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
+                      // Removed message button for privacy
+                      // Only show add/remove contact button
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {

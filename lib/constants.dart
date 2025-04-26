@@ -1,4 +1,3 @@
-// lib/constants.dart
 
 class Constants {
   // screens routes
@@ -8,7 +7,8 @@ class Constants {
   static const String userInformationScreen = '/userInformationScreen';
   static const String homeScreen = '/homeScreen';
   static const String chatScreen = '/chatScreen';
-  static const String profileScreen = '/profileScreen';
+  static const String contactProfileScreen = '/contactProfileScreen'; // Updated for privacy
+  static const String myProfileScreen = '/myProfileScreen'; // Added for account management
   static const String editProfileScreen = '/editProfileScreen';
   static const String searchScreen = '/searchScreen';
   static const String contactsScreen = '/contactsScreen';
@@ -16,6 +16,7 @@ class Constants {
   static const String settingsScreen = '/settingsScreen';
   static const String aboutScreen = '/aboutScreen';
   static const String privacyPolicyScreen = '/privacyPolicyScreen';
+  static const String privacySettingsScreen = '/privacySettingsScreen'; // Added for privacy controls
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   static const String groupSettingsScreen = '/groupSettingsScreen';
   static const String groupInformationScreen = '/groupInformationScreen';

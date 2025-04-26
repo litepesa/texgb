@@ -1,3 +1,5 @@
+// lib/features/chat/widgets/align_message_right_widget.dart
+
 import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -109,7 +111,7 @@ class AlignMessageRightWidget extends StatelessWidget {
             ),
           ),
           
-          // Timestamp and seen status row
+          // Timestamp and reactions row (removed read status icons)
           Padding(
             padding: const EdgeInsets.only(top: 4.0, right: 8.0),
             child: Row(
@@ -154,14 +156,7 @@ class AlignMessageRightWidget extends StatelessWidget {
                   ),
                 ),
                 
-                const SizedBox(width: 4),
-                
-                // Add read receipt indicator
-                Icon(
-                  message.isSeen ? Icons.done_all : Icons.done,
-                  size: 14,
-                  color: message.isSeen ? modernTheme.accentColor! : timestampColor,
-                ),
+                // Removed read receipt indicator
               ],
             ),
           ),

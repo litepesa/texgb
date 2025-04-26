@@ -10,10 +10,10 @@ ThemeData modernLightTheme() {
   // Define font styles with Google Fonts
   final textTheme = _createTextTheme();
   
-  // Updated colors for consistency with dark theme
-  const newPrimaryGreen = Color(0xFF228B22);  // Updated green for light theme
-  const newBackground = Color(0xFFFAF9F5);    // Off-white background
-  const newSurface = Color(0xFFFAF9F5);       // Off-white surface
+  // Updated colors for better visibility and contrast
+  const newPrimaryGreen = Color(0xFF1E9E1E);  // More vibrant green for better visibility
+  const newBackground = Color(0xFFF8F7F2);    // Slightly darker off-white background
+  const newSurface = Color(0xFFFFFFFF);       // Pure white surface for better contrast
   const darkText = Color(0xFF121212);         // Nearly black text
   
   return base.copyWith(
@@ -41,8 +41,8 @@ ThemeData modernLightTheme() {
     appBarTheme: AppBarTheme(
       backgroundColor: newSurface,
       foregroundColor: darkText,
-      elevation: 0,
-      shadowColor: Colors.transparent,
+      elevation: 1, // Very subtle elevation
+      shadowColor: Colors.black.withOpacity(0.05),
       surfaceTintColor: Colors.transparent, // Important - removes Material 3 tint
       centerTitle: false,
       titleTextStyle: const TextStyle(
@@ -67,13 +67,13 @@ ThemeData modernLightTheme() {
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: newSurface,
       selectedItemColor: newPrimaryGreen,
-      unselectedItemColor: Color(0xFF767676), // Tertiary text color
+      unselectedItemColor: Color(0xFF555555), // Darker for better contrast
       selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
       showSelectedLabels: true,
       showUnselectedLabels: true,
       type: BottomNavigationBarType.fixed,
-      elevation: 0, // Remove shadow
+      elevation: 2, // Add subtle shadow for depth
     ),
     
     // Tab Bar Theme
@@ -84,7 +84,7 @@ ThemeData modernLightTheme() {
           width: 2,
         ),
       ),
-      unselectedLabelColor: Color(0xFF3C3C3C), // Secondary text
+      unselectedLabelColor: Color(0xFF303030), // Darker for better contrast
       labelColor: newPrimaryGreen,
       unselectedLabelStyle: TextStyle(
         fontSize: 16,
@@ -101,7 +101,8 @@ ThemeData modernLightTheme() {
       style: ElevatedButton.styleFrom(
         backgroundColor: newPrimaryGreen,
         foregroundColor: Colors.white,
-        elevation: 0,
+        elevation: 1, // Subtle elevation
+        shadowColor: Colors.black.withOpacity(0.2),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
@@ -145,12 +146,12 @@ ThemeData modernLightTheme() {
     // Card Theme
     cardTheme: CardTheme(
       color: newSurface,
-      elevation: 0,
-      shadowColor: Colors.transparent,
+      elevation: 1, // Add subtle elevation
+      shadowColor: Colors.black.withOpacity(0.1),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: const Color(0xFFE4E4E4), width: 1), // Light border instead of shadow
+        side: BorderSide(color: const Color(0xFFE8E8E8), width: 1), // Slightly darker border
       ),
       clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
@@ -167,8 +168,8 @@ ThemeData modernLightTheme() {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      elevation: 0,
-      shadowColor: Colors.transparent,
+      elevation: 8, // Add more elevation for bottom sheets
+      shadowColor: Colors.black.withOpacity(0.1),
     ),
     
     dialogBackgroundColor: newSurface,
@@ -178,7 +179,8 @@ ThemeData modernLightTheme() {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      elevation: 0,
+      elevation: 4, // Add elevation for dialogs
+      shadowColor: Colors.black.withOpacity(0.1),
       titleTextStyle: const TextStyle(
         color: darkText,
         fontSize: 18,
@@ -204,7 +206,7 @@ ThemeData modernLightTheme() {
     
     // List Tile Theme
     listTileTheme: ListTileThemeData(
-      iconColor: const Color(0xFF3C3C3C), // Secondary text color
+      iconColor: const Color(0xFF303030), // Darker for better contrast
       textColor: darkText,
       tileColor: newSurface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
@@ -212,7 +214,7 @@ ThemeData modernLightTheme() {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      selectedTileColor: newPrimaryGreen.withOpacity(0.05),
+      selectedTileColor: newPrimaryGreen.withOpacity(0.1), // More visible selection
       selectedColor: newPrimaryGreen,
     ),
     
@@ -228,7 +230,7 @@ ThemeData modernLightTheme() {
         if (states.contains(MaterialState.selected)) {
           return newPrimaryGreen.withOpacity(0.3);
         }
-        return const Color(0xFF767676).withOpacity(0.3); // Tertiary text
+        return const Color(0xFF555555).withOpacity(0.3); // Darker for better contrast
       }),
       trackOutlineColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
@@ -253,14 +255,14 @@ ThemeData modernLightTheme() {
         borderRadius: BorderRadius.circular(4),
       ),
       side: const BorderSide(
-        color: Color(0xFF767676), // Tertiary text
+        color: Color(0xFF555555), // Darker for better contrast
         width: 1.5,
       ),
     ),
     
     // Divider Theme
     dividerTheme: const DividerThemeData(
-      color: Color(0xFFE4E4E4), // Light dividers
+      color: Color(0xFFD8D8D8), // Darker dividers for better visibility
       thickness: 1,
       indent: 16,
       endIndent: 16,
@@ -268,14 +270,14 @@ ThemeData modernLightTheme() {
     
     // Icon Theme
     iconTheme: const IconThemeData(
-      color: Color(0xFF3C3C3C), // Secondary text
+      color: Color(0xFF303030), // Darker for better contrast
       size: 24,
     ),
     
     // Input Decoration Theme
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFFF0EFE9), // Light input background
+      fillColor: const Color(0xFFEAE9E3), // Darker input background for better visibility
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
@@ -293,18 +295,18 @@ ThemeData modernLightTheme() {
         borderRadius: BorderRadius.circular(24),
         borderSide: const BorderSide(color: ModernColors.error, width: 1.5),
       ),
-      hintStyle: const TextStyle(color: Color(0xFF767676)), // Tertiary text
-      labelStyle: const TextStyle(color: Color(0xFF3C3C3C)), // Secondary text
-      helperStyle: const TextStyle(color: Color(0xFF767676), fontSize: 12), // Tertiary text
+      hintStyle: const TextStyle(color: Color(0xFF666666)), // Darker hints
+      labelStyle: const TextStyle(color: Color(0xFF303030)), // Darker labels
+      helperStyle: const TextStyle(color: Color(0xFF666666), fontSize: 12), // Darker helper text
       errorStyle: const TextStyle(color: ModernColors.error, fontSize: 12),
-      prefixIconColor: const Color(0xFF3C3C3C), // Secondary text
-      suffixIconColor: const Color(0xFF3C3C3C), // Secondary text
+      prefixIconColor: const Color(0xFF303030), // Darker icons
+      suffixIconColor: const Color(0xFF303030), // Darker icons
     ),
     
     // Chip Theme
     chipTheme: ChipThemeData(
-      backgroundColor: const Color(0xFFF0EFE9), // Light surface variant
-      disabledColor: const Color(0xFFF0EFE9).withOpacity(0.5),
+      backgroundColor: const Color(0xFFEAE9E3), // Darker chip background
+      disabledColor: const Color(0xFFEAE9E3).withOpacity(0.5),
       selectedColor: newPrimaryGreen.withOpacity(0.2),
       secondarySelectedColor: newPrimaryGreen,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -327,17 +329,17 @@ ThemeData modernLightTheme() {
     // Slider Theme
     sliderTheme: const SliderThemeData(
       activeTrackColor: newPrimaryGreen,
-      inactiveTrackColor: Color(0xFF767676), // Tertiary text
+      inactiveTrackColor: Color(0xFF999999), // Darker track for better visibility
       thumbColor: newPrimaryGreen,
-      overlayColor: Color(0x29228B22),
+      overlayColor: Color(0x291E9E1E),
       trackHeight: 4.0,
     ),
     
     // Progress Indicator Theme
     progressIndicatorTheme: const ProgressIndicatorThemeData(
       color: newPrimaryGreen,
-      circularTrackColor: Color(0xFFF0EFE9), // Light surface variant
-      linearTrackColor: Color(0xFFF0EFE9), // Light surface variant
+      circularTrackColor: Color(0xFFEAE9E3), // Darker track for better visibility
+      linearTrackColor: Color(0xFFEAE9E3), // Darker track for better visibility
     ),
     
     // Page Transitions Theme
@@ -350,9 +352,9 @@ ThemeData modernLightTheme() {
     
     // Snack Bar Theme
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: const Color(0xFFF0EFE9), // Light surface variant
-      contentTextStyle: const TextStyle(color: darkText),
-      actionTextColor: newPrimaryGreen,
+      backgroundColor: const Color(0xFF303030), // Darker background for better contrast
+      contentTextStyle: const TextStyle(color: Colors.white),
+      actionTextColor: ModernColors.primaryGreen,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
@@ -361,25 +363,25 @@ ThemeData modernLightTheme() {
     
     // Banner Theme
     bannerTheme: const MaterialBannerThemeData(
-      backgroundColor: Color(0xFFF0EFE9), // Light surface variant
+      backgroundColor: Color(0xFFEAE9E3), // Darker banner background
       contentTextStyle: TextStyle(color: darkText),
       padding: EdgeInsets.all(16),
     ),
     
     // Bottom App Bar Theme
-    bottomAppBarTheme: const BottomAppBarTheme(
+    bottomAppBarTheme: BottomAppBarTheme(
       color: newSurface,
-      elevation: 0,
-      shadowColor: Colors.transparent,
+      elevation: 2, // Add subtle elevation
+      shadowColor: Colors.black.withOpacity(0.1),
       surfaceTintColor: Colors.transparent,
-      shape: CircularNotchedRectangle(),
+      shape: const CircularNotchedRectangle(),
     ),
   );
 }
 
 TextTheme _createTextTheme() {
   const darkText = Color(0xFF121212);
-  const secondaryText = Color(0xFF3C3C3C);
+  const secondaryText = Color(0xFF303030);  // Darker for better contrast
   
   return TextTheme(
     displayLarge: GoogleFonts.inter(

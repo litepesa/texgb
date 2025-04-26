@@ -70,6 +70,7 @@ class ChatProvider extends ChangeNotifier {
 
       // 2. update/set the messagemodel
       final messageModel = MessageModel(
+        messageId: messageId,
         senderUID: sender.uid,
         senderName: sender.name,
         senderImage: sender.image,
@@ -77,8 +78,7 @@ class ChatProvider extends ChangeNotifier {
         message: message,
         messageType: messageType,
         timeSent: DateTime.now(),
-        messageId: messageId,
-        isSeen: false,
+        isSeen: true, // Always set to true for privacy
         repliedMessage: repliedMessage,
         repliedTo: repliedTo,
         repliedMessageType: repliedMessageType,
@@ -165,6 +165,7 @@ class ChatProvider extends ChangeNotifier {
 
       // 3. update/set the messagemodel
       final messageModel = MessageModel(
+        messageId: messageId,
         senderUID: sender.uid,
         senderName: sender.name,
         senderImage: sender.image,
@@ -172,8 +173,7 @@ class ChatProvider extends ChangeNotifier {
         message: fileUrl,
         messageType: messageType,
         timeSent: DateTime.now(),
-        messageId: messageId,
-        isSeen: false,
+        isSeen: true, // Always set to true for privacy
         repliedMessage: repliedMessage,
         repliedTo: repliedTo,
         repliedMessageType: repliedMessageType,
@@ -256,7 +256,7 @@ class ChatProvider extends ChangeNotifier {
         Constants.message: messageModel.message,
         Constants.messageType: messageModel.messageType.name,
         Constants.timeSent: timeStampMillis,
-        Constants.isSeen: false,
+        Constants.isSeen: true, // Always true for privacy
       };
 
       // 2. initialize last message data for the contact
@@ -268,7 +268,7 @@ class ChatProvider extends ChangeNotifier {
         Constants.message: messageModel.message,
         Constants.messageType: messageModel.messageType.name,
         Constants.timeSent: timeStampMillis,
-        Constants.isSeen: false,
+        Constants.isSeen: true, // Always true for privacy
       };
       
       // Run as a batch operation for better consistency
@@ -545,6 +545,11 @@ class ChatProvider extends ChangeNotifier {
     required String contactUID,
     required bool isGroup,
   }) {
+    // Option 1: Return a constant stream of 0 (no unread messages shown)
+    // Uncomment this line if you want to completely remove unread indicators
+    //return Stream.value(0);
+    
+    // Option 2: Keep original implementation for unread counts
     // 1. check if its a group message
     if (isGroup) {
       // handle group message
@@ -578,7 +583,7 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  // set message status
+  // set message status - this is now a no-op function for privacy
   Future<void> setMessageStatus({
     required String currentUserId,
     required String contactUID,
@@ -586,58 +591,9 @@ class ChatProvider extends ChangeNotifier {
     required List<String> isSeenByList,
     required bool isGroupChat,
   }) async {
-    // check if its group chat
-    if (isGroupChat) {
-      if (isSeenByList.contains(currentUserId)) {
-        return;
-      } else {
-        // add the current user to the seenByList in all messages
-        await _firestore
-            .collection(Constants.groups)
-            .doc(contactUID)
-            .collection(Constants.messages)
-            .doc(messageId)
-            .update({
-          Constants.isSeenBy: FieldValue.arrayUnion([currentUserId]),
-        });
-      }
-    } else {
-      // handle contact message
-      // 2. update the current message as seen
-      await _firestore
-          .collection(Constants.users)
-          .doc(currentUserId)
-          .collection(Constants.chats)
-          .doc(contactUID)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .update({Constants.isSeen: true});
-      // 3. update the contact message as seen
-      await _firestore
-          .collection(Constants.users)
-          .doc(contactUID)
-          .collection(Constants.chats)
-          .doc(currentUserId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .update({Constants.isSeen: true});
-
-      // 4. update the last message as seen for current user
-      await _firestore
-          .collection(Constants.users)
-          .doc(currentUserId)
-          .collection(Constants.chats)
-          .doc(contactUID)
-          .update({Constants.isSeen: true});
-
-      // 5. update the last message as seen for contact
-      await _firestore
-          .collection(Constants.users)
-          .doc(contactUID)
-          .collection(Constants.chats)
-          .doc(currentUserId)
-          .update({Constants.isSeen: true});
-    }
+    // This function is now a no-op for privacy reasons
+    // No status updates will be sent to the server
+    return;
   }
 
   // delete message
