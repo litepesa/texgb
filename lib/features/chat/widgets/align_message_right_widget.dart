@@ -41,6 +41,14 @@ class AlignMessageRightWidget extends StatelessWidget {
     // Get the reactions count
     final hasReactions = message.reactions.isNotEmpty;
     
+    // Define the rounded rectangle border radius
+    final BorderRadius roundedRectangleBorder = BorderRadius.only(
+      topLeft: Radius.circular(16.0),
+      topRight: Radius.circular(4.0),
+      bottomLeft: Radius.circular(16.0),
+      bottomRight: Radius.circular(16.0),
+    );
+    
     // Create gradient if in dark mode
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final BoxDecoration bubbleDecoration = isDarkMode
@@ -50,7 +58,7 @@ class AlignMessageRightWidget extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: chatTheme.senderBubbleRadius ?? BorderRadius.circular(18.0),
+            borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.1),
@@ -61,7 +69,7 @@ class AlignMessageRightWidget extends StatelessWidget {
           )
         : BoxDecoration(
             color: senderBubbleColor,
-            borderRadius: chatTheme.senderBubbleRadius ?? BorderRadius.circular(18.0),
+            borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.04),
@@ -111,7 +119,7 @@ class AlignMessageRightWidget extends StatelessWidget {
             ),
           ),
           
-          // Timestamp and reactions row (removed read status icons)
+          // Timestamp and reactions row
           Padding(
             padding: const EdgeInsets.only(top: 4.0, right: 8.0),
             child: Row(
@@ -155,8 +163,6 @@ class AlignMessageRightWidget extends StatelessWidget {
                     color: timestampColor,
                   ),
                 ),
-                
-                // Removed read receipt indicator
               ],
             ),
           ),

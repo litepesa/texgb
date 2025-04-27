@@ -41,145 +41,123 @@ class AlignMessageLeftWidget extends StatelessWidget {
     // Get the reactions count
     final hasReactions = message.reactions.isNotEmpty;
     
+    // Define the rounded rectangle border radius
+    final BorderRadius roundedRectangleBorder = BorderRadius.only(
+      topLeft: Radius.circular(4.0),
+      topRight: Radius.circular(16.0),
+      bottomLeft: Radius.circular(16.0),
+      bottomRight: Radius.circular(16.0),
+    );
+    
     return Padding(
       padding: EdgeInsets.only(
         bottom: responsiveTheme.compactSpacing * 1.5, 
         right: MediaQuery.of(context).size.width * 0.2,
         left: responsiveTheme.compactSpacing,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar with animated container for hover effects
-          AnimatedContainer(
-            duration: animationTheme.shortDuration,
-            curve: animationTheme.standardCurve,
-            margin: const EdgeInsets.only(right: 8.0),
+          // Show sender name if it's a group chat
+          if (isGroupChat)
+            Padding(
+              padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
+              child: Text(
+                message.senderName,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: modernTheme.primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          
+          // Message bubble with content
+          Container(
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              color: receiverBubbleColor,
+              borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 3,
+                  offset: const Offset(0, 1),
                 ),
               ],
             ),
-            child: userImageWidget(
-              imageUrl: message.senderImage,
-              radius: 18,
-              onTap: () {},
-            ),
-          ),
-          
-          // Message content column
-          Expanded(
+            padding: message.messageType == MessageEnum.text
+              ? const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0)
+              : const EdgeInsets.all(8.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Show sender name if it's a group chat
-                if (isGroupChat)
+                // Reply preview if applicable
+                if (isReplying)
                   Padding(
-                    padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
-                    child: Text(
-                      message.senderName,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: modernTheme.primaryColor,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: MessageReplyPreview(
+                      message: message,
+                      viewOnly: viewOnly,
                     ),
                   ),
                 
-                // Message bubble with content
-                Container(
-                  decoration: BoxDecoration(
-                    color: receiverBubbleColor,
-                    borderRadius: chatTheme.receiverBubbleRadius ?? BorderRadius.circular(18.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 3,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  padding: message.messageType == MessageEnum.text
-                    ? const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0)
-                    : const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Reply preview if applicable
-                      if (isReplying)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: MessageReplyPreview(
-                            message: message,
-                            viewOnly: viewOnly,
-                          ),
-                        ),
-                      
-                      // Message content
-                      DisplayMessageType(
-                        message: message.message,
-                        type: message.messageType,
-                        color: receiverTextColor,
-                        isReply: false,
-                        viewOnly: viewOnly,
-                      ),
-                    ],
+                // Message content
+                DisplayMessageType(
+                  message: message.message,
+                  type: message.messageType,
+                  color: receiverTextColor,
+                  isReply: false,
+                  viewOnly: viewOnly,
+                ),
+              ],
+            ),
+          ),
+          
+          // Timestamp and reactions row
+          Padding(
+            padding: const EdgeInsets.only(left: 12.0, top: 4.0, right: 8.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  time,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: timestampColor,
                   ),
                 ),
                 
-                // Timestamp and reactions row
-                Padding(
-                  padding: const EdgeInsets.only(left: 12.0, top: 4.0, right: 8.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        time,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: timestampColor,
+                // Display reaction count if any
+                if (hasReactions) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey.withOpacity(0.2)
+                          : Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.favorite,
+                          size: 12,
+                          color: modernTheme.textSecondaryColor,
                         ),
-                      ),
-                      
-                      // Display reaction count if any
-                      if (hasReactions) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.grey.withOpacity(0.2)
-                                : Colors.grey.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.favorite,
-                                size: 12,
-                                color: modernTheme.textSecondaryColor,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                message.reactions.length.toString(),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: modernTheme.textSecondaryColor,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                        const SizedBox(width: 2),
+                        Text(
+                          message.reactions.length.toString(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: modernTheme.textSecondaryColor,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
