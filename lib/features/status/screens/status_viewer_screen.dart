@@ -185,13 +185,27 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
     final status = _statuses[_currentIndex];
     
     try {
+      // Determine appropriate thumbnail URL based on status type
+      String? thumbnailUrl;
+      String statusCaption = status.caption.isNotEmpty 
+          ? status.caption 
+          : "(${status.type.name} status)";
+      
+      // Get thumbnail URL based on status type
+      if (status.type == StatusType.image || status.type == StatusType.video) {
+        thumbnailUrl = status.mediaUrls.isNotEmpty ? status.mediaUrls.first : null;
+      } else if (status.type == StatusType.link && status.linkPreviewImage != null) {
+        thumbnailUrl = status.linkPreviewImage;
+      }
+      
       final messageReply = MessageReplyModel(
-        message: status.caption.isNotEmpty ? status.caption : "(${status.type.name} status)",
+        message: statusCaption,
         senderUID: status.uid,
         senderName: status.username,
         senderImage: status.userImage,
         messageType: status.type.toMessageEnum(),
         isMe: status.uid == currentUser.uid,
+        statusThumbnailUrl: thumbnailUrl,
       );
       
       Provider.of<ChatProvider>(context, listen: false).setMessageReplyModel(messageReply);

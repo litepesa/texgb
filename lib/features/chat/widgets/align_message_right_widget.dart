@@ -7,6 +7,7 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/message_model.dart';
 import 'package:textgb/features/chat/widgets/display_message_type.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
+import 'package:textgb/features/chat/widgets/status_reply_bubble.dart';
 
 class AlignMessageRightWidget extends StatelessWidget {
   const AlignMessageRightWidget({
@@ -37,6 +38,8 @@ class AlignMessageRightWidget extends StatelessWidget {
     final time = formatDate(timeToUse, [hh, ':', nn, ' ', am]);
     
     final isReplying = message.repliedTo.isNotEmpty;
+    // Check if it's a status reply
+    final isStatusReply = isReplying && message.statusThumbnailUrl != null;
     
     // Get the reactions count
     final hasReactions = message.reactions.isNotEmpty;
@@ -97,14 +100,19 @@ class AlignMessageRightWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Reply preview if applicable
+                // Reply preview - use StatusReplyBubble for status replies
                 if (isReplying)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: MessageReplyPreview(
-                      message: message,
-                      viewOnly: viewOnly,
-                    ),
+                    child: isStatusReply
+                      ? StatusReplyBubble(
+                          message: message,
+                          isMe: true,
+                        )
+                      : MessageReplyPreview(
+                          message: message,
+                          viewOnly: viewOnly,
+                        ),
                   ),
                 
                 // Message content

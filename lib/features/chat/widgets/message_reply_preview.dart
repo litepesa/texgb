@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/message_model.dart';
 import 'package:textgb/models/message_reply_model.dart';
@@ -70,7 +71,7 @@ class MessageReplyPreview extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            buildNameAndMessage(type),
+            buildNameAndMessage(type, context),
             replyMessageModel != null ? const Spacer() : const SizedBox(),
             replyMessageModel != null
                 ? closeButton(chatProvider, context)
@@ -102,30 +103,76 @@ class MessageReplyPreview extends StatelessWidget {
     );
   }
 
-  Widget buildNameAndMessage(MessageEnum type) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        getTitle(),
-        const SizedBox(height: 5),
-        if (replyMessageModel != null)
-          messageToShow(
-            type: type,
-            message: replyMessageModel!.message,
-          )
-        else if (message != null)
-          DisplayMessageType(
-            message: message!.repliedMessage,
-            type: message!.repliedMessageType ?? MessageEnum.text, // Provide fallback
-            color: Colors.white,
-            isReply: true,
-            maxLines: 1,
-            overFlow: TextOverflow.ellipsis,
-            viewOnly: viewOnly,
-          )
-        else
-          const Text('No message content', style: TextStyle(fontStyle: FontStyle.italic)),
-      ],
+  Widget buildNameAndMessage(MessageEnum type, BuildContext context) {
+    // Check if we have a status thumbnail
+    final bool hasStatusThumbnail = (replyMessageModel != null && 
+                                    replyMessageModel!.statusThumbnailUrl != null) ||
+                                   (message != null && 
+                                    message!.statusThumbnailUrl != null);
+    
+    // Get thumbnail URL from either source
+    final String? thumbnailUrl = replyMessageModel?.statusThumbnailUrl ?? 
+                                message?.statusThumbnailUrl;
+    
+    return Flexible(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          getTitle(),
+          const SizedBox(height: 5),
+          
+          // Show status thumbnail if available
+          if (hasStatusThumbnail && thumbnailUrl != null)
+            Container(
+              height: 60,
+              width: 100,
+              margin: const EdgeInsets.only(top: 4, bottom: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                color: Colors.grey.withOpacity(0.2),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: CachedNetworkImage(
+                  imageUrl: thumbnailUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Center(
+                    child: Icon(
+                      _getStatusTypeIcon(type),
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Center(
+                    child: Icon(
+                      _getStatusTypeIcon(type),
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          
+          if (replyMessageModel != null)
+            messageToShow(
+              type: type,
+              message: replyMessageModel!.message,
+            )
+          else if (message != null)
+            DisplayMessageType(
+              message: message!.repliedMessage,
+              type: message!.repliedMessageType ?? MessageEnum.text, // Provide fallback
+              color: Colors.white,
+              isReply: true,
+              maxLines: 1,
+              overFlow: TextOverflow.ellipsis,
+              viewOnly: viewOnly,
+            )
+          else
+            const Text('No message content', style: TextStyle(fontStyle: FontStyle.italic)),
+        ],
+      ),
     );
   }
 
@@ -159,7 +206,21 @@ class MessageReplyPreview extends StatelessWidget {
     }
   }
   
-  // Add this method if it's missing from your code
+  // Helper method to determine icon based on message type
+  IconData _getStatusTypeIcon(MessageEnum type) {
+    switch (type) {
+      case MessageEnum.video:
+        return Icons.videocam;
+      case MessageEnum.image:
+        return Icons.image;
+      case MessageEnum.audio:
+        return Icons.headphones;
+      case MessageEnum.text:
+      default:
+        return Icons.chat;
+    }
+  }
+  
   Widget messageToShow({required MessageEnum type, required String message}) {
     return DisplayMessageType(
       message: message,

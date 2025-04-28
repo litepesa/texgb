@@ -8,6 +8,7 @@ class MessageReplyModel {
   final String senderImage;
   final MessageEnum messageType;
   final bool isMe;
+  final String? statusThumbnailUrl; // New field for status thumbnail
 
   MessageReplyModel({
     required this.message,
@@ -16,6 +17,7 @@ class MessageReplyModel {
     required this.senderImage,
     required this.messageType,
     required this.isMe,
+    this.statusThumbnailUrl, // Optional parameter for status thumbnail
   });
 
   // to map
@@ -27,6 +29,7 @@ class MessageReplyModel {
       Constants.senderImage: senderImage,
       Constants.messageType: messageType.name,
       Constants.isMe: isMe,
+      'statusThumbnailUrl': statusThumbnailUrl, // Add to map
     };
   }
 
@@ -39,6 +42,7 @@ class MessageReplyModel {
       senderImage: map[Constants.senderImage] ?? '',
       messageType: map[Constants.messageType].toString().toMessageEnum(),
       isMe: map[Constants.isMe] ?? false,
+      statusThumbnailUrl: map['statusThumbnailUrl'], // Extract from map
     );
   }
 }

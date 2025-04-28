@@ -80,6 +80,8 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
     borderColor: ModernColors.darkBorder,
   );
 
+  get inputBackgroundColor => null;
+
   @override
   ThemeExtension<ModernThemeExtension> copyWith({
     Color? backgroundColor,

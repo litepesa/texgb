@@ -67,6 +67,10 @@ class ChatProvider extends ChangeNotifier {
               : _messageReplyModel!.senderName;
       MessageEnum repliedMessageType =
           _messageReplyModel?.messageType ?? MessageEnum.text;
+      
+      // Status data from reply model (if available)
+      String? statusThumbnailUrl = _messageReplyModel?.statusThumbnailUrl;
+      String? statusCaption = _messageReplyModel?.message;
 
       // 2. update/set the messagemodel
       final messageModel = MessageModel(
@@ -85,6 +89,8 @@ class ChatProvider extends ChangeNotifier {
         reactions: [],
         isSeenBy: [sender.uid],
         deletedBy: [],
+        statusThumbnailUrl: statusThumbnailUrl, // Include status thumbnail URL
+        statusCaption: statusCaption, // Include status caption
       );
 
       // 3. check if its a group message and send to group else send to contact
@@ -157,6 +163,10 @@ class ChatProvider extends ChangeNotifier {
               : _messageReplyModel!.senderName;
       MessageEnum repliedMessageType =
           _messageReplyModel?.messageType ?? MessageEnum.text;
+          
+      // Status data from reply model (if available)
+      String? statusThumbnailUrl = _messageReplyModel?.statusThumbnailUrl;
+      String? statusCaption = _messageReplyModel?.message;
 
       // 2. upload file to firebase storage
       final ref =
@@ -180,6 +190,8 @@ class ChatProvider extends ChangeNotifier {
         reactions: [],
         isSeenBy: [sender.uid],
         deletedBy: [],
+        statusThumbnailUrl: statusThumbnailUrl, // Include status thumbnail URL
+        statusCaption: statusCaption, // Include status caption
       );
 
       // 4. check if its a group message and send to group else send to contact

@@ -4,6 +4,9 @@ class RecordingIndicator extends StatelessWidget {
   final double recordingPosition;
   final int recordingDuration;
   final Color accentColor;
+  final Color? backgroundColor;
+  final Color? textColor;
+  final Color? secondaryTextColor;
   final Function(DragUpdateDetails) onDragUpdate;
   final Function(DragEndDetails) onDragEnd;
   final VoidCallback onStopRecording;
@@ -14,6 +17,9 @@ class RecordingIndicator extends StatelessWidget {
     required this.recordingPosition,
     required this.recordingDuration,
     required this.accentColor,
+    required this.backgroundColor,
+    required this.textColor,
+    required this.secondaryTextColor,
     required this.onDragUpdate,
     required this.onDragEnd,
     required this.onStopRecording,
@@ -29,11 +35,10 @@ class RecordingIndicator extends StatelessWidget {
       onHorizontalDragUpdate: onDragUpdate,
       onHorizontalDragEnd: onDragEnd,
       child: Container(
-        color: cancelColor,
+        color: backgroundColor,
         padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
         child: Row(
           children: [
-            // Recording animation
             Container(
               width: 36,
               height: 36,
@@ -44,7 +49,6 @@ class RecordingIndicator extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Animated circle
                   TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0.0, end: 1.0),
                     duration: const Duration(seconds: 2),
@@ -59,7 +63,6 @@ class RecordingIndicator extends StatelessWidget {
                       );
                     },
                   ),
-                  // Center dot
                   Container(
                     width: 12,
                     height: 12,
@@ -73,7 +76,6 @@ class RecordingIndicator extends StatelessWidget {
             ),
             const SizedBox(width: 16),
             
-            // Recording info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,19 +83,20 @@ class RecordingIndicator extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'Recording',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          color: textColor,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         formatDuration(recordingDuration),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey,
+                          color: secondaryTextColor,
                         ),
                       ),
                     ],
@@ -106,14 +109,14 @@ class RecordingIndicator extends StatelessWidget {
                         Icon(
                           Icons.arrow_back,
                           size: 14,
-                          color: recordingPosition < -50 ? Colors.red : Colors.grey,
+                          color: recordingPosition < -50 ? Colors.red : secondaryTextColor,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           "Slide left to cancel",
                           style: TextStyle(
                             fontSize: 12,
-                            color: recordingPosition < -50 ? Colors.red : Colors.grey,
+                            color: recordingPosition < -50 ? Colors.red : secondaryTextColor,
                           ),
                         ),
                       ],
@@ -123,7 +126,6 @@ class RecordingIndicator extends StatelessWidget {
               ),
             ),
             
-            // Send button
             GestureDetector(
               onTap: onStopRecording,
               child: Container(

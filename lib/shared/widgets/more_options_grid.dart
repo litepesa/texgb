@@ -1,14 +1,18 @@
 part of 'bottom_chat_field.dart';
 
 class MoreOptionsGrid extends StatelessWidget {
+  final Color backgroundColor;
   final Color accentColor;
+  final Color textColor;
   final Function(bool) onSelectImage;
   final VoidCallback onSelectVideo;
   final VoidCallback onStartRecording;
 
   const MoreOptionsGrid({
     super.key,
+    required this.backgroundColor,
     required this.accentColor,
+    required this.textColor,
     required this.onSelectImage,
     required this.onSelectVideo,
     required this.onStartRecording,
@@ -71,7 +75,7 @@ class MoreOptionsGrid extends StatelessWidget {
       height: 220,
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<ModernThemeExtension>()?.backgroundColor,
+        color: backgroundColor,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16),
           topRight: Radius.circular(16),
@@ -79,13 +83,12 @@ class MoreOptionsGrid extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Handle indicator
           Container(
             width: 40,
             height: 4,
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.3),
+              color: textColor.withOpacity(0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -143,7 +146,7 @@ class MoreOptionsGrid extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: Theme.of(context).textTheme.bodySmall?.color,
+                            color: textColor,
                           ),
                           textAlign: TextAlign.center,
                         ),
