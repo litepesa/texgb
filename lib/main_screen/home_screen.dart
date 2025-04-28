@@ -4,12 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/channels_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
-import 'package:textgb/features/status/screens/status_screen.dart';
+import 'package:textgb/features/status/screens/status_viewer_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
-import 'package:textgb/features/groups/screens/groups_screen.dart';
 import 'package:textgb/features/chat/screens/my_chats_screen.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -26,11 +24,10 @@ class _HomeScreenState extends State<HomeScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   int pageIndex = 0;
   
-  // Creating separate widget variables with 4 screens
+  // Creating separate widget variables with 3 screens
   final Widget chatScreen = const MyChatsScreen();
-  final Widget groupScreen = const GroupsScreen();
   final Widget statusScreen = const StatusScreen();
-  final Widget channelsScreen = const ChannelsScreen(); // Updated to use our actual ChannelsScreen
+  final Widget channelsScreen = const ChannelsScreen();
   
   // We'll define these in initState to ensure they match our bottom nav bar
   late final List<Widget> pages;
@@ -40,12 +37,11 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     super.initState();
     
-    // Initialize pages list to match our bottom nav bar (still 4 tabs, but with Channels instead of Profile)
+    // Initialize pages list to match our bottom nav bar (now 3 tabs)
     pages = [
       chatScreen,        // Index 0 - Chats
-      groupScreen,       // Index 1 - Groups
-      statusScreen,      // Index 2 - Status Feed
-      channelsScreen,    // Index 3 - Channels (replacing Profile)
+      statusScreen,      // Index 1 - Status Feed
+      channelsScreen,    // Index 2 - Channels
     ];
     
     // Set app in fresh start state on initialization
@@ -72,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen>
               value: true,
             );
         // Refresh status feed when app is resumed
-        if (pageIndex == 2) {
+        if (pageIndex == 1) { // Now status is index 1
           _refreshStatusFeed();
           // Set status tab visibility to true when app resumes on status tab
           context.read<StatusProvider>().setStatusTabVisible(true);
@@ -88,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen>
               value: false,
             );
         // Set status tab visibility to false when app is in background
-        if (pageIndex == 2) {
+        if (pageIndex == 1) { // Now status is index 1
           context.read<StatusProvider>().setStatusTabVisible(false);
         }
         break;
@@ -126,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen>
     final surfaceColor = modernTheme.surfaceColor!;
     
     // Determine bottom nav color based on selected tab
-    final bottomNavColor = pageIndex == 2 
+    final bottomNavColor = pageIndex == 1 
         ? Colors.black  // Force black color when status tab is selected
         : surfaceColor; // Use theme surface color for other tabs
     
@@ -148,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen>
     final currentUser = authProvider.userModel;
     
     return Scaffold(
-      appBar: pageIndex != 2 ? AppBar(
+      appBar: pageIndex != 1 ? AppBar(
         elevation: elevation,
         toolbarHeight: 65.0,
         centerTitle: false,
@@ -233,10 +229,10 @@ class _HomeScreenState extends State<HomeScreen>
             BottomNavigationBar(
               onTap: (index) {
                 // If switching FROM status tab, ensure videos are paused by setting visibility flag
-                if (pageIndex == 2 && index != 2) {
+                if (pageIndex == 1 && index != 1) {
                   // We're switching away from status tab
                   context.read<StatusProvider>().setStatusTabVisible(false);
-                } else if (index == 2 && pageIndex != 2) {
+                } else if (index == 1 && pageIndex != 1) {
                   // We're switching TO status tab, set visibility to true
                   context.read<StatusProvider>().setStatusTabVisible(true);
                   
@@ -249,14 +245,14 @@ class _HomeScreenState extends State<HomeScreen>
                 });
                 
                 // If status tab is selected, refresh status data
-                if (index == 2) {
+                if (index == 1) {
                   _refreshStatusFeed();
                 }
               },
               type: BottomNavigationBarType.fixed,
               backgroundColor: Colors.transparent, // Make transparent to inherit from Material
-              selectedItemColor: pageIndex == 2 ? Colors.red : selectedItemColor,
-              unselectedItemColor: pageIndex == 2 ? Colors.white70 : unselectedItemColor,
+              selectedItemColor: pageIndex == 1 ? Colors.red : selectedItemColor,
+              unselectedItemColor: pageIndex == 1 ? Colors.white70 : unselectedItemColor,
               showUnselectedLabels: true,
               showSelectedLabels: true,
               currentIndex: pageIndex,
@@ -274,22 +270,14 @@ class _HomeScreenState extends State<HomeScreen>
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(CupertinoIcons.chat_bubble_text, size: 30),
-                  //activeIcon: Icon(CupertinoIcons.chat_bubble_2_fill, size: 28),
                   label: 'Chats',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(CupertinoIcons.person_2, size: 30),
-                  //activeIcon: Icon(CupertinoIcons.person_2_fill, size: 28),
-                  label: 'Groups',
-                ),
-                BottomNavigationBarItem(
                   icon: Icon(CupertinoIcons.rays, size: 30),
-                  //activeIcon: Icon(CupertinoIcons.camera_fill, size: 28),
                   label: 'Status',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(CupertinoIcons.camera, size: 30),
-                  //activeIcon: Icon(CupertinoIcons.rays, size: 28),
                   label: 'Channels',
                 ),
               ],
@@ -325,21 +313,8 @@ class _HomeScreenState extends State<HomeScreen>
         child: const Icon(CupertinoIcons.chat_bubble_text, size: 26),
       );
     }
-    // Group button for Groups tab
-    else if (pageIndex == 1) {
-      return FloatingActionButton(
-        onPressed: () {
-          // Clear the group data before creating a new group
-          context.read<GroupProvider>().clearGroupData();
-          Navigator.pushNamed(context, Constants.createGroupScreen);
-        },
-        backgroundColor: accentColor,
-        elevation: 4.0, // Increased elevation for better visibility
-        child: const Icon(CupertinoIcons.add, size: 26),
-      );
-    }
     // Status create button for Status tab
-    /*else if (pageIndex == 2) {
+    else if (pageIndex == 1) {
       return FloatingActionButton(
         onPressed: () {
           Navigator.pushNamed(context, Constants.createStatusScreen);
@@ -348,9 +323,9 @@ class _HomeScreenState extends State<HomeScreen>
         elevation: 4.0,
         child: const Icon(CupertinoIcons.camera, size: 26),
       );
-    }*/
+    }
     // FAB for Channels tab - Navigate to create channel
-    else if (pageIndex == 3) {
+    else if (pageIndex == 2) {
       return FloatingActionButton(
         onPressed: () {
           Navigator.pushNamed(context, Constants.createChannelScreen);

@@ -766,7 +766,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                           onTap: () {
                             Navigator.pushNamed(
                               context,
-                              Constants.myStatusScreen,
+                              Constants.myStatusesScreen,
                             );
                           },
                         ),

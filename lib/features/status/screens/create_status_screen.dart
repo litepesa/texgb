@@ -7,13 +7,15 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:textgb/features/status/status_provider.dart';
+import 'package:textgb/features/status/widgets/status_enums.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/status/status_provider.dart';
+//import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/features/status/widgets/privacy_selector.dart';
 
 class CreateStatusScreen extends StatefulWidget {
   const CreateStatusScreen({Key? key}) : super(key: key);
@@ -22,39 +24,61 @@ class CreateStatusScreen extends StatefulWidget {
   State<CreateStatusScreen> createState() => _CreateStatusScreenState();
 }
 
-class _CreateStatusScreenState extends State<CreateStatusScreen> {
-  final TextEditingController _captionController = TextEditingController();
+class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   
+  // Shared state
+  final TextEditingController _captionController = TextEditingController();
+  StatusPrivacyType _privacyType = StatusPrivacyType.all_contacts;
+  List<String> _includedContactUIDs = [];
+  List<String> _excludedContactUIDs = [];
+  bool _isLoading = false;
+  
+  // Media tab state
   List<File> _selectedMedia = [];
   List<AssetEntity> _recentMedia = [];
   StatusType _mediaType = StatusType.image;
-  bool _isPrivate = false;
-  bool _isContactsOnly = true;
-  List<String> _allowedContactUIDs = [];
-  
-  bool _isLoading = false;
-  bool _isUploading = false;
-  double _uploadProgress = 0.0;
-  
   VideoPlayerController? _videoController;
   bool _isVideoInitialized = false;
+  
+  // Text tab state
+  Color _selectedColor = Colors.blue;
+  String? _selectedFont;
+  final List<Color> _colorOptions = [
+    Colors.blue,
+    Colors.red,
+    Colors.green,
+    Colors.orange,
+    Colors.purple,
+    Colors.teal,
+    Colors.pink,
+    Colors.indigo,
+  ];
+  
+  final List<String?> _fontOptions = [
+    null, // Default
+    'Roboto',
+    'OpenSans',
+    'Lato',
+    'Montserrat',
+  ];
+  
+  // Link tab state
+  final TextEditingController _linkController = TextEditingController();
   
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _requestPermissionsAndLoadMedia();
-    
-    // Set system overlay style for clean UI
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ));
   }
   
   @override
   void dispose() {
     _captionController.dispose();
+    _linkController.dispose();
     _videoController?.dispose();
+    _tabController.dispose();
     super.dispose();
   }
   
@@ -129,7 +153,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         final recentAlbum = albums.first;
         final media = await recentAlbum.getAssetListRange(
           start: 0,
-          end: 60, // Get 60 recent media files
+          end: 30, // Get 30 recent media files
         );
         
         if (mounted) {
@@ -156,14 +180,14 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
       final file = await asset.file;
       if (file == null) return;
       
-      // Check file size (10MB limit for images, 50MB for videos)
+      // Check file size (10MB limit for images, 30MB for videos)
       final sizeInMB = await file.length() / (1024 * 1024);
       final isVideo = asset.type == AssetType.video;
       
-      if (isVideo && sizeInMB > 50) {
+      if (isVideo && sizeInMB > 30) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Video size too large. Maximum allowed is 50MB.'),
+            content: Text('Video size too large. Maximum allowed is 30MB.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -201,25 +225,16 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         });
       }
       
-      // Images allow up to 9 files, but videos only allow 1
+      // Videos only allow 1 file, images can have multiple
       if (isVideo) {
         setState(() {
           _selectedMedia = [file];
         });
       } else {
-        // For images, append unless we already have 9
-        if (_selectedMedia.length < 9) {
-          setState(() {
-            _selectedMedia.add(file);
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Maximum 9 images allowed'),
-              backgroundColor: Colors.amber,
-            ),
-          );
-        }
+        // For images, just select one for now
+        setState(() {
+          _selectedMedia = [file];
+        });
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -286,18 +301,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         
         setState(() {
           _mediaType = StatusType.image;
-          
-          // Add to selected media if less than 9
-          if (_selectedMedia.length < 9) {
-            _selectedMedia.add(file);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Maximum 9 images allowed'),
-                backgroundColor: Colors.amber,
-              ),
-            );
-          }
+          _selectedMedia = [file];
         });
       }
     } catch (e) {
@@ -335,10 +339,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
         
         // Check file size
         final sizeInMB = await file.length() / (1024 * 1024);
-        if (sizeInMB > 50) {
+        if (sizeInMB > 30) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Video size too large. Maximum allowed is 50MB.'),
+              content: Text('Video size too large. Maximum allowed is 30MB.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -362,119 +366,13 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     }
   }
   
-  // Show media picker
-  Future<void> _pickMediaFromGallery() async {
-    // Request permission first
-    final permissionStatus = await Permission.photos.request();
-    
-    if (permissionStatus.isGranted) {
-      // Show bottom sheet to pick media type
-      showModalBottomSheet(
-        context: context,
-        builder: (BuildContext context) {
-          return SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.photo),
-                  title: Text('Pick Image'),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    final ImagePicker picker = ImagePicker();
-                    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                    if (image != null) {
-                      final file = File(image.path);
-                      
-                      // Check file size
-                      final sizeInMB = await file.length() / (1024 * 1024);
-                      if (sizeInMB > 10) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Image size too large. Maximum allowed is 10MB.'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
-                      }
-                      
-                      setState(() {
-                        _mediaType = StatusType.image;
-                        if (_selectedMedia.length < 9) {
-                          _selectedMedia.add(file);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Maximum 9 images allowed'),
-                              backgroundColor: Colors.amber,
-                            ),
-                          );
-                        }
-                      });
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.videocam),
-                  title: Text('Pick Video'),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    final ImagePicker picker = ImagePicker();
-                    final XFile? video = await picker.pickVideo(
-                      source: ImageSource.gallery,
-                      maxDuration: const Duration(seconds: 60),
-                    );
-                    if (video != null) {
-                      final file = File(video.path);
-                      
-                      // Check file size
-                      final sizeInMB = await file.length() / (1024 * 1024);
-                      if (sizeInMB > 50) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Video size too large. Maximum allowed is 50MB.'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
-                      }
-                      
-                      await _initializeVideoController(file);
-                      setState(() {
-                        _mediaType = StatusType.video;
-                        _selectedMedia = [file];
-                      });
-                    }
-                  },
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    } else {
-      // Show settings option if permission denied
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Permission required to access gallery'),
-          action: SnackBarAction(
-            label: 'Settings',
-            onPressed: () {
-              openAppSettings();
-            },
-          ),
-        ),
-      );
-    }
-  }
-  
   // Remove media from selection
-  void _removeMedia(int index) {
+  void _removeMedia() {
     setState(() {
-      _selectedMedia.removeAt(index);
+      _selectedMedia.clear();
       
-      // If all media removed, reset video controller
-      if (_selectedMedia.isEmpty && _isVideoInitialized) {
+      // Reset video controller
+      if (_isVideoInitialized) {
         _videoController?.pause();
         _videoController?.dispose();
         _videoController = null;
@@ -483,45 +381,120 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     });
   }
   
-  // Upload status post
-  Future<void> _uploadStatus() async {
-    // Validate input
-    if (_selectedMedia.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please select at least one media file'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-    
+  // Toggle privacy settings
+  void _showPrivacyOptions() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => PrivacySelector(
+        initialPrivacyType: _privacyType,
+        includedContactUIDs: _includedContactUIDs,
+        excludedContactUIDs: _excludedContactUIDs,
+        onSaved: (privacyType, includedUIDs, excludedUIDs) {
+          setState(() {
+            _privacyType = privacyType;
+            _includedContactUIDs = includedUIDs;
+            _excludedContactUIDs = excludedUIDs;
+          });
+        },
+      ),
+    );
+  }
+  
+  // Upload status
+  Future<void> _createStatus() async {
     final currentUser = Provider.of<AuthenticationProvider>(context, listen: false).userModel;
     if (currentUser == null) return;
     
-    // Begin upload
+    final statusProvider = Provider.of<StatusProvider>(context, listen: false);
+    
+    // Check if user can post today
+    final hasPostedToday = await statusProvider.hasUserPostedToday(currentUser.uid);
+    
+    if (hasPostedToday) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You can only post one status per day'),
+          backgroundColor: Colors.amber,
+        ),
+      );
+      // Continue anyway for demo purposes
+    }
+    
     setState(() {
-      _isUploading = true;
-      _uploadProgress = 0.0;
+      _isLoading = true;
     });
     
     try {
-      await Provider.of<StatusProvider>(context, listen: false).createStatusPost(
-        uid: currentUser.uid,
-        username: currentUser.name,
-        userImage: currentUser.image,
-        mediaFiles: _selectedMedia,
-        caption: _captionController.text.trim(),
-        type: _mediaType,
-        isPrivate: _isPrivate,
-        isContactsOnly: _isContactsOnly,
-        allowedContactUIDs: _allowedContactUIDs,
-      );
+      // Determine which tab is active
+      final activeTab = _tabController.index;
       
-      // Success - go back
+      if (activeTab == 0) {
+        // Media tab
+        if (_selectedMedia.isEmpty) {
+          throw Exception('Please select a photo or video');
+        }
+        
+        await statusProvider.createMediaStatus(
+          uid: currentUser.uid,
+          username: currentUser.name,
+          userImage: currentUser.image,
+          mediaFiles: _selectedMedia,
+          type: _mediaType,
+          caption: _captionController.text.trim(),
+          privacyType: _privacyType,
+          includedContactUIDs: _includedContactUIDs,
+          excludedContactUIDs: _excludedContactUIDs,
+        );
+      } else if (activeTab == 1) {
+        // Text tab
+        if (_captionController.text.trim().isEmpty) {
+          throw Exception('Please enter some text');
+        }
+        
+        await statusProvider.createTextStatus(
+          uid: currentUser.uid,
+          username: currentUser.name,
+          userImage: currentUser.image,
+          text: _captionController.text.trim(),
+          backgroundColor: _selectedColor,
+          fontName: _selectedFont,
+          privacyType: _privacyType,
+          includedContactUIDs: _includedContactUIDs,
+          excludedContactUIDs: _excludedContactUIDs,
+        );
+      } else if (activeTab == 2) {
+        // Link tab
+        if (_linkController.text.trim().isEmpty) {
+          throw Exception('Please enter a valid URL');
+        }
+        
+        // Basic URL validation
+        final url = _linkController.text.trim();
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          throw Exception('Please enter a valid URL starting with http:// or https://');
+        }
+        
+        await statusProvider.createLinkStatus(
+          uid: currentUser.uid,
+          username: currentUser.name,
+          userImage: currentUser.image,
+          linkUrl: url,
+          caption: _captionController.text.trim(),
+          privacyType: _privacyType,
+          includedContactUIDs: _includedContactUIDs,
+          excludedContactUIDs: _excludedContactUIDs,
+        );
+      }
+      
       Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Status created successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
-      // Show error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error creating status: ${e.toString()}'),
@@ -531,284 +504,447 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          _isUploading = false;
+          _isLoading = false;
         });
       }
     }
   }
   
-  // Toggle privacy settings
-  void _showPrivacyOptions() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Privacy Settings',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            SizedBox(height: 16),
-            // Public/Private toggle
-            SwitchListTile(
-              title: Text('Private'),
-              subtitle: Text('Only specific people can see this post'),
-              value: _isPrivate,
-              onChanged: (value) {
-                Navigator.pop(context);
-                setState(() {
-                  _isPrivate = value;
-                  if (!value) {
-                    // If not private, reset contacts-only and allowed contacts
-                    _isContactsOnly = true;
-                    _allowedContactUIDs = [];
-                  }
-                });
-              },
-            ),
-            
-            if (_isPrivate) ...[
-              Divider(),
-              // Contacts-only toggle
-              SwitchListTile(
-                title: Text('All Contacts'),
-                subtitle: Text('All your contacts can see this post'),
-                value: _isContactsOnly,
-                onChanged: (value) {
-                  Navigator.pop(context);
-                  setState(() {
-                    _isContactsOnly = value;
-                    if (value) {
-                      // If contacts-only, clear allowed contacts list
-                      _allowedContactUIDs = [];
-                    } else {
-                      // TODO: Show contact selector to choose specific contacts
-                      // For now, we'll just set a placeholder message
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Select specific contacts feature will be implemented soon'),
-                          backgroundColor: Colors.amber,
-                        ),
-                      );
-                    }
-                  });
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+  String _getPrivacyText() {
+    switch (_privacyType) {
+      case StatusPrivacyType.except:
+        final count = _excludedContactUIDs.length;
+        return 'My contacts except $count ${count == 1 ? 'person' : 'people'}';
+      case StatusPrivacyType.only:
+        final count = _includedContactUIDs.length;
+        return 'Only $count ${count == 1 ? 'person' : 'people'}';
+      case StatusPrivacyType.all_contacts:
+      default:
+        return 'My contacts';
+    }
   }
   
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
     return Scaffold(
       appBar: AppBar(
-        title: Text('Create Post'),
-        leading: IconButton(
-          icon: Icon(Icons.close),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: Text('Create Status'),
         actions: [
           // Privacy settings button
-          IconButton(
-            icon: Icon(
-              _isPrivate ? Icons.lock_outline : Icons.public,
-            ),
+          TextButton.icon(
             onPressed: _showPrivacyOptions,
-          ),
-          
-          // Upload button
-          TextButton(
-            onPressed: _isUploading ? null : _uploadStatus,
-            child: _isUploading
-                ? SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                      value: _uploadProgress > 0 ? _uploadProgress : null,
-                    ),
-                  )
-                : Text(
-                    'Post',
-                    style: TextStyle(
-                      color: Color(0xFF008069),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
+            icon: Icon(
+              _privacyType == StatusPrivacyType.all_contacts ? Icons.people : 
+              _privacyType == StatusPrivacyType.except ? Icons.person_remove :
+              Icons.person_add,
+            ),
+            label: Text(_getPrivacyText()),
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(icon: Icon(Icons.photo_camera), text: 'Media'),
+            Tab(icon: Icon(Icons.text_fields), text: 'Text'),
+            Tab(icon: Icon(Icons.link), text: 'Link'),
+          ],
+        ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Selected media preview
-            if (_selectedMedia.isNotEmpty) ...[
-              Container(
-                height: 300,
-                width: double.infinity,
-                child: _mediaType == StatusType.video && _isVideoInitialized
-                    ? VideoPreview(controller: _videoController!)
-                    : ImagePreview(
-                        images: _selectedMedia,
-                        onRemove: _removeMedia,
-                      ),
-              ),
-              Divider(),
-            ],
-            
-            // Caption input
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: TextField(
-                controller: _captionController,
-                decoration: InputDecoration(
-                  hintText: 'Write a caption...',
-                  border: InputBorder.none,
-                ),
-                maxLines: 5,
-                minLines: 1,
-              ),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator(color: modernTheme.primaryColor))
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                // Media tab
+                _buildMediaTab(),
+                
+                // Text tab
+                _buildTextTab(),
+                
+                // Link tab
+                _buildLinkTab(),
+              ],
             ),
-            
-            Divider(),
-            
-            // Media picker header
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _isLoading ? null : _createStatus,
+        icon: Icon(Icons.send),
+        label: Text('Post Status'),
+      ),
+    );
+  }
+  
+  Widget _buildMediaTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Media preview section
+          if (_selectedMedia.isNotEmpty) ...[
+            Container(
+              height: 300,
+              width: double.infinity,
+              color: Colors.black,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Text(
-                    'Media',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  // Media preview
+                  Center(
+                    child: _mediaType == StatusType.video && _isVideoInitialized
+                        ? AspectRatio(
+                            aspectRatio: _videoController!.value.aspectRatio,
+                            child: VideoPlayer(_videoController!),
+                          )
+                        : Image.file(
+                            _selectedMedia.first,
+                            fit: BoxFit.contain,
+                          ),
                   ),
-                  Row(
-                    children: [
-                      // Gallery picker button
-                      IconButton(
-                        icon: Icon(Icons.photo_library),
-                        onPressed: _pickMediaFromGallery,
+                  
+                  // Remove button
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: Icon(Icons.close, color: Colors.white),
+                      onPressed: _removeMedia,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
                       ),
-                      // Camera button for photos
-                      IconButton(
-                        icon: Icon(Icons.camera_alt),
-                        onPressed: _takePhoto,
-                      ),
-                      // Video camera button
-                      IconButton(
-                        icon: Icon(Icons.videocam),
-                        onPressed: _recordVideo,
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
             
-            // Media gallery grid
-            _isLoading
-                ? Center(
-                    child: Column(
-                      children: [
-                        CircularProgressIndicator(
-                          color: modernTheme.primaryColor,
+            // Caption input
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _captionController,
+                decoration: InputDecoration(
+                  hintText: 'Add a caption...',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+            ),
+          ] else ...[
+            // Camera buttons
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _takePhoto,
+                    icon: Icon(Icons.photo_camera),
+                    label: Text('Take Photo'),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _recordVideo,
+                    icon: Icon(Icons.videocam),
+                    label: Text('Record Video'),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Gallery section
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Recent Media',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+            
+            // Grid of recent media
+            GridView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
+              ),
+              itemCount: _recentMedia.length,
+              itemBuilder: (context, index) {
+                final asset = _recentMedia[index];
+                return GestureDetector(
+                  onTap: () => _selectFromGallery(asset),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Thumbnail
+                      FutureBuilder<Uint8List?>(
+                        future: asset.thumbnailData,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
+                            return Image.memory(
+                              snapshot.data!,
+                              fit: BoxFit.cover,
+                            );
+                          }
+                          return Container(
+                            color: Colors.grey[300],
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: context.modernTheme.primaryColor,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      
+                      // Video indicator
+                      if (asset.type == AssetType.video)
+                        Positioned(
+                          right: 5,
+                          bottom: 5,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _formatDuration(asset.duration),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
                         ),
-                        SizedBox(height: 16),
-                        Text('Loading media...'),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTextTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Text preview section
+          Container(
+            height: 300,
+            width: double.infinity,
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: _selectedColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: TextField(
+                controller: _captionController,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: _selectedFont,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Type your status here...',
+                  hintStyle: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: _selectedFont,
+                  ),
+                  border: InputBorder.none,
+                ),
+                maxLines: 6,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          
+          SizedBox(height: 24),
+          
+          // Color options
+          Text(
+            'Background Color',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _colorOptions.map((color) {
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedColor = color;
+                    });
+                  },
+                  child: Container(
+                    margin: EdgeInsets.only(right: 12),
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _selectedColor == color 
+                            ? Colors.white 
+                            : Colors.transparent,
+                        width: 3,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
                       ],
                     ),
-                  )
-                : _recentMedia.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: Column(
-                            children: [
-                              Icon(Icons.photo_library, size: 64, color: Colors.grey),
-                              SizedBox(height: 16),
-                              Text(
-                                'No media found or permission denied',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                              SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () => _requestPermissionsAndLoadMedia(),
-                                child: Text('Request Permissions Again'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : Container(
-                        height: 300,
-                        child: GridView.builder(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 2,
-                            mainAxisSpacing: 2,
-                          ),
-                          itemCount: _recentMedia.length,
-                          itemBuilder: (context, index) {
-                            final asset = _recentMedia[index];
-                            return GestureDetector(
-                              onTap: () => _selectFromGallery(asset),
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  // Thumbnail
-                                  AssetThumbnail(asset: asset),
-                                  
-                                  // Video indicator
-                                  if (asset.type == AssetType.video)
-                                    Positioned(
-                                      right: 5,
-                                      bottom: 5,
-                                      child: Container(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.7),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          _formatDuration(asset.duration),
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          
+          SizedBox(height: 24),
+          
+          // Font options
+          Text(
+            'Font Style',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _fontOptions.map((font) {
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedFont = font;
+                    });
+                  },
+                  child: Container(
+                    margin: EdgeInsets.only(right: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _selectedFont == font 
+                          ? context.modernTheme.primaryColor 
+                          : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      font ?? 'Default',
+                      style: TextStyle(
+                        fontFamily: font,
+                        fontWeight: FontWeight.bold,
+                        color: _selectedFont == font ? Colors.white : Colors.black,
                       ),
-          ],
-        ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildLinkTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Link URL input
+          TextField(
+            controller: _linkController,
+            decoration: InputDecoration(
+              labelText: 'Enter URL',
+              hintText: 'https://example.com',
+              prefixIcon: Icon(Icons.link),
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.url,
+          ),
+          
+          SizedBox(height: 24),
+          
+          // Caption input
+          TextField(
+            controller: _captionController,
+            decoration: InputDecoration(
+              labelText: 'Add a caption (optional)',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
+          
+          SizedBox(height: 24),
+          
+          // Link preview
+          if (_linkController.text.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Link Preview',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    _linkController.text,
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Preview will be generated when you post the status',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -817,184 +953,5 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
     return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
-  }
-}
-
-// Asset thumbnail widget
-class AssetThumbnail extends StatelessWidget {
-  final AssetEntity asset;
-  
-  const AssetThumbnail({Key? key, required this.asset}) : super(key: key);
-  
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List?>(
-      future: asset.thumbnailData,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
-          return Image.memory(
-            snapshot.data!,
-            fit: BoxFit.cover,
-          );
-        }
-        return Container(
-          color: Colors.grey[300],
-          child: Center(
-            child: CircularProgressIndicator(
-              color: context.modernTheme.primaryColor,
-              strokeWidth: 2,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// Video preview widget
-class VideoPreview extends StatelessWidget {
-  final VideoPlayerController controller;
-  
-  const VideoPreview({Key? key, required this.controller}) : super(key: key);
-  
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Video player
-        AspectRatio(
-          aspectRatio: controller.value.aspectRatio,
-          child: VideoPlayer(controller),
-        ),
-        
-        // Playback controls
-        GestureDetector(
-          onTap: () {
-            if (controller.value.isPlaying) {
-              controller.pause();
-            } else {
-              controller.play();
-            }
-          },
-          child: Container(
-            color: Colors.transparent,
-            child: Center(
-              child: Icon(
-                controller.value.isPlaying ? Icons.pause_circle_outline : Icons.play_circle_outline,
-                color: Colors.white.withOpacity(0.7),
-                size: 64,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// Image preview widget
-class ImagePreview extends StatelessWidget {
-  final List<File> images;
-  final Function(int) onRemove;
-  
-  const ImagePreview({
-    Key? key,
-    required this.images,
-    required this.onRemove,
-  }) : super(key: key);
-  
-  @override
-  Widget build(BuildContext context) {
-    return images.length == 1
-        ? Stack(
-            fit: StackFit.expand,
-            children: [
-              // Single image
-              Image.file(
-                images.first,
-                fit: BoxFit.contain,
-              ),
-              
-              // Remove button
-              Positioned(
-                top: 10,
-                right: 10,
-                child: GestureDetector(
-                  onTap: () => onRemove(0),
-                  child: Container(
-                    padding: EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          )
-        : PageView.builder(
-            itemCount: images.length,
-            itemBuilder: (context, index) {
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Image
-                  Image.file(
-                    images[index],
-                    fit: BoxFit.contain,
-                  ),
-                  
-                  // Remove button
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: GestureDetector(
-                      onTap: () => onRemove(index),
-                      child: Container(
-                        padding: EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  // Page indicator
-                  Positioned(
-                    bottom: 10,
-                    left: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        images.length,
-                        (i) => Container(
-                          margin: EdgeInsets.symmetric(horizontal: 4),
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: i == index ? Colors.white : Colors.white.withOpacity(0.5),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          );
   }
 }

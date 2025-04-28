@@ -1,4 +1,3 @@
-
 class Constants {
   // screens routes
   static const String landingScreen = '/landingScreen';
@@ -24,14 +23,12 @@ class Constants {
   static const String createGroupScreen = '/createGroupScreen';
   static const String blockedContactsScreen = '/blockedContactsScreen';
   
-  // Status feature routes
-  static const String statusScreen = '/statusScreen';
+  // Status feature routes - Updated for new implementation
+  static const String statusOverviewScreen = '/statusOverviewScreen';
   static const String createStatusScreen = '/createStatusScreen';
-  static const String statusDetailScreen = '/statusDetailScreen';
-  //static const String myStatusScreen = '/myStatusScreen';
+  static const String myStatusesScreen = '/myStatusesScreen';
+  static const String statusViewerScreen = '/statusViewerScreen';
   static const String mediaViewScreen = '/mediaViewScreen';
-  static const String statusCommentsScreen = '/statusCommentsScreen';
-  static const String myStatusScreen = '/my-status';
   
   // Channel feature routes
   static const String channelsScreen = '/channelsScreen';
@@ -42,15 +39,12 @@ class Constants {
   static const String exploreChannelsScreen = '/exploreChannelsScreen';
   static const String myChannelsScreen = '/myChannelsScreen';
   
-  // Collection names for Status
+  // Collection names for Status - Updated for new implementation
   static const String statuses = 'statuses';
   static const String statusFiles = 'statusFiles';
   static const String statusId = 'statusId';
-  static const String statusUrl = 'statusUrl';
   static const String statusType = 'statusType';
-  static const String statusReplies = 'statusReplies';
-  static const String statusViewCount = 'statusViewCount';   
-  static const String statusLikes = 'statusLikes';
+  static const String statusViewCount = 'viewCount';
   
   // Collection names for Channels
   static const String channels = 'channels';

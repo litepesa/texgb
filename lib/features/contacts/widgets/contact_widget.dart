@@ -4,7 +4,6 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 class ContactWidget extends StatelessWidget {
@@ -12,27 +11,15 @@ class ContactWidget extends StatelessWidget {
     super.key,
     required this.contact,
     required this.viewType,
-    this.isAdminView = false,
-    this.groupId = '',
   });
 
   final UserModel contact;
   final ContactViewType viewType;
-  final bool isAdminView;
-  final String groupId;
 
   @override
   Widget build(BuildContext context) {
     final currentUser = context.watch<AuthenticationProvider>().userModel!;
     final name = currentUser.uid == contact.uid ? 'You' : contact.name;
-    
-    // For group view, check if contact is in members or admins list
-    bool isSelected = false;
-    if (viewType == ContactViewType.groupView) {
-      isSelected = isAdminView
-          ? context.watch<GroupProvider>().groupAdminsList.contains(contact)
-          : context.watch<GroupProvider>().groupMembersList.contains(contact);
-    }
 
     return ListTile(
       minLeadingWidth: 0.0,
@@ -45,7 +32,7 @@ class ContactWidget extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: _buildTrailingWidget(context, isSelected),
+      trailing: _buildTrailingWidget(context),
       onTap: () {
         _handleTap(context);
       },
@@ -55,7 +42,7 @@ class ContactWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildTrailingWidget(BuildContext context, bool isSelected) {
+  Widget _buildTrailingWidget(BuildContext context) {
     switch (viewType) {
       case ContactViewType.contacts:
         return IconButton(
@@ -79,34 +66,6 @@ class ContactWidget extends StatelessWidget {
           },
           child: const Text('Unblock'),
         );
-      case ContactViewType.groupView:
-        return Checkbox(
-          value: isSelected,
-          onChanged: (value) {
-            // Check the checkbox
-            if (isAdminView) {
-              if (value == true) {
-                context
-                    .read<GroupProvider>()
-                    .addMemberToAdmins(groupAdmin: contact);
-              } else {
-                context
-                    .read<GroupProvider>()
-                    .removeGroupAdmin(groupAdmin: contact);
-              }
-            } else {
-              if (value == true) {
-                context
-                    .read<GroupProvider>()
-                    .addMemberToGroup(groupMember: contact);
-              } else {
-                context
-                    .read<GroupProvider>()
-                    .removeGroupMember(groupMember: contact);
-              }
-            }
-          },
-        );
       default:
         return const SizedBox.shrink();
     }
@@ -129,16 +88,6 @@ class ContactWidget extends StatelessWidget {
           Constants.contactProfileScreen,
           arguments: contact.uid,
         );
-        break;
-      case ContactViewType.groupView:
-        if (groupId.isNotEmpty) {
-          // Navigate to profile screen
-          Navigator.pushNamed(
-            context,
-            Constants.contactProfileScreen,
-            arguments: contact.uid,
-          );
-        }
         break;
       default:
         break;

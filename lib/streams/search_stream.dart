@@ -54,7 +54,6 @@ class SearchStream extends StatelessWidget {
                       results.elementAt(index).data() as Map<String, dynamic>);
                   return ChatWidget(
                     chat: chat,
-                    isGroup: false,
                     onTap: () {
                       Navigator.pushNamed(
                         context,
@@ -63,7 +62,6 @@ class SearchStream extends StatelessWidget {
                           Constants.contactUID: chat.contactUID,
                           Constants.contactName: chat.contactName,
                           Constants.contactImage: chat.contactImage,
-                          Constants.groupId: groupId.isEmpty ? '' : groupId,
                         },
                       );
                     },

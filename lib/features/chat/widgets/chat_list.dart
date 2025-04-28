@@ -11,7 +11,6 @@ import 'package:textgb/models/message_model.dart';
 import 'package:textgb/models/message_reply_model.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/chat/chat_provider.dart';
-import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/features/chat/widgets/align_message_left_widget.dart';
 import 'package:textgb/features/chat/widgets/align_message_right_widget.dart';
@@ -25,7 +24,7 @@ class ChatList extends StatefulWidget {
   });
 
   final String contactUID;
-  final String groupId;
+  final String groupId; // Kept for backward compatibility
 
   @override
   State<ChatList> createState() => _ChatListState();
@@ -139,7 +138,7 @@ class _ChatListState extends State<ChatList> {
       stream: context.read<ChatProvider>().getMessagesStream(
             userId: uid,
             contactUID: widget.contactUID,
-            isGroup: widget.groupId,
+            isGroup: '', // Always pass empty string since groups are removed
           ),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -187,26 +186,15 @@ class _ChatListState extends State<ChatList> {
             groupBy: (message) => _getDateKey(message.timeSent),
             groupHeaderBuilder: (MessageModel message) => buildDateTime(_getDateKey(message.timeSent)),
             itemBuilder: (context, MessageModel message) {
-              // All your existing message handling code
-              // check if it's a groupChat
-              if (widget.groupId.isNotEmpty) {
+              // Handle message status for direct chat only
+              if (!message.isSeen && message.senderUID != uid) {
                 context.read<ChatProvider>().setMessageStatus(
                       currentUserId: uid,
                       contactUID: widget.contactUID,
                       messageId: message.messageId,
                       isSeenByList: message.isSeenBy,
-                      isGroupChat: widget.groupId.isNotEmpty,
+                      isGroupChat: false,
                     );
-              } else {
-                if (!message.isSeen && message.senderUID != uid) {
-                  context.read<ChatProvider>().setMessageStatus(
-                        currentUserId: uid,
-                        contactUID: widget.contactUID,
-                        messageId: message.messageId,
-                        isSeenByList: message.isSeenBy,
-                        isGroupChat: widget.groupId.isNotEmpty,
-                      );
-                }
               }
 
               // check if we sent the last message
@@ -225,12 +213,12 @@ class _ChatListState extends State<ChatList> {
                                   ? AlignMessageRightWidget(
                                       message: message,
                                       viewOnly: true,
-                                      isGroupChat: widget.groupId.isNotEmpty,
+                                      isGroupChat: false,
                                     )
                                   : AlignMessageLeftWidget(
                                       message: message,
                                       viewOnly: true,
-                                      isGroupChat: widget.groupId.isNotEmpty,
+                                      isGroupChat: false,
                                     ),
                               onReactionTap: (reaction) {
                                 if (reaction == '➕') {
@@ -277,7 +265,7 @@ class _ChatListState extends State<ChatList> {
                                 .setMessageReplyModel(messageReply);
                           },
                           isMe: isMe,
-                          isGroupChat: widget.groupId.isNotEmpty,
+                          isGroupChat: false,
                         ),
                       ),
                     );

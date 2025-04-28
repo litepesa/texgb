@@ -1,105 +1,64 @@
-// lib/features/status/status_provider.dart
+// lib/features/status/providers/status_provider.dart
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
+import 'package:collection/collection.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/status/widgets/status_enums.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_post_model.dart';
+import 'package:textgb/models/message_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:http/http.dart' as http;
+import 'package:html/parser.dart' as html_parser;
+import 'package:path_provider/path_provider.dart';
 
-// Define FeedFilterType as a top-level enum outside the class
-enum FeedFilterType { contacts, latest, trending }
+enum FeedFilterType { latest, viewed, unviewed }
 
+/// Status provider for managing status posts
 class StatusProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final Uuid _uuid = const Uuid();
   
-  // Track if the app is in a fresh start
-  bool _isAppFreshStart = true;
-  bool get isAppFreshStart => _isAppFreshStart;
-  
-  // Track if the status tab is visible
-  bool _isStatusTabVisible = false;
-  bool get isStatusTabVisible => _isStatusTabVisible;
-  
-  // Track feed filter type
-  FeedFilterType _currentFilter = FeedFilterType.latest;
-  FeedFilterType get currentFilter => _currentFilter;
-  
-  // States for status feed
-  List<StatusPostModel> _allStatusPosts = [];
-  List<StatusPostModel> _filteredStatusPosts = [];
+  // State variables
   bool _isLoading = false;
   String _searchQuery = '';
+  FeedFilterType _currentFilter = FeedFilterType.latest;
+  
+  // Status posts grouped by user
+  Map<String, List<StatusPostModel>> _userStatusMap = {};
+  
+  // Status posts from current user
+  List<StatusPostModel> _myStatuses = [];
   
   // Getters
-  List<StatusPostModel> get allStatusPosts => _allStatusPosts;
-  List<StatusPostModel> get filteredStatusPosts => _filteredStatusPosts;
   bool get isLoading => _isLoading;
   String get searchQuery => _searchQuery;
+  FeedFilterType get currentFilter => _currentFilter;
+  Map<String, List<StatusPostModel>> get userStatusMap => _userStatusMap;
+  List<StatusPostModel> get myStatuses => _myStatuses;
   
-  // Set app fresh start state
-  void setAppFreshStart(bool value) {
-    _isAppFreshStart = value;
-    notifyListeners();
-  }
+  /// Get a list of users with active status posts
+  List<String> get usersWithStatus => _userStatusMap.keys.toList();
   
-  // Set status tab visibility
-  void setStatusTabVisible(bool value) {
-    _isStatusTabVisible = value;
-    notifyListeners();
-  }
-  
-  // Set feed filter
-  void setFeedFilter(FeedFilterType filterType) {
-    _currentFilter = filterType;
-    _applyFilters();
-    notifyListeners();
-  }
-  
-  // Set search query
+  /// Set search query
   void setSearchQuery(String query) {
     _searchQuery = query;
-    _applyFilters();
     notifyListeners();
   }
   
-  // Apply filters and search to status posts
-  void _applyFilters() {
-    if (_allStatusPosts.isEmpty) return;
-    
-    var filtered = List<StatusPostModel>.from(_allStatusPosts);
-    
-    // Apply search if there's a query
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((post) => 
-        post.username.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-        post.caption.toLowerCase().contains(_searchQuery.toLowerCase())
-      ).toList();
-    }
-    
-    // Apply filter type
-    switch (_currentFilter) {
-      case FeedFilterType.contacts:
-        // Will be implemented when user's contacts are available
-        break;
-      case FeedFilterType.latest:
-        filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-      case FeedFilterType.trending:
-        filtered.sort((a, b) => b.viewCount.compareTo(a.viewCount));
-        break;
-    }
-    
-    _filteredStatusPosts = filtered;
+  /// Set feed filter
+  void setFeedFilter(FeedFilterType filter) {
+    _currentFilter = filter;
+    notifyListeners();
   }
   
-  // Fetch statuses from Firestore
-  Future<void> fetchStatuses({
+  /// Fetch all status posts that the current user can view
+  Future<void> fetchAllStatuses({
     required String currentUserId,
     required List<String> contactIds,
   }) async {
@@ -117,47 +76,187 @@ class StatusProvider extends ChangeNotifier {
           .get();
       
       // Convert snapshots to StatusPostModel objects
-      final List<StatusPostModel> posts = [];
+      Map<String, List<StatusPostModel>> groupedStatuses = {};
+      List<StatusPostModel> currentUserStatuses = [];
+      
       for (var doc in snapshot.docs) {
         final statusPost = StatusPostModel.fromMap(doc.data());
         
         // Filter based on privacy settings
-        if (statusPost.uid == currentUserId) {
-          // Current user can see their own posts
-          posts.add(statusPost);
-        } else if (!statusPost.isPrivate) {
-          // Public post that everyone can see
-          posts.add(statusPost);
-        } else if (statusPost.isContactsOnly && contactIds.contains(statusPost.uid)) {
-          // Contacts-only post and current user is a contact
-          posts.add(statusPost);
-        } else if (statusPost.allowedContactUIDs.contains(currentUserId)) {
-          // Specific contacts post and current user is in the allowed list
-          posts.add(statusPost);
+        bool canView = statusPost.canBeViewedBy(currentUserId, contactIds);
+        
+        if (canView) {
+          if (statusPost.uid == currentUserId) {
+            // Current user's own status
+            currentUserStatuses.add(statusPost);
+          } else {
+            // Group other users' statuses by creator
+            if (!groupedStatuses.containsKey(statusPost.uid)) {
+              groupedStatuses[statusPost.uid] = [];
+            }
+            groupedStatuses[statusPost.uid]!.add(statusPost);
+          }
         }
       }
       
-      _allStatusPosts = posts;
-      _applyFilters();
+      // Sort each user's statuses by creation time (oldest first)
+      groupedStatuses.forEach((uid, statuses) {
+        statuses.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      });
+      
+      // Sort current user's statuses by creation time (oldest first)
+      currentUserStatuses.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      
+      // Apply filter sorting to the map
+      _applyFilterToMap(groupedStatuses, currentUserId);
+      
+      _userStatusMap = groupedStatuses;
+      _myStatuses = currentUserStatuses;
+      
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
       debugPrint('Error fetching statuses: $e');
-    } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
   
-  // Create a new status post
-  Future<void> createStatusPost({
+  /// Apply filter sorting to the status map
+  void _applyFilterToMap(Map<String, List<StatusPostModel>> map, String currentUserId) {
+    // Convert to a list of entries for sorting
+    List<MapEntry<String, List<StatusPostModel>>> entries = map.entries.toList();
+    
+    switch (_currentFilter) {
+      case FeedFilterType.viewed:
+        // Sort by viewed status - users whose statuses have been viewed first
+        entries.sort((a, b) {
+          bool aAllViewed = a.value.every((status) => status.isViewedBy(currentUserId));
+          bool bAllViewed = b.value.every((status) => status.isViewedBy(currentUserId));
+          
+          if (aAllViewed && !bAllViewed) return 1;
+          if (!aAllViewed && bAllViewed) return -1;
+          
+          // If both viewed or both unviewed, sort by most recent status
+          DateTime aLatest = a.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
+          DateTime bLatest = b.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
+          
+          return bLatest.compareTo(aLatest);
+        });
+        break;
+        
+      case FeedFilterType.unviewed:
+        // Sort by unviewed status - users whose statuses haven't been viewed first
+        entries.sort((a, b) {
+          bool aHasUnviewed = a.value.any((status) => !status.isViewedBy(currentUserId));
+          bool bHasUnviewed = b.value.any((status) => !status.isViewedBy(currentUserId));
+          
+          if (aHasUnviewed && !bHasUnviewed) return -1;
+          if (!aHasUnviewed && bHasUnviewed) return 1;
+          
+          // If both have unviewed or both don't, sort by most recent status
+          DateTime aLatest = a.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
+          DateTime bLatest = b.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
+          
+          return bLatest.compareTo(aLatest);
+        });
+        break;
+        
+      case FeedFilterType.latest:
+      default:
+        // Sort by most recent status post
+        entries.sort((a, b) {
+          DateTime aLatest = a.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
+          DateTime bLatest = b.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
+          
+          return bLatest.compareTo(aLatest);
+        });
+        break;
+    }
+    
+    // Convert back to map
+    map.clear();
+    for (var entry in entries) {
+      map[entry.key] = entry.value;
+    }
+  }
+  
+  /// Mark a status as viewed
+  Future<void> viewStatus({
+    required String statusId,
+    required String viewerUid,
+  }) async {
+    try {
+      // Find the status post in state
+      StatusPostModel? targetStatus;
+      String? targetUserUid;
+      
+      // Check if it's in current user's statuses
+      final myStatusIndex = _myStatuses.indexWhere((post) => post.statusId == statusId);
+      if (myStatusIndex != -1) {
+        targetStatus = _myStatuses[myStatusIndex];
+        targetUserUid = targetStatus.uid;
+      }
+      
+      // If not found, check in other users' statuses
+      if (targetStatus == null) {
+        for (var entry in _userStatusMap.entries) {
+          final statusIndex = entry.value.indexWhere((post) => post.statusId == statusId);
+          if (statusIndex != -1) {
+            targetStatus = entry.value[statusIndex];
+            targetUserUid = entry.key;
+            break;
+          }
+        }
+      }
+      
+      // If status not found or already viewed, return
+      if (targetStatus == null || targetStatus.viewerUIDs.contains(viewerUid)) {
+        return;
+      }
+      
+      // Add viewer to the list
+      final updatedViewerUIDs = List<String>.from(targetStatus.viewerUIDs)..add(viewerUid);
+      final updatedViewCount = targetStatus.viewCount + 1;
+      
+      // Update Firestore
+      await _firestore.collection(Constants.statuses).doc(statusId).update({
+        'viewerUIDs': updatedViewerUIDs,
+        Constants.statusViewCount: updatedViewCount,
+      });
+      
+      // Update local state
+      final updatedStatus = targetStatus.copyWith(
+        viewerUIDs: updatedViewerUIDs,
+        viewCount: updatedViewCount,
+      );
+      
+      if (myStatusIndex != -1) {
+        _myStatuses[myStatusIndex] = updatedStatus;
+      } else if (targetUserUid != null) {
+        final userStatusIndex = _userStatusMap[targetUserUid]!.indexWhere((post) => post.statusId == statusId);
+        if (userStatusIndex != -1) {
+          _userStatusMap[targetUserUid]![userStatusIndex] = updatedStatus;
+        }
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error viewing status: $e');
+    }
+  }
+  
+  /// Create a new image/video status post
+  Future<void> createMediaStatus({
     required String uid,
     required String username,
     required String userImage,
     required List<File> mediaFiles,
-    required String caption,
     required StatusType type,
-    required bool isPrivate,
-    required bool isContactsOnly,
-    required List<String> allowedContactUIDs,
+    String caption = '',
+    required StatusPrivacyType privacyType,
+    List<String> includedContactUIDs = const [],
+    List<String> excludedContactUIDs = const [],
   }) async {
     try {
       _isLoading = true;
@@ -180,9 +279,9 @@ class StatusProvider extends ChangeNotifier {
         mediaUrls.add(url);
       }
       
-      // Calculate expiry time (72 hours from now)
+      // Calculate expiry time (24 hours from now)
       final createdAt = DateTime.now();
-      final expiresAt = createdAt.add(const Duration(hours: 72));
+      final expiresAt = createdAt.add(const Duration(hours: 24));
       
       // Create status post model
       final statusPost = StatusPostModel(
@@ -190,17 +289,14 @@ class StatusProvider extends ChangeNotifier {
         uid: uid,
         username: username,
         userImage: userImage,
+        type: type,
         mediaUrls: mediaUrls,
         caption: caption,
-        type: type,
         createdAt: createdAt,
         expiresAt: expiresAt,
-        viewerUIDs: [],
-        viewCount: 0,
-        likeUIDs: [],
-        isPrivate: isPrivate,
-        allowedContactUIDs: allowedContactUIDs,
-        isContactsOnly: isContactsOnly,
+        privacyType: privacyType,
+        includedContactUIDs: includedContactUIDs,
+        excludedContactUIDs: excludedContactUIDs,
       );
       
       // Save to Firestore
@@ -209,158 +305,191 @@ class StatusProvider extends ChangeNotifier {
           .doc(statusId)
           .set(statusPost.toMap());
       
-      // Refresh status feed
-      _allStatusPosts.add(statusPost);
-      _applyFilters();
-    } catch (e) {
-      debugPrint('Error creating status post: $e');
-      rethrow;
-    } finally {
+      // Add to local state
+      _myStatuses.add(statusPost);
+      
+      // Sort by creation time
+      _myStatuses.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      
       _isLoading = false;
       notifyListeners();
-    }
-  }
-  
-  // View a status post
-  Future<void> viewStatusPost({
-    required String statusId,
-    required String viewerUid,
-  }) async {
-    try {
-      // Find the status post in local list
-      final postIndex = _allStatusPosts.indexWhere((post) => post.statusId == statusId);
-      if (postIndex == -1) return;
-      
-      final post = _allStatusPosts[postIndex];
-      
-      // Check if user has already viewed this post
-      if (post.viewerUIDs.contains(viewerUid)) return;
-      
-      // Add viewer to the list
-      final updatedViewerUIDs = List<String>.from(post.viewerUIDs)..add(viewerUid);
-      final updatedViewCount = post.viewCount + 1;
-      
-      // Update Firestore
-      await _firestore.collection(Constants.statuses).doc(statusId).update({
-        'viewerUIDs': updatedViewerUIDs,
-        Constants.statusViewCount: updatedViewCount,
-      });
-      
-      // Update local state
-      final updatedPost = post.copyWith(
-        viewerUIDs: updatedViewerUIDs,
-        viewCount: updatedViewCount,
-      );
-      
-      _allStatusPosts[postIndex] = updatedPost;
-      _applyFilters();
-      notifyListeners();
     } catch (e) {
-      debugPrint('Error viewing status post: $e');
-    }
-  }
-  
-  // Like/unlike a status post
-  Future<void> toggleLikeStatusPost({
-    required String statusId,
-    required String userUid,
-  }) async {
-    try {
-      // Find the status post in local list
-      final postIndex = _allStatusPosts.indexWhere((post) => post.statusId == statusId);
-      if (postIndex == -1) return;
-      
-      final post = _allStatusPosts[postIndex];
-      
-      // Toggle like status
-      final isCurrentlyLiked = post.likeUIDs.contains(userUid);
-      final List<String> updatedLikeUIDs = List<String>.from(post.likeUIDs);
-      
-      if (isCurrentlyLiked) {
-        updatedLikeUIDs.remove(userUid);
-      } else {
-        updatedLikeUIDs.add(userUid);
-      }
-      
-      // Update Firestore
-      await _firestore.collection(Constants.statuses).doc(statusId).update({
-        'likeUIDs': updatedLikeUIDs,
-      });
-      
-      // Update local state
-      final updatedPost = post.copyWith(
-        likeUIDs: updatedLikeUIDs,
-      );
-      
-      _allStatusPosts[postIndex] = updatedPost;
-      _applyFilters();
+      debugPrint('Error creating media status: $e');
+      _isLoading = false;
       notifyListeners();
-    } catch (e) {
-      debugPrint('Error toggling like on status post: $e');
+      rethrow;
     }
   }
   
-  // Add a comment to a status post
-  Future<void> addComment({
-    required String statusId,
+  /// Create a new text status
+  Future<void> createTextStatus({
     required String uid,
     required String username,
     required String userImage,
     required String text,
-    String? parentCommentId,
+    required Color backgroundColor,
+    String? fontName,
+    required StatusPrivacyType privacyType,
+    List<String> includedContactUIDs = const [],
+    List<String> excludedContactUIDs = const [],
   }) async {
     try {
-      // Generate unique comment ID
-      final commentId = _uuid.v4();
+      _isLoading = true;
+      notifyListeners();
       
-      // Create comment model
-      final comment = StatusCommentModel(
-        commentId: commentId,
+      // Generate unique status ID
+      final statusId = _uuid.v4();
+      
+      // Calculate expiry time (24 hours from now)
+      final createdAt = DateTime.now();
+      final expiresAt = createdAt.add(const Duration(hours: 24));
+      
+      // Create status post model
+      final statusPost = StatusPostModel(
         statusId: statusId,
         uid: uid,
         username: username,
         userImage: userImage,
-        text: text,
-        createdAt: DateTime.now(),
-        parentCommentId: parentCommentId,
-        likeUIDs: [],
+        type: StatusType.text,
+        caption: text,
+        backgroundColor: backgroundColor,
+        fontName: fontName,
+        createdAt: createdAt,
+        expiresAt: expiresAt,
+        privacyType: privacyType,
+        includedContactUIDs: includedContactUIDs,
+        excludedContactUIDs: excludedContactUIDs,
       );
       
       // Save to Firestore
       await _firestore
-          .collection(Constants.statusReplies)
-          .doc(commentId)
-          .set(comment.toMap());
+          .collection(Constants.statuses)
+          .doc(statusId)
+          .set(statusPost.toMap());
       
-      // No need to update local state as comments will be fetched separately
+      // Add to local state
+      _myStatuses.add(statusPost);
+      
+      // Sort by creation time
+      _myStatuses.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      debugPrint('Error adding comment: $e');
+      debugPrint('Error creating text status: $e');
+      _isLoading = false;
+      notifyListeners();
       rethrow;
     }
   }
   
-  // Fetch comments for a status post
-  Future<List<StatusCommentModel>> fetchComments({
-    required String statusId,
+  /// Create a new link status
+  Future<void> createLinkStatus({
+    required String uid,
+    required String username,
+    required String userImage,
+    required String linkUrl,
+    String caption = '',
+    required StatusPrivacyType privacyType,
+    List<String> includedContactUIDs = const [],
+    List<String> excludedContactUIDs = const [],
   }) async {
     try {
-      final snapshot = await _firestore
-          .collection(Constants.statusReplies)
-          .where(Constants.statusId, isEqualTo: statusId)
-          .orderBy('createdAt', descending: true)
-          .get();
+      _isLoading = true;
+      notifyListeners();
       
-      return snapshot.docs
-          .map((doc) => StatusCommentModel.fromMap(doc.data()))
-          .toList();
+      // Generate unique status ID
+      final statusId = _uuid.v4();
+      
+      // Extract link preview information (title, image)
+      String? linkTitle;
+      String? linkPreviewImage;
+      
+      try {
+        // Fetch link content for preview
+        final response = await http.get(Uri.parse(linkUrl));
+        if (response.statusCode == 200) {
+          final document = html_parser.parse(response.body);
+          
+          // Try to get title
+          final titleElement = document.querySelector('title');
+          if (titleElement != null) {
+            linkTitle = titleElement.text;
+          }
+          
+          // Try to get preview image
+          final ogImageElement = document.querySelector('meta[property="og:image"]');
+          if (ogImageElement != null) {
+            final imgUrl = ogImageElement.attributes['content'];
+            if (imgUrl != null) {
+              // Download and store the preview image
+              final imgResponse = await http.get(Uri.parse(imgUrl));
+              if (imgResponse.statusCode == 200) {
+                final tempDir = await getTemporaryDirectory();
+                final tempFile = File('${tempDir.path}/link_preview_$statusId.jpg');
+                await tempFile.writeAsBytes(imgResponse.bodyBytes);
+                
+                // Upload preview image to storage
+                final reference = 'statusFiles/$uid/$statusId/link_preview.jpg';
+                linkPreviewImage = await storeFileToStorage(
+                  file: tempFile,
+                  reference: reference,
+                );
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error extracting link preview: $e');
+        // Continue without preview
+      }
+      
+      // Calculate expiry time (24 hours from now)
+      final createdAt = DateTime.now();
+      final expiresAt = createdAt.add(const Duration(hours: 24));
+      
+      // Create status post model
+      final statusPost = StatusPostModel(
+        statusId: statusId,
+        uid: uid,
+        username: username,
+        userImage: userImage,
+        type: StatusType.link,
+        caption: caption,
+        linkUrl: linkUrl,
+        linkTitle: linkTitle,
+        linkPreviewImage: linkPreviewImage,
+        createdAt: createdAt,
+        expiresAt: expiresAt,
+        privacyType: privacyType,
+        includedContactUIDs: includedContactUIDs,
+        excludedContactUIDs: excludedContactUIDs,
+      );
+      
+      // Save to Firestore
+      await _firestore
+          .collection(Constants.statuses)
+          .doc(statusId)
+          .set(statusPost.toMap());
+      
+      // Add to local state
+      _myStatuses.add(statusPost);
+      
+      // Sort by creation time
+      _myStatuses.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      debugPrint('Error fetching comments: $e');
-      return [];
+      debugPrint('Error creating link status: $e');
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     }
   }
   
-  // Delete a status post (only for the creator)
-  Future<void> deleteStatusPost({
+  /// Delete a status post
+  Future<void> deleteStatus({
     required String statusId,
     required String creatorUid,
   }) async {
@@ -368,67 +497,216 @@ class StatusProvider extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
       
-      // Find the status post in local list
-      final postIndex = _allStatusPosts.indexWhere((post) => post.statusId == statusId);
-      if (postIndex == -1) return;
-      
-      final post = _allStatusPosts[postIndex];
-      
-      // Verify the user is the creator
-      if (post.uid != creatorUid) {
-        throw Exception('Only the creator can delete this post');
+      // Find the status in local state
+      final statusIndex = _myStatuses.indexWhere((post) => post.statusId == statusId);
+      if (statusIndex == -1) {
+        throw Exception('Status not found');
       }
       
-      // Delete media files from storage
-      for (var url in post.mediaUrls) {
-        final ref = _storage.refFromURL(url);
-        await ref.delete();
+      final status = _myStatuses[statusIndex];
+      
+      // Verify user is the creator
+      if (status.uid != creatorUid) {
+        throw Exception('Only the creator can delete their status');
       }
       
-      // Delete all comments
-      final commentsSnapshot = await _firestore
-          .collection(Constants.statusReplies)
-          .where(Constants.statusId, isEqualTo: statusId)
-          .get();
+      // Delete media files from storage if they exist
+      for (var url in status.mediaUrls) {
+        try {
+          final ref = _storage.refFromURL(url);
+          await ref.delete();
+        } catch (e) {
+          debugPrint('Error deleting media file: $e');
+          // Continue with deletion even if files can't be removed
+        }
+      }
       
-      for (var doc in commentsSnapshot.docs) {
-        await doc.reference.delete();
+      // Delete link preview image if it exists
+      if (status.linkPreviewImage != null) {
+        try {
+          final ref = _storage.refFromURL(status.linkPreviewImage!);
+          await ref.delete();
+        } catch (e) {
+          debugPrint('Error deleting link preview: $e');
+          // Continue with deletion even if files can't be removed
+        }
       }
       
       // Delete status document
-      await _firestore.collection(Constants.statuses).doc(statusId).delete();
+      await _firestore
+          .collection(Constants.statuses)
+          .doc(statusId)
+          .delete();
       
       // Update local state
-      _allStatusPosts.removeAt(postIndex);
-      _applyFilters();
-    } catch (e) {
-      debugPrint('Error deleting status post: $e');
-      rethrow;
-    } finally {
+      _myStatuses.removeAt(statusIndex);
+      
       _isLoading = false;
       notifyListeners();
-    }
-  }
-
-  Future<List<StatusPostModel>> fetchUserStatusPosts(String uid) async {
-    try {
-      // Query for all posts by this user (including expired ones)
-      final snapshot = await _firestore
-          .collection(Constants.statuses)
-          .where(Constants.uid, isEqualTo: uid)
-          .orderBy('createdAt', descending: true)
-          .get();
-      
-      return snapshot.docs
-          .map((doc) => StatusPostModel.fromMap(doc.data()))
-          .toList();
     } catch (e) {
-      debugPrint('Error fetching user status posts: $e');
-      return [];
+      debugPrint('Error deleting status: $e');
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     }
   }
   
-  // Check if user has posted today
+  /// Send a reply to a status as a chat message
+  Future<void> sendStatusReply({
+    required String statusId,
+    required String replyMessage,
+    required String senderUid,
+    required String senderName,
+    required String senderImage,
+    required String recipientUid,
+    required String recipientName,
+    required String recipientImage,
+  }) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      // Find the status post
+      StatusPostModel? targetStatus;
+      
+      // Check if it's one of the sender's statuses (unlikely but handle anyway)
+      if (senderUid == recipientUid) {
+        final statusIndex = _myStatuses.indexWhere((post) => post.statusId == statusId);
+        if (statusIndex != -1) {
+          targetStatus = _myStatuses[statusIndex];
+        }
+      } else {
+        // Check in other users' statuses
+        if (_userStatusMap.containsKey(recipientUid)) {
+          final statusIndex = _userStatusMap[recipientUid]!.indexWhere((post) => post.statusId == statusId);
+          if (statusIndex != -1) {
+            targetStatus = _userStatusMap[recipientUid]![statusIndex];
+          }
+        }
+      }
+      
+      if (targetStatus == null) {
+        throw Exception('Status not found');
+      }
+      
+      // Get thumbnail URL based on status type
+      String? thumbnailUrl;
+      if (targetStatus.type == StatusType.image || targetStatus.type == StatusType.video) {
+        thumbnailUrl = targetStatus.mediaUrls.isNotEmpty ? targetStatus.mediaUrls.first : null;
+      } else if (targetStatus.type == StatusType.link && targetStatus.linkPreviewImage != null) {
+        thumbnailUrl = targetStatus.linkPreviewImage;
+      }
+      
+      // Create a message ID
+      final messageId = _uuid.v4();
+      
+      // Create a message model for the chat
+      final messageModel = MessageModel(
+        messageId: messageId,
+        senderUID: senderUid,
+        senderName: senderName,
+        senderImage: senderImage,
+        contactUID: recipientUid,
+        message: replyMessage,
+        messageType: MessageEnum.text,
+        timeSent: DateTime.now(),
+        isSeen: true,
+        repliedMessage: '',
+        repliedTo: '',
+        repliedMessageType: null,
+        reactions: [],
+        isSeenBy: [senderUid],
+        deletedBy: [],
+        isStatusReply: true,
+        statusId: statusId,
+        statusItemId: targetStatus.statusId,
+        statusThumbnailUrl: thumbnailUrl,
+        statusCaption: targetStatus.caption,
+      );
+      
+      // Save to Firestore using the structure in ChatProvider
+      
+      // 1. initialize last message data for the sender
+      final Map<String, dynamic> senderLastMessageData = {
+        Constants.senderUID: senderUid,
+        Constants.contactUID: recipientUid,
+        Constants.contactName: recipientName,
+        Constants.contactImage: recipientImage,
+        Constants.message: replyMessage,
+        Constants.messageType: MessageEnum.text.name,
+        Constants.timeSent: DateTime.now().millisecondsSinceEpoch,
+        Constants.isSeen: true, // Always true for privacy
+      };
+
+      // 2. initialize last message data for the recipient
+      final Map<String, dynamic> recipientLastMessageData = {
+        Constants.senderUID: senderUid,
+        Constants.contactUID: senderUid,
+        Constants.contactName: senderName,
+        Constants.contactImage: senderImage,
+        Constants.message: replyMessage,
+        Constants.messageType: MessageEnum.text.name,
+        Constants.timeSent: DateTime.now().millisecondsSinceEpoch,
+        Constants.isSeen: true, // Always true for privacy
+      };
+      
+      // Run as a batch operation for better consistency
+      final batch = _firestore.batch();
+      
+      // 3. send message to sender firestore location
+      final senderMessageRef = _firestore
+          .collection(Constants.users)
+          .doc(senderUid)
+          .collection(Constants.chats)
+          .doc(recipientUid)
+          .collection(Constants.messages)
+          .doc(messageId);
+          
+      batch.set(senderMessageRef, messageModel.toMap());
+      
+      // 4. send message to recipient firestore location
+      final recipientMessageRef = _firestore
+          .collection(Constants.users)
+          .doc(recipientUid)
+          .collection(Constants.chats)
+          .doc(senderUid)
+          .collection(Constants.messages)
+          .doc(messageId);
+          
+      batch.set(recipientMessageRef, messageModel.toMap());
+
+      // 5. send the last message to sender firestore location
+      final senderLastMessageRef = _firestore
+          .collection(Constants.users)
+          .doc(senderUid)
+          .collection(Constants.chats)
+          .doc(recipientUid);
+          
+      batch.set(senderLastMessageRef, senderLastMessageData, SetOptions(merge: true));
+
+      // 6. send the last message to recipient firestore location
+      final recipientLastMessageRef = _firestore
+          .collection(Constants.users)
+          .doc(recipientUid)
+          .collection(Constants.chats)
+          .doc(senderUid);
+          
+      batch.set(recipientLastMessageRef, recipientLastMessageData, SetOptions(merge: true));
+      
+      // Commit the batch
+      await batch.commit();
+      
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error sending status reply: $e');
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+  
+  /// Check if user has posted today
   Future<bool> hasUserPostedToday(String uid) async {
     try {
       // Get the start of the current day

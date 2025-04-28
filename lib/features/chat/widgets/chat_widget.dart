@@ -1,12 +1,9 @@
-// lib/features/chat/widgets/chat_widget.dart
-
 import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/widgets/unread_message_counter.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/features/groups/group_model.dart';
 import 'package:textgb/models/last_message_model.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/chat/chat_provider.dart';
@@ -15,15 +12,11 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 class ChatWidget extends StatelessWidget {
   const ChatWidget({
     super.key,
-    this.chat,
-    this.group,
-    required this.isGroup,
+    required this.chat,
     required this.onTap,
   });
 
-  final LastMessageModel? chat;
-  final GroupModel? group;
-  final bool isGroup;
+  final LastMessageModel chat;
   final VoidCallback onTap;
 
   @override
@@ -36,34 +29,30 @@ class ChatWidget extends StatelessWidget {
     final uid = context.read<AuthenticationProvider>().userModel!.uid;
     
     // get the last message
-    final lastMessage = chat != null ? chat!.message : group!.lastMessage;
+    final lastMessage = chat.message;
     
     // get the senderUID
-    final senderUID = chat != null ? chat!.senderUID : group!.senderUID;
+    final senderUID = chat.senderUID;
 
-    // get the date and time - fix the timeSent conversion issue
-    final DateTime timeToUse = chat != null 
-        ? chat!.timeSent  // Already a DateTime for chat
-        : DateTime.fromMillisecondsSinceEpoch(group!.timeSent as int);  // Convert milliseconds to DateTime for group
+    // get the date and time
+    final DateTime timeToUse = chat.timeSent;
     
     final String timeString = formatDateForChatList(timeToUse);
 
     // get the image url
-    final imageUrl = chat != null ? chat!.contactImage : group!.groupImage;
+    final imageUrl = chat.contactImage;
 
     // get the name
-    final name = chat != null ? chat!.contactName : group!.groupName;
+    final name = chat.contactName;
 
     // get the contactUID
-    final contactUID = chat != null ? chat!.contactUID : group!.groupId;
+    final contactUID = chat.contactUID;
     
-    // get the messageType - ensure we have a proper default
-    final messageType = chat != null 
-        ? chat!.messageType 
-        : (group!.messageType as String?)?.toMessageEnum() ?? MessageEnum.text;
+    // get the messageType
+    final messageType = chat.messageType;
     
     // Check if it has unread messages
-    final bool hasUnreadMessages = chat != null ? !chat!.isSeen && senderUID != uid : false;
+    final bool hasUnreadMessages = !chat.isSeen && senderUID != uid;
     
     return Material(
       color: Colors.transparent,
@@ -80,7 +69,7 @@ class ChatWidget extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
           child: Row(
             children: [
-              // Contact/Group avatar (removed online status indicator)
+              // Contact avatar
               Hero(
                 tag: 'avatar-$contactUID',
                 child: userImageWidget(
@@ -178,7 +167,7 @@ class ChatWidget extends StatelessWidget {
                         ),
                         
                         // Unread counter badge
-                        UnreadMessageCounter(uid: uid, contactUID: contactUID, isGroup: isGroup),
+                        UnreadMessageCounter(uid: uid, contactUID: contactUID, isGroup: false),
                       ],
                     ),
                   ],

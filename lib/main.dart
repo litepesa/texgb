@@ -16,22 +16,19 @@ import 'package:textgb/features/channels/screens/my_channels_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/status/screens/my_status_screen.dart';
-import 'package:textgb/features/status/screens/status_screen.dart';
+import 'package:textgb/features/status/screens/my_statuses_screen.dart';
+import 'package:textgb/features/status/screens/status_viewer_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
-import 'package:textgb/features/groups/screens/group_information_screen.dart';
-import 'package:textgb/features/groups/screens/group_settings_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart'; // New import
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/chat/chat_provider.dart';
 import 'package:textgb/features/contacts/contacts_provider.dart';
-import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'dart:async';
@@ -86,7 +83,6 @@ void main() async {
         ),
         ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
-        ChangeNotifierProvider(create: (_) => GroupProvider()),
         ChangeNotifierProvider(create: (_) => ContactsProvider()),
         ChangeNotifierProvider(create: (_) => StatusProvider()),
         ChangeNotifierProvider(create: (_) => ChannelProvider()),
@@ -200,16 +196,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Constants.addContactScreen: (context) => const AddContactScreen(),
         Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
         Constants.chatScreen: (context) => const ChatScreen(),
-        Constants.groupSettingsScreen: (context) =>
-            const GroupSettingsScreen(),
-        Constants.groupInformationScreen: (context) =>
-            const GroupInformationScreen(),
         Constants.statusScreen: (context) => const StatusScreen(),
         Constants.createStatusScreen: (context) => const CreateStatusScreen(),
         Constants.createChannelScreen: (context) => const CreateChannelScreen(),
         Constants.exploreChannelsScreen: (context) => const ExploreChannelsScreen(),
         Constants.myChannelsScreen: (context) => const MyChannelsScreen(),
-        Constants.myStatusScreen: (context) => const MyStatusScreen(),
+        Constants.myStatusesScreen: (context) => const MyStatusScreen(),
       },
       // Use onGenerateRoute for routes that need parameters
       onGenerateRoute: (settings) {

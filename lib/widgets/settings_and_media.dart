@@ -1,18 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:textgb/features/groups/screens/group_settings_screen.dart';
-import 'package:textgb/features/groups/group_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/widgets/settings_list_tile.dart';
 
 class SettingsAndMedia extends StatelessWidget {
   const SettingsAndMedia({
     super.key,
-    required this.groupProvider,
-    required this.isAdmin,
   });
-
-  final GroupProvider groupProvider;
-  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -27,30 +20,6 @@ class SettingsAndMedia extends StatelessWidget {
               iconContainerColor: Colors.deepPurple,
               onTap: () {
                 // navigate to media screen
-              },
-            ),
-            const Divider(
-              thickness: 0.5,
-              color: Colors.grey,
-            ),
-            SettingsListTile(
-              title: 'Group Seetings',
-              icon: Icons.settings,
-              iconContainerColor: Colors.deepPurple,
-              onTap: () {
-                if (!isAdmin) {
-                  // show snackbar
-                  showSnackBar(context, 'Only admin can change group settings');
-                } else {
-                  groupProvider.updateGroupAdminsList().whenComplete(() {
-                    // navigate to group settings screen
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const GroupSettingsScreen(),
-                      ),
-                    );
-                  });
-                }
               },
             ),
           ],

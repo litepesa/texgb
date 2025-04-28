@@ -8,7 +8,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
-import 'package:textgb/features/contacts/widgets/contact_list.dart';
 
 void showSnackBar(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
@@ -337,63 +336,6 @@ void showMyAnimatedDialog({
               ],
             ),
           ));
-    },
-  );
-}
-
-// show bottom sheet with the list of all app users to add them to the group
-void showAddMembersBottomSheet({
-  required BuildContext context,
-  required List<String> groupMembersUIDs,
-}) {
-  showModalBottomSheet(
-    context: context,
-    builder: (context) {
-      return SizedBox(
-        height: double.infinity,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: CupertinoSearchTextField(
-                      onChanged: (value) {
-                        // search for users
-                      },
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      // close bottom sheet
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      'Done',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(
-              thickness: 2,
-              color: Colors.grey,
-            ),
-            Expanded(
-              child: ContactList(
-                viewType: ContactViewType.groupView,
-                groupMembersUIDs: groupMembersUIDs,
-              ),
-            ),
-          ],
-        ),
-      );
     },
   );
 }

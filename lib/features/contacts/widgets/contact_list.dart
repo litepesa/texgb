@@ -10,14 +10,10 @@ class ContactList extends StatefulWidget {
   const ContactList({
     super.key,
     required this.viewType,
-    this.groupId = '',
-    this.groupMembersUIDs = const [],
     this.searchQuery = '',
   });
 
   final ContactViewType viewType;
-  final String groupId;
-  final List<String> groupMembersUIDs;
   final String searchQuery;
 
   @override
@@ -32,7 +28,7 @@ class _ContactListState extends State<ContactList> {
     final future = widget.viewType == ContactViewType.contacts
         ? context.read<AuthenticationProvider>().getContactsList(
               uid,
-              widget.groupMembersUIDs,
+              [],
             )
         : widget.viewType == ContactViewType.blocked
             ? context.read<AuthenticationProvider>().getBlockedContactsList(
@@ -40,7 +36,7 @@ class _ContactListState extends State<ContactList> {
                 )
             : context.read<AuthenticationProvider>().getContactsList(
                   uid,
-                  widget.groupMembersUIDs,
+                  [],
                 );
 
     return FutureBuilder<List<UserModel>>(
@@ -138,7 +134,6 @@ class _ContactListState extends State<ContactList> {
             return ContactWidget(
               contact: contact,
               viewType: widget.viewType,
-              groupId: widget.groupId,
             );
           },
         );
