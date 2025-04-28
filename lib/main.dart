@@ -17,7 +17,10 @@ import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/status/screens/my_statuses_screen.dart';
+// Updated import for new status overview screen
+import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/features/status/screens/status_viewer_screen.dart';
+// Updated import for new status provider
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
@@ -196,16 +199,29 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Constants.addContactScreen: (context) => const AddContactScreen(),
         Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
         Constants.chatScreen: (context) => const ChatScreen(),
-        Constants.statusScreen: (context) => const StatusScreen(),
+        
+        // Updated routes for new status implementation
+        Constants.statusOverviewScreen: (context) => const StatusOverviewScreen(),
         Constants.createStatusScreen: (context) => const CreateStatusScreen(),
+        Constants.myStatusesScreen: (context) => const MyStatusesScreen(),
+        
+        // Channel routes
         Constants.createChannelScreen: (context) => const CreateChannelScreen(),
         Constants.exploreChannelsScreen: (context) => const ExploreChannelsScreen(),
         Constants.myChannelsScreen: (context) => const MyChannelsScreen(),
-        Constants.myStatusesScreen: (context) => const MyStatusScreen(),
       },
       // Use onGenerateRoute for routes that need parameters
       onGenerateRoute: (settings) {
-        if (settings.name == Constants.channelDetailScreen) {
+        // Status viewer route with user ID parameter
+        if (settings.name == Constants.statusViewerScreen) {
+          final String userId = settings.arguments as String;
+          return MaterialPageRoute(
+            builder: (context) => StatusViewerScreen(userId: userId),
+          );
+        }
+        
+        // Channel routes
+        else if (settings.name == Constants.channelDetailScreen) {
           final String channelId = settings.arguments as String;
           return MaterialPageRoute(
             builder: (context) => ChannelDetailScreen(channelId: channelId),

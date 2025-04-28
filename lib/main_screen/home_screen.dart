@@ -4,10 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/channels_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
-import 'package:textgb/features/status/screens/status_viewer_screen.dart';
-import 'package:textgb/features/status/status_provider.dart';
+import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/features/chat/screens/my_chats_screen.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -26,7 +26,8 @@ class _HomeScreenState extends State<HomeScreen>
   
   // Creating separate widget variables with 3 screens
   final Widget chatScreen = const MyChatsScreen();
-  final Widget statusScreen = const StatusScreen();
+  // Using the new StatusOverviewScreen instead of the old StatusScreen
+  final Widget statusScreen = const StatusOverviewScreen();
   final Widget channelsScreen = const ChannelsScreen();
   
   // We'll define these in initState to ensure they match our bottom nav bar
@@ -44,10 +45,10 @@ class _HomeScreenState extends State<HomeScreen>
       channelsScreen,    // Index 2 - Channels
     ];
     
-    // Set app in fresh start state on initialization
+    // Set feed filter on initialization (for new status implementation)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<StatusProvider>().setAppFreshStart(true);
+        context.read<StatusProvider>().setFeedFilter(FeedFilterType.latest);
       }
     });
   }
@@ -68,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen>
               value: true,
             );
         // Refresh status feed when app is resumed
-        if (pageIndex == 1) { // Now status is index 1
+        if (pageIndex == 1) { // Status is index 1
           _refreshStatusFeed();
           // Set status tab visibility to true when app resumes on status tab
           context.read<StatusProvider>().setStatusTabVisible(true);
@@ -84,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen>
               value: false,
             );
         // Set status tab visibility to false when app is in background
-        if (pageIndex == 1) { // Now status is index 1
+        if (pageIndex == 1) { // Status is index 1
           context.read<StatusProvider>().setStatusTabVisible(false);
         }
         break;
@@ -95,16 +96,16 @@ class _HomeScreenState extends State<HomeScreen>
     super.didChangeAppLifecycleState(state);
   }
 
-  // Function to refresh status feed
+  // Function to refresh status feed with new implementation
   void _refreshStatusFeed() {
-    final currentUserId = context.read<AuthenticationProvider>().userModel!.uid;
-    final contactIds = context.read<AuthenticationProvider>().userModel!.contactsUIDs;
-    
-    // Fetch statuses
-    context.read<StatusProvider>().fetchStatuses(
-      currentUserId: currentUserId,
-      contactIds: contactIds,
-    );
+    final currentUser = context.read<AuthenticationProvider>().userModel;
+    if (currentUser != null) {
+      // Use the new fetchAllStatuses method from the updated StatusProvider
+      context.read<StatusProvider>().fetchAllStatuses(
+        currentUserId: currentUser.uid,
+        contactIds: currentUser.contactsUIDs,
+      );
+    }
   }
 
   @override
@@ -235,9 +236,6 @@ class _HomeScreenState extends State<HomeScreen>
                 } else if (index == 1 && pageIndex != 1) {
                   // We're switching TO status tab, set visibility to true
                   context.read<StatusProvider>().setStatusTabVisible(true);
-                  
-                  // Set app as no longer in fresh start when user actively selects the status tab
-                  context.read<StatusProvider>().setAppFreshStart(false);
                 }
                 
                 setState(() {
@@ -251,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen>
               },
               type: BottomNavigationBarType.fixed,
               backgroundColor: Colors.transparent, // Make transparent to inherit from Material
-              selectedItemColor: pageIndex == 1 ? Colors.red : selectedItemColor,
+              selectedItemColor: pageIndex == 1 ? Colors.white : selectedItemColor,
               unselectedItemColor: pageIndex == 1 ? Colors.white70 : unselectedItemColor,
               showUnselectedLabels: true,
               showSelectedLabels: true,
@@ -317,9 +315,10 @@ class _HomeScreenState extends State<HomeScreen>
     else if (pageIndex == 1) {
       return FloatingActionButton(
         onPressed: () {
-          Navigator.pushNamed(context, Constants.createStatusScreen);
+          Navigator.pushNamed(context, Constants.createStatusScreen)
+              .then((_) => _refreshStatusFeed()); // Refresh after returning
         },
-        backgroundColor: accentColor,
+        backgroundColor: Colors.green, // Distinctive color for status creation
         elevation: 4.0,
         child: const Icon(CupertinoIcons.camera, size: 26),
       );
