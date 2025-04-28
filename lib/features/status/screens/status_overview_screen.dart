@@ -4,14 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/enums/status_enums.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/status/screens/status_viewer_screen.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/status/screens/my_statuses_screen.dart';
-import 'package:textgb/features/status/screens/status_replies_screen.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_post_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/status/screens/status_viewer_screen.dart';
+import 'package:textgb/features/status/screens/my_statuses_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 
@@ -40,34 +38,16 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
       currentUserId: currentUser.uid,
       contactIds: currentUser.contactsUIDs,
     );
-    
-    await Provider.of<StatusProvider>(context, listen: false).fetchStatusReplies(
-      currentUser.uid,
-    );
   }
 
   void _navigateToCreateStatus() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const CreateStatusScreen(),
-      ),
-    ).then((_) => _fetchData());
+    Navigator.of(context).pushNamed(Constants.createStatusScreen)
+        .then((_) => _fetchData());
   }
 
   void _navigateToMyStatuses() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const MyStatusesScreen(),
-      ),
-    ).then((_) => _fetchData());
-  }
-
-  void _navigateToStatusReplies() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const StatusRepliesScreen(),
-      ),
-    ).then((_) => _fetchData());
+    Navigator.of(context).pushNamed(Constants.myStatusesScreen)
+        .then((_) => _fetchData());
   }
 
   void _navigateToStatusViewer(String userId) {
@@ -95,57 +75,11 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
 
     final myStatuses = statusProvider.myStatuses;
     final usersWithStatus = statusProvider.userStatusMap;
-    
-    final hasReplies = statusProvider.unreadRepliesCount > 0;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Status'),
-        actions: [
-          // Replies button with badge for unread replies
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chat_bubble_outline),
-                tooltip: 'Status Replies',
-                onPressed: _navigateToStatusReplies,
-              ),
-              if (hasReplies)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      statusProvider.unreadRepliesCount.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            tooltip: 'Filter',
-            onPressed: () => _showFilterOptions(context),
-          ),
-        ],
-      ),
+      backgroundColor: Colors.black,
       body: statusProvider.isLoading
-          ? Center(child: CircularProgressIndicator(color: modernTheme.primaryColor))
+          ? Center(child: CircularProgressIndicator(color: Colors.white))
           : RefreshIndicator(
               onRefresh: _fetchData,
               child: ListView(
@@ -158,6 +92,7 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -172,6 +107,7 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -213,11 +149,12 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
                           recentStatus.username,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                         subtitle: Text(
                           _getStatusTimestamp(recentStatus.createdAt),
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(color: Colors.grey[400]),
                         ),
                         onTap: () => _navigateToStatusViewer(userId),
                       );
@@ -237,13 +174,14 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
                             ),
                             SizedBox(height: 8),
                             Text(
                               'Be the first to share a status with your contacts',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey[600]),
+                              style: TextStyle(color: Colors.grey[400]),
                             ),
                           ],
                         ),
@@ -254,7 +192,8 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToCreateStatus,
-        child: const Icon(Icons.add),
+        backgroundColor: Colors.green,
+        child: const Icon(Icons.camera_alt),
         tooltip: 'Create status',
       ),
     );
@@ -280,7 +219,7 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
               right: 0,
               child: CircleAvatar(
                 radius: 12,
-                backgroundColor: modernTheme.primaryColor,
+                backgroundColor: Colors.green,
                 child: const Icon(
                   Icons.add,
                   color: Colors.white,
@@ -290,8 +229,17 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
             ),
           ],
         ),
-        title: const Text('My Status'),
-        subtitle: const Text('Tap to add status update'),
+        title: const Text(
+          'My Status',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: const Text(
+          'Tap to add status update',
+          style: TextStyle(color: Colors.grey),
+        ),
         onTap: _navigateToCreateStatus,
       );
     } else {
@@ -311,19 +259,25 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
             ),
             Positioned.fill(
               child: CircularBorder(
-                color: modernTheme.primaryColor!,
+                color: Colors.green,
                 segments: myStatuses.length,
               ),
             ),
           ],
         ),
-        title: const Text('My Status'),
+        title: const Text(
+          'My Status',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         subtitle: Text(
           'Tap to view your status • ${_getStatusTimestamp(recentStatus.createdAt)}',
-          style: TextStyle(color: Colors.grey[600]),
+          style: TextStyle(color: Colors.grey[400]),
         ),
         trailing: PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
+          icon: const Icon(Icons.more_vert, color: Colors.white),
           onSelected: (value) {
             if (value == 'create') {
               _navigateToCreateStatus();
@@ -357,56 +311,6 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
         onTap: _navigateToMyStatuses,
       );
     }
-  }
-  
-  void _showFilterOptions(BuildContext context) {
-    final statusProvider = Provider.of<StatusProvider>(context, listen: false);
-    final currentFilter = statusProvider.currentFilter;
-    
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.access_time),
-              title: const Text('Latest updates'),
-              trailing: currentFilter == FeedFilterType.latest
-                  ? const Icon(Icons.check, color: Colors.green)
-                  : null,
-              onTap: () {
-                statusProvider.setFeedFilter(FeedFilterType.latest);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.visibility_off),
-              title: const Text('Unwatched status'),
-              trailing: currentFilter == FeedFilterType.unviewed
-                  ? const Icon(Icons.check, color: Colors.green)
-                  : null,
-              onTap: () {
-                statusProvider.setFeedFilter(FeedFilterType.unviewed);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.visibility),
-              title: const Text('Watched status'),
-              trailing: currentFilter == FeedFilterType.viewed
-                  ? const Icon(Icons.check, color: Colors.green)
-                  : null,
-              onTap: () {
-                statusProvider.setFeedFilter(FeedFilterType.viewed);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
   
   String _getStatusTimestamp(DateTime createdAt) {

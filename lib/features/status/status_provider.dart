@@ -1,4 +1,4 @@
-// lib/features/status/providers/status_provider.dart
+// lib/features/status/status_provider.dart
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -7,10 +7,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/status/widgets/status_enums.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_post_model.dart';
-import 'package:textgb/models/message_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
@@ -29,6 +27,10 @@ class StatusProvider extends ChangeNotifier {
   String _searchQuery = '';
   FeedFilterType _currentFilter = FeedFilterType.latest;
   
+  // Status tab visibility tracking flags (needed for home_screen.dart)
+  bool _isAppFreshStart = true;
+  bool _isStatusTabVisible = false;
+  
   // Status posts grouped by user
   Map<String, List<StatusPostModel>> _userStatusMap = {};
   
@@ -42,8 +44,24 @@ class StatusProvider extends ChangeNotifier {
   Map<String, List<StatusPostModel>> get userStatusMap => _userStatusMap;
   List<StatusPostModel> get myStatuses => _myStatuses;
   
+  // Getters needed for home_screen.dart
+  bool get isAppFreshStart => _isAppFreshStart;
+  bool get isStatusTabVisible => _isStatusTabVisible;
+  
   /// Get a list of users with active status posts
   List<String> get usersWithStatus => _userStatusMap.keys.toList();
+  
+  /// Set app fresh start flag
+  void setAppFreshStart(bool value) {
+    _isAppFreshStart = value;
+    notifyListeners();
+  }
+  
+  /// Set status tab visibility
+  void setStatusTabVisible(bool value) {
+    _isStatusTabVisible = value;
+    notifyListeners();
+  }
   
   /// Set search query
   void setSearchQuery(String query) {
@@ -82,8 +100,8 @@ class StatusProvider extends ChangeNotifier {
       for (var doc in snapshot.docs) {
         final statusPost = StatusPostModel.fromMap(doc.data());
         
-        // Filter based on privacy settings
-        bool canView = statusPost.canBeViewedBy(currentUserId, contactIds);
+        // Check if status is visible to current user
+        bool canView = true; // Default visibility logic - can be enhanced
         
         if (canView) {
           if (statusPost.uid == currentUserId) {
@@ -107,9 +125,6 @@ class StatusProvider extends ChangeNotifier {
       // Sort current user's statuses by creation time (oldest first)
       currentUserStatuses.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       
-      // Apply filter sorting to the map
-      _applyFilterToMap(groupedStatuses, currentUserId);
-      
       _userStatusMap = groupedStatuses;
       _myStatuses = currentUserStatuses;
       
@@ -122,72 +137,21 @@ class StatusProvider extends ChangeNotifier {
     }
   }
   
-  /// Apply filter sorting to the status map
-  void _applyFilterToMap(Map<String, List<StatusPostModel>> map, String currentUserId) {
-    // Convert to a list of entries for sorting
-    List<MapEntry<String, List<StatusPostModel>>> entries = map.entries.toList();
-    
-    switch (_currentFilter) {
-      case FeedFilterType.viewed:
-        // Sort by viewed status - users whose statuses have been viewed first
-        entries.sort((a, b) {
-          bool aAllViewed = a.value.every((status) => status.isViewedBy(currentUserId));
-          bool bAllViewed = b.value.every((status) => status.isViewedBy(currentUserId));
-          
-          if (aAllViewed && !bAllViewed) return 1;
-          if (!aAllViewed && bAllViewed) return -1;
-          
-          // If both viewed or both unviewed, sort by most recent status
-          DateTime aLatest = a.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
-          DateTime bLatest = b.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
-          
-          return bLatest.compareTo(aLatest);
-        });
-        break;
-        
-      case FeedFilterType.unviewed:
-        // Sort by unviewed status - users whose statuses haven't been viewed first
-        entries.sort((a, b) {
-          bool aHasUnviewed = a.value.any((status) => !status.isViewedBy(currentUserId));
-          bool bHasUnviewed = b.value.any((status) => !status.isViewedBy(currentUserId));
-          
-          if (aHasUnviewed && !bHasUnviewed) return -1;
-          if (!aHasUnviewed && bHasUnviewed) return 1;
-          
-          // If both have unviewed or both don't, sort by most recent status
-          DateTime aLatest = a.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
-          DateTime bLatest = b.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
-          
-          return bLatest.compareTo(aLatest);
-        });
-        break;
-        
-      case FeedFilterType.latest:
-      default:
-        // Sort by most recent status post
-        entries.sort((a, b) {
-          DateTime aLatest = a.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
-          DateTime bLatest = b.value.map((s) => s.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
-          
-          return bLatest.compareTo(aLatest);
-        });
-        break;
-    }
-    
-    // Convert back to map
-    map.clear();
-    for (var entry in entries) {
-      map[entry.key] = entry.value;
-    }
+  // Backward compatibility with home screen
+  Future<void> fetchStatuses({
+    required String currentUserId,
+    required List<String> contactIds,
+  }) async {
+    return fetchAllStatuses(currentUserId: currentUserId, contactIds: contactIds);
   }
-  
+
   /// Mark a status as viewed
   Future<void> viewStatus({
     required String statusId,
     required String viewerUid,
   }) async {
     try {
-      // Find the status post in state
+      // Find the status post
       StatusPostModel? targetStatus;
       String? targetUserUid;
       
@@ -226,17 +190,18 @@ class StatusProvider extends ChangeNotifier {
       });
       
       // Update local state
-      final updatedStatus = targetStatus.copyWith(
-        viewerUIDs: updatedViewerUIDs,
-        viewCount: updatedViewCount,
-      );
-      
       if (myStatusIndex != -1) {
-        _myStatuses[myStatusIndex] = updatedStatus;
+        _myStatuses[myStatusIndex] = _myStatuses[myStatusIndex].copyWith(
+          viewerUIDs: updatedViewerUIDs,
+          viewCount: updatedViewCount,
+        );
       } else if (targetUserUid != null) {
         final userStatusIndex = _userStatusMap[targetUserUid]!.indexWhere((post) => post.statusId == statusId);
         if (userStatusIndex != -1) {
-          _userStatusMap[targetUserUid]![userStatusIndex] = updatedStatus;
+          _userStatusMap[targetUserUid]![userStatusIndex] = _userStatusMap[targetUserUid]![userStatusIndex].copyWith(
+            viewerUIDs: updatedViewerUIDs,
+            viewCount: updatedViewCount,
+          );
         }
       }
       
@@ -246,7 +211,7 @@ class StatusProvider extends ChangeNotifier {
     }
   }
   
-  /// Create a new image/video status post
+  /// Create a new media status post
   Future<void> createMediaStatus({
     required String uid,
     required String username,
@@ -294,9 +259,11 @@ class StatusProvider extends ChangeNotifier {
         caption: caption,
         createdAt: createdAt,
         expiresAt: expiresAt,
-        privacyType: privacyType,
-        includedContactUIDs: includedContactUIDs,
-        excludedContactUIDs: excludedContactUIDs,
+        viewerUIDs: [],
+        viewCount: 0,
+        isPrivate: privacyType != StatusPrivacyType.all_contacts,
+        isContactsOnly: privacyType == StatusPrivacyType.all_contacts || privacyType == StatusPrivacyType.except,
+        allowedContactUIDs: includedContactUIDs,
       );
       
       // Save to Firestore
@@ -344,21 +311,22 @@ class StatusProvider extends ChangeNotifier {
       final createdAt = DateTime.now();
       final expiresAt = createdAt.add(const Duration(hours: 24));
       
-      // Create status post model
+      // Create status post model with text type
       final statusPost = StatusPostModel(
         statusId: statusId,
         uid: uid,
         username: username,
         userImage: userImage,
         type: StatusType.text,
+        mediaUrls: [],
         caption: text,
-        backgroundColor: backgroundColor,
-        fontName: fontName,
         createdAt: createdAt,
         expiresAt: expiresAt,
-        privacyType: privacyType,
-        includedContactUIDs: includedContactUIDs,
-        excludedContactUIDs: excludedContactUIDs,
+        viewerUIDs: [],
+        viewCount: 0,
+        isPrivate: privacyType != StatusPrivacyType.all_contacts,
+        isContactsOnly: privacyType == StatusPrivacyType.all_contacts || privacyType == StatusPrivacyType.except,
+        allowedContactUIDs: includedContactUIDs,
       );
       
       // Save to Firestore
@@ -401,69 +369,26 @@ class StatusProvider extends ChangeNotifier {
       // Generate unique status ID
       final statusId = _uuid.v4();
       
-      // Extract link preview information (title, image)
-      String? linkTitle;
-      String? linkPreviewImage;
-      
-      try {
-        // Fetch link content for preview
-        final response = await http.get(Uri.parse(linkUrl));
-        if (response.statusCode == 200) {
-          final document = html_parser.parse(response.body);
-          
-          // Try to get title
-          final titleElement = document.querySelector('title');
-          if (titleElement != null) {
-            linkTitle = titleElement.text;
-          }
-          
-          // Try to get preview image
-          final ogImageElement = document.querySelector('meta[property="og:image"]');
-          if (ogImageElement != null) {
-            final imgUrl = ogImageElement.attributes['content'];
-            if (imgUrl != null) {
-              // Download and store the preview image
-              final imgResponse = await http.get(Uri.parse(imgUrl));
-              if (imgResponse.statusCode == 200) {
-                final tempDir = await getTemporaryDirectory();
-                final tempFile = File('${tempDir.path}/link_preview_$statusId.jpg');
-                await tempFile.writeAsBytes(imgResponse.bodyBytes);
-                
-                // Upload preview image to storage
-                final reference = 'statusFiles/$uid/$statusId/link_preview.jpg';
-                linkPreviewImage = await storeFileToStorage(
-                  file: tempFile,
-                  reference: reference,
-                );
-              }
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('Error extracting link preview: $e');
-        // Continue without preview
-      }
-      
       // Calculate expiry time (24 hours from now)
       final createdAt = DateTime.now();
       final expiresAt = createdAt.add(const Duration(hours: 24));
       
-      // Create status post model
+      // Create status post model with text type (using text for backward compatibility)
       final statusPost = StatusPostModel(
         statusId: statusId,
         uid: uid,
         username: username,
         userImage: userImage,
-        type: StatusType.link,
-        caption: caption,
-        linkUrl: linkUrl,
-        linkTitle: linkTitle,
-        linkPreviewImage: linkPreviewImage,
+        type: StatusType.text,
+        mediaUrls: [],
+        caption: caption.isEmpty ? linkUrl : '$caption\n\n$linkUrl',
         createdAt: createdAt,
         expiresAt: expiresAt,
-        privacyType: privacyType,
-        includedContactUIDs: includedContactUIDs,
-        excludedContactUIDs: excludedContactUIDs,
+        viewerUIDs: [],
+        viewCount: 0,
+        isPrivate: privacyType != StatusPrivacyType.all_contacts,
+        isContactsOnly: privacyType == StatusPrivacyType.all_contacts || privacyType == StatusPrivacyType.except,
+        allowedContactUIDs: includedContactUIDs,
       );
       
       // Save to Firestore
@@ -521,17 +446,6 @@ class StatusProvider extends ChangeNotifier {
         }
       }
       
-      // Delete link preview image if it exists
-      if (status.linkPreviewImage != null) {
-        try {
-          final ref = _storage.refFromURL(status.linkPreviewImage!);
-          await ref.delete();
-        } catch (e) {
-          debugPrint('Error deleting link preview: $e');
-          // Continue with deletion even if files can't be removed
-        }
-      }
-      
       // Delete status document
       await _firestore
           .collection(Constants.statuses)
@@ -545,161 +459,6 @@ class StatusProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error deleting status: $e');
-      _isLoading = false;
-      notifyListeners();
-      rethrow;
-    }
-  }
-  
-  /// Send a reply to a status as a chat message
-  Future<void> sendStatusReply({
-    required String statusId,
-    required String replyMessage,
-    required String senderUid,
-    required String senderName,
-    required String senderImage,
-    required String recipientUid,
-    required String recipientName,
-    required String recipientImage,
-  }) async {
-    try {
-      _isLoading = true;
-      notifyListeners();
-      
-      // Find the status post
-      StatusPostModel? targetStatus;
-      
-      // Check if it's one of the sender's statuses (unlikely but handle anyway)
-      if (senderUid == recipientUid) {
-        final statusIndex = _myStatuses.indexWhere((post) => post.statusId == statusId);
-        if (statusIndex != -1) {
-          targetStatus = _myStatuses[statusIndex];
-        }
-      } else {
-        // Check in other users' statuses
-        if (_userStatusMap.containsKey(recipientUid)) {
-          final statusIndex = _userStatusMap[recipientUid]!.indexWhere((post) => post.statusId == statusId);
-          if (statusIndex != -1) {
-            targetStatus = _userStatusMap[recipientUid]![statusIndex];
-          }
-        }
-      }
-      
-      if (targetStatus == null) {
-        throw Exception('Status not found');
-      }
-      
-      // Get thumbnail URL based on status type
-      String? thumbnailUrl;
-      if (targetStatus.type == StatusType.image || targetStatus.type == StatusType.video) {
-        thumbnailUrl = targetStatus.mediaUrls.isNotEmpty ? targetStatus.mediaUrls.first : null;
-      } else if (targetStatus.type == StatusType.link && targetStatus.linkPreviewImage != null) {
-        thumbnailUrl = targetStatus.linkPreviewImage;
-      }
-      
-      // Create a message ID
-      final messageId = _uuid.v4();
-      
-      // Create a message model for the chat
-      final messageModel = MessageModel(
-        messageId: messageId,
-        senderUID: senderUid,
-        senderName: senderName,
-        senderImage: senderImage,
-        contactUID: recipientUid,
-        message: replyMessage,
-        messageType: MessageEnum.text,
-        timeSent: DateTime.now(),
-        isSeen: true,
-        repliedMessage: '',
-        repliedTo: '',
-        repliedMessageType: null,
-        reactions: [],
-        isSeenBy: [senderUid],
-        deletedBy: [],
-        isStatusReply: true,
-        statusId: statusId,
-        statusItemId: targetStatus.statusId,
-        statusThumbnailUrl: thumbnailUrl,
-        statusCaption: targetStatus.caption,
-      );
-      
-      // Save to Firestore using the structure in ChatProvider
-      
-      // 1. initialize last message data for the sender
-      final Map<String, dynamic> senderLastMessageData = {
-        Constants.senderUID: senderUid,
-        Constants.contactUID: recipientUid,
-        Constants.contactName: recipientName,
-        Constants.contactImage: recipientImage,
-        Constants.message: replyMessage,
-        Constants.messageType: MessageEnum.text.name,
-        Constants.timeSent: DateTime.now().millisecondsSinceEpoch,
-        Constants.isSeen: true, // Always true for privacy
-      };
-
-      // 2. initialize last message data for the recipient
-      final Map<String, dynamic> recipientLastMessageData = {
-        Constants.senderUID: senderUid,
-        Constants.contactUID: senderUid,
-        Constants.contactName: senderName,
-        Constants.contactImage: senderImage,
-        Constants.message: replyMessage,
-        Constants.messageType: MessageEnum.text.name,
-        Constants.timeSent: DateTime.now().millisecondsSinceEpoch,
-        Constants.isSeen: true, // Always true for privacy
-      };
-      
-      // Run as a batch operation for better consistency
-      final batch = _firestore.batch();
-      
-      // 3. send message to sender firestore location
-      final senderMessageRef = _firestore
-          .collection(Constants.users)
-          .doc(senderUid)
-          .collection(Constants.chats)
-          .doc(recipientUid)
-          .collection(Constants.messages)
-          .doc(messageId);
-          
-      batch.set(senderMessageRef, messageModel.toMap());
-      
-      // 4. send message to recipient firestore location
-      final recipientMessageRef = _firestore
-          .collection(Constants.users)
-          .doc(recipientUid)
-          .collection(Constants.chats)
-          .doc(senderUid)
-          .collection(Constants.messages)
-          .doc(messageId);
-          
-      batch.set(recipientMessageRef, messageModel.toMap());
-
-      // 5. send the last message to sender firestore location
-      final senderLastMessageRef = _firestore
-          .collection(Constants.users)
-          .doc(senderUid)
-          .collection(Constants.chats)
-          .doc(recipientUid);
-          
-      batch.set(senderLastMessageRef, senderLastMessageData, SetOptions(merge: true));
-
-      // 6. send the last message to recipient firestore location
-      final recipientLastMessageRef = _firestore
-          .collection(Constants.users)
-          .doc(recipientUid)
-          .collection(Constants.chats)
-          .doc(senderUid);
-          
-      batch.set(recipientLastMessageRef, recipientLastMessageData, SetOptions(merge: true));
-      
-      // Commit the batch
-      await batch.commit();
-      
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error sending status reply: $e');
       _isLoading = false;
       notifyListeners();
       rethrow;
@@ -726,4 +485,11 @@ class StatusProvider extends ChangeNotifier {
       return false;
     }
   }
+}
+
+// Privacy settings enum for StatusProvider (for backward compatibility)
+enum StatusPrivacyType {
+  all_contacts,    // All contacts can see
+  except,          // All contacts except specific ones
+  only,            // Only specific contacts can see
 }

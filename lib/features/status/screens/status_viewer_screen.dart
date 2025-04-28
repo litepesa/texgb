@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:video_player/video_player.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_post_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
-import 'package:video_player/video_player.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:textgb/constants.dart';
-//import 'package:textgb/features/status/widgets/status_enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/chat/chat_provider.dart';
+import 'package:textgb/models/message_reply_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 
@@ -134,7 +134,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
       // Text statuses get more time to read
       statusDuration = const Duration(seconds: 6);
     } else {
-      // Default duration for images and links
+      // Default duration for images
       statusDuration = const Duration(seconds: 5);
     }
     
@@ -226,7 +226,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
     }
   }
   
-  // Send a reply directly to the chat with the status creator
+  // Send a reply as a chat message
   Future<void> _sendReply() async {
     if (_replyController.text.trim().isEmpty) return;
     
@@ -236,23 +236,48 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
     final status = _statuses[_currentIndex];
     
     try {
-      await Provider.of<StatusProvider>(context, listen: false).sendStatusReply(
-        statusId: status.statusId,
-        replyMessage: _replyController.text.trim(),
-        senderUid: currentUser.uid,
-        senderName: currentUser.name,
-        senderImage: currentUser.image,
-        recipientUid: status.uid,
-        recipientName: status.username,
-        recipientImage: status.userImage,
+      // Create a message reply model with the status content as the replied message
+      final messageReply = MessageReplyModel(
+        message: status.caption.isNotEmpty ? status.caption : "(${status.type.name} status)",
+        senderUID: status.uid,
+        senderName: status.username,
+        senderImage: status.userImage,
+        messageType: status.type.toMessageEnum(),
+        isMe: status.uid == currentUser.uid,
       );
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Reply sent'),
-          duration: const Duration(seconds: 1),
-        ),
+      // Set the message reply in chat provider
+      Provider.of<ChatProvider>(context, listen: false).setMessageReplyModel(messageReply);
+      
+      // Send the text message with the status as reply context
+      await Provider.of<ChatProvider>(context, listen: false).sendTextMessage(
+        sender: currentUser,
+        contactUID: status.uid,
+        contactName: status.username,
+        contactImage: status.userImage,
+        message: _replyController.text.trim(),
+        messageType: MessageEnum.text,
+        groupId: '', // Not a group message
+        onSucess: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Reply sent'),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to send reply: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        },
       );
+      
+      // Reset the message reply
+      Provider.of<ChatProvider>(context, listen: false).setMessageReplyModel(null);
       
       _replyController.clear();
       FocusScope.of(context).unfocus();
@@ -264,27 +289,6 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
           duration: const Duration(seconds: 2),
         ),
       );
-    }
-  }
-  
-  Future<void> _handleLinkTap(String url) async {
-    // Pause status while handling link
-    _pauseStatus();
-    
-    try {
-      final uri = Uri.parse(url);
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        throw Exception('Could not launch $url');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open link: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
   
@@ -308,7 +312,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
       backgroundColor: Colors.black,
       body: GestureDetector(
         onTapUp: (details) {
-          // Divide screen into two parts for navigation
+          // Divide screen into three parts for navigation
           final screenWidth = MediaQuery.of(context).size.width;
           if (details.globalPosition.dx < screenWidth / 3) {
             _goToPreviousStatus();
@@ -372,7 +376,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
                                       ? _progressController.value 
                                       : 0.0),
                               backgroundColor: Colors.grey.withOpacity(0.5),
-                              valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           ),
                         ),
@@ -426,7 +430,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
               ),
             ),
             
-            // Chat-style reply field at bottom
+            // Reply field at bottom
             Positioned(
               left: 0,
               right: 0,
@@ -456,7 +460,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: Icon(Icons.send, color: modernTheme.primaryColor),
+                      icon: Icon(Icons.send, color: Colors.white),
                       onPressed: _sendReply,
                     ),
                   ],
@@ -492,8 +496,6 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
         return _buildVideoStatus(status);
       case StatusType.text:
         return _buildTextStatus(status);
-      case StatusType.link:
-        return _buildLinkStatus(status);
       case StatusType.image:
       default:
         return _buildImageStatus(status);
@@ -502,80 +504,72 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
   
   Widget _buildImageStatus(StatusPostModel status) {
     if (status.mediaUrls.isEmpty) {
-      return Center(
-        child: Text(
-          'No image available',
-          style: TextStyle(color: Colors.white),
+      return Container(
+        color: Colors.blue, // Fallback color for empty image status
+        child: Center(
+          child: Text(
+            status.caption.isNotEmpty ? status.caption : 'No content',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
     
-    // If there's only one image
-    if (status.mediaUrls.length == 1) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          // Image
-          CachedNetworkImage(
-            imageUrl: status.mediaUrls.first,
-            fit: BoxFit.contain,
-            placeholder: (context, url) => Center(
-              child: CircularProgressIndicator(
-                color: context.modernTheme.primaryColor,
-              ),
-            ),
-            errorWidget: (context, url, error) => Center(
-              child: Icon(Icons.error, color: Colors.white, size: 42),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Image
+        CachedNetworkImage(
+          imageUrl: status.mediaUrls.first,
+          fit: BoxFit.contain,
+          placeholder: (context, url) => Center(
+            child: CircularProgressIndicator(
+              color: Colors.white,
             ),
           ),
-          
-          // Caption overlay at bottom
-          if (status.caption.isNotEmpty)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 70, // Leave space for reply field
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.7),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-                child: Text(
-                  status.caption,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
+          errorWidget: (context, url, error) => Center(
+            child: Icon(Icons.error, color: Colors.white, size: 42),
+          ),
+        ),
+        
+        // Caption overlay at bottom
+        if (status.caption.isNotEmpty)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 70, // Leave space for reply field
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.7),
+                    Colors.transparent,
+                  ],
                 ),
               ),
+              child: Text(
+                status.caption,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
-        ],
-      );
-    } else {
-      // Multiple images - implement a PageView for horizontal swiping
-      // This functionality would need to be implemented in a real app
-      return Center(
-        child: Text(
-          'Multiple images not implemented in this example',
-          style: TextStyle(color: Colors.white),
-        ),
-      );
-    }
+          ),
+      ],
+    );
   }
   
   Widget _buildVideoStatus(StatusPostModel status) {
     if (_videoController == null || !_videoController!.value.isInitialized) {
       return Center(
         child: CircularProgressIndicator(
-          color: context.modernTheme.primaryColor,
+          color: Colors.white,
         ),
       );
     }
@@ -625,7 +619,7 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
   
   Widget _buildTextStatus(StatusPostModel status) {
     return Container(
-      color: status.backgroundColor ?? Colors.blue,
+      color: Colors.blue, // Default background color
       padding: const EdgeInsets.all(24),
       child: Center(
         child: Text(
@@ -634,117 +628,8 @@ class _StatusViewerScreenState extends State<StatusViewerScreen> with SingleTick
             color: Colors.white,
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            fontFamily: status.fontName,
           ),
           textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildLinkStatus(StatusPostModel status) {
-    return Container(
-      color: Colors.black,
-      padding: const EdgeInsets.all(16),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Caption
-            if (status.caption.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  status.caption,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            
-            // Link card
-            GestureDetector(
-              onTap: () {
-                if (status.linkUrl != null) {
-                  _handleLinkTap(status.linkUrl!);
-                }
-              },
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Preview image if available
-                    if (status.linkPreviewImage != null)
-                      ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                        child: CachedNetworkImage(
-                          imageUrl: status.linkPreviewImage!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: 180,
-                          placeholder: (context, url) => Container(
-                            height: 180,
-                            color: Colors.grey[800],
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: context.modernTheme.primaryColor,
-                              ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            height: 180,
-                            color: Colors.grey[800],
-                            child: const Icon(Icons.link, color: Colors.white, size: 42),
-                          ),
-                        ),
-                      ),
-                    
-                    // Link details
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (status.linkTitle != null)
-                            Text(
-                              status.linkTitle!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          
-                          const SizedBox(height: 8),
-                          
-                          Text(
-                            status.linkUrl ?? 'No URL',
-                            style: const TextStyle(
-                              color: Colors.blue,
-                              fontSize: 14,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
