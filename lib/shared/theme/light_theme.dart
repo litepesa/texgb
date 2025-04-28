@@ -13,7 +13,7 @@ ThemeData modernLightTheme() {
   // New color scheme using the provided colors
   const newBackground = Color(0xFF131C21);      // Dark background
   const newSurface = Color(0xFF1F2C34);         // Surface color
-  const newAccent = Color(0xFF00A783);          // Accent green
+  const newAccent = Color(0xFF25D366);          // Updated Accent green
   const newSurfaceVariant = Color(0xFF252D31);  // Surface variant
   const lightText = Color(0xFFF1F1F2);          // Light text color
   const secondaryText = Colors.grey;            // Secondary text
@@ -59,7 +59,7 @@ ThemeData modernLightTheme() {
         statusBarIconBrightness: Brightness.light, // Changed to light for dark background
       ),
       iconTheme: const IconThemeData(
-        color: Color(0xFF00A783),
+        color: Color(0xFF25D366),
         size: 24,
       ),
     ),
@@ -70,7 +70,7 @@ ThemeData modernLightTheme() {
     // Bottom Navigation Theme
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: Color(0xFF1F2C34),
-      selectedItemColor: Color(0xFF00A783),
+      selectedItemColor: Color(0xFF25D366),
       unselectedItemColor: Colors.grey,
       selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
@@ -84,12 +84,12 @@ ThemeData modernLightTheme() {
     tabBarTheme: const TabBarTheme(
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(
-          color: Color(0xFF00A783),
+          color: Color(0xFF25D366),
           width: 2,
         ),
       ),
       unselectedLabelColor: Colors.grey,
-      labelColor: Color(0xFF00A783),
+      labelColor: Color(0xFF25D366),
       unselectedLabelStyle: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.normal,
@@ -103,7 +103,7 @@ ThemeData modernLightTheme() {
     // Button Themes
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF00A783),
+        backgroundColor: const Color(0xFF25D366),
         foregroundColor: Colors.white,
         elevation: 1, // Subtle elevation
         shadowColor: Colors.black.withOpacity(0.2),
@@ -121,9 +121,9 @@ ThemeData modernLightTheme() {
     
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFF00A783),
+        foregroundColor: const Color(0xFF25D366),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        side: const BorderSide(color: Color(0xFF00A783), width: 1.5),
+        side: const BorderSide(color: Color(0xFF25D366), width: 1.5),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
@@ -137,7 +137,7 @@ ThemeData modernLightTheme() {
     
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: const Color(0xFF00A783),
+        foregroundColor: const Color(0xFF25D366),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -198,7 +198,7 @@ ThemeData modernLightTheme() {
     
     // FAB Theme
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: const Color(0xFF00A783),
+      backgroundColor: const Color(0xFF25D366),
       foregroundColor: Colors.white,
       elevation: 2,
       highlightElevation: 4,
@@ -218,21 +218,21 @@ ThemeData modernLightTheme() {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      selectedTileColor: const Color(0xFF00A783).withOpacity(0.1),
-      selectedColor: const Color(0xFF00A783),
+      selectedTileColor: const Color(0xFF25D366).withOpacity(0.1),
+      selectedColor: const Color(0xFF25D366),
     ),
     
     // Switch Theme
     switchTheme: SwitchThemeData(
       thumbColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return const Color(0xFF00A783);
+          return const Color(0xFF25D366);
         }
         return Colors.white;
       }),
       trackColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return const Color(0xFF00A783).withOpacity(0.3);
+          return const Color(0xFF25D366).withOpacity(0.3);
         }
         return Colors.grey.withOpacity(0.3);
       }),
@@ -248,7 +248,7 @@ ThemeData modernLightTheme() {
     checkboxTheme: CheckboxThemeData(
       fillColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return const Color(0xFF00A783);
+          return const Color(0xFF25D366);
         }
         return Colors.transparent;
       }),
@@ -293,7 +293,7 @@ ThemeData modernLightTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
-        borderSide: const BorderSide(color: Color(0xFF00A783), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFF25D366), width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
@@ -311,8 +311,8 @@ ThemeData modernLightTheme() {
     chipTheme: ChipThemeData(
       backgroundColor: const Color(0xFF252D31),
       disabledColor: const Color(0xFF252D31).withOpacity(0.5),
-      selectedColor: const Color(0xFF00A783).withOpacity(0.2),
-      secondarySelectedColor: const Color(0xFF00A783),
+      selectedColor: const Color(0xFF25D366).withOpacity(0.2),
+      secondarySelectedColor: const Color(0xFF25D366),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       labelStyle: TextStyle(
         color: lightText,
@@ -332,16 +332,16 @@ ThemeData modernLightTheme() {
     
     // Slider Theme
     sliderTheme: const SliderThemeData(
-      activeTrackColor: Color(0xFF00A783),
+      activeTrackColor: Color(0xFF25D366),
       inactiveTrackColor: Colors.grey,
-      thumbColor: Color(0xFF00A783),
-      overlayColor: Color(0x2900A783),
+      thumbColor: Color(0xFF25D366),
+      overlayColor: Color(0x2925D366),
       trackHeight: 4.0,
     ),
     
     // Progress Indicator Theme
     progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: Color(0xFF00A783),
+      color: Color(0xFF25D366),
       circularTrackColor: Color(0xFF252D31),
       linearTrackColor: Color(0xFF252D31),
     ),
@@ -358,7 +358,7 @@ ThemeData modernLightTheme() {
     snackBarTheme: SnackBarThemeData(
       backgroundColor: const Color(0xFF252D32),
       contentTextStyle: const TextStyle(color: Colors.white),
-      actionTextColor: const Color(0xFF00A783),
+      actionTextColor: const Color(0xFF25D366),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),

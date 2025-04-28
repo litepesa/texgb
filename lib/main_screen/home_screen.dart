@@ -12,6 +12,7 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
+import 'package:textgb/widgets/modern_bottomnav_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -121,11 +122,10 @@ class _HomeScreenState extends State<HomeScreen>
     // Get app bar and surface colors
     final appBarColor = modernTheme.appBarColor!;
     final surfaceColor = modernTheme.surfaceColor!;
+    final scaffoldBackgroundColor = Theme.of(context).scaffoldBackgroundColor;
     
-    // Determine bottom nav color based on selected tab
-    final bottomNavColor = pageIndex == 1 
-        ? Colors.black  // Force black color when status tab is selected
-        : surfaceColor; // Use theme surface color for other tabs
+    // Use the surface color for bottom nav regardless of selected tab
+    final bottomNavColor = surfaceColor;
     
     // Get text colors
     final textColor = modernTheme.textColor!;
@@ -145,7 +145,8 @@ class _HomeScreenState extends State<HomeScreen>
     final currentUser = authProvider.userModel;
     
     return Scaffold(
-      appBar: pageIndex != 1 ? AppBar(
+      // FIX: Always show AppBar for all tabs, including the status tab
+      appBar: AppBar(
         elevation: elevation,
         toolbarHeight: 65.0,
         centerTitle: false,
@@ -209,85 +210,78 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
         ],
-      ) : null,
-      body: IndexedStack(
-        index: pageIndex,
-        children: pages,
+      ),
+      body: Container(
+        color: scaffoldBackgroundColor, // Apply consistent background color
+        child: IndexedStack(
+          index: pageIndex,
+          children: pages,
+        ),
       ),
       // Custom bottom nav bar that extends into system nav area
-      bottomNavigationBar: Material(
-        color: bottomNavColor,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Top divider for the bottom nav
-            Divider(
-              height: 1,
-              thickness: 0.5,
-              color: modernTheme.dividerColor,
-            ),
-            // Bottom navigation bar (standard height)
-            BottomNavigationBar(
-              onTap: (index) {
-                // If switching FROM status tab, ensure videos are paused by setting visibility flag
-                if (pageIndex == 1 && index != 1) {
-                  // We're switching away from status tab
-                  context.read<StatusProvider>().setStatusTabVisible(false);
-                } else if (index == 1 && pageIndex != 1) {
-                  // We're switching TO status tab, set visibility to true
-                  context.read<StatusProvider>().setStatusTabVisible(true);
-                }
-                
-                setState(() {
-                  pageIndex = index;
-                });
-                
-                // If status tab is selected, refresh status data
-                if (index == 1) {
-                  _refreshStatusFeed();
-                }
-              },
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: Colors.transparent, // Make transparent to inherit from Material
-              selectedItemColor: pageIndex == 1 ? Colors.white : selectedItemColor,
-              unselectedItemColor: pageIndex == 1 ? Colors.white70 : unselectedItemColor,
-              showUnselectedLabels: true,
-              showSelectedLabels: true,
-              currentIndex: pageIndex,
-              elevation: 0, // No elevation
-              selectedLabelStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                height: 1.6,
+      bottomNavigationBar: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top divider for the bottom nav
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: modernTheme.dividerColor,
               ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.normal,
-                height: 1.6,
+              // Modern navigation bar - with FIXED styling for all tabs
+              ModernBottomNavBar(
+                currentIndex: pageIndex,
+                onTap: (index) {
+                  // If switching FROM status tab, ensure videos are paused by setting visibility flag
+                  if (pageIndex == 1 && index != 1) {
+                    // We're switching away from status tab
+                    context.read<StatusProvider>().setStatusTabVisible(false);
+                  } else if (index == 1 && pageIndex != 1) {
+                    // We're switching TO status tab, set visibility to true
+                    context.read<StatusProvider>().setStatusTabVisible(true);
+                  }
+                  
+                  setState(() {
+                    pageIndex = index;
+                  });
+                  
+                  // If status tab is selected, refresh status data
+                  if (index == 1) {
+                    _refreshStatusFeed();
+                  }
+                },
+                // Use surfaceColor for all tabs, including the status tab
+                backgroundColor: surfaceColor,
+                // Use consistent colors for all tabs
+                selectedItemColor: selectedItemColor,
+                unselectedItemColor: unselectedItemColor,
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.chat_bubble_text, size: 30),
+                    label: 'Chats',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.rays, size: 30),
+                    label: 'Status',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.camera, size: 30),
+                    label: 'Channels',
+                  ),
+                ],
               ),
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(CupertinoIcons.chat_bubble_text, size: 30),
-                  label: 'Chats',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(CupertinoIcons.rays, size: 30),
-                  label: 'Status',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(CupertinoIcons.camera, size: 30),
-                  label: 'Channels',
-                ),
-              ],
-            ),
-            // Extra padding that extends into system navigation area
-            MediaQuery.of(context).padding.bottom > 0
-              ? Container(
-                  height: MediaQuery.of(context).padding.bottom,
-                  color: bottomNavColor, // Same color as bottom nav
-                )
-              : const SizedBox.shrink(),
-          ],
+              // Make the bottom bar transparent
+              MediaQuery.of(context).padding.bottom > 0
+                ? Container(
+                    height: MediaQuery.of(context).padding.bottom,
+                    color: Colors.transparent, // Changed to transparent
+                  )
+                : const SizedBox.shrink(),
+            ],
+          ),
         ),
       ),
       floatingActionButton: _buildFloatingActionButton(accentColor),
@@ -318,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen>
           Navigator.pushNamed(context, Constants.createStatusScreen)
               .then((_) => _refreshStatusFeed()); // Refresh after returning
         },
-        backgroundColor: Colors.green, // Distinctive color for status creation
+        backgroundColor: accentColor, // Distinctive color for status creation
         elevation: 4.0,
         child: const Icon(CupertinoIcons.camera, size: 26),
       );

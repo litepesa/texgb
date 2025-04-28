@@ -31,13 +31,16 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
   List<String> _includedContactUIDs = [];
   List<String> _excludedContactUIDs = [];
   bool _isLoading = false;
+  bool _isFullscreenPreview = false;
   
   // Media tab state
   File? _selectedMedia;
   List<AssetEntity> _recentMedia = [];
+  List<AssetEntity> _filteredMedia = [];
   StatusType _mediaType = StatusType.image;
   VideoPlayerController? _videoController;
   bool _isVideoInitialized = false;
+  MediaFilter _currentMediaFilter = MediaFilter.all;
   
   // Text tab state
   Color _selectedColor = Colors.blue;
@@ -83,30 +86,25 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     super.dispose();
   }
   
-  // Request permissions and load media
   Future<void> _requestPermissionsAndLoadMedia() async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      // Request storage permissions
       Map<Permission, PermissionStatus> statuses = await [
-        Permission.storage,
         Permission.photos,
         Permission.videos,
+        Permission.mediaLibrary, // iOS
       ].request();
-      
-      // Check if we have permission to access photos and videos
-      bool hasMediaPermission = statuses[Permission.photos]!.isGranted || 
-                              statuses[Permission.storage]!.isGranted ||
-                              statuses[Permission.videos]!.isGranted;
-      
+
+      bool hasMediaPermission = statuses[Permission.photos]?.isGranted == true ||
+                                 statuses[Permission.videos]?.isGranted == true ||
+                                 statuses[Permission.mediaLibrary]?.isGranted == true;
+
       if (hasMediaPermission) {
-        // Load media using photo_manager
         await _loadRecentMedia();
       } else {
-        // Show instructions if permissions were denied
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -138,12 +136,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     }
   }
   
-  // Load recent media from device gallery
   Future<void> _loadRecentMedia() async {
     try {
-      // Get recent media (both images and videos)
       final albums = await PhotoManager.getAssetPathList(
-        type: RequestType.common,
+        type: RequestType.all,
         hasAll: true,
       );
       
@@ -151,12 +147,13 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
         final recentAlbum = albums.first;
         final media = await recentAlbum.getAssetListRange(
           start: 0,
-          end: 50, // Get 50 recent media files
+          end: 100,
         );
         
         if (mounted) {
           setState(() {
             _recentMedia = media;
+            _applyMediaFilter(_currentMediaFilter);
           });
         }
       }
@@ -172,13 +169,30 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     }
   }
   
-  // Select media from gallery
+  void _applyMediaFilter(MediaFilter filter) {
+    setState(() {
+      _currentMediaFilter = filter;
+      
+      switch (filter) {
+        case MediaFilter.photos:
+          _filteredMedia = _recentMedia.where((asset) => asset.type == AssetType.image).toList();
+          break;
+        case MediaFilter.videos:
+          _filteredMedia = _recentMedia.where((asset) => asset.type == AssetType.video).toList();
+          break;
+        case MediaFilter.all:
+        default:
+          _filteredMedia = _recentMedia;
+          break;
+      }
+    });
+  }
+  
   Future<void> _selectFromGallery(AssetEntity asset) async {
     try {
       final file = await asset.file;
       if (file == null) return;
       
-      // Check file size (10MB limit for images, 30MB for videos)
       final sizeInMB = await file.length() / (1024 * 1024);
       final isVideo = asset.type == AssetType.video;
       
@@ -204,7 +218,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
         return;
       }
       
-      // Check video duration (60 seconds limit)
       if (isVideo && asset.duration > 60) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -217,22 +230,22 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
         return;
       }
       
-      // Clear previous media selection
       if (_selectedMedia != null || _videoController != null) {
         _removeMedia();
       }
       
-      // Initialize video controller if needed
       if (isVideo) {
         await _initializeVideoController(file);
         setState(() {
           _mediaType = StatusType.video;
           _selectedMedia = file;
+          _isFullscreenPreview = true;
         });
       } else {
         setState(() {
           _mediaType = StatusType.image;
           _selectedMedia = file;
+          _isFullscreenPreview = true;
         });
       }
     } catch (e) {
@@ -247,16 +260,13 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     }
   }
   
-  // Initialize video controller
   Future<void> _initializeVideoController(File file) async {
-    // Reset any existing controller
     if (_videoController != null) {
       await _videoController!.dispose();
       _videoController = null;
       _isVideoInitialized = false;
     }
     
-    // Create new controller
     _videoController = VideoPlayerController.file(file);
     
     try {
@@ -281,7 +291,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     }
   }
   
-  // Remove media from selection
   void _removeMedia() {
     if (_videoController != null) {
       _videoController!.pause();
@@ -292,10 +301,18 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     
     setState(() {
       _selectedMedia = null;
+      _isFullscreenPreview = false;
     });
   }
   
-  // Toggle privacy settings
+  void _toggleFullscreenPreview() {
+    if (_selectedMedia != null) {
+      setState(() {
+        _isFullscreenPreview = !_isFullscreenPreview;
+      });
+    }
+  }
+  
   void _showPrivacyOptions() {
     showModalBottomSheet(
       context: context,
@@ -315,7 +332,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     );
   }
   
-  // Upload status
   Future<void> _createStatus() async {
     final currentUser = Provider.of<AuthenticationProvider>(context, listen: false).userModel;
     if (currentUser == null) {
@@ -330,7 +346,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     
     final statusProvider = Provider.of<StatusProvider>(context, listen: false);
     
-    // Check if user can post today
     final hasPostedToday = await statusProvider.hasUserPostedToday(currentUser.uid);
     
     if (hasPostedToday) {
@@ -342,7 +357,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
           backgroundColor: Colors.amber,
         ),
       );
-      // Continue anyway for demo purposes
     }
     
     setState(() {
@@ -350,11 +364,9 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     });
     
     try {
-      // Determine which tab is active
       final activeTab = _tabController.index;
       
       if (activeTab == 0) {
-        // Media tab
         if (_selectedMedia == null) {
           throw Exception('Please select a photo or video');
         }
@@ -371,7 +383,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
           excludedContactUIDs: _excludedContactUIDs,
         );
       } else if (activeTab == 1) {
-        // Text tab
         if (_captionController.text.trim().isEmpty) {
           throw Exception('Please enter some text');
         }
@@ -388,12 +399,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
           excludedContactUIDs: _excludedContactUIDs,
         );
       } else if (activeTab == 2) {
-        // Link tab
         if (_linkController.text.trim().isEmpty) {
           throw Exception('Please enter a valid URL');
         }
         
-        // Basic URL validation
         final url = _linkController.text.trim();
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
           throw Exception('Please enter a valid URL starting with http:// or https://');
@@ -448,7 +457,7 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
         return 'Only $count ${count == 1 ? 'person' : 'people'}';
       case StatusPrivacyType.all_contacts:
       default:
-        return 'My contacts';
+        return 'Privacy';
     }
   }
   
@@ -460,7 +469,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
       appBar: AppBar(
         title: const Text('Create Status'),
         actions: [
-          // Privacy settings button
           TextButton.icon(
             onPressed: _showPrivacyOptions,
             icon: Icon(
@@ -485,67 +493,120 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
           : TabBarView(
               controller: _tabController,
               children: [
-                // Media tab
                 _buildMediaTab(),
-                
-                // Text tab
                 _buildTextTab(),
-                
-                // Link tab
                 _buildLinkTab(),
               ],
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isLoading ? null : _createStatus,
-        icon: const Icon(Icons.send),
-        label: const Text('Post Status'),
-      ),
+      floatingActionButton: _tabController.index == 0 && _selectedMedia != null && !_isFullscreenPreview
+          ? FloatingActionButton.extended(
+              onPressed: _isLoading ? null : _createStatus,
+              icon: const Icon(Icons.send),
+              label: const Text('Post Status'),
+            )
+          : _tabController.index != 0
+              ? FloatingActionButton.extended(
+                  onPressed: _isLoading ? null : _createStatus,
+                  icon: const Icon(Icons.send),
+                  label: const Text('Post Status'),
+                )
+              : null,
     );
   }
   
   Widget _buildMediaTab() {
+    if (_isFullscreenPreview && _selectedMedia != null) {
+      return _buildFullscreenPreview();
+    }
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Media preview section
-        if (_selectedMedia != null) ...[
-          Container(
-            height: 300,
-            width: double.infinity,
-            color: Colors.black,
-            child: Stack(
-              fit: StackFit.expand,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
               children: [
-                // Media preview
-                Center(
-                  child: _mediaType == StatusType.video && _isVideoInitialized && _videoController != null
-                      ? AspectRatio(
-                          aspectRatio: _videoController!.value.aspectRatio,
-                          child: VideoPlayer(_videoController!),
-                        )
-                      : Image.file(
-                          _selectedMedia!,
-                          fit: BoxFit.contain,
-                        ),
+                Expanded(
+                  child: _buildFilterButton(
+                    label: "All",
+                    icon: Icons.perm_media,
+                    filter: MediaFilter.all,
+                  ),
                 ),
-                
-                // Remove button
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: _removeMedia,
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.black54,
-                    ),
+                Expanded(
+                  child: _buildFilterButton(
+                    label: "Photos",
+                    icon: Icons.photo,
+                    filter: MediaFilter.photos,
+                  ),
+                ),
+                Expanded(
+                  child: _buildFilterButton(
+                    label: "Videos",
+                    icon: Icons.videocam,
+                    filter: MediaFilter.videos,
                   ),
                 ),
               ],
             ),
           ),
+        ),
+        
+        if (_selectedMedia != null) ...[
+          GestureDetector(
+            onTap: _toggleFullscreenPreview,
+            child: Container(
+              height: 300,
+              width: double.infinity,
+              color: Colors.black,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Center(
+                    child: _mediaType == StatusType.video && _isVideoInitialized && _videoController != null
+                        ? AspectRatio(
+                            aspectRatio: _videoController!.value.aspectRatio,
+                            child: VideoPlayer(_videoController!),
+                          )
+                        : Image.file(
+                            _selectedMedia!,
+                            fit: BoxFit.contain,
+                          ),
+                  ),
+                  
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: _removeMedia,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                      ),
+                    ),
+                  ),
+                  
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: const Icon(Icons.fullscreen, color: Colors.white),
+                      onPressed: _toggleFullscreenPreview,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           
-          // Caption input
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
@@ -559,40 +620,32 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
           ),
         ],
         
-        // Gallery section
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Text(
-                  'Select from Gallery',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+          child: _filteredMedia.isEmpty
+              ? Center(
+                  child: Text(
+                    'No ${_currentMediaFilter == MediaFilter.photos ? 'photos' : _currentMediaFilter == MediaFilter.videos ? 'videos' : 'media'} found',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 16,
+                    ),
                   ),
-                ),
-              ),
-              
-              // Grid of recent media
-              Expanded(
-                child: GridView.builder(
+                )
+              : GridView.builder(
                   padding: const EdgeInsets.all(8),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     crossAxisSpacing: 4,
                     mainAxisSpacing: 4,
                   ),
-                  itemCount: _recentMedia.length,
+                  itemCount: _filteredMedia.length,
                   itemBuilder: (context, index) {
-                    final asset = _recentMedia[index];
+                    final asset = _filteredMedia[index];
                     return GestureDetector(
                       onTap: () => _selectFromGallery(asset),
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          // Thumbnail
                           FutureBuilder<Uint8List?>(
                             future: asset.thumbnailData,
                             builder: (context, snapshot) {
@@ -614,7 +667,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
                             },
                           ),
                           
-                          // Video indicator
                           if (asset.type == AssetType.video)
                             Positioned(
                               right: 5,
@@ -642,11 +694,160 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
                     );
                   },
                 ),
-              ),
-            ],
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildFullscreenPreview() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          color: Colors.black,
+          child: _mediaType == StatusType.video && _isVideoInitialized && _videoController != null
+              ? Center(
+                  child: AspectRatio(
+                    aspectRatio: _videoController!.value.aspectRatio,
+                    child: VideoPlayer(_videoController!),
+                  ),
+                )
+              : Center(
+                  child: Image.file(
+                    _selectedMedia!,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+        ),
+        
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            color: Colors.black54,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => setState(() {
+                    _isFullscreenPreview = false;
+                  }),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.white),
+                      onPressed: _removeMedia,
+                    ),
+                    if (_mediaType == StatusType.video && _videoController != null)
+                      IconButton(
+                        icon: Icon(
+                          _videoController!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          if (_videoController!.value.isPlaying) {
+                            _videoController!.pause();
+                          } else {
+                            _videoController!.play();
+                          }
+                          setState(() {});
+                        },
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            color: Colors.black54,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _captionController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Add a caption...',
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white24,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _createStatus,
+                  icon: const Icon(Icons.send),
+                  label: const Text('Post Status'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.modernTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
+    );
+  }
+  
+  Widget _buildFilterButton({
+    required String label,
+    required IconData icon,
+    required MediaFilter filter,
+  }) {
+    final isSelected = _currentMediaFilter == filter;
+    final modernTheme = context.modernTheme;
+    
+    return GestureDetector(
+      onTap: () => _applyMediaFilter(filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? modernTheme.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : Colors.black54,
+              size: 18,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black54,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
   
@@ -656,7 +857,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Text preview section
           Container(
             height: 300,
             width: double.infinity,
@@ -692,7 +892,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
           
           const SizedBox(height: 24),
           
-          // Color options
           const Text(
             'Background Color',
             style: TextStyle(
@@ -740,7 +939,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
           
           const SizedBox(height: 24),
           
-          // Font options
           const Text(
             'Font Style',
             style: TextStyle(
@@ -792,7 +990,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Link URL input
           TextField(
             controller: _linkController,
             decoration: const InputDecoration(
@@ -806,7 +1003,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
           
           const SizedBox(height: 24),
           
-          // Caption input
           TextField(
             controller: _captionController,
             decoration: const InputDecoration(
@@ -818,7 +1014,6 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
           
           const SizedBox(height: 24),
           
-          // Link preview
           if (_linkController.text.isNotEmpty)
             Container(
               width: double.infinity,
@@ -867,4 +1062,10 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> with SingleTick
     final remainingSeconds = seconds % 60;
     return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
   }
+}
+
+enum MediaFilter {
+  all,
+  photos,
+  videos,
 }

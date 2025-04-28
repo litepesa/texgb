@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class ModernColors {
   // Primary brand colors
   static const primaryGreen = Color(0xFF25D366);  // Dark theme green (unchanged)
-  static const primaryTeal = Color(0xFF00A783);   // Updated light theme green with your color
+  static const primaryTeal = Color(0xFF25D366);   // Updated light theme green with the same green as dark mode
   static const accentBlue = Color(0xFF53BDEB);    // Accent blue for dark mode (unchanged)
   static const accentTealBlue = Color(0xFF056062); // Updated accent blue for light mode
 
@@ -51,7 +51,7 @@ class ModernColors {
   static const gradient2 = [Color(0xFF53BDEB), Color(0xFF027EB5)];  // Blue gradient (unchanged)
   
   // Light theme gradients - Updated for better visibility
-  static const lightGradient1 = [Color(0xFF00A783), Color(0xFF056062)]; // Updated green gradient for light theme
+  static const lightGradient1 = [Color(0xFF25D366), Color(0xFF056062)]; // Updated green gradient for light theme
   
   // State colors for interactive elements
   static const rippleLight = Color(0x1FFFFFFF);  // Changed to white ripple for dark backgrounds

@@ -1,10 +1,9 @@
-// lib/features/status/screens/status_overview_screen.dart
+/// lib/features/status/screens/status_overview_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_post_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
@@ -60,6 +59,7 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final modernTheme = context.modernTheme;
     final statusProvider = Provider.of<StatusProvider>(context);
     final authProvider = Provider.of<AuthenticationProvider>(context);
@@ -68,7 +68,10 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
     if (currentUser == null) {
       return Scaffold(
         body: Center(
-          child: Text('Please sign in to view status updates'),
+          child: Text(
+            'Please sign in to view status updates',
+            style: theme.textTheme.bodyMedium,
+          ),
         ),
       );
     }
@@ -77,9 +80,12 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
     final usersWithStatus = statusProvider.userStatusMap;
 
     return Scaffold(
-      backgroundColor: Colors.black,
       body: statusProvider.isLoading
-          ? Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(
+              child: CircularProgressIndicator(
+                color: modernTheme.primaryColor,
+              ),
+            )
           : RefreshIndicator(
               onRefresh: _fetchData,
               child: ListView(
@@ -89,10 +95,8 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Text(
                       'My Status',
-                      style: TextStyle(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -104,10 +108,8 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Text(
                         'Recent Updates',
-                        style: TextStyle(
+                        style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -130,14 +132,16 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
                           children: [
                             CircleAvatar(
                               radius: 26,
-                              backgroundColor: Colors.grey[300],
+                              backgroundColor: theme.colorScheme.surfaceVariant,
                               backgroundImage: recentStatus.userImage.isNotEmpty
                                   ? CachedNetworkImageProvider(recentStatus.userImage)
                                   : AssetImage(AssetsManager.userImage) as ImageProvider,
                             ),
                             Positioned.fill(
                               child: CircularBorder(
-                                color: allViewed ? Colors.grey : modernTheme.primaryColor!,
+                                color: allViewed 
+                                    ? theme.colorScheme.outline 
+                                    : modernTheme.primaryColor!,
                                 segments: userStatuses.length,
                                 highlightedSegments: userStatuses.where((s) => 
                                   !s.viewerUIDs.contains(currentUser.uid)).length,
@@ -147,14 +151,13 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
                         ),
                         title: Text(
                           recentStatus.username,
-                          style: TextStyle(
+                          style: theme.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
                           ),
                         ),
                         subtitle: Text(
                           _getStatusTimestamp(recentStatus.createdAt),
-                          style: TextStyle(color: Colors.grey[400]),
+                          style: theme.textTheme.bodySmall,
                         ),
                         onTap: () => _navigateToStatusViewer(userId),
                       );
@@ -167,21 +170,23 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
                         padding: const EdgeInsets.all(32),
                         child: Column(
                           children: [
-                            Icon(Icons.photo_album_outlined, size: 64, color: Colors.grey),
-                            SizedBox(height: 16),
+                            Icon(
+                              Icons.photo_album_outlined, 
+                              size: 64, 
+                              color: theme.colorScheme.outline,
+                            ),
+                            const SizedBox(height: 16),
                             Text(
                               'No status updates',
-                              style: TextStyle(
-                                fontSize: 18,
+                              style: theme.textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
                               ),
                             ),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             Text(
                               'Be the first to share a status with your contacts',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey[400]),
+                              style: theme.textTheme.bodySmall,
                             ),
                           ],
                         ),
@@ -192,7 +197,8 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToCreateStatus,
-        backgroundColor: Colors.green,
+        backgroundColor: modernTheme.primaryColor,
+        foregroundColor: theme.colorScheme.onPrimary,
         child: const Icon(Icons.camera_alt),
         tooltip: 'Create status',
       ),
@@ -200,6 +206,7 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
   }
 
   Widget _buildMyStatusTile(BuildContext context, List<StatusPostModel> myStatuses, dynamic currentUser) {
+    final theme = Theme.of(context);
     final modernTheme = context.modernTheme;
     
     if (myStatuses.isEmpty) {
@@ -209,7 +216,7 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
           children: [
             CircleAvatar(
               radius: 26,
-              backgroundColor: Colors.grey[300],
+              backgroundColor: theme.colorScheme.surfaceVariant,
               backgroundImage: currentUser.image.isNotEmpty
                   ? CachedNetworkImageProvider(currentUser.image)
                   : const AssetImage(AssetsManager.userImage) as ImageProvider,
@@ -219,26 +226,25 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
               right: 0,
               child: CircleAvatar(
                 radius: 12,
-                backgroundColor: Colors.green,
-                child: const Icon(
+                backgroundColor: modernTheme.primaryColor,
+                child: Icon(
                   Icons.add,
-                  color: Colors.white,
+                  color: theme.colorScheme.onPrimary,
                   size: 18,
                 ),
               ),
             ),
           ],
         ),
-        title: const Text(
+        title: Text(
           'My Status',
-          style: TextStyle(
-            color: Colors.white,
+          style: theme.textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
-        subtitle: const Text(
+        subtitle: Text(
           'Tap to add status update',
-          style: TextStyle(color: Colors.grey),
+          style: theme.textTheme.bodySmall,
         ),
         onTap: _navigateToCreateStatus,
       );
@@ -252,32 +258,34 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
           children: [
             CircleAvatar(
               radius: 26,
-              backgroundColor: Colors.grey[300],
+              backgroundColor: theme.colorScheme.surfaceVariant,
               backgroundImage: currentUser.image.isNotEmpty
                   ? CachedNetworkImageProvider(currentUser.image)
                   : const AssetImage(AssetsManager.userImage) as ImageProvider,
             ),
             Positioned.fill(
               child: CircularBorder(
-                color: Colors.green,
+                color: modernTheme.primaryColor!,
                 segments: myStatuses.length,
               ),
             ),
           ],
         ),
-        title: const Text(
+        title: Text(
           'My Status',
-          style: TextStyle(
-            color: Colors.white,
+          style: theme.textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         subtitle: Text(
           'Tap to view your status • ${_getStatusTimestamp(recentStatus.createdAt)}',
-          style: TextStyle(color: Colors.grey[400]),
+          style: theme.textTheme.bodySmall,
         ),
         trailing: PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, color: Colors.white),
+          icon: Icon(
+            Icons.more_vert, 
+            color: theme.textTheme.bodyLarge?.color,
+          ),
           onSelected: (value) {
             if (value == 'create') {
               _navigateToCreateStatus();
@@ -286,23 +294,35 @@ class _StatusOverviewScreenState extends State<StatusOverviewScreen> {
             }
           },
           itemBuilder: (context) => [
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'create',
               child: Row(
                 children: [
-                  Icon(Icons.add_circle_outline),
-                  SizedBox(width: 8),
-                  Text('Add status'),
+                  Icon(
+                    Icons.add_circle_outline,
+                    color: theme.textTheme.bodyLarge?.color,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Add status',
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ],
               ),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'view',
               child: Row(
                 children: [
-                  Icon(Icons.visibility),
-                  SizedBox(width: 8),
-                  Text('View all'),
+                  Icon(
+                    Icons.visibility,
+                    color: theme.textTheme.bodyLarge?.color,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'View all',
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ],
               ),
             ),

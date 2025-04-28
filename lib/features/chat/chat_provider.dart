@@ -8,7 +8,7 @@ import 'package:textgb/models/last_message_model.dart';
 import 'package:textgb/models/message_model.dart';
 import 'package:textgb/models/message_reply_model.dart';
 import 'package:textgb/models/user_model.dart';
-import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/shared/utilities/global_methods.dart' as global_methods;
 import 'package:uuid/uuid.dart';
 
 class ChatProvider extends ChangeNotifier {
@@ -161,7 +161,7 @@ class ChatProvider extends ChangeNotifier {
       // 2. upload file to firebase storage
       final ref =
           '${Constants.chatFiles}/${messageType.name}/${sender.uid}/$contactUID/$messageId';
-      String fileUrl = await storeFileToStorage(file: file, reference: ref);
+      String fileUrl = await global_methods.storeFileToStorage(file: file, reference: ref);
 
       // 3. update/set the messagemodel
       final messageModel = MessageModel(
