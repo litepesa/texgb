@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/status/widgets/status_enums.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -62,12 +62,14 @@ class _PrivacySelectorState extends State<PrivacySelector> {
           .getContactsList(currentUser.uid, []);
     } catch (e) {
       // Show error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading contacts: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading contacts: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -120,7 +122,7 @@ class _PrivacySelectorState extends State<PrivacySelector> {
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +131,7 @@ class _PrivacySelectorState extends State<PrivacySelector> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'Status Privacy',
                 style: TextStyle(
                   fontSize: 20,
@@ -138,15 +140,15 @@ class _PrivacySelectorState extends State<PrivacySelector> {
               ),
               TextButton(
                 onPressed: _save,
-                child: Text('Save'),
+                child: const Text('Save'),
               ),
             ],
           ),
           
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           
           // Privacy options
-          Text(
+          const Text(
             'Who can see my status updates',
             style: TextStyle(
               fontWeight: FontWeight.bold,
@@ -154,7 +156,7 @@ class _PrivacySelectorState extends State<PrivacySelector> {
           ),
           
           RadioListTile<StatusPrivacyType>(
-            title: Text('My contacts'),
+            title: const Text('My contacts'),
             value: StatusPrivacyType.all_contacts,
             groupValue: _selectedPrivacyType,
             onChanged: (value) {
@@ -165,7 +167,7 @@ class _PrivacySelectorState extends State<PrivacySelector> {
           ),
           
           RadioListTile<StatusPrivacyType>(
-            title: Text('My contacts except...'),
+            title: const Text('My contacts except...'),
             value: StatusPrivacyType.except,
             groupValue: _selectedPrivacyType,
             onChanged: (value) {
@@ -176,7 +178,7 @@ class _PrivacySelectorState extends State<PrivacySelector> {
           ),
           
           RadioListTile<StatusPrivacyType>(
-            title: Text('Only share with...'),
+            title: const Text('Only share with...'),
             value: StatusPrivacyType.only,
             groupValue: _selectedPrivacyType,
             onChanged: (value) {
@@ -186,7 +188,7 @@ class _PrivacySelectorState extends State<PrivacySelector> {
             },
           ),
           
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           
           // Contacts list
           if (_selectedPrivacyType == StatusPrivacyType.except || _selectedPrivacyType == StatusPrivacyType.only)
@@ -194,7 +196,7 @@ class _PrivacySelectorState extends State<PrivacySelector> {
               child: _isLoading
                   ? Center(child: CircularProgressIndicator(color: modernTheme.primaryColor))
                   : _contacts.isEmpty
-                      ? Center(child: Text('No contacts found'))
+                      ? const Center(child: Text('No contacts found'))
                       : ListView.builder(
                           itemCount: _contacts.length,
                           itemBuilder: (context, index) {
@@ -208,7 +210,7 @@ class _PrivacySelectorState extends State<PrivacySelector> {
                                 backgroundColor: Colors.grey[300],
                                 backgroundImage: contact.image.isNotEmpty
                                     ? CachedNetworkImageProvider(contact.image)
-                                    : AssetImage(AssetsManager.userImage) as ImageProvider,
+                                    : const AssetImage(AssetsManager.userImage) as ImageProvider,
                               ),
                               title: Text(contact.name),
                               trailing: Checkbox(

@@ -3,11 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/status/screens/status_viewer_screen.dart';
 import 'package:textgb/features/status/status_post_model.dart';
 import 'package:textgb/features/status/status_provider.dart';
-import 'package:textgb/features/status/widgets/status_enums.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 
@@ -24,6 +24,19 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
   @override
   void initState() {
     super.initState();
+    // Fetch statuses when screen loads
+    _refreshStatuses();
+  }
+  
+  Future<void> _refreshStatuses() async {
+    final currentUser = Provider.of<AuthenticationProvider>(context, listen: false).userModel;
+    if (currentUser == null) return;
+    
+    // Re-fetch to ensure we have the latest data
+    await Provider.of<StatusProvider>(context, listen: false).fetchAllStatuses(
+      currentUserId: currentUser.uid,
+      contactIds: currentUser.contactsUIDs,
+    );
   }
 
   Future<void> _deleteStatus(StatusPostModel status) async {
@@ -115,38 +128,41 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
             ),
         ],
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: modernTheme.primaryColor))
-          : myStatuses.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text(
-                        'No status updates yet',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+      body: RefreshIndicator(
+        onRefresh: _refreshStatuses,
+        child: _isLoading
+            ? Center(child: CircularProgressIndicator(color: modernTheme.primaryColor))
+            : myStatuses.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'No status updates yet',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Create your first status update',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ],
+                        SizedBox(height: 8),
+                        Text(
+                          'Create your first status update',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: myStatuses.length,
+                    itemBuilder: (context, index) {
+                      final status = myStatuses[index];
+                      return _buildStatusCard(status);
+                    },
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: myStatuses.length,
-                  itemBuilder: (context, index) {
-                    final status = myStatuses[index];
-                    return _buildStatusCard(status);
-                  },
-                ),
+      ),
     );
   }
 
@@ -182,7 +198,7 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      status.type.displayName,
+                      _getStatusTypeDisplay(status.type),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                       ),
@@ -277,6 +293,22 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
     );
   }
   
+  // Helper method to get display name for status type
+  String _getStatusTypeDisplay(StatusType type) {
+    switch (type) {
+      case StatusType.video:
+        return 'Video';
+      case StatusType.text:
+        return 'Text';
+      case StatusType.link:
+        return 'Link';
+      case StatusType.image:
+        return 'Photo';
+      default:
+        return 'Status';
+    }
+  }
+  
   Widget _buildStatusPreview(StatusPostModel status) {
     switch (status.type) {
       case StatusType.video:
@@ -288,14 +320,24 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
               ? Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Video thumbnail (would normally use a package to generate this)
-                    Center(
-                      child: Icon(
-                        Icons.video_file,
-                        color: Colors.white,
-                        size: 48,
+                    // Video thumbnail
+                    if (status.mediaUrls.isNotEmpty)
+                      CachedNetworkImage(
+                        imageUrl: status.mediaUrls.first,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        placeholder: (context, url) => Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                        errorWidget: (context, url, error) => Center(
+                          child: Icon(
+                            Icons.video_file,
+                            color: Colors.white,
+                            size: 48,
+                          ),
+                        ),
                       ),
-                    ),
                     
                     // Play button overlay
                     Icon(
@@ -314,10 +356,13 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
         );
       
       case StatusType.text:
+        // Get background color from custom data
+        Color backgroundColor = Colors.blue; // Default color
+        
         return Container(
           height: 150,
           width: double.infinity,
-          color: status.backgroundColor ?? Colors.blue,
+          color: backgroundColor,
           padding: const EdgeInsets.all(16),
           child: Center(
             child: Text(
@@ -326,7 +371,6 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                fontFamily: status.fontName,
               ),
               textAlign: TextAlign.center,
               maxLines: 4,
@@ -336,39 +380,32 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
         );
       
       case StatusType.link:
+        // Extract URL from caption or custom data
+        String? linkUrl = _extractUrlFromText(status.caption);
+        
         return Container(
           height: 150,
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           color: Colors.grey[200],
-          child: status.linkPreviewImage != null
-              ? CachedNetworkImage(
-                  imageUrl: status.linkPreviewImage!,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Center(
-                    child: CircularProgressIndicator(),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.link, size: 48),
+                SizedBox(height: 8),
+                if (linkUrl != null)
+                  Text(
+                    linkUrl,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.blue,
+                    ),
                   ),
-                  errorWidget: (context, url, error) => Center(
-                    child: Icon(Icons.link, size: 48),
-                  ),
-                )
-              : Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.link, size: 48),
-                      SizedBox(height: 8),
-                      Text(
-                        status.linkUrl ?? 'Link',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.blue,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              ],
+            ),
+          ),
         );
       
       case StatusType.image:
@@ -395,24 +432,35 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
     }
   }
   
+  // Helper to extract URL from text
+  String? _extractUrlFromText(String text) {
+    final urlRegExp = RegExp(
+      r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)',
+      caseSensitive: false,
+    );
+    final match = urlRegExp.firstMatch(text);
+    return match?.group(0);
+  }
+  
   Widget _buildPrivacyIndicator(StatusPostModel status) {
     IconData icon;
     String text;
     
-    switch (status.privacyType) {
-      case StatusPrivacyType.except:
+    // Check privacy settings from the status model
+    if (status.isPrivate) {
+      if (status.isContactsOnly) {
+        // All contacts except specific ones
         icon = Icons.person_remove;
-        text = '${status.excludedContactUIDs.length} excluded';
-        break;
-      case StatusPrivacyType.only:
+        text = 'Filtered contacts';
+      } else {
+        // Only specific contacts
         icon = Icons.people;
-        text = '${status.includedContactUIDs.length} selected';
-        break;
-      case StatusPrivacyType.all_contacts:
-      default:
-        icon = Icons.people;
-        text = 'All contacts';
-        break;
+        text = 'Selected contacts';
+      }
+    } else {
+      // All contacts
+      icon = Icons.people;
+      text = 'All contacts';
     }
     
     return Row(
@@ -443,5 +491,11 @@ class _MyStatusesScreenState extends State<MyStatusesScreen> {
     } else {
       return 'Yesterday';
     }
+  }
+  
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 }

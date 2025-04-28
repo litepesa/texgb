@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_post_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:http/http.dart' as http;
@@ -100,8 +100,12 @@ class StatusProvider extends ChangeNotifier {
       for (var doc in snapshot.docs) {
         final statusPost = StatusPostModel.fromMap(doc.data());
         
-        // Check if status is visible to current user
-        bool canView = true; // Default visibility logic - can be enhanced
+        // Check if status is visible to current user based on privacy settings
+        bool canView = _canUserViewStatus(
+          statusPost: statusPost,
+          viewerUid: currentUserId, 
+          viewerContactIds: contactIds,
+        );
         
         if (canView) {
           if (statusPost.uid == currentUserId) {
@@ -135,6 +139,36 @@ class StatusProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+  
+  /// Determine if a user can view a status based on privacy settings
+  bool _canUserViewStatus({
+    required StatusPostModel statusPost,
+    required String viewerUid,
+    required List<String> viewerContactIds,
+  }) {
+    // Owner can always view their own statuses
+    if (viewerUid == statusPost.uid) {
+      return true;
+    }
+    
+    // Check privacy settings
+    if (statusPost.isPrivate) {
+      if (statusPost.privacyType == StatusPrivacyType.except) {
+        // "My contacts except..." privacy type
+        // User can view if they are a contact AND not in excluded list
+        return viewerContactIds.contains(statusPost.uid) && 
+               !statusPost.excludedContactUIDs.contains(viewerUid);
+      } else if (statusPost.privacyType == StatusPrivacyType.only) {
+        // "Only share with..." privacy type
+        // User can view only if they are in the included list
+        return statusPost.includedContactUIDs.contains(viewerUid);
+      }
+    }
+    
+    // Default for StatusPrivacyType.all_contacts
+    // User can view if they are a contact of the status creator
+    return viewerContactIds.contains(statusPost.uid);
   }
   
   // Backward compatibility with home screen
@@ -264,6 +298,9 @@ class StatusProvider extends ChangeNotifier {
         isPrivate: privacyType != StatusPrivacyType.all_contacts,
         isContactsOnly: privacyType == StatusPrivacyType.all_contacts || privacyType == StatusPrivacyType.except,
         allowedContactUIDs: includedContactUIDs,
+        privacyType: privacyType,
+        includedContactUIDs: includedContactUIDs,
+        excludedContactUIDs: excludedContactUIDs,
       );
       
       // Save to Firestore
@@ -327,6 +364,11 @@ class StatusProvider extends ChangeNotifier {
         isPrivate: privacyType != StatusPrivacyType.all_contacts,
         isContactsOnly: privacyType == StatusPrivacyType.all_contacts || privacyType == StatusPrivacyType.except,
         allowedContactUIDs: includedContactUIDs,
+        privacyType: privacyType,
+        includedContactUIDs: includedContactUIDs,
+        excludedContactUIDs: excludedContactUIDs,
+        backgroundColor: backgroundColor,
+        fontName: fontName,
       );
       
       // Save to Firestore
@@ -373,15 +415,69 @@ class StatusProvider extends ChangeNotifier {
       final createdAt = DateTime.now();
       final expiresAt = createdAt.add(const Duration(hours: 24));
       
-      // Create status post model with text type (using text for backward compatibility)
+      // Try to fetch link preview data (title, description, image)
+      String? linkPreviewImage;
+      String linkPreviewTitle = '';
+      String linkPreviewDescription = '';
+      
+      try {
+        final response = await http.get(Uri.parse(linkUrl));
+        if (response.statusCode == 200) {
+          final document = html_parser.parse(response.body);
+          
+          // Try to get OpenGraph tags first
+          final ogImage = document.querySelector('meta[property="og:image"]');
+          final ogTitle = document.querySelector('meta[property="og:title"]');
+          final ogDesc = document.querySelector('meta[property="og:description"]');
+          
+          if (ogImage != null) {
+            linkPreviewImage = ogImage.attributes['content'];
+          }
+          
+          if (ogTitle != null) {
+            linkPreviewTitle = ogTitle.attributes['content'] ?? '';
+          }
+          
+          if (ogDesc != null) {
+            linkPreviewDescription = ogDesc.attributes['content'] ?? '';
+          }
+          
+          // If OG tags not available, use regular meta tags
+          if (linkPreviewImage == null) {
+            final imgMeta = document.querySelector('meta[name="image"]');
+            if (imgMeta != null) {
+              linkPreviewImage = imgMeta.attributes['content'];
+            }
+          }
+          
+          if (linkPreviewTitle.isEmpty) {
+            final titleTag = document.querySelector('title');
+            if (titleTag != null) {
+              linkPreviewTitle = titleTag.text;
+            }
+          }
+          
+          if (linkPreviewDescription.isEmpty) {
+            final descMeta = document.querySelector('meta[name="description"]');
+            if (descMeta != null) {
+              linkPreviewDescription = descMeta.attributes['content'] ?? '';
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching link preview: $e');
+        // Continue without preview data
+      }
+      
+      // Create status post model with link type
       final statusPost = StatusPostModel(
         statusId: statusId,
         uid: uid,
         username: username,
         userImage: userImage,
-        type: StatusType.text,
+        type: StatusType.link,
         mediaUrls: [],
-        caption: caption.isEmpty ? linkUrl : '$caption\n\n$linkUrl',
+        caption: caption,
         createdAt: createdAt,
         expiresAt: expiresAt,
         viewerUIDs: [],
@@ -389,6 +485,13 @@ class StatusProvider extends ChangeNotifier {
         isPrivate: privacyType != StatusPrivacyType.all_contacts,
         isContactsOnly: privacyType == StatusPrivacyType.all_contacts || privacyType == StatusPrivacyType.except,
         allowedContactUIDs: includedContactUIDs,
+        privacyType: privacyType,
+        includedContactUIDs: includedContactUIDs,
+        excludedContactUIDs: excludedContactUIDs,
+        linkUrl: linkUrl,
+        linkPreviewImage: linkPreviewImage,
+        linkPreviewTitle: linkPreviewTitle,
+        linkPreviewDescription: linkPreviewDescription,
       );
       
       // Save to Firestore
@@ -485,11 +588,4 @@ class StatusProvider extends ChangeNotifier {
       return false;
     }
   }
-}
-
-// Privacy settings enum for StatusProvider (for backward compatibility)
-enum StatusPrivacyType {
-  all_contacts,    // All contacts can see
-  except,          // All contacts except specific ones
-  only,            // Only specific contacts can see
 }
