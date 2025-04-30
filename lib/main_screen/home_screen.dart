@@ -160,15 +160,16 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             children: [
               TextSpan(
-                text: 'Tex',
+                text: 'Snap',
                 style: TextStyle(
-                  color: accentColor,
+                  //color: accentColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               TextSpan(
-                text: 'GB',
+                text: 'Reel',
                 style: TextStyle(
+                  color: accentColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),

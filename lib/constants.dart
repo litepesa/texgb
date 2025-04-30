@@ -23,12 +23,20 @@ class Constants {
   static const String createGroupScreen = '/createGroupScreen';
   static const String blockedContactsScreen = '/blockedContactsScreen';
   
-  // Status feature routes - Updated for new implementation
+  // Status feature routes - Updated for WeChat Moments-like implementation
   static const String statusOverviewScreen = '/statusOverviewScreen';
   static const String createStatusScreen = '/createStatusScreen';
   static const String myStatusesScreen = '/myStatusesScreen';
   static const String statusViewerScreen = '/statusViewerScreen';
   static const String mediaViewScreen = '/mediaViewScreen';
+  static const String statusDetailScreen = '/statusDetailScreen';
+  static const String statusSettingsScreen = '/statusSettingsScreen';
+  static const String editStatusScreen = '/editStatusScreen';
+  
+  // New alias routes for Moments feature - alternative names for the same screens
+  static const String momentsFeedScreen = '/momentsFeedScreen'; // Alias for statusOverviewScreen
+  static const String momentsDetailScreen = '/momentsDetailScreen'; // Alias for statusDetailScreen
+  static const String createMomentScreen = '/createMomentScreen'; // Alias for createStatusScreen
   
   // Channel feature routes
   static const String channelsScreen = '/channelsScreen';
@@ -40,7 +48,10 @@ class Constants {
   static const String myChannelsScreen = '/myChannelsScreen';
   
   // Collection names for Status - Updated for new implementation
-  static const String statuses = 'statuses';
+  static const String statuses = 'statuses'; // Keep for backward compatibility
+  static const String statusPosts = 'status_posts'; // New collection for Moments-like posts
+  static const String statusComments = 'status_comments';
+  static const String statusReactions = 'status_reactions';
   static const String statusFiles = 'statusFiles';
   static const String statusId = 'statusId';
   static const String statusType = 'statusType';
@@ -81,6 +92,7 @@ class Constants {
   static const String isOnline = 'isOnline';
   static const String contactsUIDs = 'contactsUIDs';
   static const String blockedUIDs = 'blockedUIDs';
+  static const String statusMutedUsers = 'statusMutedUsers'; // New field for muted users in status
 
   static const String verificationId = 'verificationId';
 

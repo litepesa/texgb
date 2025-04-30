@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
@@ -15,20 +16,21 @@ import 'package:textgb/features/channels/screens/explore_channels_screen.dart';
 import 'package:textgb/features/channels/screens/my_channels_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/status/screens/my_statuses_screen.dart';
-// Updated import for new status overview screen
-import 'package:textgb/features/status/screens/status_overview_screen.dart';
-import 'package:textgb/features/status/screens/status_viewer_screen.dart';
-// Updated import for new status provider
-import 'package:textgb/features/status/status_provider.dart';
+
+// WeChat Moments-like status imports
+import 'package:textgb/features/status/presentation/screens/status_feed_screen.dart';
+import 'package:textgb/features/status/presentation/screens/create_status_screen.dart';
+import 'package:textgb/features/status/presentation/screens/status_detail_screen.dart';
+import 'package:textgb/features/status/presentation/widgets/status_settings_screen.dart';
+import 'package:textgb/features/status/core/status_module.dart';
+
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
-import 'package:textgb/features/settings/screens/privacy_settings_screen.dart'; // New import
+import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/chat/chat_provider.dart';
 import 'package:textgb/features/contacts/contacts_provider.dart';
@@ -74,23 +76,28 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  // Initialize Status module
+  StatusModule.initialize();
+  
   // Create and initialize theme manager
   final themeManager = ThemeManager();
   await themeManager.initialize();
   
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<ThemeManager>.value(
-          value: themeManager,
-        ),
-        ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
-        ChangeNotifierProvider(create: (_) => ContactsProvider()),
-        ChangeNotifierProvider(create: (_) => StatusProvider()),
-        ChangeNotifierProvider(create: (_) => ChannelProvider()),
-      ],
-      child: const MyApp(),
+    // Use ProviderScope for Riverpod
+    ProviderScope(
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ThemeManager>.value(
+            value: themeManager,
+          ),
+          ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
+          ChangeNotifierProvider(create: (_) => ChatProvider()),
+          ChangeNotifierProvider(create: (_) => ContactsProvider()),
+          ChangeNotifierProvider(create: (_) => ChannelProvider()),
+        ],
+        child: const MyApp(),
+      ),
     ),
   );
 }
@@ -186,13 +193,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             const UserInformationScreen(),
         Constants.homeScreen: (context) => const HomeScreen(),
         
-        // Updated route for contact profile (viewing others)
+        // Contact profile routes
         Constants.contactProfileScreen: (context) => const ContactProfileScreen(),
-        
-        // New route for personal profile management
         Constants.myProfileScreen: (context) => const MyProfileScreen(),
-        
-        // Add privacy settings screen
         Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
         
         Constants.contactsScreen: (context) => const ContactsScreen(),
@@ -200,10 +203,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
         Constants.chatScreen: (context) => const ChatScreen(),
         
-        // Updated routes for new status implementation
-        Constants.statusOverviewScreen: (context) => const StatusOverviewScreen(),
+        // WeChat Moments-like status routes
+        Constants.statusFeedScreen: (context) => const StatusFeedScreen(),
         Constants.createStatusScreen: (context) => const CreateStatusScreen(),
-        Constants.myStatusesScreen: (context) => const MyStatusesScreen(),
+        Constants.statusSettingsScreen: (context) => const StatusSettingsScreen(),
         
         // Channel routes
         Constants.createChannelScreen: (context) => const CreateChannelScreen(),
@@ -212,14 +215,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       },
       // Use onGenerateRoute for routes that need parameters
       onGenerateRoute: (settings) {
-        // Status viewer route with user ID parameter
-        if (settings.name == Constants.statusViewerScreen) {
-          final String userId = settings.arguments as String;
+        // Status routes that need parameters
+        if (settings.name == Constants.statusDetailScreen) {
+          final String postId = settings.arguments as String;
           return MaterialPageRoute(
-            builder: (context) => StatusViewerScreen(userId: userId),
+            builder: (context) => StatusDetailScreen(postId: postId),
           );
         }
-        
         // Channel routes
         else if (settings.name == Constants.channelDetailScreen) {
           final String channelId = settings.arguments as String;
@@ -233,24 +235,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           );
         }
         
-        // Support legacy profileScreen route for backward compatibility
-        if (settings.name == Constants.myProfileScreen) {
-          // Check if it's for the current user or another user
-          final String uid = settings.arguments as String;
-          final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
-          
-          if (uid == authProvider.userModel?.uid) {
-            // If it's the current user, redirect to my profile screen
-            return MaterialPageRoute(
-              builder: (context) => const MyProfileScreen(),
-            );
-          } else {
-            // If it's another user, redirect to contact profile screen
-            return MaterialPageRoute(
-              builder: (context) => const ContactProfileScreen(),
-              settings: settings, // Pass the original settings to preserve arguments
-            );
-          }
+        // Use Status module's route generator for any unhandled status routes
+        if (settings.name?.startsWith('/status') == true) {
+          return StatusModule.generateRoute(settings);
         }
         
         return null;

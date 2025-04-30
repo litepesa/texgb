@@ -48,7 +48,7 @@ dependencies:
   chewie: ^1.11.1
   video_player: ^2.9.5
   get: ^4.6.1
-  video_compress: ^3.1.0
+  video_compress: ^3.1.4
   git: ^2.3.1
   github: ^9.24.0
   story_view: ^0.16.5
@@ -64,6 +64,20 @@ dependencies:
   intl: ^0.19.0
   photo_manager: ^3.6.4
   url_launcher: ^6.3.1
+  freezed_annotation: ^3.0.0
+  dartz: ^0.10.1
+  json_annotation: ^4.9.0
+  flutter_html: ^3.0.0
+  flutter_image_compress: ^2.4.0
+  
+  # Additional packages needed for WeChat Moments-like status feature
+  video_thumbnail: ^0.5.3       # Generate thumbnails from videos
+  html: ^0.15.4                 # Parse HTML for link previews
+  image_size_getter: ^2.1.2     # Get image dimensions
+  visibility_detector: ^0.4.0+2 # Detect when widgets are visible on screen
+  firebase_messaging: 15.2.5   # Optional: For status notifications
+  collection: ^1.18.0           # Utility for collections
+  flutter_staggered_grid_view: ^0.7.0 # For media grid layout
   
 
 dev_dependencies:
@@ -72,6 +86,9 @@ dev_dependencies:
 
 
   flutter_lints: ^5.0.0
+  build_runner: ^2.4.15
+  freezed: ^3.0.6           # Added for code generation
+  json_serializable: ^6.9.5
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
