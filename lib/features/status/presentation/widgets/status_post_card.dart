@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/features/status/application/providers/app_providers.dart';
 import 'package:video_player/video_player.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import '../../domain/models/status_post.dart';
 import '../../domain/models/status_reaction.dart';
 import '../widgets/status_media_viewer.dart';

@@ -1,9 +1,7 @@
-// lib/features/settings/screens/privacy_settings_screen.dart
-
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:textgb/constants.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class PrivacySettingsScreen extends StatefulWidget {
@@ -14,14 +12,11 @@ class PrivacySettingsScreen extends StatefulWidget {
 }
 
 class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
-  bool _isLoading = true;
-  
-  // Privacy settings
-  bool _showOnlineStatus = false;
-  bool _showReadReceipts = false;
-  bool _showTypingIndicators = false;
-  bool _enableDisappearingMessages = false;
-  int _disappearingMessagesTime = 24; // hours
+  bool _isLastSeenEnabled = true;
+  bool _isReadReceiptsEnabled = true;
+  bool _isTypingIndicatorEnabled = true;
+  bool _isProfilePhotoVisible = true;
+  bool _isStatusVisible = true;
   
   @override
   void initState() {
@@ -30,257 +25,188 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   }
   
   Future<void> _loadSettings() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
+    // In a real app, these would be loaded from the user's settings
+    // For now, just using some defaults
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final user = authProvider.userModel;
+    
+    if (user != null) {
+      // Example of how you might load these from user preferences
+      // In a real app, these would come from a settings provider or repository
       setState(() {
-        _showOnlineStatus = prefs.getBool('show_online_status') ?? false;
-        _showReadReceipts = prefs.getBool('show_read_receipts') ?? false;
-        _showTypingIndicators = prefs.getBool('show_typing_indicators') ?? false;
-        _enableDisappearingMessages = prefs.getBool('enable_disappearing_messages') ?? false;
-        _disappearingMessagesTime = prefs.getInt('disappearing_messages_time') ?? 24;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Error loading privacy settings: $e');
-      setState(() {
-        _isLoading = false;
+        _isLastSeenEnabled = true; // default values
+        _isReadReceiptsEnabled = true;
+        _isTypingIndicatorEnabled = true;
+        _isProfilePhotoVisible = true;
+        _isStatusVisible = true;
       });
     }
   }
   
   Future<void> _saveSettings() async {
-    setState(() {
-      _isLoading = true;
-    });
+    // In a real app, these would be saved to the user's settings
+    // Show a saving indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Saving privacy settings...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
     
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      await prefs.setBool('show_online_status', _showOnlineStatus);
-      await prefs.setBool('show_read_receipts', _showReadReceipts);
-      await prefs.setBool('show_typing_indicators', _showTypingIndicators);
-      await prefs.setBool('enable_disappearing_messages', _enableDisappearingMessages);
-      await prefs.setInt('disappearing_messages_time', _disappearingMessagesTime);
-      
+    // Simulate a delay for saving
+    await Future.delayed(const Duration(seconds: 1));
+    
+    // Show success message
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Privacy settings saved')),
+        const SnackBar(
+          content: Text('Privacy settings saved successfully'),
+          backgroundColor: Colors.green,
+        ),
       );
-    } catch (e) {
-      debugPrint('Error saving privacy settings: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error saving settings')),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final modernTheme = context.modernTheme;
     
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Privacy Settings',
-          style: GoogleFonts.openSans(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _saveSettings,
-            child: Text(
-              'Save',
-              style: TextStyle(
-                color: modernTheme.primaryColor,
-                fontWeight: FontWeight.bold,
+        title: const Text('Privacy Settings'),
+      ),
+      body: ListView(
+        children: [
+          // Personal information section
+          _buildSectionHeader(theme, 'Personal Information'),
+          
+          SwitchListTile(
+            title: const Text('Last Seen'),
+            subtitle: const Text('Allow contacts to see when you were last online'),
+            value: _isLastSeenEnabled,
+            onChanged: (value) {
+              setState(() {
+                _isLastSeenEnabled = value;
+              });
+            },
+          ),
+          
+          const Divider(),
+          
+          SwitchListTile(
+            title: const Text('Read Receipts'),
+            subtitle: const Text('Let others know when you\'ve read their messages'),
+            value: _isReadReceiptsEnabled,
+            onChanged: (value) {
+              setState(() {
+                _isReadReceiptsEnabled = value;
+              });
+            },
+          ),
+          
+          const Divider(),
+          
+          SwitchListTile(
+            title: const Text('Typing Indicator'),
+            subtitle: const Text('Show when you are typing a message'),
+            value: _isTypingIndicatorEnabled,
+            onChanged: (value) {
+              setState(() {
+                _isTypingIndicatorEnabled = value;
+              });
+            },
+          ),
+          
+          // Profile visibility section
+          _buildSectionHeader(theme, 'Profile Visibility'),
+          
+          SwitchListTile(
+            title: const Text('Profile Photo'),
+            subtitle: const Text('Who can see your profile photo'),
+            value: _isProfilePhotoVisible,
+            onChanged: (value) {
+              setState(() {
+                _isProfilePhotoVisible = value;
+              });
+            },
+            secondary: const Icon(Icons.photo),
+          ),
+          
+          const Divider(),
+          
+          // Status privacy section
+          _buildSectionHeader(theme, 'Status Privacy'),
+          
+          SwitchListTile(
+            title: const Text('Status Updates'),
+            subtitle: const Text('Allow contacts to see your status updates'),
+            value: _isStatusVisible,
+            onChanged: (value) {
+              setState(() {
+                _isStatusVisible = value;
+              });
+            },
+            secondary: const Icon(Icons.update),
+          ),
+          
+          const Divider(),
+          
+          ListTile(
+            title: const Text('Status Privacy Settings'),
+            subtitle: const Text('Configure who can see your status updates'),
+            leading: const Icon(Icons.privacy_tip),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.pushNamed(context, Constants.statusSettingsScreen);
+            },
+          ),
+          
+          const Divider(),
+          
+          // Blocked Contacts section
+          _buildSectionHeader(theme, 'Blocked Contacts'),
+          
+          ListTile(
+            title: const Text('Blocked Contacts'),
+            subtitle: const Text('Manage your blocked contacts list'),
+            leading: const Icon(Icons.block),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.pushNamed(context, Constants.blockedContactsScreen);
+            },
+          ),
+          
+          const SizedBox(height: 40),
+          
+          // Save button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: ElevatedButton(
+              onPressed: _saveSettings,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
+              child: const Text('Save Settings'),
             ),
           ),
+          
+          const SizedBox(height: 20),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionTitle('Visibility'),
-                    _buildSettingTile(
-                      title: 'Show online status',
-                      subtitle: 'Allow contacts to see when you\'re online',
-                      value: _showOnlineStatus,
-                      onChanged: (value) {
-                        setState(() {
-                          _showOnlineStatus = value;
-                        });
-                      },
-                    ),
-                    _buildSettingTile(
-                      title: 'Show read receipts',
-                      subtitle: 'Show others when you\'ve read their messages',
-                      value: _showReadReceipts,
-                      onChanged: (value) {
-                        setState(() {
-                          _showReadReceipts = value;
-                        });
-                      },
-                    ),
-                    _buildSettingTile(
-                      title: 'Show typing indicators',
-                      subtitle: 'Show when you\'re typing a message',
-                      value: _showTypingIndicators,
-                      onChanged: (value) {
-                        setState(() {
-                          _showTypingIndicators = value;
-                        });
-                      },
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('Disappearing Messages'),
-                    _buildSettingTile(
-                      title: 'Enable disappearing messages',
-                      subtitle: 'Messages will be deleted after a specified time',
-                      value: _enableDisappearingMessages,
-                      onChanged: (value) {
-                        setState(() {
-                          _enableDisappearingMessages = value;
-                        });
-                      },
-                    ),
-                    if (_enableDisappearingMessages)
-                      _buildTimeSelector(),
-                    
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('Security'),
-                    ListTile(
-                      title: const Text('Screen security'),
-                      subtitle: const Text('Block screenshots in the app'),
-                      trailing: Switch(
-                        value: false,
-                        onChanged: (value) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('This feature is coming soon')),
-                          );
-                        },
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    _buildInfoCard(),
-                  ],
-                ),
-              ),
-            ),
     );
   }
   
-  Widget _buildSectionTitle(String title) {
-    final modernTheme = context.modernTheme;
-    
+  Widget _buildSectionHeader(ThemeData theme, String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
       child: Text(
         title,
-        style: TextStyle(
-          fontSize: 18,
+        style: theme.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.bold,
-          color: modernTheme.primaryColor,
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildSettingTile({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required Function(bool) onChanged,
-  }) {
-    return ListTile(
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-      ),
-    );
-  }
-  
-  Widget _buildTimeSelector() {
-    final timeOptions = [
-      {'label': '1 hour', 'value': 1},
-      {'label': '6 hours', 'value': 6},
-      {'label': '24 hours', 'value': 24},
-      {'label': '3 days', 'value': 72},
-      {'label': '7 days', 'value': 168},
-    ];
-    
-    return Padding(
-      padding: const EdgeInsets.only(left: 16.0, top: 8.0, bottom: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Messages disappear after:',
-            style: TextStyle(fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: timeOptions.map((option) {
-              return ChoiceChip(
-                label: Text(option['label'] as String),
-                selected: _disappearingMessagesTime == option['value'],
-                onSelected: (selected) {
-                  if (selected) {
-                    setState(() {
-                      _disappearingMessagesTime = option['value'] as int;
-                    });
-                  }
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildInfoCard() {
-    return Card(
-      elevation: 0,
-      color: Theme.of(context).brightness == Brightness.dark
-          ? Colors.grey.shade800.withOpacity(0.5)
-          : Colors.grey.shade100,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              'About Privacy Settings',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'These privacy settings give you control over what information is shared with your contacts. '
-              'By default, we prioritize your privacy by hiding your online status, read receipts, and typing indicators. '
-              'Any changes you make here will apply to all your conversations.',
-              style: TextStyle(fontSize: 14),
-            ),
-          ],
+          color: theme.colorScheme.primary,
         ),
       ),
     );

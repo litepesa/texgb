@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/features/status/application/providers/app_providers.dart';
+import 'package:textgb/features/status/domain/models/status_media.dart';
 import '../../domain/models/status_post.dart';
 import '../../domain/models/status_reaction.dart';
 import '../../application/providers/status_providers.dart';
