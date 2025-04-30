@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as provider_pkg;
 import 'package:flutter/material.dart';
 import '../../../../models/user_model.dart';
 import '../../../../features/authentication/authentication_provider.dart';
@@ -8,18 +8,17 @@ import '../../../../features/contacts/contacts_provider.dart';
 /// Provider to get the current user
 /// This is a bridge between Provider-based auth and Riverpod
 final userProvider = FutureProvider<UserModel?>((ref) async {
-  return null; // Placeholder - will be updated from context
+  return null; // Will be updated from context in widgets
 });
 
-/// Helper function to update the userProvider with the current user
-/// Call this in context-aware widgets to ensure the Riverpod state stays in sync
+/// Helper function to update userProvider with the current user from Provider
 void updateUserProvider(WidgetRef ref, BuildContext context) {
   try {
     // Get the AuthenticationProvider from the context
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final authProvider = provider_pkg.Provider.of<AuthenticationProvider>(context, listen: false);
     final user = authProvider.userModel;
     
-    // Update the userProvider state if needed
+    // Update the Riverpod state if the user exists
     if (user != null) {
       ref.read(userProvider.notifier).update((_) => Future.value(user));
     }
@@ -32,7 +31,7 @@ void updateUserProvider(WidgetRef ref, BuildContext context) {
 UserModel? getCurrentUser(BuildContext context) {
   try {
     // Get the AuthenticationProvider from the context
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final authProvider = provider_pkg.Provider.of<AuthenticationProvider>(context, listen: false);
     return authProvider.userModel;
   } catch (e) {
     debugPrint('Error getting current user: $e');
@@ -52,7 +51,7 @@ class ContactsService {
   Future<List<UserModel>> getContacts(UserModel user) async {
     try {
       // Get the AuthenticationProvider from the context
-      final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+      final authProvider = provider_pkg.Provider.of<AuthenticationProvider>(context, listen: false);
       
       // Get contacts list
       return await authProvider.getContactsList(user.uid, []);

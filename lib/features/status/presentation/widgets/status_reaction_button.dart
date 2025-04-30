@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as provider_pkg;
 import '../../domain/models/status_post.dart';
 import '../../domain/models/status_reaction.dart';
 import '../../application/providers/app_providers.dart';
@@ -26,7 +26,7 @@ class _StatusReactionButtonState extends ConsumerState<StatusReactionButton> {
   @override
   Widget build(BuildContext context) {
     // Get current user using the Provider-based auth
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final authProvider = provider_pkg.Provider.of<AuthenticationProvider>(context, listen: false);
     final currentUser = authProvider.userModel;
     
     if (currentUser == null) {

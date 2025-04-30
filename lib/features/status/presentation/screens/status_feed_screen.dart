@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:provider/provider.dart';
 import '../../application/providers/status_providers.dart';
 import '../../application/providers/app_providers.dart';
 import '../../domain/models/status_post.dart';
@@ -48,7 +47,7 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   
   Future<void> _refreshFeed() async {
     // Get current user from Provider
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final authProvider = AuthenticationProvider.of(context);
     final currentUser = authProvider.userModel;
     
     if (currentUser == null) {
@@ -59,6 +58,9 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
       }
       return;
     }
+    
+    // Update Riverpod user provider
+    ref.read(userProvider.notifier).state = currentUser;
     
     // Get muted users
     await ref.read(mutedUsersProvider.notifier).loadMutedUsers(currentUser.uid);
@@ -80,9 +82,8 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   }
   
   void _loadMorePosts() async {
-    // Get current user from Provider
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
-    final currentUser = authProvider.userModel;
+    // Get current user
+    final currentUser = ref.read(userProvider);
     
     if (currentUser == null) return;
     
@@ -141,8 +142,7 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   
   Widget _buildBody(feedState) {
     // Check if user is authenticated
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
-    final currentUser = authProvider.userModel;
+    final currentUser = ref.watch(userProvider);
     
     if (currentUser == null) {
       return Center(
@@ -212,8 +212,7 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   }
   
   void _showPostOptions(StatusPost post, BuildContext context) async {
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
-    final currentUser = authProvider.userModel;
+    final currentUser = ref.read(userProvider);
     if (currentUser == null) return;
     
     // Check if this is the user's own post
@@ -300,8 +299,7 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   }
   
   Future<void> _deletePost(StatusPost post) async {
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
-    final currentUser = authProvider.userModel;
+    final currentUser = ref.read(userProvider);
     if (currentUser == null) return;
     
     // Show loading indicator

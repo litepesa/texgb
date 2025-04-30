@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:provider/provider.dart' as provider_pkg;
 import '../../domain/models/status_privacy.dart';
 import '../../application/providers/status_providers.dart';
 import '../../application/providers/app_providers.dart';
 import '../../../../models/user_model.dart';
+import '../../../../features/authentication/authentication_provider.dart';
 
 class StatusPrivacySelector extends ConsumerStatefulWidget {
   const StatusPrivacySelector({Key? key}) : super(key: key);
@@ -52,7 +53,7 @@ class _StatusPrivacySelectorState extends ConsumerState<StatusPrivacySelector> {
       }
       
       // Get the AuthenticationProvider to load contacts
-      final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+      final authProvider = provider_pkg.Provider.of<AuthenticationProvider>(context, listen: false);
       
       // Load all user contacts using existing provider
       _contacts = await authProvider.getContactsList(currentUser.uid, []);
@@ -93,13 +94,28 @@ class _StatusPrivacySelectorState extends ConsumerState<StatusPrivacySelector> {
   }
   
   void _savePrivacySettings() {
-    // Create new privacy settings
-    final newPrivacy = StatusPrivacy(
-      type: _selectedPrivacyType,
-      includedUserIds: _includedContactUIDs,
-      excludedUserIds: _excludedContactUIDs,
-      hideViewCount: _hideViewCount,
-    );
+    // Create new privacy settings based on the selection
+    StatusPrivacy newPrivacy;
+    
+    switch (_selectedPrivacyType) {
+      case PrivacyType.allContacts:
+        newPrivacy = StatusPrivacy.allContacts();
+        break;
+      case PrivacyType.except:
+        newPrivacy = StatusPrivacy(
+          type: PrivacyType.except,
+          excludedUserIds: _excludedContactUIDs,
+          hideViewCount: _hideViewCount,
+        );
+        break;
+      case PrivacyType.onlySpecific:
+        newPrivacy = StatusPrivacy(
+          type: PrivacyType.onlySpecific,
+          includedUserIds: _includedContactUIDs,
+          hideViewCount: _hideViewCount,
+        );
+        break;
+    }
     
     // Update provider
     ref.read(statusPrivacyProvider.notifier).state = newPrivacy;

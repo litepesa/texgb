@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../../domain/models/status_post.dart';
@@ -10,7 +9,6 @@ import '../widgets/status_media_viewer.dart';
 import '../widgets/status_reaction_button.dart';
 import '../../application/providers/status_providers.dart';
 import '../../application/providers/app_providers.dart';
-import '../../../../features/authentication/authentication_provider.dart';
 import '../../../../constants.dart';
 
 class StatusPostCard extends ConsumerStatefulWidget {
@@ -463,8 +461,8 @@ class _StatusPostCardState extends ConsumerState<StatusPostCard> {
   }
   
   Future<void> _addReaction(ReactionType reactionType) async {
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
-    final currentUser = authProvider.userModel;
+    // Get current user
+    final currentUser = ref.read(userProvider);
     if (currentUser == null) return;
     
     // Get current post detail provider
