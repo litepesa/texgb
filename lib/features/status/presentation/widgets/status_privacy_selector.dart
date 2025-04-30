@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
 import '../../domain/models/status_privacy.dart';
 import '../../application/providers/status_providers.dart';
 import '../../application/providers/app_providers.dart';
@@ -43,12 +44,20 @@ class _StatusPrivacySelectorState extends ConsumerState<StatusPrivacySelector> {
     
     try {
       final currentUser = getCurrentUser(context);
-      if (currentUser == null) return;
+      if (currentUser == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
       
-      // Load all user contacts using the bridge to your existing contacts system
-      final contactsService = ContactsService(context);
-      _contacts = await contactsService.getContacts(currentUser);
+      // Get the AuthenticationProvider to load contacts
+      final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+      
+      // Load all user contacts using existing provider
+      _contacts = await authProvider.getContactsList(currentUser.uid, []);
     } catch (e) {
+      debugPrint('Error loading contacts: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading contacts: $e')),
@@ -97,6 +106,11 @@ class _StatusPrivacySelectorState extends ConsumerState<StatusPrivacySelector> {
     
     // Close modal
     Navigator.pop(context);
+    
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Privacy settings updated')),
+    );
   }
   
   @override
@@ -204,7 +218,30 @@ class _StatusPrivacySelectorState extends ConsumerState<StatusPrivacySelector> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _contacts.isEmpty
-                      ? const Center(child: Text('No contacts found'))
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.people_outline,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No contacts found',
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton(
+                                onPressed: _loadContacts,
+                                child: const Text('Refresh'),
+                              ),
+                            ],
+                          ),
+                        )
                       : ListView.builder(
                           itemCount: _contacts.length,
                           itemBuilder: (context, index) {

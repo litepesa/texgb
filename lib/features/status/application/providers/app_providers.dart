@@ -2,33 +2,47 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import '../../../../models/user_model.dart';
+import '../../../../features/authentication/authentication_provider.dart';
+import '../../../../features/contacts/contacts_provider.dart';
 
 /// Provider to get the current user
 /// This is a bridge between Provider-based auth and Riverpod
 final userProvider = FutureProvider<UserModel?>((ref) async {
-  // Adapting from Provider to Riverpod
-  // This will need to be accessed through a BuildContext
-  return null; // Placeholder
+  return null; // Placeholder - will be updated from context
 });
 
-/// Adapter function to get user from Provider context
+/// Helper function to update the userProvider with the current user
+/// Call this in context-aware widgets to ensure the Riverpod state stays in sync
+void updateUserProvider(WidgetRef ref, BuildContext context) {
+  try {
+    // Get the AuthenticationProvider from the context
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final user = authProvider.userModel;
+    
+    // Update the userProvider state if needed
+    if (user != null) {
+      ref.read(userProvider.notifier).update((_) => Future.value(user));
+    }
+  } catch (e) {
+    debugPrint('Error updating user provider: $e');
+  }
+}
+
+/// Helper function to get user from Provider context
 UserModel? getCurrentUser(BuildContext context) {
-  // Get the AuthenticationProvider from the context
-  // This is a bridge between your existing Provider-based authentication
-  // and the new Riverpod-based Status feature
-  final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
-  return authProvider.userModel;
+  try {
+    // Get the AuthenticationProvider from the context
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    return authProvider.userModel;
+  } catch (e) {
+    debugPrint('Error getting current user: $e');
+    return null;
+  }
 }
 
 /// ContactsProvider adapter
 /// This creates a bridge between your existing contacts system
 /// and the new Riverpod-based Status feature
-final contactsProvider = Provider<ContactsService>((ref) {
-  throw UnimplementedError('You need to access this through context');
-});
-
-/// Helper class to bridge the gap between Provider and Riverpod
-/// for contacts-related functionality
 class ContactsService {
   final BuildContext context;
   
@@ -36,27 +50,25 @@ class ContactsService {
   
   /// Get contacts for a user
   Future<List<UserModel>> getContacts(UserModel user) async {
-    // Get the ContactsProvider from the context
-    // This is a bridge between your existing Provider-based contacts
-    // and the new Riverpod-based Status feature
-    final contactsProvider = Provider.of<ContactsProvider>(context, listen: false);
-    
-    // In a real implementation, you would:
-    // 1. Get all contacts for the user
-    // 2. Convert to UserModel objects
-    // 3. Return the list
-    
-    // Placeholder implementation
-    return [];
+    try {
+      // Get the AuthenticationProvider from the context
+      final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+      
+      // Get contacts list
+      return await authProvider.getContactsList(user.uid, []);
+    } catch (e) {
+      debugPrint('Error getting contacts: $e');
+      return [];
+    }
   }
-}
-
-/// Placeholder classes to resolve imports
-/// Replace these with imports from your actual app
-class AuthenticationProvider extends ChangeNotifier {
-  UserModel? userModel;
-}
-
-class ContactsProvider extends ChangeNotifier {
-  // Add your actual methods and properties here
+  
+  /// Get contacts IDs for a user
+  List<String> getContactIds(UserModel user) {
+    return user.contactsUIDs;
+  }
+  
+  /// Get blocked users IDs for a user
+  List<String> getBlockedUserIds(UserModel user) {
+    return user.blockedUIDs;
+  }
 }

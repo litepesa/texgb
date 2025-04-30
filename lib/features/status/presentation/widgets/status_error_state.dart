@@ -16,16 +16,36 @@ class StatusErrorState extends StatelessWidget {
     final theme = Theme.of(context);
     
     String errorMessage = 'Something went wrong while loading status posts.';
+    String title = 'Oops! Something Went Wrong';
+    IconData icon = Icons.error_outline;
+    Color iconColor = Colors.red[400]!;
     
     // Customize error message based on failure type
     if (failure is NetworkFailure) {
-      errorMessage = 'Network error. Please check your internet connection and try again.';
+      title = 'Network Error';
+      errorMessage = 'Please check your internet connection and try again.';
+      icon = Icons.wifi_off;
+      iconColor = Colors.orange;
     } else if (failure is ServerFailure) {
-      errorMessage = 'Server error. Our team is working on fixing the issue.';
+      title = 'Server Error';
+      errorMessage = 'Our team is working on fixing the issue. Please try again later.';
+      icon = Icons.cloud_off;
+      iconColor = Colors.red[400]!;
     } else if (failure is PermissionDeniedFailure) {
+      title = 'Permission Denied';
       errorMessage = 'You don\'t have permission to access this content.';
+      icon = Icons.no_accounts;
+      iconColor = Colors.red[400]!;
     } else if (failure is NotFoundFailure) {
+      title = 'Content Not Found';
       errorMessage = 'The content you\'re looking for doesn\'t exist or has been removed.';
+      icon = Icons.search_off;
+      iconColor = Colors.grey;
+    } else if (failure is MediaUploadFailure) {
+      title = 'Media Upload Failed';
+      errorMessage = 'There was a problem uploading your media. Please try again.';
+      icon = Icons.broken_image;
+      iconColor = Colors.orange;
     }
     
     return Center(
@@ -35,13 +55,13 @@ class StatusErrorState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
+              icon,
               size: 80,
-              color: Colors.red[400],
+              color: iconColor,
             ),
             const SizedBox(height: 24),
             Text(
-              'Oops! Something Went Wrong',
+              title,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),

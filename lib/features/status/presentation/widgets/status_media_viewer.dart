@@ -68,7 +68,7 @@ class _StatusMediaViewerState extends State<StatusMediaViewer> {
       
       if (mounted) setState(() {});
     } catch (e) {
-      print('Error initializing video: $e');
+      debugPrint('Error initializing video: $e');
     }
   }
   

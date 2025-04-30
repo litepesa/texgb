@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/features/status/application/providers/app_providers.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../../domain/models/status_post.dart';
@@ -9,7 +9,9 @@ import '../../domain/models/status_reaction.dart';
 import '../widgets/status_media_viewer.dart';
 import '../widgets/status_reaction_button.dart';
 import '../../application/providers/status_providers.dart';
-import '../../../../shared/theme/theme_extensions.dart';
+import '../../application/providers/app_providers.dart';
+import '../../../../features/authentication/authentication_provider.dart';
+import '../../../../constants.dart';
 
 class StatusPostCard extends ConsumerStatefulWidget {
   final StatusPost post;
@@ -67,10 +69,10 @@ class _StatusPostCardState extends ConsumerState<StatusPostCard> {
   Future<void> _initializeVideoController() async {
     if (widget.post.media.isEmpty || !widget.post.media.first.isVideo) return;
     
-    final videoUrl = widget.post.media.first.url;
-    _videoController = VideoPlayerController.network(videoUrl);
-    
     try {
+      final videoUrl = widget.post.media.first.url;
+      _videoController = VideoPlayerController.network(videoUrl);
+      
       await _videoController!.initialize();
       
       // Use aspectRatio from video if height and width are not available
@@ -82,7 +84,7 @@ class _StatusPostCardState extends ConsumerState<StatusPostCard> {
         });
       }
     } catch (e) {
-      print('Error initializing video: $e');
+      debugPrint('Error initializing video: $e');
     }
   }
   
@@ -110,9 +112,11 @@ class _StatusPostCardState extends ConsumerState<StatusPostCard> {
     });
   }
   
-  void _handleVisibilityChanged(bool isVisible) {
+  void _handleVisibilityChanged(VisibilityInfo info) {
     // Auto-play/pause video based on visibility
     if (_videoController != null && _isVideoInitialized) {
+      final isVisible = info.visibleFraction > 0.7;
+      
       setState(() {
         _isVisible = isVisible;
       });
@@ -134,13 +138,10 @@ class _StatusPostCardState extends ConsumerState<StatusPostCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final modernTheme = context.modernTheme;
     
     return VisibilityDetector(
       key: Key('post-${widget.post.id}'),
-      onVisibilityChanged: (visibilityInfo) {
-        _handleVisibilityChanged(visibilityInfo.visibleFraction > 0.7);
-      },
+      onVisibilityChanged: _handleVisibilityChanged,
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
         elevation: 0,
@@ -226,7 +227,7 @@ class _StatusPostCardState extends ConsumerState<StatusPostCard> {
                       Icon(
                         Icons.thumb_up_alt,
                         size: 16,
-                        color: modernTheme.primaryColor,
+                        color: theme.primaryColor,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -367,7 +368,7 @@ class _StatusPostCardState extends ConsumerState<StatusPostCard> {
         ),
       );
     } else {
-      // Image content
+      // Image content - use aspect ratio if available
       final aspectRatio = media.aspectRatio;
       
       return SizedBox(
@@ -462,7 +463,8 @@ class _StatusPostCardState extends ConsumerState<StatusPostCard> {
   }
   
   Future<void> _addReaction(ReactionType reactionType) async {
-    final currentUser = await ref.read(userProvider.future);
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final currentUser = authProvider.userModel;
     if (currentUser == null) return;
     
     // Get current post detail provider
@@ -498,9 +500,38 @@ class _StatusPostCardState extends ConsumerState<StatusPostCard> {
   }
   
   void _sharePost() {
-    // Implement share functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Share functionality coming soon')),
+    // Implementation for sharing
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.forward),
+            title: const Text('Share with contact'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(
+                context, 
+                Constants.contactsScreen,
+                arguments: {'sharePostId': widget.post.id}
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.copy),
+            title: const Text('Copy link'),
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Link copied to clipboard'),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

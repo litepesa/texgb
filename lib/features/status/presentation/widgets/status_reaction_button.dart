@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/status/application/providers/app_providers.dart';
+import 'package:provider/provider.dart';
 import '../../domain/models/status_post.dart';
 import '../../domain/models/status_reaction.dart';
-import '../../application/providers/status_providers.dart';
+import '../../application/providers/app_providers.dart';
+import '../../../../features/authentication/authentication_provider.dart';
 
 class StatusReactionButton extends ConsumerStatefulWidget {
   final StatusPost post;
@@ -24,45 +25,49 @@ class _StatusReactionButtonState extends ConsumerState<StatusReactionButton> {
   
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: ref.read(userProvider.future),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox(); // Loading or error state
-        }
-        
-        final currentUser = snapshot.data;
-        if (currentUser == null) return const SizedBox();
-        
-        // Check if user already reacted
-        final userReaction = widget.post.getReactionByUser(currentUser.uid);
-        
-        return GestureDetector(
-          onLongPress: _showReactionMenu,
-          child: TextButton.icon(
-            onPressed: () {
-              if (userReaction != null) {
-                // If already reacted, remove the reaction
-                widget.onReact(userReaction.type);
-              } else {
-                // Default to like if not reacted yet
-                widget.onReact(ReactionType.like);
-              }
-            },
-            icon: Icon(
-              userReaction != null ? Icons.thumb_up : Icons.thumb_up_outlined,
-              size: 20,
-              color: userReaction != null ? Theme.of(context).primaryColor : Colors.grey[700],
-            ),
-            label: Text(
-              userReaction != null ? _getReactionText(userReaction.type) : 'Like',
-              style: TextStyle(
-                color: userReaction != null ? Theme.of(context).primaryColor : Colors.grey[700],
-              ),
-            ),
+    // Get current user using the Provider-based auth
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final currentUser = authProvider.userModel;
+    
+    if (currentUser == null) {
+      return TextButton.icon(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to react to posts')),
+          );
+        },
+        icon: const Icon(Icons.thumb_up_outlined, size: 20, color: Colors.grey),
+        label: const Text('Like', style: TextStyle(color: Colors.grey)),
+      );
+    }
+    
+    // Check if user already reacted
+    final userReaction = widget.post.getReactionByUser(currentUser.uid);
+    
+    return GestureDetector(
+      onLongPress: _showReactionMenu,
+      child: TextButton.icon(
+        onPressed: () {
+          if (userReaction != null) {
+            // If already reacted, remove the reaction
+            widget.onReact(userReaction.type);
+          } else {
+            // Default to like if not reacted yet
+            widget.onReact(ReactionType.like);
+          }
+        },
+        icon: Icon(
+          userReaction != null ? Icons.thumb_up : Icons.thumb_up_outlined,
+          size: 20,
+          color: userReaction != null ? Theme.of(context).primaryColor : Colors.grey[700],
+        ),
+        label: Text(
+          userReaction != null ? _getReactionText(userReaction.type) : 'Like',
+          style: TextStyle(
+            color: userReaction != null ? Theme.of(context).primaryColor : Colors.grey[700],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
   
@@ -73,7 +78,6 @@ class _StatusReactionButtonState extends ConsumerState<StatusReactionButton> {
     
     final RenderBox button = context.findRenderObject() as RenderBox;
     final Offset position = button.localToGlobal(Offset.zero);
-    final Size size = button.size;
     
     showDialog(
       context: context,

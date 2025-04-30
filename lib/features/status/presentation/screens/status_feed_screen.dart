@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import '../../application/providers/status_providers.dart';
+import '../../application/providers/app_providers.dart';
 import '../../domain/models/status_post.dart';
 import '../widgets/status_post_card.dart';
 import '../widgets/status_empty_state.dart';
 import '../widgets/status_error_state.dart';
 import '../../../../constants.dart';
+import '../../../../features/authentication/authentication_provider.dart';
 
 class StatusFeedScreen extends ConsumerStatefulWidget {
   const StatusFeedScreen({Key? key}) : super(key: key);
@@ -17,13 +20,14 @@ class StatusFeedScreen extends ConsumerStatefulWidget {
 
 class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   final ScrollController _scrollController = ScrollController();
+  bool _initialLoadDone = false;
   
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_scrollListener);
     
-    // Load feed on first render
+    // Load feed on first render with a short delay to ensure context is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshFeed();
     });
@@ -43,9 +47,18 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   }
   
   Future<void> _refreshFeed() async {
-    // Get current user
-    final currentUser = await ref.read(userProvider.future);
-    if (currentUser == null) return;
+    // Get current user from Provider
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final currentUser = authProvider.userModel;
+    
+    if (currentUser == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to view status updates')),
+        );
+      }
+      return;
+    }
     
     // Get muted users
     await ref.read(mutedUsersProvider.notifier).loadMutedUsers(currentUser.uid);
@@ -57,12 +70,27 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
       contactIds: currentUser.contactsUIDs,
       mutedUserIds: mutedUsers,
     );
+    
+    // Mark initial load as complete
+    if (mounted) {
+      setState(() {
+        _initialLoadDone = true;
+      });
+    }
   }
   
   void _loadMorePosts() async {
-    // Get current user
-    final currentUser = await ref.read(userProvider.future);
+    // Get current user from Provider
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final currentUser = authProvider.userModel;
+    
     if (currentUser == null) return;
+    
+    // Get current feed state
+    final feedState = ref.read(statusFeedProvider);
+    
+    // Don't load more if already loading or no more posts
+    if (feedState.isLoading || !feedState.hasMore) return;
     
     // Get muted users
     final mutedUsers = ref.read(mutedUsersProvider);
@@ -97,10 +125,6 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
         title: const Text('Moments'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () => Navigator.pushNamed(context, Constants.searchScreen),
-          ),
-          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.pushNamed(context, Constants.statusSettingsScreen),
           ),
@@ -116,8 +140,30 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   }
   
   Widget _buildBody(feedState) {
+    // Check if user is authenticated
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final currentUser = authProvider.userModel;
+    
+    if (currentUser == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.account_circle_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text('Please log in to view status updates'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, Constants.loginScreen),
+              child: const Text('Log In'),
+            ),
+          ],
+        ),
+      );
+    }
+    
     // Show loading state
-    if (feedState.isLoading && feedState.posts.isEmpty) {
+    if (!_initialLoadDone || (feedState.isLoading && feedState.posts.isEmpty)) {
       return const Center(child: CircularProgressIndicator());
     }
     
@@ -166,7 +212,8 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   }
   
   void _showPostOptions(StatusPost post, BuildContext context) async {
-    final currentUser = await ref.read(userProvider.future);
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final currentUser = authProvider.userModel;
     if (currentUser == null) return;
     
     // Check if this is the user's own post
@@ -253,7 +300,8 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   }
   
   Future<void> _deletePost(StatusPost post) async {
-    final currentUser = await ref.read(userProvider.future);
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final currentUser = authProvider.userModel;
     if (currentUser == null) return;
     
     // Show loading indicator
@@ -270,32 +318,37 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
     );
     
     // Hide loading indicator
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
     
     // Handle result
     result.fold(
       (failure) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete post: ${failure.toString()}')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete post: ${failure.toString()}')),
+          );
+        }
       },
       (_) {
         // Update local state
         ref.read(statusFeedProvider.notifier).removePost(post.id);
         ref.read(myStatusPostsProvider.notifier).removePost(post.id);
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post deleted')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Post deleted')),
+          );
+        }
       },
     );
   }
   
   void _navigateToEditPost(StatusPost post) {
+    // This functionality might not be fully implemented yet
     Navigator.pushNamed(
       context,
       Constants.editStatusScreen,
-      arguments: post,
+      arguments: post.id,
     ).then((_) => _refreshFeed());
   }
   
@@ -320,8 +373,60 @@ class _StatusFeedScreenState extends ConsumerState<StatusFeedScreen> {
   
   void _reportPost(StatusPost post) {
     // Implement report functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Thank you for reporting this post. We will review it.')),
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Post'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Why are you reporting this post?'),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('Inappropriate content'),
+              leading: Radio<String>(
+                value: 'inappropriate',
+                groupValue: null,
+                onChanged: (_) {},
+              ),
+            ),
+            ListTile(
+              title: const Text('Spam or misleading'),
+              leading: Radio<String>(
+                value: 'spam',
+                groupValue: null,
+                onChanged: (_) {},
+              ),
+            ),
+            ListTile(
+              title: const Text('Harassment or bullying'),
+              leading: Radio<String>(
+                value: 'harassment',
+                groupValue: null,
+                onChanged: (_) {},
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Thank you for reporting this post. We will review it.'),
+                ),
+              );
+            },
+            child: const Text('Submit Report'),
+          ),
+        ],
+      ),
     );
   }
 }

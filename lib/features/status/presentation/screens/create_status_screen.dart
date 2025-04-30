@@ -1,14 +1,17 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:video_player/video_player.dart';
 import '../../domain/models/status_privacy.dart';
 import '../../application/providers/status_providers.dart';
+import '../../application/providers/app_providers.dart';
 import '../widgets/status_privacy_selector.dart';
 import '../widgets/media_grid_view.dart';
+import '../../../../features/authentication/authentication_provider.dart';
 import '../../../../shared/utilities/global_methods.dart';
 
 class CreateStatusScreen extends ConsumerStatefulWidget {
@@ -90,6 +93,12 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> with Si
   
   Future<void> _loadRecentMedia() async {
     try {
+      // Request permission if haven't already
+      final result = await PhotoManager.requestPermissionExtend();
+      if (result != PermissionState.authorized && result != PermissionState.limited) {
+        throw Exception('Permission not granted');
+      }
+      
       final albums = await PhotoManager.getAssetPathList(
         type: RequestType.all,
         hasAll: true,
@@ -110,6 +119,12 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> with Si
       }
     } catch (e) {
       print('Error loading recent media: $e');
+      // Show a more user-friendly error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load media gallery: $e')),
+        );
+      }
     }
   }
   
@@ -233,11 +248,19 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> with Si
       }
     } catch (e) {
       print('Error initializing video: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error initializing video: $e')),
+        );
+      }
     }
   }
   
   Future<void> _createStatus() async {
-    final currentUser = await ref.read(userProvider.future);
+    // Get current user from Provider
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final currentUser = authProvider.userModel;
+    
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
