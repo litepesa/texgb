@@ -1,7 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
@@ -16,13 +15,12 @@ import 'package:textgb/features/channels/screens/explore_channels_screen.dart';
 import 'package:textgb/features/channels/screens/my_channels_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
-
-// WeChat Moments-like status imports
-import 'package:textgb/features/status/presentation/screens/status_feed_screen.dart';
-import 'package:textgb/features/status/presentation/screens/create_status_screen.dart';
-import 'package:textgb/features/status/presentation/screens/status_detail_screen.dart';
-import 'package:textgb/features/status/presentation/widgets/status_settings_screen.dart';
 import 'package:textgb/features/status/core/status_module.dart';
+import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/status_detail_screen.dart';
+import 'package:textgb/features/status/screens/status_feed_screen.dart';
+import 'package:textgb/features/status/status_provider.dart';
+import 'package:textgb/features/status/widgets/status_settings_screen.dart';
 
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
@@ -84,20 +82,18 @@ void main() async {
   await themeManager.initialize();
   
   runApp(
-    // Use ProviderScope for Riverpod
-    ProviderScope(
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<ThemeManager>.value(
-            value: themeManager,
-          ),
-          ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
-          ChangeNotifierProvider(create: (_) => ChatProvider()),
-          ChangeNotifierProvider(create: (_) => ContactsProvider()),
-          ChangeNotifierProvider(create: (_) => ChannelProvider()),
-        ],
-        child: const MyApp(),
-      ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ThemeManager>.value(
+          value: themeManager,
+        ),
+        ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => ContactsProvider()),
+        ChangeNotifierProvider(create: (_) => ChannelProvider()),
+        ChangeNotifierProvider(create: (_) => StatusProvider()), // Add StatusProvider
+      ],
+      child: const MyApp(),
     ),
   );
 }

@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/channels_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
-import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/features/chat/screens/my_chats_screen.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/status/screens/status_feed_screen.dart';
 import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -28,8 +28,8 @@ class _HomeScreenState extends State<HomeScreen>
   // Creating separate widget variables with 3 screens
   final Widget chatScreen = const MyChatsScreen();
   // Using the new StatusOverviewScreen instead of the old StatusScreen
-  final Widget statusScreen = const StatusOverviewScreen();
   final Widget channelsScreen = const ChannelsScreen();
+  final Widget statusScreen = const StatusFeedScreen();
   
   // We'll define these in initState to ensure they match our bottom nav bar
   late final List<Widget> pages;
