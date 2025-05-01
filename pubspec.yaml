@@ -70,8 +70,7 @@ dependencies:
   flutter_html: ^3.0.0
   flutter_image_compress: ^2.4.0
   
-  # Additional packages needed for WeChat Moments-like status feature
-  video_thumbnail: ^0.5.3       # Generate thumbnails from videos
+
   html: ^0.15.4                 # Parse HTML for link previews
   image_size_getter: ^2.1.2     # Get image dimensions
   visibility_detector: ^0.4.0+2 # Detect when widgets are visible on screen

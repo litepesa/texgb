@@ -7,8 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/status/models/status_post_model.dart';
-import 'package:textgb/features/status/widgets/status_comment_item.dart';
 import 'package:textgb/features/status/status_provider.dart';
+import 'package:textgb/features/status/widgets/status_comment_item.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -47,12 +47,12 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
   }
   
   Future<void> _loadPostDetails() async {
-    await context.read<StatusProvider>().getPostDetails(widget.postId);
+    await Provider.of<StatusProvider>(context, listen: false).getPostDetails(widget.postId);
     _initializeVideoPlayer();
   }
   
   void _initializeVideoPlayer() {
-    final post = context.read<StatusProvider>().currentViewingPost;
+    final post = Provider.of<StatusProvider>(context, listen: false).currentViewingPost;
     if (post != null && post.type == StatusType.video && post.mediaUrls.isNotEmpty) {
       _videoController = VideoPlayerController.networkUrl(Uri.parse(post.mediaUrls[0]))
         ..initialize().then((_) {
@@ -61,18 +61,134 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
     }
   }
   
+  void _addComment(currentUser) {
+    if (_commentController.text.trim().isEmpty || currentUser == null) return;
+    
+    Provider.of<StatusProvider>(context, listen: false).addComment(
+      postId: widget.postId,
+      userId: currentUser.uid,
+      userName: currentUser.name,
+      userImage: currentUser.image,
+      content: _commentController.text.trim(),
+    ).then((success) {
+      if (success) {
+        _commentController.clear();
+        FocusScope.of(context).unfocus();
+      }
+    });
+  }
+  
+  void _showOptionsMenu(BuildContext context, StatusPost post) {
+    final modernTheme = context.modernTheme;
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      backgroundColor: modernTheme.surfaceColor,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  CupertinoIcons.pencil,
+                  color: modernTheme.textColor,
+                ),
+                title: Text(
+                  'Edit Post',
+                  style: TextStyle(color: modernTheme.textColor),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Navigate to edit screen - implement later
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  CupertinoIcons.trash,
+                  color: Colors.red,
+                ),
+                title: const Text(
+                  'Delete Post',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmDeletePost(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  CupertinoIcons.eye_slash,
+                  color: modernTheme.textColor,
+                ),
+                title: Text(
+                  'Change Privacy',
+                  style: TextStyle(color: modernTheme.textColor),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Show privacy options - implement later
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  void _confirmDeletePost(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Post?'),
+        content: const Text('This action cannot be undone. Are you sure you want to delete this post?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Provider.of<StatusProvider>(context, listen: false).deletePost(widget.postId).then((success) {
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Post deleted')),
+                  );
+                  Navigator.pop(context); // Go back to feed
+                }
+              });
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    final statusProvider = context.watch<StatusProvider>();
-    final authProvider = context.watch<AuthenticationProvider>();
+    final statusProvider = Provider.of<StatusProvider>(context);
+    final authProvider = Provider.of<AuthenticationProvider>(context);
     final post = statusProvider.currentViewingPost;
     final comments = statusProvider.currentComments;
     final bool isLoading = statusProvider.isLoading;
     final currentUser = authProvider.userModel;
     
     return Scaffold(
-      backgroundColor: modernTheme.surfaceColor,
+      backgroundColor: modernTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('Status Details'),
         backgroundColor: modernTheme.appBarColor,
@@ -96,7 +212,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              color: modernTheme.cardColor,
+                              color: modernTheme.surfaceColor,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -225,10 +341,10 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                                               ),
                                               onPressed: () {
                                                 if (currentUser != null) {
-                                                  context.read<StatusProvider>().toggleLike(
-                                                        postId: post.id,
-                                                        userId: currentUser.uid,
-                                                      );
+                                                  Provider.of<StatusProvider>(context, listen: false).toggleLike(
+                                                    postId: post.id,
+                                                    userId: currentUser.uid,
+                                                  );
                                                 }
                                               },
                                               splashRadius: 20,
@@ -308,7 +424,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                     // Comment input field
                     Container(
                       decoration: BoxDecoration(
-                        color: modernTheme.cardColor,
+                        color: modernTheme.surfaceColor,
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.05),
@@ -345,7 +461,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                                     borderSide: BorderSide.none,
                                   ),
                                   filled: true,
-                                  fillColor: modernTheme.inputFillColor,
+                                  fillColor: Colors.grey[200],
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16,
                                     vertical: 8,
@@ -582,7 +698,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
                       icon: const Icon(Icons.open_in_new),
                       label: const Text('Open Link'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
+                        backgroundColor: context.modernTheme.primaryColor,
                         foregroundColor: Colors.white,
                       ),
                     ),
@@ -605,8 +721,4 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> {
     String seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
   }
-  
-  void _addComment(currentUser) {
-    if (_commentController.text.trim().isEmpty || currentUser == null) return;}
-    
 }

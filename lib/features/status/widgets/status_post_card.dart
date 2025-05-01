@@ -38,7 +38,7 @@ class StatusPostCard extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        color: modernTheme.cardColor,
+        color: modernTheme.surfaceColor,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
