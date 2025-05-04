@@ -89,7 +89,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     text: const TextSpan(
                       children: [
                         TextSpan(
-                          text: 'Tex',
+                          text: 'Wei',
                           style: TextStyle(
                             fontSize: 50,
                             fontWeight: FontWeight.w400,
@@ -98,7 +98,7 @@ class _LandingScreenState extends State<LandingScreen> {
                           ),
                         ),
                         TextSpan(
-                          text: 'GB',
+                          text: 'Bao',
                           style: TextStyle(
                             fontSize: 50,
                             fontWeight: FontWeight.w700,

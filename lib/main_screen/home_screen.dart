@@ -25,11 +25,12 @@ class _HomeScreenState extends State<HomeScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   int pageIndex = 0;
   
-  // Creating separate widget variables with 3 screens
+  // Creating separate widget variables with our screens
+  final Widget homeScreen = const _PlaceholderScreen(title: "Home");
   final Widget chatScreen = const MyChatsScreen();
-  // Using the new StatusOverviewScreen instead of the old StatusScreen
-  final Widget channelsScreen = const ChannelsScreen();
-  final Widget statusScreen = const StatusFeedScreen();
+  final Widget postScreen = const _PlaceholderScreen(title: "Post");
+  final Widget cartScreen = const _PlaceholderScreen(title: "Cart");
+  final Widget profileScreen = const MyProfileScreen();
   
   // We'll define these in initState to ensure they match our bottom nav bar
   late final List<Widget> pages;
@@ -39,11 +40,13 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     super.initState();
     
-    // Initialize pages list to match our bottom nav bar (now 3 tabs)
+    // Initialize pages list to match our bottom nav bar (now 5 tabs)
     pages = [
-      chatScreen,        // Index 0 - Chats
-      statusScreen,      // Index 1 - Status Feed
-      channelsScreen,    // Index 2 - Channels
+      homeScreen,        // Index 0 - Home
+      chatScreen,        // Index 1 - Chats
+      postScreen,        // Index 2 - Post
+      cartScreen,        // Index 3 - Cart
+      profileScreen,     // Index 4 - Profile
     ];
     
     // Set feed filter on initialization (for new status implementation)
@@ -69,12 +72,6 @@ class _HomeScreenState extends State<HomeScreen>
         context.read<AuthenticationProvider>().updateUserStatus(
               value: true,
             );
-        // Refresh status feed when app is resumed
-        if (pageIndex == 1) { // Status is index 1
-          _refreshStatusFeed();
-          // Set status tab visibility to true when app resumes on status tab
-          context.read<StatusProvider>().setStatusTabVisible(true);
-        }
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
@@ -85,28 +82,12 @@ class _HomeScreenState extends State<HomeScreen>
         context.read<AuthenticationProvider>().updateUserStatus(
               value: false,
             );
-        // Set status tab visibility to false when app is in background
-        if (pageIndex == 1) { // Status is index 1
-          context.read<StatusProvider>().setStatusTabVisible(false);
-        }
         break;
       default:
         // handle other states
         break;
     }
     super.didChangeAppLifecycleState(state);
-  }
-
-  // Function to refresh status feed with new implementation
-  void _refreshStatusFeed() {
-    final currentUser = context.read<AuthenticationProvider>().userModel;
-    if (currentUser != null) {
-      // Use the new fetchAllStatuses method from the updated StatusProvider
-      context.read<StatusProvider>().fetchAllStatuses(
-        currentUserId: currentUser.uid,
-        contactIds: currentUser.contactsUIDs,
-      );
-    }
   }
 
   @override
@@ -122,7 +103,19 @@ class _HomeScreenState extends State<HomeScreen>
     // Get app bar and surface colors
     final appBarColor = modernTheme.appBarColor!;
     final surfaceColor = modernTheme.surfaceColor!;
-    final scaffoldBackgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    
+    // Set scaffold background color based on selected tab
+    Color scaffoldBackgroundColor;
+    if (pageIndex == 0) {
+      // Black background for Home tab
+      scaffoldBackgroundColor = Colors.black;
+    } else if (pageIndex == 3) {
+      // White background for Cart tab
+      scaffoldBackgroundColor = Colors.white;
+    } else {
+      // Default background for other tabs
+      scaffoldBackgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    }
     
     // Use the surface color for bottom nav regardless of selected tab
     final bottomNavColor = surfaceColor;
@@ -140,13 +133,10 @@ class _HomeScreenState extends State<HomeScreen>
     // Set elevation for better delineation
     final elevation = isDarkMode ? 1.0 : 2.0;
 
-    // Get the current user data for the profile avatar
-    final authProvider = context.watch<AuthenticationProvider>();
-    final currentUser = authProvider.userModel;
-    
     return Scaffold(
-      // FIX: Always show AppBar for all tabs, including the status tab
-      appBar: AppBar(
+      // FIX: Always show AppBar for all tabs
+      // Only show AppBar in chats tab (index 1)
+      appBar: pageIndex == 1 ? AppBar(
         elevation: elevation,
         toolbarHeight: 65.0,
         centerTitle: false,
@@ -162,7 +152,6 @@ class _HomeScreenState extends State<HomeScreen>
               TextSpan(
                 text: 'Snap',
                 style: TextStyle(
-                  //color: accentColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -176,42 +165,8 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
         ),
-        actions: [
-          // Profile avatar with red ring
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: GestureDetector(
-              onTap: () {
-                // Navigate to profile screen when avatar is tapped
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const MyProfileScreen(),
-                  ),
-                );
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.red.withOpacity(0.7),
-                    width: 2,
-                  ),
-                ),
-                child: Hero(
-                  tag: 'profile-image',
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.grey[300],
-                    backgroundImage: currentUser?.image != null && currentUser!.image.isNotEmpty
-                      ? CachedNetworkImageProvider(currentUser.image)
-                      : AssetImage(AssetsManager.userImage) as ImageProvider,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        actions: [], // No actions in app bar
+      ) : null,
       body: Container(
         color: scaffoldBackgroundColor, // Apply consistent background color
         child: IndexedStack(
@@ -221,7 +176,10 @@ class _HomeScreenState extends State<HomeScreen>
       ),
       // Custom bottom nav bar that extends into system nav area
       bottomNavigationBar: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        // Use appropriate color based on tab for bottom nav container
+        color: pageIndex == 0 ? Colors.black : 
+               pageIndex == 3 ? Colors.white : 
+               Theme.of(context).scaffoldBackgroundColor,
         child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -232,45 +190,39 @@ class _HomeScreenState extends State<HomeScreen>
                 thickness: 0.5,
                 color: modernTheme.dividerColor,
               ),
-              // Modern navigation bar - with FIXED styling for all tabs
+              // Modern navigation bar with 5 tabs
               ModernBottomNavBar(
                 currentIndex: pageIndex,
                 onTap: (index) {
-                  // If switching FROM status tab, ensure videos are paused by setting visibility flag
-                  if (pageIndex == 1 && index != 1) {
-                    // We're switching away from status tab
-                    context.read<StatusProvider>().setStatusTabVisible(false);
-                  } else if (index == 1 && pageIndex != 1) {
-                    // We're switching TO status tab, set visibility to true
-                    context.read<StatusProvider>().setStatusTabVisible(true);
-                  }
-                  
                   setState(() {
                     pageIndex = index;
                   });
-                  
-                  // If status tab is selected, refresh status data
-                  if (index == 1) {
-                    _refreshStatusFeed();
-                  }
                 },
-                // Use surfaceColor for all tabs, including the status tab
+                // Use surfaceColor for all tabs
                 backgroundColor: surfaceColor,
                 // Use consistent colors for all tabs
                 selectedItemColor: selectedItemColor,
                 unselectedItemColor: unselectedItemColor,
                 items: const [
                   BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.chat_bubble_text, size: 30),
+                    icon: Icon(CupertinoIcons.house, size: 24),
+                    label: 'Home',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.chat_bubble_text, size: 24),
                     label: 'Chats',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.rays, size: 30),
-                    label: 'Status',
+                    icon: Icon(CupertinoIcons.plus_circle, size: 28),
+                    label: 'Post',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.camera, size: 30),
-                    label: 'Channels',
+                    icon: Icon(CupertinoIcons.cart, size: 24),
+                    label: 'Cart',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.person, size: 24),
+                    label: 'Profile',
                   ),
                 ],
               ),
@@ -278,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen>
               MediaQuery.of(context).padding.bottom > 0
                 ? Container(
                     height: MediaQuery.of(context).padding.bottom,
-                    color: Colors.transparent, // Changed to transparent
+                    color: Colors.transparent,
                   )
                 : const SizedBox.shrink(),
             ],
@@ -291,8 +243,8 @@ class _HomeScreenState extends State<HomeScreen>
   
   // Build context-specific floating action button
   Widget? _buildFloatingActionButton(Color accentColor) {
-    // Chat button for Chats tab
-    if (pageIndex == 0) {
+    // Only show FAB for Chats tab
+    if (pageIndex == 1) {
       return FloatingActionButton(
         onPressed: () {
           // Navigate to Contacts screen
@@ -306,31 +258,73 @@ class _HomeScreenState extends State<HomeScreen>
         child: const Icon(CupertinoIcons.chat_bubble_text, size: 26),
       );
     }
-    // Status create button for Status tab
-    else if (pageIndex == 1) {
-      return FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, Constants.createStatusScreen)
-              .then((_) => _refreshStatusFeed()); // Refresh after returning
-        },
-        backgroundColor: accentColor, // Distinctive color for status creation
-        elevation: 4.0,
-        child: const Icon(CupertinoIcons.camera, size: 26),
-      );
-    }
-    // FAB for Channels tab - Navigate to create channel
-    else if (pageIndex == 2) {
-      return FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, Constants.createChannelScreen);
-        },
-        backgroundColor: accentColor,
-        elevation: 4.0,
-        child: const Icon(CupertinoIcons.add, size: 26),
-      );
-    }
     
     // No FAB for other tabs
     return null;
+  }
+}
+
+// Simple placeholder screen for tabs under development
+class _PlaceholderScreen extends StatelessWidget {
+  final String title;
+  
+  const _PlaceholderScreen({required this.title});
+  
+  @override
+  Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+    final accentColor = modernTheme.primaryColor!;
+    
+    // Determine text color based on the tab/background
+    Color textColor;
+    Color iconColor;
+    
+    if (title == "Home") {
+      // For Home tab with black background, use white text
+      textColor = Colors.white;
+      iconColor = Colors.white;
+    } else if (title == "Cart") {
+      // For Cart tab with white background, use darker text
+      textColor = Colors.black87;
+      iconColor = accentColor;
+    } else {
+      // For other tabs, use theme colors
+      textColor = modernTheme.textColor!;
+      iconColor = accentColor;
+    }
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            CupertinoIcons.gear,
+            size: 80,
+            color: iconColor,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            '$title Tab',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Text(
+              'This feature is currently under development. Please check back soon!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: textColor.withOpacity(0.8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -27,7 +27,6 @@ dependencies:
   shared_preferences: ^2.5.3
   flutter_riverpod: ^2.6.1
   uuid: ^4.5.1
-  provider: ^6.1.4
   cloud_firestore: ^5.6.6
   image_cropper: ^9.1.0
   pinput: ^5.0.1
@@ -77,6 +76,7 @@ dependencies:
   firebase_messaging: 15.2.5   # Optional: For status notifications
   collection: ^1.18.0           # Utility for collections
   flutter_staggered_grid_view: ^0.7.0 # For media grid layout
+  provider: ^6.1.5
   
 
 dev_dependencies:

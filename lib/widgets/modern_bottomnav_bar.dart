@@ -31,8 +31,9 @@ class ModernBottomNavBar extends StatelessWidget {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      // Adjusted margins for 5 tabs
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(32),
@@ -51,6 +52,9 @@ class ModernBottomNavBar extends StatelessWidget {
           final item = items[index];
           final isSelected = index == currentIndex;
           
+          // Special styling for Post tab (middle tab)
+          final isPostTab = index == 2; // Post tab is at index 2
+          
           return _NavItem(
             index: index,
             icon: item.icon,
@@ -59,7 +63,8 @@ class ModernBottomNavBar extends StatelessWidget {
             selectedColor: selectedItemColor,
             unselectedColor: unselectedItemColor,
             onTap: onTap,
-            showLabel: showLabels,
+            showLabel: showLabels && !isPostTab, // Hide label for Post tab
+            isSpecial: isPostTab, // Mark Post tab as special
           );
         }),
       ),
@@ -76,6 +81,7 @@ class _NavItem extends StatelessWidget {
   final Color unselectedColor;
   final Function(int) onTap;
   final bool showLabel;
+  final bool isSpecial;
 
   const _NavItem({
     required this.index,
@@ -86,10 +92,53 @@ class _NavItem extends StatelessWidget {
     required this.unselectedColor,
     required this.onTap,
     required this.showLabel,
+    this.isSpecial = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Special styling for Post tab (middle tab)
+    if (isSpecial) {
+      return Semantics(
+        button: true,
+        selected: isSelected,
+        child: GestureDetector(
+          onTap: () => onTap(index),
+          behavior: HitTestBehavior.opaque,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Elevated circular icon for Post tab
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: isSelected ? selectedColor : selectedColor.withOpacity(0.8),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: selectedColor.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: IconTheme(
+                  data: IconThemeData(
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  child: icon,
+                ),
+              ),
+              // Spacer to align with other tabs
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Regular tabs
     return Semantics(
       button: true,
       selected: isSelected,
@@ -100,7 +149,8 @@ class _NavItem extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            // Adjusted padding for 5 tabs
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -128,9 +178,9 @@ class _NavItem extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     style: TextStyle(
                       color: isSelected ? selectedColor : unselectedColor,
-                      fontSize: 12,
+                      fontSize: 11, // Slightly smaller font for 5 tab layout
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      height: 1.2,
+                      height: 1.1,
                     ),
                     child: Text(
                       label,
