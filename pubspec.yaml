@@ -77,6 +77,8 @@ dependencies:
   collection: ^1.18.0           # Utility for collections
   flutter_staggered_grid_view: ^0.7.0 # For media grid layout
   provider: ^6.1.5
+  riverpod_generator: ^2.6.5
+  riverpod_annotation: ^2.6.1
   
 
 dev_dependencies:

@@ -31,7 +31,7 @@ class ModernBottomNavBar extends StatelessWidget {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      // Adjusted margins for 5 tabs
+      // Adjusted margins for 4 tabs
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -52,8 +52,7 @@ class ModernBottomNavBar extends StatelessWidget {
           final item = items[index];
           final isSelected = index == currentIndex;
           
-          // Special styling for Post tab (middle tab)
-          final isPostTab = index == 2; // Post tab is at index 2
+          // No special tab anymore since we removed the Post tab
           
           return _NavItem(
             index: index,
@@ -63,8 +62,8 @@ class ModernBottomNavBar extends StatelessWidget {
             selectedColor: selectedItemColor,
             unselectedColor: unselectedItemColor,
             onTap: onTap,
-            showLabel: showLabels && !isPostTab, // Hide label for Post tab
-            isSpecial: isPostTab, // Mark Post tab as special
+            showLabel: showLabels, // Show all labels
+            isSpecial: false, // No special tabs anymore
           );
         }),
       ),
@@ -97,7 +96,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Special styling for Post tab (middle tab)
+    // Special styling code kept but not used (isSpecial is always false now)
     if (isSpecial) {
       return Semantics(
         button: true,
@@ -108,7 +107,7 @@ class _NavItem extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Elevated circular icon for Post tab
+              // Elevated circular icon for special tab
               Container(
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
@@ -149,8 +148,8 @@ class _NavItem extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            // Adjusted padding for 5 tabs
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            // Adjusted padding for 4 tabs - more space per tab
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -178,7 +177,7 @@ class _NavItem extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     style: TextStyle(
                       color: isSelected ? selectedColor : unselectedColor,
-                      fontSize: 11, // Slightly smaller font for 5 tab layout
+                      fontSize: 12, // Slightly larger font for 4 tab layout
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       height: 1.1,
                     ),

@@ -7,20 +7,8 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/channel_provider.dart';
-import 'package:textgb/features/channels/screens/channel_detail_screen.dart';
-import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
-import 'package:textgb/features/channels/screens/create_channel_screen.dart';
-import 'package:textgb/features/channels/screens/explore_channels_screen.dart';
-import 'package:textgb/features/channels/screens/my_channels_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
-import 'package:textgb/features/status/core/status_module.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/status/screens/status_detail_screen.dart';
-import 'package:textgb/features/status/screens/status_feed_screen.dart';
-import 'package:textgb/features/status/status_provider.dart';
-import 'package:textgb/features/status/widgets/status_settings_screen.dart';
 
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
@@ -74,9 +62,6 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  // Initialize Status module
-  StatusModule.initialize();
-  
   // Create and initialize theme manager
   final themeManager = ThemeManager();
   await themeManager.initialize();
@@ -90,8 +75,6 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => ContactsProvider()),
-        ChangeNotifierProvider(create: (_) => ChannelProvider()),
-        ChangeNotifierProvider(create: (_) => StatusProvider()), // Add StatusProvider
       ],
       child: const MyApp(),
     ),
@@ -198,45 +181,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Constants.addContactScreen: (context) => const AddContactScreen(),
         Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
         Constants.chatScreen: (context) => const ChatScreen(),
-        
-        // WeChat Moments-like status routes
-        Constants.statusFeedScreen: (context) => const StatusFeedScreen(),
-        Constants.createStatusScreen: (context) => const CreateStatusScreen(),
-        Constants.statusSettingsScreen: (context) => const StatusSettingsScreen(),
-        
-        // Channel routes
-        Constants.createChannelScreen: (context) => const CreateChannelScreen(),
-        Constants.exploreChannelsScreen: (context) => const ExploreChannelsScreen(),
-        Constants.myChannelsScreen: (context) => const MyChannelsScreen(),
-      },
-      // Use onGenerateRoute for routes that need parameters
-      onGenerateRoute: (settings) {
-        // Status routes that need parameters
-        if (settings.name == Constants.statusDetailScreen) {
-          final String postId = settings.arguments as String;
-          return MaterialPageRoute(
-            builder: (context) => StatusDetailScreen(postId: postId),
-          );
-        }
-        // Channel routes
-        else if (settings.name == Constants.channelDetailScreen) {
-          final String channelId = settings.arguments as String;
-          return MaterialPageRoute(
-            builder: (context) => ChannelDetailScreen(channelId: channelId),
-          );
-        } else if (settings.name == Constants.createChannelPostScreen) {
-          final String channelId = settings.arguments as String;
-          return MaterialPageRoute(
-            builder: (context) => CreateChannelPostScreen(channelId: channelId),
-          );
-        }
-        
-        // Use Status module's route generator for any unhandled status routes
-        if (settings.name?.startsWith('/status') == true) {
-          return StatusModule.generateRoute(settings);
-        }
-        
-        return null;
       },
       // Add the route observer
       navigatorObservers: [routeObserver],

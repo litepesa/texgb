@@ -22,6 +22,13 @@ class Constants {
   static const String groupsScreen = '/groupsScreen';
   static const String createGroupScreen = '/createGroupScreen';
   static const String blockedContactsScreen = '/blockedContactsScreen';
+
+  // Video feed routes
+  static const String videoFeedScreen = '/videoFeedScreen';
+  static const String createVideoScreen = '/createVideoScreen';
+  static const String videoDetailScreen = '/videoDetailScreen';
+  static const String videoCommentsScreen = '/videoCommentsScreen';
+  static const String userVideosScreen = '/userVideosScreen';
   
   // Status feature routes - Updated for WeChat Moments-like implementation
   static const String statusOverviewScreen = '/statusOverviewScreen';
@@ -62,6 +69,13 @@ class Constants {
   static const String channelPosts = 'channelPosts';
   static const String channelFiles = 'channelFiles';
   static const String subscribedChannels = 'subscribedChannels';
+
+  // Collection names for Videos
+  static const String videos = 'videos';
+  static const String videoComments = 'videoComments';
+  static const String videoLikes = 'videoLikes';
+  static const String videoFiles = 'videoFiles';
+  static const String videoId = 'videoId';
   
   // Channel model fields
   static const String channelId = 'channelId';
@@ -73,6 +87,18 @@ class Constants {
   static const String adminUIDs = 'adminUIDs';
   static const String channelSettings = 'channelSettings';
   static const String lastPostAt = 'lastPostAt';
+
+  // Video model fields
+  static const String userId = 'userId';
+  static const String videoUrl = 'videoUrl';
+  static const String caption = 'caption';
+  static const String songName = 'songName';
+  static const String likesCount = 'likesCount';
+  static const String commentsCount = 'commentsCount';
+  static const String sharesCount = 'sharesCount';
+  static const String likedBy = 'likedBy';
+  static const String viewCount = 'viewCount';
+  static const String duration = 'duration';
   
   // Channel post model fields
   static const String postId = 'postId';

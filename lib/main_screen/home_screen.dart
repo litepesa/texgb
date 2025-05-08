@@ -2,12 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/screens/channels_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/my_chats_screen.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/status/screens/status_feed_screen.dart';
-import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -28,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen>
   // Creating separate widget variables with our screens
   final Widget homeScreen = const _PlaceholderScreen(title: "Home");
   final Widget chatScreen = const MyChatsScreen();
-  final Widget postScreen = const _PlaceholderScreen(title: "Post");
   final Widget cartScreen = const _PlaceholderScreen(title: "Cart");
   final Widget profileScreen = const MyProfileScreen();
   
@@ -40,21 +36,13 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     super.initState();
     
-    // Initialize pages list to match our bottom nav bar (now 5 tabs)
+    // Initialize pages list to match our bottom nav bar (now 4 tabs in new order)
     pages = [
-      homeScreen,        // Index 0 - Home
-      chatScreen,        // Index 1 - Chats
-      postScreen,        // Index 2 - Post
-      cartScreen,        // Index 3 - Cart
-      profileScreen,     // Index 4 - Profile
+      chatScreen,        // Index 0 - Chats
+      homeScreen,        // Index 1 - Home
+      cartScreen,        // Index 2 - Cart
+      profileScreen,     // Index 3 - Profile
     ];
-    
-    // Set feed filter on initialization (for new status implementation)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        context.read<StatusProvider>().setFeedFilter(FeedFilterType.latest);
-      }
-    });
   }
 
   @override
@@ -106,10 +94,10 @@ class _HomeScreenState extends State<HomeScreen>
     
     // Set scaffold background color based on selected tab
     Color scaffoldBackgroundColor;
-    if (pageIndex == 0) {
+    if (pageIndex == 1) {
       // Black background for Home tab
       scaffoldBackgroundColor = Colors.black;
-    } else if (pageIndex == 3) {
+    } else if (pageIndex == 2) {
       // White background for Cart tab
       scaffoldBackgroundColor = Colors.white;
     } else {
@@ -134,12 +122,11 @@ class _HomeScreenState extends State<HomeScreen>
     final elevation = isDarkMode ? 1.0 : 2.0;
 
     return Scaffold(
-      // FIX: Always show AppBar for all tabs
-      // Only show AppBar in chats tab (index 1)
-      appBar: pageIndex == 1 ? AppBar(
+      // Only show AppBar in chats tab (index 0)
+      appBar: pageIndex == 0 ? AppBar(
         elevation: elevation,
         toolbarHeight: 65.0,
-        centerTitle: false,
+        centerTitle: true,  // Set centerTitle to true
         backgroundColor: appBarColor,
         title: RichText(
           text: TextSpan(
@@ -165,7 +152,22 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
         ),
-        actions: [], // No actions in app bar
+        actions: [
+          // Added WiFi button
+          IconButton(
+            icon: Icon(Icons.wifi, color: textColor),
+            onPressed: () {
+              // Show a snackbar when WiFi button is pressed
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('WiFi feature is under development'),
+                  duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+        ],
       ) : null,
       body: Container(
         color: scaffoldBackgroundColor, // Apply consistent background color
@@ -177,8 +179,8 @@ class _HomeScreenState extends State<HomeScreen>
       // Custom bottom nav bar that extends into system nav area
       bottomNavigationBar: Container(
         // Use appropriate color based on tab for bottom nav container
-        color: pageIndex == 0 ? Colors.black : 
-               pageIndex == 3 ? Colors.white : 
+        color: pageIndex == 1 ? Colors.black : 
+               pageIndex == 2 ? Colors.white : 
                Theme.of(context).scaffoldBackgroundColor,
         child: SafeArea(
           child: Column(
@@ -190,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen>
                 thickness: 0.5,
                 color: modernTheme.dividerColor,
               ),
-              // Modern navigation bar with 5 tabs
+              // Modern navigation bar with 4 tabs in the new order
               ModernBottomNavBar(
                 currentIndex: pageIndex,
                 onTap: (index) {
@@ -205,16 +207,12 @@ class _HomeScreenState extends State<HomeScreen>
                 unselectedItemColor: unselectedItemColor,
                 items: const [
                   BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.house, size: 24),
-                    label: 'Home',
-                  ),
-                  BottomNavigationBarItem(
                     icon: Icon(CupertinoIcons.chat_bubble_text, size: 24),
                     label: 'Chats',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.plus_circle, size: 28),
-                    label: 'Post',
+                    icon: Icon(CupertinoIcons.house, size: 24),
+                    label: 'Home',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(CupertinoIcons.cart, size: 24),
@@ -244,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen>
   // Build context-specific floating action button
   Widget? _buildFloatingActionButton(Color accentColor) {
     // Only show FAB for Chats tab
-    if (pageIndex == 1) {
+    if (pageIndex == 0) {
       return FloatingActionButton(
         onPressed: () {
           // Navigate to Contacts screen
