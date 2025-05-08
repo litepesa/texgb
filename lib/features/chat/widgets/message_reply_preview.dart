@@ -5,7 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/message_model.dart';
 import 'package:textgb/models/message_reply_model.dart';
-import 'package:textgb/features/chat/chat_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/display_message_type.dart';
 
 class MessageReplyPreview extends StatelessWidget {

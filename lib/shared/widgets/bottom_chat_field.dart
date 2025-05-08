@@ -9,8 +9,8 @@ import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart'; // Ensure this file exists in your project.
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/enums/enums.dart'; // Ensure this file exists in your project.
-import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/chat/chat_provider.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
 

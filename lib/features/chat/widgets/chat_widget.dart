@@ -5,8 +5,8 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/widgets/unread_message_counter.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/models/last_message_model.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/chat/chat_provider.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 class ChatWidget extends StatelessWidget {

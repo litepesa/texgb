@@ -1,24 +1,25 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/my_chats_screen.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 import 'package:textgb/widgets/modern_bottomnav_bar.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
+class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   int pageIndex = 0;
   
@@ -57,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen>
       case AppLifecycleState.resumed:
         // user comes back to the app
         // update user status to online
-        context.read<AuthenticationProvider>().updateUserStatus(
+        ref.read(authenticationProvider.notifier).updateUserStatus(
               value: true,
             );
         break;
@@ -67,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen>
       case AppLifecycleState.hidden:
         // app is inactive, paused, detached or hidden
         // update user status to offline
-        context.read<AuthenticationProvider>().updateUserStatus(
+        ref.read(authenticationProvider.notifier).updateUserStatus(
               value: false,
             );
         break;

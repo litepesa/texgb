@@ -2,18 +2,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pinput/pinput.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
-class OtpScreen extends StatefulWidget {
+class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
 
   @override
-  State<OtpScreen> createState() => _OTPScreenState();
+  ConsumerState<OtpScreen> createState() => _OTPScreenState();
 }
 
-class _OTPScreenState extends State<OtpScreen> with SingleTickerProviderStateMixin {
+class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProviderStateMixin {
   final controller = TextEditingController();
   final focusNode = FocusNode();
   String? otpCode;
@@ -77,7 +77,7 @@ class _OTPScreenState extends State<OtpScreen> with SingleTickerProviderStateMix
     final verificationId = args[Constants.verificationId] as String;
     final phoneNumber = args[Constants.phoneNumber] as String;
 
-    final authProvider = context.watch<AuthenticationProvider>();
+    final authState = ref.watch(authenticationProvider);
 
     final defaultPinTheme = PinTheme(
       width: 56,
@@ -221,20 +221,24 @@ class _OTPScreenState extends State<OtpScreen> with SingleTickerProviderStateMix
 
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
-                    child: authProvider.isLoading
-                        ? const CircularProgressIndicator(color: Color(0xFF09BB07))
-                        : authProvider.isSuccessful
-                            ? Container(
-                                key: const ValueKey('success'),
-                                height: 60,
-                                width: 60,
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade100,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.check, color: Colors.green, size: 30),
-                              )
-                            : const SizedBox.shrink(),
+                    child: authState.when(
+                      data: (data) => data.isLoading
+                          ? const CircularProgressIndicator(color: Color(0xFF09BB07))
+                          : data.isSuccessful
+                              ? Container(
+                                  key: const ValueKey('success'),
+                                  height: 60,
+                                  width: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade100,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.check, color: Colors.green, size: 30),
+                                )
+                              : const SizedBox.shrink(),
+                      loading: () => const CircularProgressIndicator(color: Color(0xFF09BB07)),
+                      error: (error, stack) => const SizedBox.shrink(),
+                    ),
                   ),
                   const SizedBox(height: 32),
 
@@ -293,17 +297,17 @@ class _OTPScreenState extends State<OtpScreen> with SingleTickerProviderStateMix
     required String verificationId,
     required String otpCode,
   }) async {
-    final authProvider = context.read<AuthenticationProvider>();
-    authProvider.verifyOTPCode(
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    authNotifier.verifyOTPCode(
       verificationId: verificationId,
       otpCode: otpCode,
       context: context,
       onSuccess: () async {
-        bool userExists = await authProvider.checkUserExists();
+        bool userExists = await authNotifier.checkUserExists();
 
         if (userExists) {
-          await authProvider.getUserDataFromFireStore();
-          await authProvider.saveUserDataToSharedPreferences();
+          await authNotifier.getUserDataFromFireStore();
+          await authNotifier.saveUserDataToSharedPreferences();
           navigate(userExits: true);
         } else {
           navigate(userExits: false);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/video/video_provider.dart';
 import 'package:textgb/features/video/widgets/video_player_item.dart';
 import 'package:textgb/models/user_model.dart';

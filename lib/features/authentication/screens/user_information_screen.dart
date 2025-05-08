@@ -1,22 +1,22 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
-class UserInformationScreen extends StatefulWidget {
+class UserInformationScreen extends ConsumerStatefulWidget {
   const UserInformationScreen({super.key});
 
   @override
-  State<UserInformationScreen> createState() => _UserInformationScreenState();
+  ConsumerState<UserInformationScreen> createState() => _UserInformationScreenState();
 }
 
-class _UserInformationScreenState extends State<UserInformationScreen> {
+class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _aboutMeController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -163,12 +163,13 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
       isSubmitting = true;
     });
 
-    final authProvider = context.read<AuthenticationProvider>();
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    final authState = ref.read(authenticationProvider).value;
 
     UserModel userModel = UserModel(
-      uid: authProvider.uid!,
+      uid: authState!.uid!,
       name: _nameController.text.trim(),
-      phoneNumber: authProvider.phoneNumber!,
+      phoneNumber: authState.phoneNumber!,
       image: '',
       token: '',
       aboutMe: _aboutMeController.text.trim(),
@@ -179,11 +180,11 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
       blockedUIDs: [],
     );
 
-    authProvider.saveUserDataToFireStore(
+    authNotifier.saveUserDataToFireStore(
       userModel: userModel,
       fileImage: finalFileImage,
       onSuccess: () async {
-        await authProvider.saveUserDataToSharedPreferences();
+        await authNotifier.saveUserDataToSharedPreferences();
         navigateToHomeScreen();
       },
       onFail: () async {
@@ -228,7 +229,12 @@ class _UserInformationScreenState extends State<UserInformationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = context.watch<AuthenticationProvider>().isLoading || isSubmitting;
+    final authState = ref.watch(authenticationProvider);
+    final isLoading = authState.when(
+      data: (data) => data.isLoading || isSubmitting,
+      loading: () => true,
+      error: (error, stack) => false,
+    );
 
     return WillPopScope(
       onWillPop: _onWillPop,

@@ -2,17 +2,17 @@ import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _phoneNumberController = TextEditingController();
   Country selectedCountry = Country(
     phoneCode: '254',
@@ -49,7 +49,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthenticationProvider>();
+    final authState = ref.watch(authenticationProvider);
+    final authNotifier = ref.read(authenticationProvider.notifier);
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
@@ -284,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? () {
                               final formattedNumber =
                                   formatPhoneNumber(_phoneNumberController.text);
-                              authProvider.signInWithPhoneNumber(
+                              authNotifier.signInWithPhoneNumber(
                                 phoneNumber: formattedNumber,
                                 context: context,
                               );
@@ -301,22 +302,39 @@ class _LoginScreenState extends State<LoginScreen> {
                         elevation: 0,
                         shadowColor: Colors.transparent,
                       ),
-                      child: authProvider.isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
+                      child: authState.when(
+                        data: (data) => data.isLoading
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                'Continue',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            )
-                          : Text(
-                              'Continue',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                        loading: () => const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        ),
+                        error: (error, stack) => Text(
+                          'Continue',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),

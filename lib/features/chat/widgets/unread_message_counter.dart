@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:textgb/features/chat/chat_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 
 class UnreadMessageCounter extends StatelessWidget {
   const UnreadMessageCounter({

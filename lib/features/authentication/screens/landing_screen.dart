@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 import 'package:textgb/shared/widgets/custom_button.dart';
 
-class LandingScreen extends StatefulWidget {
+class LandingScreen extends ConsumerStatefulWidget {
   const LandingScreen({super.key});
 
   @override
-  State<LandingScreen> createState() => _LandingScreenState();
+  ConsumerState<LandingScreen> createState() => _LandingScreenState();
 }
 
-class _LandingScreenState extends State<LandingScreen> {
+class _LandingScreenState extends ConsumerState<LandingScreen> {
   bool _isLoading = true;
 
   @override
@@ -23,8 +23,7 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   void checkAuthentication() async {
-    final authProvider = context.read<AuthenticationProvider>();
-    bool isAuthenticated = await authProvider.checkAuthenticationState();
+    bool isAuthenticated = await ref.read(authenticationProvider.notifier).checkAuthenticationState();
 
     if (isAuthenticated) {
       Navigator.pushReplacementNamed(context, Constants.homeScreen);
