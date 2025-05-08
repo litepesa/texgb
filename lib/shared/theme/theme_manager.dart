@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dark_theme.dart';
 import 'light_theme.dart';
 import 'modern_colors.dart';
+
+part 'theme_manager.g.dart';
 
 enum ThemeOption {
   light,
@@ -12,27 +16,50 @@ enum ThemeOption {
   system
 }
 
-class ThemeManager extends ChangeNotifier {
+class ThemeManagerState {
+  final ThemeOption currentTheme;
+  final ThemeData activeTheme;
+  final bool isDarkMode;
+
+  const ThemeManagerState({
+    required this.currentTheme,
+    required this.activeTheme,
+    required this.isDarkMode,
+  });
+
+  ThemeManagerState copyWith({
+    ThemeOption? currentTheme,
+    ThemeData? activeTheme,
+    bool? isDarkMode,
+  }) {
+    return ThemeManagerState(
+      currentTheme: currentTheme ?? this.currentTheme,
+      activeTheme: activeTheme ?? this.activeTheme,
+      isDarkMode: isDarkMode ?? this.isDarkMode,
+    );
+  }
+}
+
+@riverpod
+class ThemeManager extends _$ThemeManager {
   static const String _themePreferenceKey = 'app_theme';
   
-  // Current selected theme
-  ThemeOption _currentTheme = ThemeOption.system;
-  
-  // Current active theme based on system or user preference
-  late ThemeData _activeTheme;
-  
-  // Getter for current theme option
-  ThemeOption get currentTheme => _currentTheme;
-  
-  // Getter for active theme data
-  ThemeData get activeTheme => _activeTheme;
-  
-  // Getter to check if dark mode is active
-  bool get isDarkMode => _activeTheme.brightness == Brightness.dark;
-  
-  // Constructor initializes with system theme
-  ThemeManager() {
+  @override
+  ThemeManagerState build() {
+    // Get initial platform brightness
+    final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    
+    // Start with system theme
+    final initialTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+    
+    // Load saved theme preference
     _loadSavedTheme();
+    
+    return ThemeManagerState(
+      currentTheme: ThemeOption.system,
+      activeTheme: initialTheme,
+      isDarkMode: isPlatformDark,
+    );
   }
   
   // Initialize theme manager and load saved preference
@@ -47,35 +74,46 @@ class ThemeManager extends ChangeNotifier {
       final savedTheme = prefs.getString(_themePreferenceKey);
       
       if (savedTheme != null) {
-        _currentTheme = ThemeOption.values.firstWhere(
+        final themeOption = ThemeOption.values.firstWhere(
           (element) => element.toString() == savedTheme,
           orElse: () => ThemeOption.system,
         );
+        
+        setTheme(themeOption);
       }
-      
-      _updateActiveTheme();
-      notifyListeners();
     } catch (e) {
       // Default to system theme if there's an error
-      _currentTheme = ThemeOption.system;
-      _updateActiveTheme();
+      setTheme(ThemeOption.system);
     }
   }
   
   // Update the active theme based on current theme selection
-  void _updateActiveTheme() {
-    switch (_currentTheme) {
+  void _updateActiveTheme(ThemeOption option) {
+    final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    
+    ThemeData newTheme;
+    bool isDark;
+    
+    switch (option) {
       case ThemeOption.light:
-        _activeTheme = modernLightTheme();
+        newTheme = modernLightTheme();
+        isDark = false;
         break;
       case ThemeOption.dark:
-        _activeTheme = modernDarkTheme();
+        newTheme = modernDarkTheme();
+        isDark = true;
         break;
       case ThemeOption.system:
-        final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-        _activeTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+        newTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+        isDark = isPlatformDark;
         break;
     }
+    
+    state = state.copyWith(
+      currentTheme: option,
+      activeTheme: newTheme,
+      isDarkMode: isDark,
+    );
     
     // Update system navigation bar to match theme
     updateSystemNavigation();
@@ -83,7 +121,7 @@ class ThemeManager extends ChangeNotifier {
   
   // Update system UI to match theme
   void updateSystemNavigation() {
-    final isDark = _activeTheme.brightness == Brightness.dark;
+    final isDark = state.isDarkMode;
     
     // Set system navigation bar to transparent
     SystemChrome.setSystemUIOverlayStyle(
@@ -113,10 +151,7 @@ class ThemeManager extends ChangeNotifier {
   
   // Change theme and save preference
   Future<void> setTheme(ThemeOption theme) async {
-    if (_currentTheme == theme) return;
-    
-    _currentTheme = theme;
-    _updateActiveTheme();
+    _updateActiveTheme(theme);
     
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -125,8 +160,6 @@ class ThemeManager extends ChangeNotifier {
       // Handle preference saving error
       debugPrint('Error saving theme preference: $e');
     }
-    
-    notifyListeners();
   }
   
   // Toggle between light and dark themes
@@ -134,10 +167,10 @@ class ThemeManager extends ChangeNotifier {
     ThemeOption newTheme;
     
     // If system theme is active, check the current brightness
-    if (_currentTheme == ThemeOption.system) {
+    if (state.currentTheme == ThemeOption.system) {
       final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
       newTheme = isPlatformDark ? ThemeOption.light : ThemeOption.dark;
-    } else if (_currentTheme == ThemeOption.light) {
+    } else if (state.currentTheme == ThemeOption.light) {
       newTheme = ThemeOption.dark;
     } else {
       newTheme = ThemeOption.light;
@@ -148,13 +181,8 @@ class ThemeManager extends ChangeNotifier {
   
   // Listen to system theme changes
   void handleSystemThemeChange() {
-    if (_currentTheme == ThemeOption.system) {
-      _updateActiveTheme();
-      notifyListeners();
+    if (state.currentTheme == ThemeOption.system) {
+      _updateActiveTheme(ThemeOption.system);
     }
   }
-
-  void setDarkMode() {}
-
-  void setLightMode() {}
 }

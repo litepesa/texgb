@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
@@ -17,9 +17,6 @@ import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/chat/chat_provider.dart';
-import 'package:textgb/features/contacts/contacts_provider.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'dart:async';
@@ -62,33 +59,21 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  // Create and initialize theme manager
-  final themeManager = ThemeManager();
-  await themeManager.initialize();
-  
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<ThemeManager>.value(
-          value: themeManager,
-        ),
-        ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
-        ChangeNotifierProvider(create: (_) => ContactsProvider()),
-      ],
+    ProviderScope(
       child: const MyApp(),
     ),
   );
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   Timer? _uiUpdateTimer;
   
   @override
@@ -96,13 +81,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Apply direct system navigation bar fix with a short delay to ensure it's applied after everything is initialized
+    // Initialize theme manager on app start
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(themeManagerProvider.notifier).initialize();
       _forceUpdateSystemUI();
     });
     
     // Schedule periodic updates to ensure the navigation bar stays the correct color
-    // This helps on certain Android versions that might reset the navigation bar
     _uiUpdateTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (mounted) {
         _forceUpdateSystemUI();
@@ -120,7 +105,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
   
   void _forceUpdateSystemUI() {
-    final themeManager = Provider.of<ThemeManager>(context, listen: false);
+    final themeManager = ref.read(themeManagerProvider);
     final isDarkMode = themeManager.isDarkMode;
     
     SystemChrome.setEnabledSystemUIMode(
@@ -143,7 +128,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangePlatformBrightness() {
     // Handle system theme changes
-    final themeManager = Provider.of<ThemeManager>(context, listen: false);
+    final themeManager = ref.read(themeManagerProvider.notifier);
     themeManager.handleSystemThemeChange();
     _forceUpdateSystemUI();
     super.didChangePlatformBrightness();
@@ -152,7 +137,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     // Listen to theme changes
-    final themeManager = Provider.of<ThemeManager>(context);
+    final themeManager = ref.watch(themeManagerProvider);
     
     // Force update system UI every time the theme changes
     WidgetsBinding.instance.addPostFrameCallback((_) {

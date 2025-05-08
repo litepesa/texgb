@@ -5,125 +5,187 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class AuthenticationProvider extends ChangeNotifier {
-  bool _isLoading = false;
-  bool _isSuccessful = false;
-  String? _uid;
-  String? _phoneNumber;
-  UserModel? _userModel;
+part 'authentication_provider.g.dart';
 
-  bool get isLoading => _isLoading;
-  bool get isSuccessful => _isSuccessful;
-  String? get uid => _uid;
-  String? get phoneNumber => _phoneNumber;
-  UserModel? get userModel => _userModel;
+// State class for authentication
+class AuthenticationState {
+  final bool isLoading;
+  final bool isSuccessful;
+  final String? uid;
+  final String? phoneNumber;
+  final UserModel? userModel;
+  final String? error;
 
+  const AuthenticationState({
+    this.isLoading = false,
+    this.isSuccessful = false,
+    this.uid,
+    this.phoneNumber,
+    this.userModel,
+    this.error,
+  });
+
+  AuthenticationState copyWith({
+    bool? isLoading,
+    bool? isSuccessful,
+    String? uid,
+    String? phoneNumber,
+    UserModel? userModel,
+    String? error,
+  }) {
+    return AuthenticationState(
+      isLoading: isLoading ?? this.isLoading,
+      isSuccessful: isSuccessful ?? this.isSuccessful,
+      uid: uid ?? this.uid,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      userModel: userModel ?? this.userModel,
+      error: error,
+    );
+  }
+}
+
+@riverpod
+class Authentication extends _$Authentication {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // check authentication state
+  @override
+  FutureOr<AuthenticationState> build() async {
+    // Check authentication state on initialization
+    final isAuthenticated = await checkAuthenticationState();
+    
+    if (isAuthenticated && _auth.currentUser != null) {
+      final userModel = await getUserDataFromFireStore();
+      await saveUserDataToSharedPreferences();
+      
+      return AuthenticationState(
+        isSuccessful: true,
+        uid: _auth.currentUser!.uid,
+        phoneNumber: _auth.currentUser!.phoneNumber,
+        userModel: userModel,
+      );
+    }
+    
+    return const AuthenticationState();
+  }
+
+  // Check authentication state
   Future<bool> checkAuthenticationState() async {
-    bool isSignedIn = false;
     await Future.delayed(const Duration(seconds: 2));
 
     if (_auth.currentUser != null) {
-      _uid = _auth.currentUser!.uid;
-      // get user data from firestore
-      await getUserDataFromFireStore();
-
-      // save user data to shared preferences
-      await saveUserDataToSharedPreferences();
-
-      notifyListeners();
-
-      isSignedIn = true;
-    } else {
-      isSignedIn = false;
-    }
-
-    return isSignedIn;
-  }
-
-  // check if user exists
-  Future<bool> checkUserExists() async {
-    DocumentSnapshot documentSnapshot =
-        await _firestore.collection(Constants.users).doc(_uid).get();
-    if (documentSnapshot.exists) {
       return true;
-    } else {
-      return false;
     }
+    return false;
   }
 
-  // update user status
+  // Check if user exists
+  Future<bool> checkUserExists() async {
+    final currentState = state.value ?? const AuthenticationState();
+    final uid = currentState.uid ?? _auth.currentUser?.uid;
+    
+    if (uid == null) return false;
+    
+    DocumentSnapshot documentSnapshot =
+        await _firestore.collection(Constants.users).doc(uid).get();
+    return documentSnapshot.exists;
+  }
+
+  // Update user status
   Future<void> updateUserStatus({required bool value}) async {
+    if (_auth.currentUser == null) return;
+    
     await _firestore
         .collection(Constants.users)
         .doc(_auth.currentUser!.uid)
         .update({Constants.isOnline: value});
   }
 
-  // get user data from firestore
-  Future<void> getUserDataFromFireStore() async {
+  // Get user data from firestore
+  Future<UserModel?> getUserDataFromFireStore() async {
+    final currentState = state.value ?? const AuthenticationState();
+    final uid = currentState.uid ?? _auth.currentUser?.uid;
+    
+    if (uid == null) return null;
+    
     DocumentSnapshot documentSnapshot =
-        await _firestore.collection(Constants.users).doc(_uid).get();
-    _userModel =
-        UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-    notifyListeners();
+        await _firestore.collection(Constants.users).doc(uid).get();
+    
+    if (!documentSnapshot.exists) return null;
+    
+    final userModel = UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
+    
+    // Update state with user model
+    state = AsyncValue.data(currentState.copyWith(userModel: userModel));
+    
+    return userModel;
   }
 
-  // save user data to shared preferences
+  // Save user data to shared preferences
   Future<void> saveUserDataToSharedPreferences() async {
+    final currentState = state.value ?? const AuthenticationState();
+    if (currentState.userModel == null) return;
+    
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     await sharedPreferences.setString(
-        Constants.userModel, jsonEncode(userModel!.toMap()));
+        Constants.userModel, jsonEncode(currentState.userModel!.toMap()));
   }
 
-  // get data from shared preferences
+  // Get data from shared preferences
   Future<void> getUserDataFromSharedPreferences() async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
-    String userModelString =
-        sharedPreferences.getString(Constants.userModel) ?? '';
-    _userModel = UserModel.fromMap(jsonDecode(userModelString));
-    _uid = _userModel!.uid;
-    notifyListeners();
+    String userModelString = sharedPreferences.getString(Constants.userModel) ?? '';
+    
+    if (userModelString.isEmpty) return;
+    
+    final userModel = UserModel.fromMap(jsonDecode(userModelString));
+    final currentState = state.value ?? const AuthenticationState();
+    
+    state = AsyncValue.data(currentState.copyWith(
+      userModel: userModel,
+      uid: userModel.uid,
+    ));
   }
 
-  // sign in with phone number
+  // Sign in with phone number
   Future<void> signInWithPhoneNumber({
     required String phoneNumber,
     required BuildContext context,
   }) async {
-    _isLoading = true;
-    notifyListeners();
+    state = AsyncValue.data(const AuthenticationState(isLoading: true));
 
     await _auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       verificationCompleted: (PhoneAuthCredential credential) async {
-        await _auth.signInWithCredential(credential).then((value) async {
-          _uid = value.user!.uid;
-          _phoneNumber = value.user!.phoneNumber;
-          _isSuccessful = true;
-          _isLoading = false;
-          notifyListeners();
-        });
+        try {
+          final userCredential = await _auth.signInWithCredential(credential);
+          
+          state = AsyncValue.data(AuthenticationState(
+            isSuccessful: true,
+            uid: userCredential.user!.uid,
+            phoneNumber: userCredential.user!.phoneNumber,
+          ));
+        } catch (e) {
+          state = AsyncValue.error(e, StackTrace.current);
+          showSnackBar(context, e.toString());
+        }
       },
       verificationFailed: (FirebaseAuthException e) {
-        _isSuccessful = false;
-        _isLoading = false;
-        notifyListeners();
+        state = AsyncValue.error(e, StackTrace.current);
         showSnackBar(context, e.toString());
       },
       codeSent: (String verificationId, int? resendToken) async {
-        _isLoading = false;
-        notifyListeners();
-        // navigate to otp screen
+        state = AsyncValue.data(const AuthenticationState());
+        
+        // Navigate to OTP screen
         Navigator.of(context).pushNamed(
           Constants.otpScreen,
           arguments: {
@@ -136,49 +198,48 @@ class AuthenticationProvider extends ChangeNotifier {
     );
   }
 
-  // verify otp code
+  // Verify OTP code
   Future<void> verifyOTPCode({
     required String verificationId,
     required String otpCode,
     required BuildContext context,
     required Function onSuccess,
   }) async {
-    _isLoading = true;
-    notifyListeners();
+    state = AsyncValue.data(const AuthenticationState(isLoading: true));
 
     final credential = PhoneAuthProvider.credential(
       verificationId: verificationId,
       smsCode: otpCode,
     );
 
-    await _auth.signInWithCredential(credential).then((value) async {
-      _uid = value.user!.uid;
-      _phoneNumber = value.user!.phoneNumber;
-      _isSuccessful = true;
-      _isLoading = false;
+    try {
+      final userCredential = await _auth.signInWithCredential(credential);
+      
+      state = AsyncValue.data(AuthenticationState(
+        isSuccessful: true,
+        uid: userCredential.user!.uid,
+        phoneNumber: userCredential.user!.phoneNumber,
+      ));
+      
       onSuccess();
-      notifyListeners();
-    }).catchError((e) {
-      _isSuccessful = false;
-      _isLoading = false;
-      notifyListeners();
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
       showSnackBar(context, e.toString());
-    });
+    }
   }
 
-  // save user data to firestore
-  void saveUserDataToFireStore({
+  // Save user data to firestore
+  Future<void> saveUserDataToFireStore({
     required UserModel userModel,
     required File? fileImage,
     required Function onSuccess,
     required Function onFail,
   }) async {
-    _isLoading = true;
-    notifyListeners();
+    state = AsyncValue.data(const AuthenticationState(isLoading: true));
 
     try {
       if (fileImage != null) {
-        // upload image to storage
+        // Upload image to storage
         String imageUrl = await storeFileToStorage(
             file: fileImage,
             reference: '${Constants.userImages}/${userModel.uid}');
@@ -189,31 +250,31 @@ class AuthenticationProvider extends ChangeNotifier {
       userModel.lastSeen = DateTime.now().microsecondsSinceEpoch.toString();
       userModel.createdAt = DateTime.now().microsecondsSinceEpoch.toString();
 
-      _userModel = userModel;
-      _uid = userModel.uid;
-
-      // save user data to firestore
+      // Save user data to firestore
       await _firestore
           .collection(Constants.users)
           .doc(userModel.uid)
           .set(userModel.toMap());
 
-      _isLoading = false;
+      state = AsyncValue.data(AuthenticationState(
+        isSuccessful: true,
+        userModel: userModel,
+        uid: userModel.uid,
+      ));
+      
       onSuccess();
-      notifyListeners();
     } on FirebaseException catch (e) {
-      _isLoading = false;
-      notifyListeners();
+      state = AsyncValue.error(e, StackTrace.current);
       onFail(e.toString());
     }
   }
 
-  // get user stream
+  // Get user stream
   Stream<DocumentSnapshot> userStream({required String userID}) {
     return _firestore.collection(Constants.users).doc(userID).snapshots();
   }
 
-  // get all users stream
+  // Get all users stream
   Stream<QuerySnapshot> getAllUsersStream({required String userID}) {
     return _firestore
         .collection(Constants.users)
@@ -225,64 +286,88 @@ class AuthenticationProvider extends ChangeNotifier {
   Future<void> addContact({
     required String contactID,
   }) async {
+    final currentState = state.value;
+    if (currentState?.userModel == null) return;
+    
     try {
       // Add contact to user's contacts list
-      await _firestore.collection(Constants.users).doc(_uid).update({
+      await _firestore.collection(Constants.users).doc(currentState!.userModel!.uid).update({
         Constants.contactsUIDs: FieldValue.arrayUnion([contactID]),
       });
       
       // Update local model
-      _userModel!.contactsUIDs.add(contactID);
-      notifyListeners();
+      final updatedUser = currentState.userModel!.copyWith();
+      updatedUser.contactsUIDs.add(contactID);
+      
+      state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
     } on FirebaseException catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
       debugPrint(e.toString());
     }
   }
 
   // Remove contact from user's contacts
   Future<void> removeContact({required String contactID}) async {
+    final currentState = state.value;
+    if (currentState?.userModel == null) return;
+    
     try {
       // Remove contact from user's contacts list
-      await _firestore.collection(Constants.users).doc(_uid).update({
+      await _firestore.collection(Constants.users).doc(currentState!.userModel!.uid).update({
         Constants.contactsUIDs: FieldValue.arrayRemove([contactID]),
       });
       
       // Update local model
-      _userModel!.contactsUIDs.remove(contactID);
-      notifyListeners();
+      final updatedUser = currentState.userModel!.copyWith();
+      updatedUser.contactsUIDs.remove(contactID);
+      
+      state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
     } on FirebaseException catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
       debugPrint(e.toString());
     }
   }
 
   // Block a contact
   Future<void> blockContact({required String contactID}) async {
+    final currentState = state.value;
+    if (currentState?.userModel == null) return;
+    
     try {
       // Add contact to blocked list
-      await _firestore.collection(Constants.users).doc(_uid).update({
+      await _firestore.collection(Constants.users).doc(currentState!.userModel!.uid).update({
         Constants.blockedUIDs: FieldValue.arrayUnion([contactID]),
       });
       
       // Update local model
-      _userModel!.blockedUIDs.add(contactID);
-      notifyListeners();
+      final updatedUser = currentState.userModel!.copyWith();
+      updatedUser.blockedUIDs.add(contactID);
+      
+      state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
     } on FirebaseException catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
       debugPrint(e.toString());
     }
   }
 
   // Unblock a contact
   Future<void> unblockContact({required String contactID}) async {
+    final currentState = state.value;
+    if (currentState?.userModel == null) return;
+    
     try {
       // Remove contact from blocked list
-      await _firestore.collection(Constants.users).doc(_uid).update({
+      await _firestore.collection(Constants.users).doc(currentState!.userModel!.uid).update({
         Constants.blockedUIDs: FieldValue.arrayRemove([contactID]),
       });
       
       // Update local model
-      _userModel!.blockedUIDs.remove(contactID);
-      notifyListeners();
+      final updatedUser = currentState.userModel!.copyWith();
+      updatedUser.blockedUIDs.remove(contactID);
+      
+      state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
     } on FirebaseException catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
       debugPrint(e.toString());
     }
   }
@@ -365,17 +450,16 @@ class AuthenticationProvider extends ChangeNotifier {
     await _auth.signOut();
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     await sharedPreferences.clear();
-    notifyListeners();
+    
+    // Reset state
+    state = const AsyncValue.data(AuthenticationState());
   }
-
-  // Add this method to your AuthenticationProvider class in lib/providers/authentication_provider.dart
 
   // Update user profile data in Firestore
   Future<void> updateUserProfile(UserModel updatedUser) async {
+    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    
     try {
-      _isLoading = true;
-      notifyListeners();
-
       // Update user data in Firestore
       await _firestore
           .collection(Constants.users)
@@ -383,18 +467,18 @@ class AuthenticationProvider extends ChangeNotifier {
           .update(updatedUser.toMap());
 
       // Update local user model
-      _userModel = updatedUser;
+      final currentState = state.value ?? const AuthenticationState();
+      
+      state = AsyncValue.data(currentState.copyWith(
+        userModel: updatedUser,
+        isLoading: false,
+      ));
 
       // Save updated user data to shared preferences
       await saveUserDataToSharedPreferences();
-
-      _isLoading = false;
-      notifyListeners();
     } on FirebaseException catch (e) {
-      _isLoading = false;
-      notifyListeners();
+      state = AsyncValue.error(e, StackTrace.current);
       throw e.toString();
     }
   }
-
-} 
+}
