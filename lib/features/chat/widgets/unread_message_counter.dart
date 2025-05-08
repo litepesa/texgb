@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 
-class UnreadMessageCounter extends StatelessWidget {
+class UnreadMessageCounter extends ConsumerWidget {
   const UnreadMessageCounter({
     super.key,
     required this.uid,
@@ -15,13 +15,15 @@ class UnreadMessageCounter extends StatelessWidget {
   final bool isGroup;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadMessagesStream = ref.watch(chatProvider.notifier).getUnreadMessagesStream(
+          userId: uid,
+          contactUID: contactUID,
+          isGroup: isGroup,
+        );
+
     return StreamBuilder<int>(
-        stream: context.read<ChatProvider>().getUnreadMessagesStream(
-              userId: uid,
-              contactUID: contactUID,
-              isGroup: isGroup,
-            ),
+        stream: unreadMessagesStream,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return const SizedBox();

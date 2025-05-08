@@ -3,20 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:flutter_chat_reactions/utilities/hero_dialog_route.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grouped_list/grouped_list.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:textgb/models/message_model.dart';
 import 'package:textgb/models/message_reply_model.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/features/chat/widgets/align_message_left_widget.dart';
 import 'package:textgb/features/chat/widgets/align_message_right_widget.dart';
 import 'package:textgb/features/chat/widgets/message_widget.dart';
 
-class ChatList extends StatefulWidget {
+class ChatList extends ConsumerStatefulWidget {
   const ChatList({
     super.key,
     required this.contactUID,
@@ -27,10 +27,10 @@ class ChatList extends StatefulWidget {
   final String groupId; // Kept for backward compatibility
 
   @override
-  State<ChatList> createState() => _ChatListState();
+  ConsumerState<ChatList> createState() => _ChatListState();
 }
 
-class _ChatListState extends State<ChatList> {
+class _ChatListState extends ConsumerState<ChatList> {
   // scroll controller
   final ScrollController _scrollController = ScrollController();
 
@@ -132,10 +132,10 @@ class _ChatListState extends State<ChatList> {
   @override
   Widget build(BuildContext context) {
     // current user uid
-    final uid = context.read<AuthenticationProvider>().userModel!.uid;
+    final uid = ref.read(currentUserProvider)?.uid ?? '';
     
     return StreamBuilder<List<MessageModel>>(
-      stream: context.read<ChatProvider>().getMessagesStream(
+      stream: ref.read(chatProvider.notifier).getMessagesStream(
             userId: uid,
             contactUID: widget.contactUID,
             isGroup: '', // Always pass empty string since groups are removed
@@ -188,7 +188,7 @@ class _ChatListState extends State<ChatList> {
             itemBuilder: (context, MessageModel message) {
               // Handle message status for direct chat only
               if (!message.isSeen && message.senderUID != uid) {
-                context.read<ChatProvider>().setMessageStatus(
+                ref.read(chatProvider.notifier).setMessageStatus(
                       currentUserId: uid,
                       contactUID: widget.contactUID,
                       messageId: message.messageId,
@@ -260,8 +260,8 @@ class _ChatListState extends State<ChatList> {
                               isMe: isMe,
                             );
 
-                            context
-                                .read<ChatProvider>()
+                            ref
+                                .read(chatProvider.notifier)
                                 .setMessageReplyModel(messageReply);
                           },
                           isMe: isMe,

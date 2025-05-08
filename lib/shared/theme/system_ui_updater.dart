@@ -1,27 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 
 /// A widget that automatically updates system UI colors to match the current theme
-/// This ensures the system navigation bar colors are consistent
-class SystemUIUpdater extends StatefulWidget {
+/// This ensures the system navigation bar colors are consistent with the app theme
+class SystemUIUpdater extends ConsumerStatefulWidget {
   final Widget child;
   
   const SystemUIUpdater({super.key, required this.child});
   
   @override
-  State<SystemUIUpdater> createState() => _SystemUIUpdaterState();
+  ConsumerState<SystemUIUpdater> createState() => _SystemUIUpdaterState();
 }
 
-class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingObserver {
+class _SystemUIUpdaterState extends ConsumerState<SystemUIUpdater> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateUI();
-    });
+    // Initial update will happen in didChangeDependencies
   }
   
   @override
@@ -39,12 +37,18 @@ class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingOb
   @override
   void didChangePlatformBrightness() {
     _updateUI();
+    
+    // Notify ThemeManager about system theme change
+    final themeNotifier = ref.read(themeManagerNotifierProvider.notifier);
+    themeNotifier.handleSystemThemeChange();
+    
     super.didChangePlatformBrightness();
   }
   
   void _updateUI() {
-    final themeManager = Provider.of<ThemeManager>(context, listen: false);
-    final isDarkMode = themeManager.isDarkMode;
+    // Watch the theme state
+    final themeState = ref.read(themeManagerNotifierProvider);
+    final isDarkMode = themeState.isDarkMode;
     
     // Force edge-to-edge mode for better control of system bars
     SystemChrome.setEnabledSystemUIMode(
@@ -89,10 +93,7 @@ class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingOb
   @override
   Widget build(BuildContext context) {
     // Listen for theme changes
-    final themeManager = Provider.of<ThemeManager>(context);
-    
-    // Update the UI whenever the theme changes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    ref.listen(themeManagerNotifierProvider, (previous, next) {
       _updateUI();
     });
     

@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class ProfileStatusWidget extends StatelessWidget {
+class ProfileStatusWidget extends ConsumerWidget {
   const ProfileStatusWidget({
     Key? key,
     required this.userModel,
-    required this.currentUser,
   }) : super(key: key);
 
   final UserModel userModel;
-  final UserModel currentUser;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(authenticationProvider).valueOrNull?.userModel;
+    if (currentUser == null) return const SizedBox.shrink();
+
     // If viewing our own profile
     if (currentUser.uid == userModel.uid) {
       return const SizedBox.shrink();
@@ -35,8 +36,7 @@ class ProfileStatusWidget extends StatelessWidget {
           const SizedBox(width: 8),
           OutlinedButton(
             onPressed: () async {
-              final authProvider = context.read<AuthenticationProvider>();
-              await authProvider.unblockContact(contactID: userModel.uid);
+              await ref.read(authenticationProvider.notifier).unblockContact(contactID: userModel.uid);
               showSnackBar(context, '${userModel.name} has been unblocked');
             },
             style: OutlinedButton.styleFrom(
@@ -90,8 +90,7 @@ class ProfileStatusWidget extends StatelessWidget {
       // Show add contact button for non-contacts
       return OutlinedButton.icon(
         onPressed: () async {
-          final authProvider = context.read<AuthenticationProvider>();
-          await authProvider.addContact(contactID: userModel.uid);
+          await ref.read(authenticationProvider.notifier).addContact(contactID: userModel.uid);
           showSnackBar(context, '${userModel.name} added to your contacts');
         },
         icon: const Icon(Icons.person_add_alt_1),

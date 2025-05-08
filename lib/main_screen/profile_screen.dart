@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -10,37 +10,53 @@ import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/widgets/settings_list_tile.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  bool isDarkMode = false;
-
-  // get the saved theme mode
-  void getThemeMode() async {
-    // get the theme manager
-    final themeManager = Provider.of<ThemeManager>(context, listen: false);
-    // check if the saved theme mode is dark
-    setState(() {
-      isDarkMode = themeManager.isDarkMode;
-    });
-  }
-
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
-    getThemeMode();
     super.initState();
+    // No need for explicit initialization as the ThemeManagerNotifier's build handles it
   }
 
   @override
   Widget build(BuildContext context) {
-    // get user data from arguments
+    // Get authentication state
+    final authState = ref.watch(authenticationProvider);
+    
+    // Get theme state from the ThemeManagerNotifier
+    final themeState = ref.watch(themeManagerNotifierProvider);
+    final isDarkMode = themeState.isDarkMode;
+    
+    // Handle loading/error states
+    if (authState.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    if (authState.hasError) {
+      return Scaffold(
+        body: Center(child: Text('Error: ${authState.error}')),
+      );
+    }
+    
+    // Get user data from arguments
     final uid = ModalRoute.of(context)!.settings.arguments as String;
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
+    
+    // Check if we have valid authentication state data
+    if (authState.value == null || authState.value!.userModel == null) {
+      return const Scaffold(
+        body: Center(child: Text('User data not available')),
+      );
+    }
+    
+    final currentUser = authState.value!.userModel!;
     final bool isCurrentUser = uid == currentUser.uid;
     
     return Scaffold(
@@ -55,12 +71,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           if (!isCurrentUser) PopupMenuButton<String>(
             onSelected: (value) async {
-              final authProvider = context.read<AuthenticationProvider>();
               if (value == 'block') {
                 // Show confirmation dialog
                 bool confirmed = await _showBlockConfirmation(context);
                 if (confirmed) {
-                  await authProvider.blockContact(contactID: uid);
+                  await ref.read(authenticationProvider.notifier).blockContact(contactID: uid);
                   showSnackBar(context, 'User has been blocked');
                   Navigator.pop(context);
                 }
@@ -68,11 +83,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // Show confirmation dialog
                 bool confirmed = await _showRemoveConfirmation(context);
                 if (confirmed) {
-                  await authProvider.removeContact(contactID: uid);
+                  await ref.read(authenticationProvider.notifier).removeContact(contactID: uid);
                   showSnackBar(context, 'Contact has been removed');
                 }
               } else if (value == 'unblock') {
-                await authProvider.unblockContact(contactID: uid);
+                await ref.read(authenticationProvider.notifier).unblockContact(contactID: uid);
                 showSnackBar(context, 'User has been unblocked');
               }
             },
@@ -103,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: StreamBuilder(
-        stream: context.read<AuthenticationProvider>().userStream(userID: uid),
+        stream: ref.read(authenticationProvider.notifier).userStream(userID: uid),
         builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
           if (snapshot.hasError) {
             return const Center(child: Text('Something went wrong'));
@@ -131,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _buildProfileCard(userModel),
                   if (isBlocked) 
-                    _buildBlockedBanner(),
+                    _buildBlockedBanner(uid),
                   
                   if (!isCurrentUser && !isBlocked) 
                     _buildActionButtons(context, userModel, isContact),
@@ -148,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    _buildSettingsCards(context),
+                    _buildSettingsCards(context, isDarkMode),
                   ],
                 ],
               ),
@@ -235,7 +250,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              userModel.aboutMe.isEmpty ? 'No about information provided' : userModel.aboutMe,
+              userModel
+                  .aboutMe
+                  .isEmpty ? 'No about information provided' : userModel.aboutMe,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[700],
@@ -247,7 +264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildBlockedBanner() {
+  Widget _buildBlockedBanner(String uid) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
       padding: const EdgeInsets.all(12),
@@ -259,9 +276,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.block, color: Colors.red),
-          SizedBox(width: 12),
-          Expanded(
+          const Icon(Icons.block, color: Colors.red),
+          const SizedBox(width: 12),
+          const Expanded(
             child: Text(
               'You have blocked this user',
               style: TextStyle(
@@ -272,12 +289,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextButton(
             onPressed: () async {
-              final authProvider = context.read<AuthenticationProvider>();
-              final uid = ModalRoute.of(context)!.settings.arguments as String;
-              await authProvider.unblockContact(contactID: uid);
+              await ref.read(authenticationProvider.notifier).unblockContact(contactID: uid);
               showSnackBar(context, 'User has been unblocked');
             },
-            child: Text('Unblock'),
+            child: const Text('Unblock'),
           ),
         ],
       ),
@@ -311,17 +326,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Expanded(
             child: ElevatedButton.icon(
               onPressed: () async {
-                final authProvider = context.read<AuthenticationProvider>();
                 if (isContact) {
                   // Show confirmation dialog
                   bool confirmed = await _showRemoveConfirmation(context);
                   if (confirmed) {
-                    await authProvider.removeContact(contactID: userModel.uid);
+                    await ref.read(authenticationProvider.notifier).removeContact(contactID: userModel.uid);
                     showSnackBar(context, 'Contact has been removed');
                   }
                 } else {
                   // Add contact
-                  await authProvider.addContact(contactID: userModel.uid);
+                  await ref.read(authenticationProvider.notifier).addContact(contactID: userModel.uid);
                   showSnackBar(context, '${userModel.name} added to your contacts');
                 }
               },
@@ -338,9 +352,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSettingsCards(BuildContext context) {
-    final themeManager = Provider.of<ThemeManager>(context, listen: false);
-    
+  Widget _buildSettingsCards(BuildContext context, bool isDarkMode) {
     return Column(
       children: [
         Card(
@@ -421,40 +433,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 10),
         Card(
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Container(
-              decoration: BoxDecoration(
-                color: Colors.deepPurple,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Icon(
-                  isDarkMode
-                      ? Icons.nightlight_round
-                      : Icons.wb_sunny_rounded,
-                  color: isDarkMode ? Colors.black : Colors.white,
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
+                leading: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Icon(
+                      isDarkMode
+                          ? Icons.nightlight_round
+                          : Icons.wb_sunny_rounded,
+                      color: isDarkMode ? Colors.black : Colors.white,
+                    ),
+                  ),
+                ),
+                title: const Text('Dark Mode'),
+                trailing: Switch(
+                  value: isDarkMode,
+                  onChanged: (_) {
+                    // Toggle theme using the ThemeManagerNotifier
+                    ref.read(themeManagerNotifierProvider.notifier).toggleTheme();
+                  },
                 ),
               ),
-            ),
-            title: const Text('Change theme'),
-            trailing: Switch(
-                value: isDarkMode,
-                onChanged: (value) {
-                  // set the isDarkMode to the value
-                  setState(() {
-                    isDarkMode = value;
-                  });
-                  // check if the value is true
-                  if (value) {
-                    // set the theme mode to dark
-                    themeManager.setDarkMode();
-                  } else {
-                    // set the theme mode to light
-                    themeManager.setLightMode();
-                  }
-                }),
+              SettingsListTile(
+                title: 'Theme Settings',
+                icon: Icons.color_lens,
+                iconContainerColor: Colors.orange,
+                onTap: () {
+                  _showThemeOptions(context);
+                },
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 10),
@@ -471,11 +486,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Logout',
                     content: 'Are you sure you want to logout?',
                     textAction: 'Logout',
-                    onActionTap: (value) {
+                    onActionTap: (value) async {
                       if (value) {
                         // logout
-                        context
-                            .read<AuthenticationProvider>()
+                        await ref.read(authenticationProvider.notifier)
                             .logout()
                             .whenComplete(() {
                           Navigator.pop(context);
@@ -494,6 +508,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // Show theme options dialog
+  void _showThemeOptions(BuildContext context) {
+    final currentThemeOption = ref.read(themeManagerNotifierProvider).currentTheme;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Theme Settings'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildThemeOptionTile(
+              context: context,
+              title: 'Light Theme',
+              icon: Icons.wb_sunny,
+              isSelected: currentThemeOption == ThemeOption.light,
+              onTap: () {
+                ref.read(themeManagerNotifierProvider.notifier).setTheme(ThemeOption.light);
+                Navigator.pop(context);
+              },
+            ),
+            _buildThemeOptionTile(
+              context: context,
+              title: 'Dark Theme',
+              icon: Icons.nightlight_round,
+              isSelected: currentThemeOption == ThemeOption.dark,
+              onTap: () {
+                ref.read(themeManagerNotifierProvider.notifier).setTheme(ThemeOption.dark);
+                Navigator.pop(context);
+              },
+            ),
+            _buildThemeOptionTile(
+              context: context,
+              title: 'System Default',
+              icon: Icons.brightness_auto,
+              isSelected: currentThemeOption == ThemeOption.system,
+              onTap: () {
+                ref.read(themeManagerNotifierProvider.notifier).setTheme(ThemeOption.system);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method for theme option tiles
+  Widget _buildThemeOptionTile({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
+      onTap: onTap,
     );
   }
 

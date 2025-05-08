@@ -60,8 +60,8 @@ void main() async {
   );
   
   runApp(
-    ProviderScope(
-      child: const MyApp(),
+    const ProviderScope(
+      child: MyApp(),
     ),
   );
 }
@@ -81,12 +81,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Initialize theme manager on app start
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(themeManagerProvider.notifier).initialize();
-      _forceUpdateSystemUI();
-    });
-    
     // Schedule periodic updates to ensure the navigation bar stays the correct color
     _uiUpdateTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (mounted) {
@@ -105,8 +99,11 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
   
   void _forceUpdateSystemUI() {
-    final themeManager = ref.read(themeManagerProvider);
-    final isDarkMode = themeManager.isDarkMode;
+    final themeState = ref.read(themeManagerNotifierProvider);
+    
+    if (!themeState.hasValue) return;
+    
+    final isDarkMode = themeState.isDarkMode;
     
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
@@ -128,8 +125,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void didChangePlatformBrightness() {
     // Handle system theme changes
-    final themeManager = ref.read(themeManagerProvider.notifier);
-    themeManager.handleSystemThemeChange();
+    final themeNotifier = ref.read(themeManagerNotifierProvider.notifier);
+    themeNotifier.handleSystemThemeChange();
     _forceUpdateSystemUI();
     super.didChangePlatformBrightness();
   }
@@ -137,17 +134,41 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     // Listen to theme changes
-    final themeManager = ref.watch(themeManagerProvider);
+    final themeState = ref.watch(themeManagerNotifierProvider);
     
     // Force update system UI every time the theme changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _forceUpdateSystemUI();
     });
     
+    // Show loading indicator while theme is initializing
+    if (themeState.isLoading) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+    
+    // Handle error
+    if (themeState.hasError) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: Text('Error loading theme: ${themeState.error}'),
+          ),
+        ),
+      );
+    }
+    
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'TexGB',
-      theme: themeManager.activeTheme,
+      theme: themeState.activeTheme,
       initialRoute: Constants.landingScreen,
       routes: {
         Constants.landingScreen: (context) => const LandingScreen(),

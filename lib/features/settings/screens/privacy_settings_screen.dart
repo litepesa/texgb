@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
-class PrivacySettingsScreen extends StatefulWidget {
+class PrivacySettingsScreen extends ConsumerStatefulWidget {
   const PrivacySettingsScreen({Key? key}) : super(key: key);
 
   @override
-  State<PrivacySettingsScreen> createState() => _PrivacySettingsScreenState();
+  ConsumerState<PrivacySettingsScreen> createState() => _PrivacySettingsScreenState();
 }
 
-class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
+class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
   bool _isLastSeenEnabled = true;
   bool _isReadReceiptsEnabled = true;
   bool _isTypingIndicatorEnabled = true;
@@ -25,14 +25,11 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   }
   
   Future<void> _loadSettings() async {
-    // In a real app, these would be loaded from the user's settings
-    // For now, just using some defaults
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
-    final user = authProvider.userModel;
+    // Get user from Riverpod
+    final user = ref.read(currentUserProvider);
     
     if (user != null) {
       // Example of how you might load these from user preferences
-      // In a real app, these would come from a settings provider or repository
       setState(() {
         _isLastSeenEnabled = true; // default values
         _isReadReceiptsEnabled = true;
@@ -44,7 +41,6 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   }
   
   Future<void> _saveSettings() async {
-    // In a real app, these would be saved to the user's settings
     // Show a saving indicator
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

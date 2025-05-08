@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class ProfileWidget extends StatelessWidget {
+class ProfileWidget extends ConsumerWidget {
   const ProfileWidget({
     super.key,
     required this.userModel,
@@ -18,8 +18,10 @@ class ProfileWidget extends StatelessWidget {
   final bool showActions;
 
   @override
-  Widget build(BuildContext context) {
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(authenticationProvider).valueOrNull?.userModel;
+    if (currentUser == null) return const SizedBox.shrink();
+
     final bool isCurrentUser = currentUser.uid == userModel.uid;
     final bool isContact = currentUser.contactsUIDs.contains(userModel.uid);
     final bool isBlocked = currentUser.blockedUIDs.contains(userModel.uid);
@@ -84,9 +86,6 @@ class ProfileWidget extends StatelessWidget {
                   : null,
             ),
             
-            // Removed online status indicator for privacy
-            // Removed phone number display for privacy
-
             // Action buttons - No direct message option for privacy
             if (showActions && !isCurrentUser)
               Padding(
@@ -98,9 +97,7 @@ class ProfileWidget extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            await context
-                                .read<AuthenticationProvider>()
-                                .unblockContact(contactID: userModel.uid);
+                            await ref.read(authenticationProvider.notifier).unblockContact(contactID: userModel.uid);
                             showSnackBar(
                                 context, '${userModel.name} has been unblocked');
                           },
@@ -112,8 +109,6 @@ class ProfileWidget extends StatelessWidget {
                         ),
                       )
                     else ...[
-                      // Removed message button for privacy
-                      // Only show add/remove contact button
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
@@ -122,16 +117,12 @@ class ProfileWidget extends StatelessWidget {
                               bool confirmed =
                                   await _showRemoveConfirmation(context);
                               if (confirmed) {
-                                await context
-                                    .read<AuthenticationProvider>()
-                                    .removeContact(contactID: userModel.uid);
+                                await ref.read(authenticationProvider.notifier).removeContact(contactID: userModel.uid);
                                 showSnackBar(context,
                                     '${userModel.name} removed from contacts');
                               }
                             } else {
-                              await context
-                                  .read<AuthenticationProvider>()
-                                  .addContact(contactID: userModel.uid);
+                              await ref.read(authenticationProvider.notifier).addContact(contactID: userModel.uid);
                               showSnackBar(context,
                                   '${userModel.name} added to contacts');
                             }

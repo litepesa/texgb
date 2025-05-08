@@ -1,31 +1,24 @@
-// lib/features/chat/widgets/chat_app_bar.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class ChatAppBar extends StatefulWidget {
+class ChatAppBar extends ConsumerWidget {
   const ChatAppBar({super.key, required this.contactUID});
 
   final String contactUID;
 
   @override
-  State<ChatAppBar> createState() => _ChatAppBarState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userStream = ref.watch(authenticationProvider.notifier).userStream(userID: contactUID);
 
-class _ChatAppBarState extends State<ChatAppBar> {
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: context
-          .read<AuthenticationProvider>()
-          .userStream(userID: widget.contactUID),
-      builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: userStream,
+      builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Center(child: Text('Something went wrong'));
         }
@@ -34,8 +27,7 @@ class _ChatAppBarState extends State<ChatAppBar> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final userModel =
-            UserModel.fromMap(snapshot.data!.data() as Map<String, dynamic>);
+        final userModel = UserModel.fromMap(snapshot.data!.data() as Map<String, dynamic>);
 
         return Row(
           children: [
@@ -43,7 +35,6 @@ class _ChatAppBarState extends State<ChatAppBar> {
               imageUrl: userModel.image,
               radius: 20,
               onTap: () {
-                // navigate to this friends profile with uid as argument
                 Navigator.pushNamed(context, Constants.contactProfileScreen,
                     arguments: userModel.uid);
               },

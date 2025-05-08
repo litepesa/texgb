@@ -1,24 +1,23 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_sound_record/flutter_sound_record.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:provider/provider.dart';
-import 'package:textgb/constants.dart'; // Ensure this file exists in your project.
+import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/enums/enums.dart'; // Ensure this file exists in your project.
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
 
+part 'recording_indicator.dart';
+part 'more_options_grid.dart';
 
-part 'recording_indicator.dart'; // Ensure this file exists in your project.
-part 'more_options_grid.dart'; // Ensure this file exists in your project.
-
-class BottomChatField extends StatefulWidget {
+class BottomChatField extends ConsumerStatefulWidget {
   const BottomChatField({
     super.key,
     required this.contactUID,
@@ -33,10 +32,10 @@ class BottomChatField extends StatefulWidget {
   final String groupId;
 
   @override
-  State<BottomChatField> createState() => _BottomChatFieldState();
+  ConsumerState<BottomChatField> createState() => _BottomChatFieldState();
 }
 
-class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProviderStateMixin {
+class _BottomChatFieldState extends ConsumerState<BottomChatField> with SingleTickerProviderStateMixin {
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
   late final TextEditingController _textEditingController;
@@ -337,9 +336,11 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
     required MessageEnum messageType,
   }) async {
     try {
-      final currentUser = context.read<AuthenticationProvider>().userModel!;
-      final chatProvider = context.read<ChatProvider>();
-      await chatProvider.sendFileMessage(
+      final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+      if (currentUser == null) return;
+
+      final chatNotifier = ref.read(chatProvider.notifier);
+      await chatNotifier.sendFileMessage(
         sender: currentUser,
         contactUID: widget.contactUID,
         contactName: widget.contactName,
@@ -347,7 +348,7 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
         file: File(_filePath),
         messageType: messageType,
         groupId: widget.groupId,
-        onSucess: () {
+        onSuccess: () {
           if (mounted) {
             _textEditingController.clear();
             _focusNode.unfocus();
@@ -385,9 +386,11 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
     if (_textEditingController.text.trim().isEmpty) return;
     HapticFeedback.lightImpact();
     try {
-      final currentUser = context.read<AuthenticationProvider>().userModel!;
-      final chatProvider = context.read<ChatProvider>();
-      chatProvider.sendTextMessage(
+      final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+      if (currentUser == null) return;
+
+      final chatNotifier = ref.read(chatProvider.notifier);
+      chatNotifier.sendTextMessage(
         sender: currentUser,
         contactUID: widget.contactUID,
         contactName: widget.contactName,
@@ -395,7 +398,7 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
         message: _textEditingController.text.trim(),
         messageType: MessageEnum.text,
         groupId: widget.groupId,
-        onSucess: () {
+        onSuccess: () {
           if (mounted) {
             _textEditingController.clear();
             setState(() => _isShowSendButton = false);
@@ -425,39 +428,18 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
     final inputBackgroundColor = themeExtension?.inputBackgroundColor ?? const Color(0xFF252D31);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
+    final chatState = ref.watch(chatStateProvider);
+    final isLoading = ref.watch(chatProvider.select((state) => state.value?.isLoading ?? false));
+    final messageReply = ref.watch(messageReplyProvider);
+
     return SafeArea(
       bottom: true,
       child: Padding(
         padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 0),
-        child: _buildBottomChatField(
-          backgroundColor,
-          surfaceColor,
-          accentColor,
-          textColor,
-          textSecondaryColor,
-          inputBackgroundColor,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomChatField(
-    Color backgroundColor,
-    Color surfaceColor,
-    Color accentColor,
-    Color textColor,
-    Color textSecondaryColor,
-    Color inputBackgroundColor,
-  ) {
-    return Consumer<ChatProvider>(
-      builder: (context, chatProvider, child) {
-        final messageReply = chatProvider.messageReplyModel;
-        final isMessageReply = messageReply != null;
-
-        return Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isMessageReply)
+            if (messageReply != null)
               Container(
                 padding: const EdgeInsets.all(8.0),
                 color: surfaceColor,
@@ -587,7 +569,7 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
                         ),
                       ),
                     if (_isShowSendButton && !_isVoiceMode)
-                      chatProvider.isLoading
+                      isLoading
                           ? Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12.0),
                               child: SizedBox(
@@ -683,8 +665,8 @@ class _BottomChatFieldState extends State<BottomChatField> with SingleTickerProv
                 ),
               ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }

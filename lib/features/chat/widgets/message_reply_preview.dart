@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/message_model.dart';
@@ -8,7 +8,7 @@ import 'package:textgb/models/message_reply_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/display_message_type.dart';
 
-class MessageReplyPreview extends StatelessWidget {
+class MessageReplyPreview extends ConsumerWidget {
   const MessageReplyPreview({
     super.key,
     this.replyMessageModel,
@@ -21,7 +21,7 @@ class MessageReplyPreview extends StatelessWidget {
   final bool viewOnly;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // Check if both are null and provide a fallback
     if (replyMessageModel == null && message == null) {
       return const SizedBox(); // Return an empty widget if both are null
@@ -35,8 +35,6 @@ class MessageReplyPreview extends StatelessWidget {
     if (type == null) {
       return const SizedBox(); // Return an empty widget if type is null
     }
-
-    final chatProvider = context.read<ChatProvider>();
 
     final intrisitPadding = replyMessageModel != null
         ? const EdgeInsets.all(10)
@@ -71,10 +69,10 @@ class MessageReplyPreview extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            buildNameAndMessage(type, context),
+            buildNameAndMessage(type, context, ref),
             replyMessageModel != null ? const Spacer() : const SizedBox(),
             replyMessageModel != null
-                ? closeButton(chatProvider, context)
+                ? closeButton(ref, context)
                 : const SizedBox(),
           ],
         ),
@@ -82,12 +80,12 @@ class MessageReplyPreview extends StatelessWidget {
     );
   }
 
-  InkWell closeButton(ChatProvider chatProvider, BuildContext context) {
+  InkWell closeButton(WidgetRef ref, BuildContext context) {
     final Color? borderColor = Theme.of(context).textTheme.titleLarge?.color;
     
     return InkWell(
       onTap: () {
-        chatProvider.setMessageReplyModel(null);
+        ref.read(chatProvider.notifier).setMessageReplyModel(null);
       },
       child: Container(
           decoration: BoxDecoration(
@@ -103,7 +101,7 @@ class MessageReplyPreview extends StatelessWidget {
     );
   }
 
-  Widget buildNameAndMessage(MessageEnum type, BuildContext context) {
+  Widget buildNameAndMessage(MessageEnum type, BuildContext context, WidgetRef ref) {
     // Check if we have a status thumbnail
     final bool hasStatusThumbnail = (replyMessageModel != null && 
                                     replyMessageModel!.statusThumbnailUrl != null) ||

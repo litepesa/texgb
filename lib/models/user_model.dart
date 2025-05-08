@@ -44,6 +44,35 @@ class UserModel {
     );
   }
 
+  // Add copyWith method to create a copy with some fields changed
+  UserModel copyWith({
+    String? uid,
+    String? name,
+    String? phoneNumber,
+    String? image,
+    String? token,
+    String? aboutMe,
+    String? lastSeen,
+    String? createdAt,
+    bool? isOnline,
+    List<String>? contactsUIDs,
+    List<String>? blockedUIDs,
+  }) {
+    return UserModel(
+      uid: uid ?? this.uid,
+      name: name ?? this.name,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      image: image ?? this.image,
+      token: token ?? this.token,
+      aboutMe: aboutMe ?? this.aboutMe,
+      lastSeen: lastSeen ?? this.lastSeen,
+      createdAt: createdAt ?? this.createdAt,
+      isOnline: isOnline ?? this.isOnline,
+      contactsUIDs: contactsUIDs ?? List<String>.from(this.contactsUIDs),
+      blockedUIDs: blockedUIDs ?? List<String>.from(this.blockedUIDs),
+    );
+  }
+
   // to map
   Map<String, dynamic> toMap() {
     return {

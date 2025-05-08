@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/last_message_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/chat_widget.dart';
 
-class ChatsStream extends StatelessWidget {
+class ChatsStream extends ConsumerWidget {
   const ChatsStream({
     super.key,
     required this.uid,
@@ -16,9 +16,11 @@ class ChatsStream extends StatelessWidget {
   final String groupId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chatsStream = ref.watch(chatProvider.notifier).getChatsListStream(uid);
+
     return StreamBuilder<List<LastMessageModel>>(
-      stream: context.read<ChatProvider>().getChatsListStream(uid),
+      stream: chatsStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Center(
