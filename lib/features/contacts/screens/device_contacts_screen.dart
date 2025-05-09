@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/contacts_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
-class DeviceContactsScreen extends StatefulWidget {
+class DeviceContactsScreen extends ConsumerStatefulWidget {
   const DeviceContactsScreen({Key? key}) : super(key: key);
 
   @override
-  State<DeviceContactsScreen> createState() => _DeviceContactsScreenState();
+  ConsumerState<DeviceContactsScreen> createState() => _DeviceContactsScreenState();
 }
 
-class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
+class _DeviceContactsScreenState extends ConsumerState<DeviceContactsScreen> {
   String _searchQuery = '';
   bool _isLoading = false;
 
@@ -28,16 +28,16 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
       _isLoading = true;
     });
 
-    final contactsProvider = Provider.of<ContactsProvider>(context, listen: false);
+    final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
     
     // Check for permission and request if needed
-    if (!contactsProvider.hasPermission) {
-      await contactsProvider.requestContactsPermission();
+    if (!ref.read(hasContactsPermissionProvider)) {
+      await contactsNotifier.requestContactsPermission();
     }
     
     // Sync contacts if we have permission
-    if (contactsProvider.hasPermission) {
-      await contactsProvider.syncContacts(context);
+    if (ref.read(hasContactsPermissionProvider)) {
+      await contactsNotifier.syncContacts();
     }
     
     setState(() {
@@ -47,6 +47,9 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = ref.watch(isContactsLoadingProvider);
+    final isSyncing = ref.watch(isContactsSyncingProvider);
+    
     return Scaffold(
       appBar: AppBar(
         leading: AppBarBackButton(
@@ -56,7 +59,7 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _isLoading ? null : _initializeScreen,
+            onPressed: isLoading || isSyncing ? null : _initializeScreen,
           ),
         ],
       ),
@@ -81,9 +84,11 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
           ),
           
           // Add all button for suggested contacts
-          Consumer<ContactsProvider>(
-            builder: (context, provider, child) {
-              if (provider.suggestedContacts.isEmpty) {
+          Consumer(
+            builder: (context, ref, child) {
+              final suggestedContacts = ref.watch(suggestedContactsProvider);
+              
+              if (suggestedContacts.isEmpty) {
                 return const SizedBox.shrink();
               }
               
@@ -93,16 +98,16 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Found ${provider.suggestedContacts.length} contacts on TexGB',
+                        'Found ${suggestedContacts.length} contacts on TexGB',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                     ElevatedButton(
-                      onPressed: provider.isLoading 
+                      onPressed: isLoading 
                         ? null 
-                        : () => provider.addAllSuggestedContacts(context),
+                        : () => _addAllSuggestedContacts(context),
                       child: const Text('Add All'),
                     ),
                   ],
@@ -113,17 +118,20 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
           
           // Main content
           Expanded(
-            child: Consumer<ContactsProvider>(
-              builder: (context, provider, child) {
-                if (_isLoading || provider.isLoading) {
+            child: Consumer(
+              builder: (context, ref, child) {
+                final isContactsLoading = ref.watch(isContactsLoadingProvider);
+                final hasPermission = ref.watch(hasContactsPermissionProvider);
+                
+                if (_isLoading || isContactsLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 
-                if (!provider.hasPermission) {
+                if (!hasPermission) {
                   return _buildPermissionRequest(context);
                 }
                 
-                return _buildContactsList(provider);
+                return _buildContactsList();
               },
             ),
           ),
@@ -165,10 +173,9 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () async {
-              final provider = Provider.of<ContactsProvider>(context, listen: false);
-              await provider.requestContactsPermission();
-              if (provider.hasPermission) {
-                await provider.syncContacts(context);
+              await ref.read(contactsNotifierProvider.notifier).requestContactsPermission();
+              if (ref.read(hasContactsPermissionProvider)) {
+                await ref.read(contactsNotifierProvider.notifier).syncContacts();
                 setState(() {});
               }
             },
@@ -179,9 +186,13 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
     );
   }
   
-  Widget _buildContactsList(ContactsProvider provider) {
+  Widget _buildContactsList() {
+    final deviceContacts = ref.watch(deviceContactsProvider);
+    final suggestedContacts = ref.watch(suggestedContactsProvider);
+    final appContacts = ref.watch(appContactsProvider);
+    
     // If there are no device contacts to display
-    if (provider.deviceContacts.isEmpty) {
+    if (deviceContacts.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -213,7 +224,6 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
     }
     
     // First display device contacts that have the app
-    final suggestedContacts = provider.suggestedContacts;
     final filteredSuggestions = suggestedContacts
         .where((user) => 
             user.name.toLowerCase().contains(_searchQuery) || 
@@ -221,14 +231,18 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
         .toList();
     
     // Then filter and show all device contacts
-    final filteredDeviceContacts = provider.deviceContacts
+    final filteredDeviceContacts = deviceContacts
         .where((contact) {
           // Skip if the contact is already added
           final phoneNumber = contact.phones.isNotEmpty ? contact.phones.first.number : '';
           final isAlreadyAdded = suggestedContacts.any((user) => 
               user.phoneNumber.contains(phoneNumber.replaceAll(RegExp(r'\D'), '')));
           
-          if (isAlreadyAdded) {
+          // Also skip if the contact is already in contacts list
+          final isAlreadyInContacts = appContacts.any((user) =>
+              user.phoneNumber.contains(phoneNumber.replaceAll(RegExp(r'\D'), '')));
+              
+          if (isAlreadyAdded || isAlreadyInContacts) {
             return false;
           }
           
@@ -267,9 +281,9 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
             title: Text(contact.name),
             subtitle: Text(contact.phoneNumber),
             trailing: ElevatedButton(
-              onPressed: provider.isLoading 
+              onPressed: ref.watch(isContactsLoadingProvider) 
                 ? null 
-                : () => provider.addSuggestedContact(contact, context),
+                : () => _addSuggestedContact(context, contact),
               child: const Text('Add'),
             ),
             onTap: () {
@@ -321,5 +335,24 @@ class _DeviceContactsScreenState extends State<DeviceContactsScreen> {
         )).toList(),
       ],
     );
+  }
+  
+  Future<void> _addSuggestedContact(BuildContext context, dynamic contact) async {
+    await ref.read(contactsNotifierProvider.notifier).addSuggestedContact(contact);
+    showSnackBar(context, '${contact.name} added to your contacts');
+  }
+  
+  Future<void> _addAllSuggestedContacts(BuildContext context) async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    await ref.read(contactsNotifierProvider.notifier).addAllSuggestedContacts();
+    
+    setState(() {
+      _isLoading = false;
+    });
+    
+    showSnackBar(context, 'All contacts synchronized successfully');
   }
 }

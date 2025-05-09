@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/contacts/contacts_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class ContactPermissionScreen extends StatefulWidget {
+class ContactPermissionScreen extends ConsumerStatefulWidget {
   final VoidCallback onPermissionGranted;
   
   const ContactPermissionScreen({
@@ -13,10 +13,10 @@ class ContactPermissionScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ContactPermissionScreen> createState() => _ContactPermissionScreenState();
+  ConsumerState<ContactPermissionScreen> createState() => _ContactPermissionScreenState();
 }
 
-class _ContactPermissionScreenState extends State<ContactPermissionScreen> {
+class _ContactPermissionScreenState extends ConsumerState<ContactPermissionScreen> {
   bool _isLoading = false;
 
   Future<void> _requestPermission() async {
@@ -29,17 +29,17 @@ class _ContactPermissionScreenState extends State<ContactPermissionScreen> {
       
       if (status.isGranted) {
         // Update the provider state
-        final provider = Provider.of<ContactsProvider>(context, listen: false);
-        provider.requestContactsPermission().then((_) {
-          // Sync contacts after permission is granted
-          return provider.loadContacts(context);
-        }).then((_) {
-          // Call the callback and pop if needed
-          widget.onPermissionGranted();
-          if (ModalRoute.of(context)?.isCurrent ?? false) {
-            Navigator.of(context).pop();
-          }
-        });
+        final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+        await contactsNotifier.requestContactsPermission();
+        
+        // Sync contacts after permission is granted
+        await contactsNotifier.loadContacts();
+        
+        // Call the callback and pop if needed
+        widget.onPermissionGranted();
+        if (ModalRoute.of(context)?.isCurrent ?? false) {
+          Navigator.of(context).pop();
+        }
       } else if (status.isPermanentlyDenied) {
         // Show dialog to open settings
         _showOpenSettingsDialog();

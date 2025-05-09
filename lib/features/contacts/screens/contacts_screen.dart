@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/models/user_model.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/contacts/contacts_provider.dart';
+import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
-class ContactsScreen extends StatefulWidget {
+class ContactsScreen extends ConsumerStatefulWidget {
   const ContactsScreen({super.key});
 
   @override
-  State<ContactsScreen> createState() => _ContactsScreenState();
+  ConsumerState<ContactsScreen> createState() => _ContactsScreenState();
 }
 
-class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProviderStateMixin {
+class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _searchQuery = '';
-  bool _isRefreshing = false;
   
   @override
   void initState() {
@@ -32,30 +30,22 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
   }
   
   Future<void> _initializeContacts() async {
-    final contactsProvider = Provider.of<ContactsProvider>(context, listen: false);
+    final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
     
     // Check permission status
-    if (!contactsProvider.hasPermission) {
-      await contactsProvider.requestContactsPermission();
+    if (!ref.read(hasContactsPermissionProvider)) {
+      await contactsNotifier.requestContactsPermission();
     }
     
     // Load contacts if we have permission
-    if (contactsProvider.hasPermission) {
-      await contactsProvider.loadContacts(context);
+    if (ref.read(hasContactsPermissionProvider)) {
+      await contactsNotifier.loadContacts();
     }
   }
   
   Future<void> _refreshContacts() async {
-    setState(() {
-      _isRefreshing = true;
-    });
-    
-    final contactsProvider = Provider.of<ContactsProvider>(context, listen: false);
-    await contactsProvider.syncContacts(context);
-    
-    setState(() {
-      _isRefreshing = false;
-    });
+    final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+    await contactsNotifier.syncContacts();
   }
   
   @override
@@ -68,6 +58,7 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
   Widget build(BuildContext context) {
     // Get the background color of the scaffold
     final scaffoldBackgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    final isRefreshing = ref.watch(isContactsSyncingProvider);
     
     return Scaffold(
       appBar: AppBar(
@@ -79,7 +70,7 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _isRefreshing ? null : _refreshContacts,
+            onPressed: isRefreshing ? null : _refreshContacts,
           ),
           PopupMenuButton(
             itemBuilder: (context) => [
@@ -130,9 +121,11 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
           ),
           
           // Contact synchronization status
-          Consumer<ContactsProvider>(
-            builder: (context, provider, child) {
-              if (provider.isSyncing) {
+          Consumer(
+            builder: (context, ref, child) {
+              final isSyncing = ref.watch(isContactsSyncingProvider);
+              
+              if (isSyncing) {
                 return Container(
                   padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                   color: Colors.blue.withOpacity(0.1),
@@ -175,8 +168,7 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
           Navigator.pushNamed(context, Constants.addContactScreen)
               .then((_) {
                 // Refresh contacts after returning from add screen
-                Provider.of<ContactsProvider>(context, listen: false)
-                    .loadContacts(context);
+                ref.read(contactsNotifierProvider.notifier).loadContacts();
               });
         },
         child: const Icon(Icons.person_add),
@@ -185,13 +177,17 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
   }
   
   Widget _buildContactsTab() {
-    return Consumer<ContactsProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final isLoading = ref.watch(isContactsLoadingProvider);
+        final hasPermission = ref.watch(hasContactsPermissionProvider);
+        final appContacts = ref.watch(appContactsProvider);
+        
+        if (isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
         
-        if (!provider.hasPermission) {
+        if (!hasPermission) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -221,9 +217,9 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () async {
-                    await provider.requestContactsPermission();
-                    if (provider.hasPermission) {
-                      await provider.loadContacts(context);
+                    await ref.read(contactsNotifierProvider.notifier).requestContactsPermission();
+                    if (ref.read(hasContactsPermissionProvider)) {
+                      await ref.read(contactsNotifierProvider.notifier).loadContacts();
                     }
                   },
                   child: const Text('Grant Permission'),
@@ -233,7 +229,7 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
           );
         }
         
-        final filteredContacts = provider.appContacts
+        final filteredContacts = appContacts
             .where((contact) => 
                 contact.name.toLowerCase().contains(_searchQuery) ||
                 contact.phoneNumber.toLowerCase().contains(_searchQuery))
@@ -285,13 +281,17 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
   }
   
   Widget _buildSuggestionsTab() {
-    return Consumer<ContactsProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final isLoading = ref.watch(isContactsLoadingProvider);
+        final hasPermission = ref.watch(hasContactsPermissionProvider);
+        final suggestedContacts = ref.watch(suggestedContactsProvider);
+        
+        if (isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
         
-        if (!provider.hasPermission) {
+        if (!hasPermission) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -321,9 +321,9 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () async {
-                    await provider.requestContactsPermission();
-                    if (provider.hasPermission) {
-                      await provider.loadContacts(context);
+                    await ref.read(contactsNotifierProvider.notifier).requestContactsPermission();
+                    if (ref.read(hasContactsPermissionProvider)) {
+                      await ref.read(contactsNotifierProvider.notifier).loadContacts();
                     }
                   },
                   child: const Text('Grant Permission'),
@@ -333,7 +333,7 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
           );
         }
         
-        final filteredSuggestions = provider.suggestedContacts
+        final filteredSuggestions = suggestedContacts
             .where((contact) => 
                 contact.name.toLowerCase().contains(_searchQuery) ||
                 contact.phoneNumber.toLowerCase().contains(_searchQuery))
@@ -384,9 +384,9 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: ElevatedButton.icon(
-                  onPressed: provider.isLoading 
+                  onPressed: ref.watch(isContactsLoadingProvider) 
                     ? null 
-                    : () => provider.addAllSuggestedContacts(context),
+                    : () => _addAllSuggestedContacts(context),
                   icon: const Icon(Icons.person_add_alt),
                   label: const Text('Add All Contacts'),
                   style: ElevatedButton.styleFrom(
@@ -466,10 +466,12 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
             color: Colors.grey[600],
           ),
         ),
-        // Remove trailing elements (add button)
-        // But keep the original onTap behavior
+        trailing: IconButton(
+          icon: const Icon(Icons.person_add),
+          onPressed: () => _addSuggestedContact(context, contact),
+        ),
+        // Original behavior - navigate to profile
         onTap: () {
-          // Original behavior - navigate to profile
           Navigator.pushNamed(
             context,
             Constants.contactProfileScreen,
@@ -478,6 +480,16 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
         },
       ),
     );
+  }
+  
+  Future<void> _addSuggestedContact(BuildContext context, UserModel contact) async {
+    await ref.read(contactsNotifierProvider.notifier).addSuggestedContact(contact);
+    showSnackBar(context, '${contact.name} added to your contacts');
+  }
+  
+  Future<void> _addAllSuggestedContacts(BuildContext context) async {
+    await ref.read(contactsNotifierProvider.notifier).addAllSuggestedContacts();
+    showSnackBar(context, 'All contacts synchronized successfully');
   }
   
   void _showSyncConfirmation(BuildContext context) {
@@ -496,13 +508,11 @@ class _ContactsScreenState extends State<ContactsScreen> with SingleTickerProvid
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Provider.of<ContactsProvider>(context, listen: false)
-                  .addAllSuggestedContacts(context);
+              _addAllSuggestedContacts(context);
             },
             child: const Text('Sync All'),
           ),
         ],
       ),
     );
-  }
-}
+  }}

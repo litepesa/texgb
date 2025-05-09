@@ -9,7 +9,7 @@ import 'package:textgb/features/authentication/screens/user_information_screen.d
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
-
+import 'package:textgb/features/contacts/providers/contacts_providers.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';

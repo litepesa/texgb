@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
-class AddContactScreen extends StatefulWidget {
+class AddContactScreen extends ConsumerStatefulWidget {
   const AddContactScreen({super.key});
 
   @override
-  State<AddContactScreen> createState() => _AddContactScreenState();
+  ConsumerState<AddContactScreen> createState() => _AddContactScreenState();
 }
 
-class _AddContactScreenState extends State<AddContactScreen> {
+class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   UserModel? _foundUser;
@@ -37,12 +38,12 @@ class _AddContactScreenState extends State<AddContactScreen> {
       _foundUser = null;
     });
 
-    final authProvider = context.read<AuthenticationProvider>();
+    final authNotifier = ref.read(authenticationProvider.notifier);
     final phoneNumber = _phoneController.text.startsWith('+') 
         ? _phoneController.text 
         : '+${_phoneController.text}';
 
-    final user = await authProvider.searchUserByPhoneNumber(
+    final user = await authNotifier.searchUserByPhoneNumber(
       phoneNumber: phoneNumber,
     );
 
@@ -70,22 +71,26 @@ class _AddContactScreenState extends State<AddContactScreen> {
       return;
     }
 
-    final authProvider = context.read<AuthenticationProvider>();
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      showSnackBar(context, 'You must be logged in to add contacts');
+      return;
+    }
     
     // Check if user is trying to add themselves
-    if (_foundUser!.uid == authProvider.uid) {
+    if (_foundUser!.uid == currentUser.uid) {
       showSnackBar(context, 'You cannot add yourself as a contact');
       return;
     }
 
     // Check if user is already in contacts
-    if (authProvider.userModel!.contactsUIDs.contains(_foundUser!.uid)) {
+    if (currentUser.contactsUIDs.contains(_foundUser!.uid)) {
       showSnackBar(context, 'This user is already in your contacts');
       return;
     }
 
     // Add the contact
-    await authProvider.addContact(contactID: _foundUser!.uid);
+    await ref.read(authenticationProvider.notifier).addContact(contactID: _foundUser!.uid);
     
     // Show success and go back
     showSnackBar(context, 'Contact added successfully');

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class ContactWidget extends StatelessWidget {
+class ContactWidget extends ConsumerWidget {
   const ContactWidget({
     super.key,
     required this.contact,
@@ -17,8 +18,10 @@ class ContactWidget extends StatelessWidget {
   final ContactViewType viewType;
 
   @override
-  Widget build(BuildContext context) {
-    final currentUser = context.watch<AuthenticationProvider>().userModel!;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(currentUserProvider);
+    if (currentUser == null) return const SizedBox.shrink();
+    
     final name = currentUser.uid == contact.uid ? 'You' : contact.name;
 
     return ListTile(
@@ -32,17 +35,17 @@ class ContactWidget extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: _buildTrailingWidget(context),
+      trailing: _buildTrailingWidget(context, ref),
       onTap: () {
         _handleTap(context);
       },
       onLongPress: viewType == ContactViewType.contacts
-          ? () => _showContactActions(context)
+          ? () => _showContactActions(context, ref)
           : null,
     );
   }
 
-  Widget _buildTrailingWidget(BuildContext context) {
+  Widget _buildTrailingWidget(BuildContext context, WidgetRef ref) {
     switch (viewType) {
       case ContactViewType.contacts:
         return IconButton(
@@ -60,8 +63,8 @@ class ContactWidget extends StatelessWidget {
       case ContactViewType.blocked:
         return TextButton(
           onPressed: () async {
-            final authProvider = context.read<AuthenticationProvider>();
-            await authProvider.unblockContact(contactID: contact.uid);
+            final authNotifier = ref.read(authenticationProvider.notifier);
+            await authNotifier.unblockContact(contactID: contact.uid);
             showSnackBar(context, '${contact.name} has been unblocked');
           },
           child: const Text('Unblock'),
@@ -74,13 +77,6 @@ class ContactWidget extends StatelessWidget {
   void _handleTap(BuildContext context) {
     switch (viewType) {
       case ContactViewType.contacts:
-        // Navigate to profile screen
-        Navigator.pushNamed(
-          context,
-          Constants.contactProfileScreen,
-          arguments: contact.uid,
-        );
-        break;
       case ContactViewType.blocked:
         // Navigate to profile screen
         Navigator.pushNamed(
@@ -94,7 +90,7 @@ class ContactWidget extends StatelessWidget {
     }
   }
 
-  void _showContactActions(BuildContext context) {
+  void _showContactActions(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -132,7 +128,7 @@ class ContactWidget extends StatelessWidget {
                 title: const Text('Block Contact', style: TextStyle(color: Colors.red)),
                 onTap: () {
                   Navigator.pop(context);
-                  _showBlockConfirmation(context);
+                  _showBlockConfirmation(context, ref);
                 },
               ),
               ListTile(
@@ -140,7 +136,7 @@ class ContactWidget extends StatelessWidget {
                 title: const Text('Remove Contact', style: TextStyle(color: Colors.red)),
                 onTap: () {
                   Navigator.pop(context);
-                  _showDeleteConfirmation(context);
+                  _showDeleteConfirmation(context, ref);
                 },
               ),
             ],
@@ -150,7 +146,7 @@ class ContactWidget extends StatelessWidget {
     );
   }
 
-  void _showBlockConfirmation(BuildContext context) {
+  void _showBlockConfirmation(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -166,8 +162,8 @@ class ContactWidget extends StatelessWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final authProvider = context.read<AuthenticationProvider>();
-              await authProvider.blockContact(contactID: contact.uid);
+              final authNotifier = ref.read(authenticationProvider.notifier);
+              await authNotifier.blockContact(contactID: contact.uid);
               showSnackBar(context, '${contact.name} has been blocked');
             },
             child: const Text('Block', style: TextStyle(color: Colors.red)),
@@ -177,7 +173,7 @@ class ContactWidget extends StatelessWidget {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context) {
+  void _showDeleteConfirmation(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -193,8 +189,8 @@ class ContactWidget extends StatelessWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final authProvider = context.read<AuthenticationProvider>();
-              await authProvider.removeContact(contactID: contact.uid);
+              final authNotifier = ref.read(authenticationProvider.notifier);
+              await authNotifier.removeContact(contactID: contact.uid);
               showSnackBar(context, '${contact.name} has been removed from your contacts');
             },
             child: const Text('Remove', style: TextStyle(color: Colors.red)),

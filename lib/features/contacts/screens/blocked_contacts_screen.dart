@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
-class BlockedContactsScreen extends StatefulWidget {
+class BlockedContactsScreen extends ConsumerStatefulWidget {
   const BlockedContactsScreen({super.key});
 
   @override
-  State<BlockedContactsScreen> createState() => _BlockedContactsScreenState();
+  ConsumerState<BlockedContactsScreen> createState() => _BlockedContactsScreenState();
 }
 
-class _BlockedContactsScreenState extends State<BlockedContactsScreen> {
+class _BlockedContactsScreenState extends ConsumerState<BlockedContactsScreen> {
   bool _isLoading = true;
   List<UserModel> _blockedContacts = [];
 
@@ -27,9 +28,17 @@ class _BlockedContactsScreenState extends State<BlockedContactsScreen> {
       _isLoading = true;
     });
 
-    final authProvider = context.read<AuthenticationProvider>();
-    final blockedContacts = await authProvider.getBlockedContactsList(
-      uid: authProvider.uid!,
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    final blockedContacts = await authNotifier.getBlockedContactsList(
+      uid: currentUser.uid,
     );
 
     setState(() {
@@ -104,8 +113,8 @@ class _BlockedContactsScreenState extends State<BlockedContactsScreen> {
           subtitle: Text(contact.phoneNumber),
           trailing: TextButton(
             onPressed: () async {
-              final authProvider = context.read<AuthenticationProvider>();
-              await authProvider.unblockContact(contactID: contact.uid);
+              final authNotifier = ref.read(authenticationProvider.notifier);
+              await authNotifier.unblockContact(contactID: contact.uid);
               
               // Refresh the list
               setState(() {

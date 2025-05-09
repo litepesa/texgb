@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/modern_colors.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
-import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -16,19 +16,18 @@ import 'package:textgb/shared/utilities/assets_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class MyProfileScreen extends StatefulWidget {
+class MyProfileScreen extends ConsumerStatefulWidget {
   const MyProfileScreen({super.key});
 
   @override
-  State<MyProfileScreen> createState() => _MyProfileScreenState();
+  ConsumerState<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _MyProfileScreenState extends State<MyProfileScreen> {
+class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   final TextEditingController _aboutMeController = TextEditingController();
   bool _isEditingAboutMe = false;
   bool _isUpdatingProfile = false;
   File? _selectedImage;
-  bool isDarkMode = false;
   ThemeOption _currentTheme = ThemeOption.system;
 
   @override
@@ -37,7 +36,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     
     // Initialize the about me text controller with current value when the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final currentUser = context.read<AuthenticationProvider>().userModel;
+      final currentUser = ref.read(currentUserProvider);
       // Safety check to ensure this screen is only used for the current user
       if (currentUser == null) {
         Navigator.pop(context);
@@ -48,11 +47,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       
       // Set theme state AFTER widgets are built
       setState(() {
-        isDarkMode = Theme.of(context).brightness == Brightness.dark;
-        
         // Get current theme option from theme manager if available
-        final themeManager = Provider.of<ThemeManager>(context, listen: false);
-        _currentTheme = themeManager.currentTheme;
+        final themeState = ref.read(themeManagerNotifierProvider);
+        _currentTheme = themeState.hasValue ? themeState.value!.currentTheme : ThemeOption.system;
       });
     });
   }
@@ -156,7 +153,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                   color: modernTheme.primaryColor,
                 ),
               ),
-              title: Text('Take Photo'),
+              title: const Text('Take Photo'),
               onTap: () => _selectImage(fromCamera: true),
             ),
             ListTile(
@@ -167,10 +164,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                   color: modernTheme.primaryColor,
                 ),
               ),
-              title: Text('Choose from Gallery'),
+              title: const Text('Choose from Gallery'),
               onTap: () => _selectImage(fromCamera: false),
             ),
-            if (context.read<AuthenticationProvider>().userModel!.image.isNotEmpty)
+            if (ref.read(currentUserProvider)?.image.isNotEmpty ?? false)
               ListTile(
                 leading: CircleAvatar(
                   backgroundColor: ModernColors.error.withOpacity(0.1),
@@ -191,8 +188,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   // Show confirmation dialog for removing profile photo
   void _showRemovePhotoConfirmation() {
-    final modernTheme = context.modernTheme;
-    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -233,8 +228,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         throw Exception("User not authenticated");
       }
       
-      final authProvider = context.read<AuthenticationProvider>();
-      final currentUser = authProvider.userModel!;
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) {
+        throw Exception("User model not available");
+      }
+      
       final String oldImageUrl = currentUser.image;
       
       // Upload new image to Firebase Storage
@@ -256,9 +254,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       final uploadTask = reference.putFile(_selectedImage!, metadata);
       
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        print('Upload progress: ${(snapshot.bytesTransferred / snapshot.totalBytes) * 100}%');
+        debugPrint('Upload progress: ${(snapshot.bytesTransferred / snapshot.totalBytes) * 100}%');
       }, onError: (e) {
-        print('Upload error: $e');
+        debugPrint('Upload error: $e');
       });
       
       // Wait for completion
@@ -268,25 +266,15 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       final String newImageUrl = await reference.getDownloadURL();
       
       // Debug print the new URL
-      print('New image URL: $newImageUrl');
+      debugPrint('New image URL: $newImageUrl');
       
       // Update user model with new image URL
-      final updatedUser = UserModel(
-        uid: currentUser.uid,
-        name: currentUser.name,
-        phoneNumber: currentUser.phoneNumber,
+      final updatedUser = currentUser.copyWith(
         image: newImageUrl,
-        token: currentUser.token,
-        aboutMe: currentUser.aboutMe,
-        lastSeen: currentUser.lastSeen,
-        createdAt: currentUser.createdAt,
-        isOnline: currentUser.isOnline,
-        contactsUIDs: currentUser.contactsUIDs,
-        blockedUIDs: currentUser.blockedUIDs,
       );
       
       // Save updated user to Firestore
-      await authProvider.updateUserProfile(updatedUser);
+      await ref.read(authenticationProvider.notifier).updateUserProfile(updatedUser);
       
       // If there was a previous image, delete it
       if (oldImageUrl.isNotEmpty && oldImageUrl != newImageUrl) {
@@ -296,7 +284,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           await oldImageRef.delete();
         } catch (e) {
           // Handle error but don't stop execution
-          print('Error deleting old image: $e');
+          debugPrint('Error deleting old image: $e');
         }
       }
       
@@ -311,7 +299,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       
       showSnackBar(context, 'Profile photo updated successfully');
     } catch (e) {
-      print('Error updating profile photo: $e');
+      debugPrint('Error updating profile photo: $e');
       showSnackBar(context, 'Failed to update profile photo: $e');
     } finally {
       setState(() {
@@ -327,8 +315,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     });
     
     try {
-      final authProvider = context.read<AuthenticationProvider>();
-      final currentUser = authProvider.userModel!;
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) {
+        throw Exception("User model not available");
+      }
+      
       final String oldImageUrl = currentUser.image;
       
       if (oldImageUrl.isEmpty) {
@@ -340,22 +331,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       }
       
       // Update user model with empty image URL
-      final updatedUser = UserModel(
-        uid: currentUser.uid,
-        name: currentUser.name,
-        phoneNumber: currentUser.phoneNumber,
-        image: '', // Empty image URL
-        token: currentUser.token,
-        aboutMe: currentUser.aboutMe,
-        lastSeen: currentUser.lastSeen,
-        createdAt: currentUser.createdAt,
-        isOnline: currentUser.isOnline,
-        contactsUIDs: currentUser.contactsUIDs,
-        blockedUIDs: currentUser.blockedUIDs,
+      final updatedUser = currentUser.copyWith(
+        image: '',
       );
       
       // Save updated user to Firestore
-      await authProvider.updateUserProfile(updatedUser);
+      await ref.read(authenticationProvider.notifier).updateUserProfile(updatedUser);
       
       // Delete image from storage
       try {
@@ -364,7 +345,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         await oldImageRef.delete();
       } catch (e) {
         // Handle error but don't stop execution
-        print('Error deleting old image: $e');
+        debugPrint('Error deleting old image: $e');
       }
       
       showSnackBar(context, 'Profile photo removed');
@@ -390,8 +371,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     });
     
     try {
-      final authProvider = context.read<AuthenticationProvider>();
-      final currentUser = authProvider.userModel!;
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) {
+        throw Exception("User model not available");
+      }
       
       // Only update if the text has changed
       if (newAboutMe == currentUser.aboutMe) {
@@ -403,22 +386,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       }
       
       // Update user model with new about me
-      final updatedUser = UserModel(
-        uid: currentUser.uid,
-        name: currentUser.name,
-        phoneNumber: currentUser.phoneNumber,
-        image: currentUser.image,
-        token: currentUser.token,
+      final updatedUser = currentUser.copyWith(
         aboutMe: newAboutMe,
-        lastSeen: currentUser.lastSeen,
-        createdAt: currentUser.createdAt,
-        isOnline: currentUser.isOnline,
-        contactsUIDs: currentUser.contactsUIDs,
-        blockedUIDs: currentUser.blockedUIDs,
       );
       
       // Save updated user to Firestore
-      await authProvider.updateUserProfile(updatedUser);
+      await ref.read(authenticationProvider.notifier).updateUserProfile(updatedUser);
       
       showSnackBar(context, 'About me updated successfully');
     } catch (e) {
@@ -433,12 +406,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   // Set theme based on the selected theme option
   void _setTheme(ThemeOption option) {
-    final themeManager = Provider.of<ThemeManager>(context, listen: false);
+    final themeManager = ref.read(themeManagerNotifierProvider.notifier);
     themeManager.setTheme(option);
     setState(() {
       _currentTheme = option;
-      isDarkMode = option == ThemeOption.dark || 
-        (option == ThemeOption.system && Theme.of(context).brightness == Brightness.dark);
     });
   }
 
@@ -458,7 +429,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     // Check the current theme
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
-    final currentUser = context.watch<AuthenticationProvider>().userModel;
+    final currentUser = ref.watch(currentUserProvider);
     
     if (currentUser == null) {
       return Scaffold(
@@ -555,7 +526,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                                             ),
                                           ),
                                           errorWidget: (context, url, error) {
-                                            print('Error loading image: $error, URL: $url');
+                                            debugPrint('Error loading image: $error, URL: $url');
                                             return Image.asset(
                                               AssetsManager.userImage,
                                               width: 120,
@@ -863,7 +834,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                                   TextButton(
                                     style: TextButton.styleFrom(foregroundColor: ModernColors.error),
                                     onPressed: () {
-                                      context.read<AuthenticationProvider>().logout()
+                                      ref.read(authenticationProvider.notifier).logout()
                                       .then((_) {
                                         Navigator.pop(context);
                                         Navigator.pushNamedAndRemoveUntil(
@@ -895,7 +866,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             Positioned.fill(
               child: Container(
                 color: Colors.black54,
-                child: Center(
+                child: const Center(
                   child: CircularProgressIndicator(color: Colors.white),
                 ),
               ),
@@ -1022,4 +993,5 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
     );
-  }}
+  }
+}

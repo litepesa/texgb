@@ -1,25 +1,32 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
-class ContactProfileScreen extends StatefulWidget {
+class ContactProfileScreen extends ConsumerStatefulWidget {
   const ContactProfileScreen({super.key});
 
   @override
-  State<ContactProfileScreen> createState() => _ContactProfileScreenState();
+  ConsumerState<ContactProfileScreen> createState() => _ContactProfileScreenState();
 }
 
-class _ContactProfileScreenState extends State<ContactProfileScreen> {
+class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
   @override
   Widget build(BuildContext context) {
     // get user data from arguments
     final uid = ModalRoute.of(context)!.settings.arguments as String;
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
+    final currentUser = ref.watch(currentUserProvider);
+    
+    if (currentUser == null) {
+      return const Scaffold(
+        body: Center(child: Text('User not authenticated')),
+      );
+    }
     
     return Scaffold(
       appBar: AppBar(
@@ -33,12 +40,12 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) async {
-              final authProvider = context.read<AuthenticationProvider>();
+              final authNotifier = ref.read(authenticationProvider.notifier);
               if (value == 'block') {
                 // Show confirmation dialog
                 bool confirmed = await _showBlockConfirmation(context);
                 if (confirmed) {
-                  await authProvider.blockContact(contactID: uid);
+                  await authNotifier.blockContact(contactID: uid);
                   showSnackBar(context, 'User has been blocked');
                   Navigator.pop(context);
                 }
@@ -46,11 +53,11 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
                 // Show confirmation dialog
                 bool confirmed = await _showRemoveConfirmation(context);
                 if (confirmed) {
-                  await authProvider.removeContact(contactID: uid);
+                  await authNotifier.removeContact(contactID: uid);
                   showSnackBar(context, 'Contact has been removed');
                 }
               } else if (value == 'unblock') {
-                await authProvider.unblockContact(contactID: uid);
+                await authNotifier.unblockContact(contactID: uid);
                 showSnackBar(context, 'User has been unblocked');
               }
             },
@@ -81,7 +88,7 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
         ],
       ),
       body: StreamBuilder(
-        stream: context.read<AuthenticationProvider>().userStream(userID: uid),
+        stream: ref.read(authenticationProvider.notifier).userStream(userID: uid),
         builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
           if (snapshot.hasError) {
             return const Center(child: Text('Something went wrong'));
@@ -109,7 +116,7 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
                 children: [
                   _buildProfileCard(userModel),
                   if (isBlocked) 
-                    _buildBlockedBanner(),
+                    _buildBlockedBanner(uid),
                   
                   _buildContactActionButton(context, userModel, isContact),
                 ],
@@ -182,7 +189,7 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
     );
   }
 
-  Widget _buildBlockedBanner() {
+  Widget _buildBlockedBanner(String uid) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
       padding: const EdgeInsets.all(12),
@@ -194,9 +201,9 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.block, color: Colors.red),
-          SizedBox(width: 12),
-          Expanded(
+          const Icon(Icons.block, color: Colors.red),
+          const SizedBox(width: 12),
+          const Expanded(
             child: Text(
               'You have blocked this user',
               style: TextStyle(
@@ -207,12 +214,11 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
           ),
           TextButton(
             onPressed: () async {
-              final authProvider = context.read<AuthenticationProvider>();
-              final uid = ModalRoute.of(context)!.settings.arguments as String;
-              await authProvider.unblockContact(contactID: uid);
+              final authNotifier = ref.read(authenticationProvider.notifier);
+              await authNotifier.unblockContact(contactID: uid);
               showSnackBar(context, 'User has been unblocked');
             },
-            child: Text('Unblock'),
+            child: const Text('Unblock'),
           ),
         ],
       ),
@@ -225,17 +231,17 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () async {
-          final authProvider = context.read<AuthenticationProvider>();
+          final authNotifier = ref.read(authenticationProvider.notifier);
           if (isContact) {
             // Show confirmation dialog
             bool confirmed = await _showRemoveConfirmation(context);
             if (confirmed) {
-              await authProvider.removeContact(contactID: userModel.uid);
+              await authNotifier.removeContact(contactID: userModel.uid);
               showSnackBar(context, 'Contact has been removed');
             }
           } else {
             // Add contact
-            await authProvider.addContact(contactID: userModel.uid);
+            await authNotifier.addContact(contactID: userModel.uid);
             showSnackBar(context, '${userModel.name} added to your contacts');
           }
         },
