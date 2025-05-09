@@ -63,7 +63,7 @@ class VideoThumbnailWidget extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             // Video thumbnail
-            thumbnailUrl != null
+            thumbnailUrl != null && thumbnailUrl!.isNotEmpty
                 ? _buildNetworkThumbnail()
                 : _buildDefaultThumbnail(),
 
@@ -148,6 +148,11 @@ class VideoThumbnailWidget extends StatelessWidget {
 
   // Separate method for network thumbnail to avoid the error
   Widget _buildNetworkThumbnail() {
+    // Safety check to ensure thumbnailUrl is not null
+    if (thumbnailUrl == null || thumbnailUrl!.isEmpty) {
+      return _buildDefaultThumbnail();
+    }
+    
     return CachedNetworkImage(
       imageUrl: thumbnailUrl!,
       fit: BoxFit.cover,

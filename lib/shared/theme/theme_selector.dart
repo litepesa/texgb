@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 import '../theme/theme_manager.dart';
 import '../theme/modern_colors.dart';
 
-class ThemeSelector extends ConsumerWidget {
+class ThemeSelector extends StatelessWidget {
   const ThemeSelector({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeState = ref.watch(themeManagerNotifierProvider);
+  Widget build(BuildContext context) {
+    final themeManager = Provider.of<ThemeManager>(context);
     
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -27,36 +27,33 @@ class ThemeSelector extends ConsumerWidget {
           
           _buildThemeOption(
             context,
-            ref: ref,
             title: 'System',
             subtitle: 'Follow system settings',
             icon: Icons.brightness_auto,
-            isSelected: themeState.currentTheme == ThemeOption.system,
-            onTap: () => ref.read(themeManagerNotifierProvider.notifier).setTheme(ThemeOption.system),
+            isSelected: themeManager.currentTheme == ThemeOption.system,
+            onTap: () => themeManager.setTheme(ThemeOption.system),
           ),
           
           const SizedBox(height: 8),
           
           _buildThemeOption(
             context,
-            ref: ref,
             title: 'Light',
             subtitle: 'Light appearance',
             icon: Icons.light_mode,
-            isSelected: themeState.currentTheme == ThemeOption.light,
-            onTap: () => ref.read(themeManagerNotifierProvider.notifier).setTheme(ThemeOption.light),
+            isSelected: themeManager.currentTheme == ThemeOption.light,
+            onTap: () => themeManager.setTheme(ThemeOption.light),
           ),
           
           const SizedBox(height: 8),
           
           _buildThemeOption(
             context,
-            ref: ref,
             title: 'Dark',
             subtitle: 'Dark appearance',
             icon: Icons.dark_mode,
-            isSelected: themeState.currentTheme == ThemeOption.dark,
-            onTap: () => ref.read(themeManagerNotifierProvider.notifier).setTheme(ThemeOption.dark),
+            isSelected: themeManager.currentTheme == ThemeOption.dark,
+            onTap: () => themeManager.setTheme(ThemeOption.dark),
           ),
         ],
       ),
@@ -65,7 +62,6 @@ class ThemeSelector extends ConsumerWidget {
   
   Widget _buildThemeOption(
     BuildContext context, {
-    required WidgetRef ref,
     required String title,
     required String subtitle,
     required IconData icon,
@@ -127,7 +123,7 @@ class ThemeSelector extends ConsumerWidget {
 }
 
 /// A simple floating theme toggle button
-class ThemeToggleButton extends ConsumerWidget {
+class ThemeToggleButton extends StatelessWidget {
   final double size;
   final EdgeInsets? padding;
   
@@ -138,9 +134,9 @@ class ThemeToggleButton extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeState = ref.watch(themeManagerNotifierProvider);
-    final isDark = themeState.isDarkMode;
+  Widget build(BuildContext context) {
+    final themeManager = Provider.of<ThemeManager>(context);
+    final isDark = themeManager.isDarkMode;
     final primaryColor = isDark ? 
         ModernColors.primaryGreen : // Use the updated green for dark mode
         ModernColors.primaryTeal;   // Use the teal for light mode
@@ -163,7 +159,7 @@ class ThemeToggleButton extends ConsumerWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => ref.read(themeManagerNotifierProvider.notifier).toggleTheme(),
+          onTap: () => themeManager.toggleTheme(),
           customBorder: const CircleBorder(),
           child: Center(
             child: AnimatedSwitcher(

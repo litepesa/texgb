@@ -101,9 +101,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void _forceUpdateSystemUI() {
     final themeState = ref.read(themeManagerNotifierProvider);
     
+    // Make sure themeState has a value before accessing it
     if (!themeState.hasValue) return;
     
-    final isDarkMode = themeState.isDarkMode;
+    final isDarkMode = themeState.value!.isDarkMode;
     
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
