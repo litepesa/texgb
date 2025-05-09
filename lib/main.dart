@@ -9,7 +9,6 @@ import 'package:textgb/features/authentication/screens/user_information_screen.d
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
-import 'package:textgb/features/contacts/providers/contacts_providers.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
@@ -17,10 +16,12 @@ import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
+import 'package:textgb/common/videoviewerscreen.dart';
 import 'package:textgb/shared/theme/dark_theme.dart';
 import 'package:textgb/shared/theme/light_theme.dart';
-import 'package:textgb/shared/theme/theme_manager.dart';
-import 'package:textgb/common/videoviewerscreen.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/theme/modern_colors.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -41,10 +42,8 @@ void main() async {
     overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
   );
   
-  // Get platform brightness for initial theme
+  // Set initial system UI style based on platform brightness
   final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-  
-  // Set initial system UI style
   SystemChrome.setSystemUIOverlayStyle(
     SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -68,133 +67,22 @@ void main() async {
   );
 }
 
-class MyApp extends ConsumerStatefulWidget {
+// Simplified MyApp that maintains your theme but handles navigation properly
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  ConsumerState<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
-  // Timer to periodically update system UI
-  bool _initialized = false;
-  
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    
-    // Make sure to initialize the app after the first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          _initialized = true;
-        });
-      }
-      _updateSystemUI();
-    });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-  
-  // Update system UI based on current theme
-  void _updateSystemUI() {
-    if (!mounted) return;
-    
-    // Get platform brightness for fallback
-    final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-    
-    // Get theme state with safety check
-    final themeState = ref.read(themeManagerNotifierProvider);
-    bool isDarkMode = isPlatformDark; // Default to platform
-    
-    // Use theme state if available
-    if (themeState.hasValue && themeState.value != null) {
-      isDarkMode = themeState.value!.isDarkMode;
-    }
-    
-    // Set system UI style
-    SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-        systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-        statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-      ),
-    );
-  }
-
-  @override
-  void didChangePlatformBrightness() {
-    // Handle system theme changes
-    if (ref.read(themeManagerNotifierProvider.notifier) != null) {
-      final themeNotifier = ref.read(themeManagerNotifierProvider.notifier);
-      themeNotifier.handleSystemThemeChange();
-    }
-    _updateSystemUI();
-    super.didChangePlatformBrightness();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // Listen to theme changes, but with safety
-    final themeStateAsync = ref.watch(themeManagerNotifierProvider);
-    
-    // Get platform brightness for fallback
-    final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-    final fallbackTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
-    
-    // Use fallback theme if not initialized or theme is loading
-    if (!_initialized || themeStateAsync.isLoading) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: fallbackTheme,
-        home: const Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      );
-    }
-    
-    // Handle error case
-    if (themeStateAsync.hasError) {
-      debugPrint('Theme error: ${themeStateAsync.error}');
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: fallbackTheme,
-        home: Scaffold(
-          body: Center(
-            child: Text('Error initializing app: ${themeStateAsync.error}'),
-          ),
-        ),
-      );
-    }
-    
-    // Get actual theme with safety check
-    final ThemeData appTheme;
-    if (themeStateAsync.valueOrNull?.activeTheme != null) {
-      appTheme = themeStateAsync.valueOrNull!.activeTheme;
-    } else {
-      appTheme = fallbackTheme;
-    }
-    
-    // Schedule system UI update when theme changes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateSystemUI();
-    });
+    // Get existing dark theme from your theme file
+    final appTheme = modernDarkTheme();
     
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: true, // Set to true for debugging
       title: 'TexGB',
       theme: appTheme,
-      initialRoute: Constants.landingScreen,
+      // Start with a safe screen that handles navigation
+      home: const SafeStartScreen(),
+      // Define all your routes
       routes: {
         Constants.landingScreen: (context) => const LandingScreen(),
         Constants.loginScreen: (context) => const LoginScreen(),
@@ -215,7 +103,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         // Add video viewer screen explicitly
         '/videoViewerScreen': (context) {
           // Safely extract arguments with null checks and defaults
-          final Map<String, dynamic> args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ?? {};
+          final Map<String, dynamic> args = 
+              ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ?? {};
           final String videoUrl = args['videoUrl'] as String? ?? '';
           final String? videoTitle = args['videoTitle'] as String?;
           final Color accentColor = args['accentColor'] as Color? ?? const Color(0xFF2196F3);
@@ -227,9 +116,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           );
         },
       },
-      // Add the route observer
       navigatorObservers: [routeObserver],
-      // Add error handling for unknown routes
       onUnknownRoute: (settings) {
         return MaterialPageRoute(
           builder: (context) => Scaffold(
@@ -242,6 +129,168 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           ),
         );
       },
+    );
+  }
+}
+
+// A safe starting screen that handles navigation properly
+class SafeStartScreen extends StatefulWidget {
+  const SafeStartScreen({super.key});
+
+  @override
+  State<SafeStartScreen> createState() => _SafeStartScreenState();
+}
+
+class _SafeStartScreenState extends State<SafeStartScreen> {
+  bool _hasError = false;
+  String _errorMessage = '';
+  
+  @override
+  void initState() {
+    super.initState();
+    // Schedule navigation after the first frame renders
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _navigateToStartScreen();
+    });
+  }
+  
+  Future<void> _navigateToStartScreen() async {
+    try {
+      // Add a small delay to ensure the widget tree is fully built
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (!mounted) return;
+      
+      // Try to show the HomeScreen directly
+      // If there are authentication issues, fallback to LandingScreen
+      try {
+        // Check if user is already signed in
+        final currentUser = FirebaseAuth.instance.currentUser;
+        
+        if (currentUser != null) {
+          // User is signed in, navigate to HomeScreen
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, Constants.homeScreen);
+          }
+        } else {
+          // User is not signed in, navigate to LandingScreen
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, Constants.landingScreen);
+          }
+        }
+      } catch (e) {
+        // If there's an authentication error, go to LandingScreen
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, Constants.landingScreen);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Error initializing app: ${e.toString()}';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Get the theme's colors for safe display
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final backgroundColor = theme.scaffoldBackgroundColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.white;
+    
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: _hasError 
+            ? _buildErrorScreen(textColor)
+            : _buildLoadingScreen(primaryColor, backgroundColor, textColor),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildErrorScreen(Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            color: Colors.red,
+            size: 48,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Something went wrong',
+            style: TextStyle(
+              color: textColor,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _errorMessage,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _hasError = false;
+                _errorMessage = '';
+              });
+              _navigateToStartScreen();
+            },
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildLoadingScreen(Color primaryColor, Color backgroundColor, Color textColor) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // App logo or branding
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: primaryColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            'TExGB',
+            style: TextStyle(
+              color: backgroundColor,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        CircularProgressIndicator(
+          color: primaryColor,
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Loading...',
+          style: TextStyle(
+            color: textColor,
+            fontSize: 16,
+          ),
+        ),
+      ],
     );
   }
 }
