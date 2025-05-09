@@ -30,8 +30,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final authState = ref.watch(authenticationProvider);
     
     // Get theme state from the ThemeManagerNotifier
-    final themeState = ref.watch(themeManagerNotifierProvider);
-    final isDarkMode = themeState.isDarkMode;
+    final themeStateAsync = ref.watch(themeManagerNotifierProvider);
+    final isDarkMode = themeStateAsync.hasValue ? themeStateAsync.value!.isDarkMode : false;
     
     // Handle loading/error states
     if (authState.isLoading) {
@@ -513,7 +513,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   // Show theme options dialog
   void _showThemeOptions(BuildContext context) {
-    final currentThemeOption = ref.read(themeManagerNotifierProvider).currentTheme;
+    final themeStateAsync = ref.read(themeManagerNotifierProvider);
+    
+    // Get the current theme option with a safe default
+    ThemeOption currentThemeOption = ThemeOption.system;
+    if (themeStateAsync.hasValue) {
+      currentThemeOption = themeStateAsync.value!.currentTheme;
+    }
     
     showDialog(
       context: context,

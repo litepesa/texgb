@@ -1,10 +1,12 @@
+// lib/shared/theme/theme_manager.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dark_theme.dart';
 import 'light_theme.dart';
-import 'modern_colors.dart';
 
 enum ThemeOption {
   light,
@@ -12,79 +14,98 @@ enum ThemeOption {
   system
 }
 
-class ThemeManager extends ChangeNotifier {
+// Define the state class for the theme manager
+class ThemeState {
+  final ThemeOption currentTheme;
+  final ThemeData activeTheme;
+
+  ThemeState({required this.currentTheme, required this.activeTheme});
+
+  bool get isDarkMode => activeTheme.brightness == Brightness.dark;
+
+  ThemeState copyWith({ThemeOption? currentTheme, ThemeData? activeTheme}) {
+    return ThemeState(
+      currentTheme: currentTheme ?? this.currentTheme,
+      activeTheme: activeTheme ?? this.activeTheme,
+    );
+  }
+}
+
+// Create the AsyncNotifier to manage theme state
+class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
   static const String _themePreferenceKey = 'app_theme';
   
-  // Current selected theme
-  ThemeOption _currentTheme = ThemeOption.system;
-  
-  // Current active theme based on system or user preference
-  late ThemeData _activeTheme;
-  
-  // Getter for current theme option
-  ThemeOption get currentTheme => _currentTheme;
-  
-  // Getter for active theme data
-  ThemeData get activeTheme => _activeTheme;
-  
-  // Getter to check if dark mode is active
-  bool get isDarkMode => _activeTheme.brightness == Brightness.dark;
-  
-  // Constructor initializes with system theme
-  ThemeManager() {
-    _loadSavedTheme();
-  }
-  
-  // Initialize theme manager and load saved preference
-  Future<void> initialize() async {
-    await _loadSavedTheme();
-  }
-  
-  // Load saved theme preference from shared preferences
-  Future<void> _loadSavedTheme() async {
+  @override
+  Future<ThemeState> build() async {
+    // Create initial state with the system's current brightness
+    final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    final initialTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+    
+    // Load saved theme preference
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedTheme = prefs.getString(_themePreferenceKey);
+      final savedThemeString = prefs.getString(_themePreferenceKey);
       
-      if (savedTheme != null) {
-        _currentTheme = ThemeOption.values.firstWhere(
-          (element) => element.toString() == savedTheme,
-          orElse: () => ThemeOption.system,
+      // If no saved preference, use system default
+      if (savedThemeString == null) {
+        final initialState = ThemeState(
+          currentTheme: ThemeOption.system,
+          activeTheme: initialTheme,
         );
+        
+        // Update system UI
+        _updateSystemNavigation(initialState.isDarkMode);
+        
+        return initialState;
       }
       
-      _updateActiveTheme();
-      notifyListeners();
+      // Use saved preference
+      final savedTheme = ThemeOption.values.firstWhere(
+        (element) => element.toString() == savedThemeString,
+        orElse: () => ThemeOption.system,
+      );
+      
+      // Determine the active theme based on the saved preference
+      ThemeData activeTheme;
+      switch (savedTheme) {
+        case ThemeOption.light:
+          activeTheme = modernLightTheme();
+          break;
+        case ThemeOption.dark:
+          activeTheme = modernDarkTheme();
+          break;
+        case ThemeOption.system:
+          activeTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+          break;
+      }
+      
+      final themeState = ThemeState(
+        currentTheme: savedTheme,
+        activeTheme: activeTheme,
+      );
+      
+      // Update system UI
+      _updateSystemNavigation(themeState.isDarkMode);
+      
+      return themeState;
     } catch (e) {
-      // Default to system theme if there's an error
-      _currentTheme = ThemeOption.system;
-      _updateActiveTheme();
+      debugPrint('Error loading theme preference: $e');
+      
+      // Return default state on error
+      final defaultState = ThemeState(
+        currentTheme: ThemeOption.system,
+        activeTheme: initialTheme,
+      );
+      
+      // Update system UI
+      _updateSystemNavigation(defaultState.isDarkMode);
+      
+      return defaultState;
     }
-  }
-  
-  // Update the active theme based on current theme selection
-  void _updateActiveTheme() {
-    switch (_currentTheme) {
-      case ThemeOption.light:
-        _activeTheme = modernLightTheme();
-        break;
-      case ThemeOption.dark:
-        _activeTheme = modernDarkTheme();
-        break;
-      case ThemeOption.system:
-        final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-        _activeTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
-        break;
-    }
-    
-    // Update system navigation bar to match theme
-    updateSystemNavigation();
   }
   
   // Update system UI to match theme
-  void updateSystemNavigation() {
-    final isDark = _activeTheme.brightness == Brightness.dark;
-    
+  void _updateSystemNavigation(bool isDark) {
     // Set system navigation bar to transparent
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
@@ -97,7 +118,6 @@ class ThemeManager extends ChangeNotifier {
     );
     
     // Apply a second time after a short delay to override any system defaults
-    // This helps on some Android versions that might reset the navigation bar color
     Future.delayed(const Duration(milliseconds: 100), () {
       SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(
@@ -113,48 +133,86 @@ class ThemeManager extends ChangeNotifier {
   
   // Change theme and save preference
   Future<void> setTheme(ThemeOption theme) async {
-    if (_currentTheme == theme) return;
+    // Don't do anything if the theme is the same
+    if (state.value?.currentTheme == theme) return;
     
-    _currentTheme = theme;
-    _updateActiveTheme();
-    
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_themePreferenceKey, theme.toString());
-    } catch (e) {
-      // Handle preference saving error
-      debugPrint('Error saving theme preference: $e');
-    }
-    
-    notifyListeners();
+    // Update state based on the new theme option
+    await update((currentState) async {
+      ThemeData newTheme;
+      
+      switch (theme) {
+        case ThemeOption.light:
+          newTheme = modernLightTheme();
+          break;
+        case ThemeOption.dark:
+          newTheme = modernDarkTheme();
+          break;
+        case ThemeOption.system:
+          final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+          newTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+          break;
+      }
+      
+      // Save preference
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_themePreferenceKey, theme.toString());
+      } catch (e) {
+        debugPrint('Error saving theme preference: $e');
+        // Continue even if save fails
+      }
+      
+      final newState = ThemeState(
+        currentTheme: theme,
+        activeTheme: newTheme,
+      );
+      
+      // Update system UI
+      _updateSystemNavigation(newState.isDarkMode);
+      
+      return newState;
+    });
   }
   
   // Toggle between light and dark themes
   Future<void> toggleTheme() async {
-    ThemeOption newTheme;
-    
-    // If system theme is active, check the current brightness
-    if (_currentTheme == ThemeOption.system) {
-      final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-      newTheme = isPlatformDark ? ThemeOption.light : ThemeOption.dark;
-    } else if (_currentTheme == ThemeOption.light) {
-      newTheme = ThemeOption.dark;
-    } else {
-      newTheme = ThemeOption.light;
+    if (state.hasValue) {
+      final currentState = state.value!;
+      ThemeOption newTheme;
+      
+      // If system theme is active, check the current brightness
+      if (currentState.currentTheme == ThemeOption.system) {
+        final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+        newTheme = isPlatformDark ? ThemeOption.light : ThemeOption.dark;
+      } else if (currentState.currentTheme == ThemeOption.light) {
+        newTheme = ThemeOption.dark;
+      } else {
+        newTheme = ThemeOption.light;
+      }
+      
+      await setTheme(newTheme);
     }
-    
-    await setTheme(newTheme);
   }
   
-  // Listen to system theme changes
-  void handleSystemThemeChange() {
-    if (_currentTheme == ThemeOption.system) {
-      _updateActiveTheme();
-      notifyListeners();
+  // Handle system theme changes
+  Future<void> handleSystemThemeChange() async {
+    if (state.value?.currentTheme == ThemeOption.system) {
+      await update((currentState) async {
+        final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+        final newTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+        
+        final updatedState = currentState.copyWith(activeTheme: newTheme);
+        
+        // Update system UI
+        _updateSystemNavigation(updatedState.isDarkMode);
+        
+        return updatedState;
+      });
     }
   }
-
-  void setDarkMode() {}
-
-  void setLightMode() {}
 }
+
+// Create a provider for the ThemeManagerNotifier
+final themeManagerNotifierProvider = AsyncNotifierProvider<ThemeManagerNotifier, ThemeState>(() {
+  return ThemeManagerNotifier();
+});

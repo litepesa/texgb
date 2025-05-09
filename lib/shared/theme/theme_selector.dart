@@ -1,14 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../theme/theme_manager.dart';
-import '../theme/modern_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/shared/theme/theme_manager.dart';
+import 'package:textgb/shared/theme/modern_colors.dart';
 
-class ThemeSelector extends StatelessWidget {
+class ThemeSelector extends ConsumerWidget {
   const ThemeSelector({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final themeManager = Provider.of<ThemeManager>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeStateAsync = ref.watch(themeManagerNotifierProvider);
+    final themeManager = ref.read(themeManagerNotifierProvider.notifier);
+    
+    // Show loading indicator while theme is initializing
+    if (themeStateAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    // Handle error
+    if (themeStateAsync.hasError) {
+      return Center(
+        child: Text('Error loading theme: ${themeStateAsync.error}'),
+      );
+    }
+    
+    // Get the theme state
+    final themeState = themeStateAsync.value!;
     
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -30,7 +46,7 @@ class ThemeSelector extends StatelessWidget {
             title: 'System',
             subtitle: 'Follow system settings',
             icon: Icons.brightness_auto,
-            isSelected: themeManager.currentTheme == ThemeOption.system,
+            isSelected: themeState.currentTheme == ThemeOption.system,
             onTap: () => themeManager.setTheme(ThemeOption.system),
           ),
           
@@ -41,7 +57,7 @@ class ThemeSelector extends StatelessWidget {
             title: 'Light',
             subtitle: 'Light appearance',
             icon: Icons.light_mode,
-            isSelected: themeManager.currentTheme == ThemeOption.light,
+            isSelected: themeState.currentTheme == ThemeOption.light,
             onTap: () => themeManager.setTheme(ThemeOption.light),
           ),
           
@@ -52,7 +68,7 @@ class ThemeSelector extends StatelessWidget {
             title: 'Dark',
             subtitle: 'Dark appearance',
             icon: Icons.dark_mode,
-            isSelected: themeManager.currentTheme == ThemeOption.dark,
+            isSelected: themeState.currentTheme == ThemeOption.dark,
             onTap: () => themeManager.setTheme(ThemeOption.dark),
           ),
         ],
@@ -123,7 +139,7 @@ class ThemeSelector extends StatelessWidget {
 }
 
 /// A simple floating theme toggle button
-class ThemeToggleButton extends StatelessWidget {
+class ThemeToggleButton extends ConsumerWidget {
   final double size;
   final EdgeInsets? padding;
   
@@ -134,9 +150,54 @@ class ThemeToggleButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final themeManager = Provider.of<ThemeManager>(context);
-    final isDark = themeManager.isDarkMode;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeStateAsync = ref.watch(themeManagerNotifierProvider);
+    final themeManager = ref.read(themeManagerNotifierProvider.notifier);
+    
+    // Show loading indicator while theme is initializing
+    if (themeStateAsync.isLoading) {
+      return Container(
+        width: size,
+        height: size,
+        margin: padding ?? const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey,
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Handle error
+    if (themeStateAsync.hasError) {
+      return Container(
+        width: size,
+        height: size,
+        margin: padding ?? const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.error,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+    
+    final themeState = themeStateAsync.value!;
+    final isDark = themeState.isDarkMode;
     final primaryColor = isDark ? 
         ModernColors.primaryGreen : // Use the updated green for dark mode
         ModernColors.primaryTeal;   // Use the teal for light mode

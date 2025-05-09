@@ -19,6 +19,8 @@ import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
+import 'package:textgb/shared/theme/dark_theme.dart';
+import 'package:textgb/shared/theme/light_theme.dart';
 import 'dart:async';
 
 // Create a route observer to monitor route changes
@@ -99,12 +101,16 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
   
   void _forceUpdateSystemUI() {
+    final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
     final themeState = ref.read(themeManagerNotifierProvider);
     
-    // Make sure themeState has a value before accessing it
-    if (!themeState.hasValue) return;
+    // Default to platform brightness if theme state is not available yet
+    bool isDarkMode = isPlatformDark;
     
-    final isDarkMode = themeState.value!.isDarkMode;
+    // Only use theme state if it's available
+    if (themeState.hasValue) {
+      isDarkMode = themeState.value!.isDarkMode;
+    }
     
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
@@ -142,10 +148,15 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       _forceUpdateSystemUI();
     });
     
+    // Get platform brightness for fallback
+    final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    final fallbackTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+    
     // Show loading indicator while theme is initializing
     if (themeState.isLoading) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
+        theme: fallbackTheme,
         home: Scaffold(
           body: Center(
             child: CircularProgressIndicator(),
@@ -158,6 +169,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     if (themeState.hasError) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
+        theme: fallbackTheme,
         home: Scaffold(
           body: Center(
             child: Text('Error loading theme: ${themeState.error}'),
@@ -169,7 +181,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'TexGB',
-      theme: themeState.activeTheme,
+      theme: themeState.hasValue ? themeState.value!.activeTheme : fallbackTheme,
       initialRoute: Constants.landingScreen,
       routes: {
         Constants.landingScreen: (context) => const LandingScreen(),

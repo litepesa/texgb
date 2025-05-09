@@ -1,20 +1,22 @@
+// lib/shared/theme/system_ui_updater.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 
 /// A widget that automatically updates system UI colors to match the current theme
 /// This ensures the system navigation bar colors are consistent
-class SystemUIUpdater extends StatefulWidget {
+class SystemUIUpdater extends ConsumerStatefulWidget {
   final Widget child;
   
   const SystemUIUpdater({super.key, required this.child});
   
   @override
-  State<SystemUIUpdater> createState() => _SystemUIUpdaterState();
+  ConsumerState<SystemUIUpdater> createState() => _SystemUIUpdaterState();
 }
 
-class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingObserver {
+class _SystemUIUpdaterState extends ConsumerState<SystemUIUpdater> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -43,8 +45,16 @@ class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingOb
   }
   
   void _updateUI() {
-    final themeManager = Provider.of<ThemeManager>(context, listen: false);
-    final isDarkMode = themeManager.isDarkMode;
+    final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    final themeState = ref.read(themeManagerNotifierProvider);
+    
+    // Default to platform brightness if theme state is not available yet
+    bool isDarkMode = isPlatformDark;
+    
+    // Only use theme state if it's available
+    if (themeState.hasValue) {
+      isDarkMode = themeState.value!.isDarkMode;
+    }
     
     // Force edge-to-edge mode for better control of system bars
     SystemChrome.setEnabledSystemUIMode(
@@ -89,12 +99,14 @@ class _SystemUIUpdaterState extends State<SystemUIUpdater> with WidgetsBindingOb
   @override
   Widget build(BuildContext context) {
     // Listen for theme changes
-    final themeManager = Provider.of<ThemeManager>(context);
+    final themeState = ref.watch(themeManagerNotifierProvider);
     
-    // Update the UI whenever the theme changes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateUI();
-    });
+    // Update the UI whenever the theme changes and has a value
+    if (themeState.hasValue) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateUI();
+      });
+    }
     
     return widget.child;
   }
