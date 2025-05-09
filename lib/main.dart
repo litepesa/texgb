@@ -17,16 +17,15 @@ import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
-import 'package:textgb/shared/theme/system_ui_updater.dart';
-import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/dark_theme.dart';
 import 'package:textgb/shared/theme/light_theme.dart';
-import 'dart:async';
+import 'package:textgb/shared/theme/theme_manager.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
 
 void main() async {
+  // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
   // Set preferred orientations
@@ -35,22 +34,22 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   
-  // Force edge-to-edge mode for better control of system bars
+  // Set edge-to-edge mode and transparent system bars
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.edgeToEdge,
     overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
   );
   
-  // Get the platform brightness to set initial theme
+  // Get platform brightness for initial theme
   final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
   
-  // Initial setup of system UI based on platform brightness
+  // Set initial system UI style
   SystemChrome.setSystemUIOverlayStyle(
     SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,  // Set to transparent
+      systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false, // Prevent Android from overriding colors
+      systemNavigationBarContrastEnforced: false,
       systemNavigationBarIconBrightness: isPlatformDark ? Brightness.light : Brightness.dark,
       statusBarIconBrightness: isPlatformDark ? Brightness.light : Brightness.dark,
     ),
@@ -76,51 +75,52 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
-  Timer? _uiUpdateTimer;
+  // Timer to periodically update system UI
+  bool _initialized = false;
   
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Schedule periodic updates to ensure the navigation bar stays the correct color
-    _uiUpdateTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    // Make sure to initialize the app after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _forceUpdateSystemUI();
-      } else {
-        timer.cancel();
+        setState(() {
+          _initialized = true;
+        });
       }
+      _updateSystemUI();
     });
   }
 
   @override
   void dispose() {
-    _uiUpdateTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
   
-  void _forceUpdateSystemUI() {
+  // Update system UI based on current theme
+  void _updateSystemUI() {
+    if (!mounted) return;
+    
+    // Get platform brightness for fallback
     final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    
+    // Get theme state with safety check
     final themeState = ref.read(themeManagerNotifierProvider);
+    bool isDarkMode = isPlatformDark; // Default to platform
     
-    // Default to platform brightness if theme state is not available yet
-    bool isDarkMode = isPlatformDark;
-    
-    // Only use theme state if it's available
-    if (themeState.hasValue) {
+    // Use theme state if available
+    if (themeState.hasValue && themeState.value != null) {
       isDarkMode = themeState.value!.isDarkMode;
     }
     
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
-      overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
-    );
-    
+    // Set system UI style
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent, // Set to transparent
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarDividerColor: Colors.transparent,
         systemNavigationBarContrastEnforced: false,
         systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
@@ -134,30 +134,25 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // Handle system theme changes
     final themeNotifier = ref.read(themeManagerNotifierProvider.notifier);
     themeNotifier.handleSystemThemeChange();
-    _forceUpdateSystemUI();
+    _updateSystemUI();
     super.didChangePlatformBrightness();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Listen to theme changes
-    final themeState = ref.watch(themeManagerNotifierProvider);
-    
-    // Force update system UI every time the theme changes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _forceUpdateSystemUI();
-    });
+    // Listen to theme changes, but with safety
+    final themeStateAsync = ref.watch(themeManagerNotifierProvider);
     
     // Get platform brightness for fallback
     final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
     final fallbackTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
     
-    // Show loading indicator while theme is initializing
-    if (themeState.isLoading) {
+    // Use fallback theme if not initialized or theme is loading
+    if (!_initialized || themeStateAsync.isLoading) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: fallbackTheme,
-        home: Scaffold(
+        home: const Scaffold(
           body: Center(
             child: CircularProgressIndicator(),
           ),
@@ -165,29 +160,39 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       );
     }
     
-    // Handle error
-    if (themeState.hasError) {
+    // Handle error case
+    if (themeStateAsync.hasError) {
+      debugPrint('Theme error: ${themeStateAsync.error}');
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: fallbackTheme,
         home: Scaffold(
           body: Center(
-            child: Text('Error loading theme: ${themeState.error}'),
+            child: Text('Error initializing app: ${themeStateAsync.error}'),
           ),
         ),
       );
     }
     
+    // Get actual theme with safety check
+    final themeState = themeStateAsync.valueOrNull;
+    final appTheme = themeState?.activeTheme ?? fallbackTheme;
+    
+    // Schedule system UI update when theme changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateSystemUI();
+    });
+    
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'TexGB',
-      theme: themeState.hasValue ? themeState.value!.activeTheme : fallbackTheme,
+      theme: appTheme,
       initialRoute: Constants.landingScreen,
       routes: {
         Constants.landingScreen: (context) => const LandingScreen(),
         Constants.loginScreen: (context) => const LoginScreen(),
         Constants.otpScreen: (context) => const OtpScreen(),
-        Constants.userInformationScreen: (context) =>
+        Constants.userInformationScreen: (context) => 
             const UserInformationScreen(),
         Constants.homeScreen: (context) => const HomeScreen(),
         
@@ -203,10 +208,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       },
       // Add the route observer
       navigatorObservers: [routeObserver],
-      // Wrap the app with SystemUIUpdater to handle navigation bar colors
-      builder: (context, child) {
-        return SystemUIUpdater(child: child ?? const SizedBox.shrink());
-      },
     );
   }
 }

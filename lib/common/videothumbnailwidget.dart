@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:textgb/common/videoviewerscreen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class VideoThumbnailWidget extends StatelessWidget {
@@ -35,12 +34,14 @@ class VideoThumbnailWidget extends StatelessWidget {
           onTap!();
         } else {
           // Otherwise, navigate to the VideoViewerScreen
-          Navigator.of(context).push(
-            VideoViewerScreen.route(
-              videoUrl: videoUrl,
-              videoTitle: title,
-              accentColor: accentColor,
-            ),
+          Navigator.pushNamed(
+            context,
+            '/videoViewerScreen',
+            arguments: {
+              'videoUrl': videoUrl,
+              'videoTitle': title,
+              'accentColor': accentColor,
+            },
           );
         }
       },
@@ -62,10 +63,38 @@ class VideoThumbnailWidget extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Video thumbnail
-            thumbnailUrl != null && thumbnailUrl!.isNotEmpty
-                ? _buildNetworkThumbnail()
-                : _buildDefaultThumbnail(),
+            // Simplified thumbnail handling
+            if (thumbnailUrl != null && thumbnailUrl!.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: thumbnailUrl!,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[900],
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
+                      strokeWidth: 2.0,
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[900],
+                  child: const Icon(
+                    Icons.video_file,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                ),
+              )
+            else
+              Container(
+                color: Colors.grey[900],
+                child: const Icon(
+                  Icons.video_file,
+                  color: Colors.white54,
+                  size: 48,
+                ),
+              ),
 
             // Play button overlay with improved design
             Center(
@@ -90,26 +119,27 @@ class VideoThumbnailWidget extends StatelessWidget {
               ),
             ),
 
-            // Duration indicator (now supports actual duration)
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  durationText ?? "Video",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+            // Duration indicator
+            if (durationText != null)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    durationText!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
 
             // Title overlay (if provided)
             if (title != null && title!.isNotEmpty)
@@ -142,48 +172,6 @@ class VideoThumbnailWidget extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  // Separate method for network thumbnail to avoid the error
-  Widget _buildNetworkThumbnail() {
-    // Safety check to ensure thumbnailUrl is not null
-    if (thumbnailUrl == null || thumbnailUrl!.isEmpty) {
-      return _buildDefaultThumbnail();
-    }
-    
-    return CachedNetworkImage(
-      imageUrl: thumbnailUrl!,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => Container(
-        color: Colors.grey[900],
-        child: const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
-            strokeWidth: 2.0,
-          ),
-        ),
-      ),
-      errorWidget: (context, url, error) => Container(
-        color: Colors.grey[900],
-        child: const Icon(
-          Icons.video_file,
-          color: Colors.white54,
-          size: 48,
-        ),
-      ),
-    );
-  }
-
-  // Default thumbnail for when no URL is provided
-  Widget _buildDefaultThumbnail() {
-    return Container(
-      color: Colors.grey[900],
-      child: const Icon(
-        Icons.video_file,
-        color: Colors.white54,
-        size: 48,
       ),
     );
   }

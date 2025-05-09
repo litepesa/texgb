@@ -1,5 +1,3 @@
-// lib/shared/theme/theme_manager.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,10 +58,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       }
       
       // Use saved preference
-      final savedTheme = ThemeOption.values.firstWhere(
-        (element) => element.toString() == savedThemeString,
-        orElse: () => ThemeOption.system,
-      );
+      final savedTheme = _parseThemeOption(savedThemeString);
       
       // Determine the active theme based on the saved preference
       ThemeData activeTheme;
@@ -75,6 +70,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
           activeTheme = modernDarkTheme();
           break;
         case ThemeOption.system:
+        default:
           activeTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
           break;
       }
@@ -101,6 +97,19 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       _updateSystemNavigation(defaultState.isDarkMode);
       
       return defaultState;
+    }
+  }
+  
+  // Safely parse string to ThemeOption enum
+  ThemeOption _parseThemeOption(String value) {
+    try {
+      return ThemeOption.values.firstWhere(
+        (element) => element.toString() == value,
+        orElse: () => ThemeOption.system,
+      );
+    } catch (e) {
+      debugPrint('Error parsing theme option: $e');
+      return ThemeOption.system;
     }
   }
   
@@ -133,8 +142,15 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
   
   // Change theme and save preference
   Future<void> setTheme(ThemeOption theme) async {
+    // Don't do anything if state is loading or has error
+    if (state.isLoading || state.hasError) return;
+    
+    // Get current state value with null safety
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+    
     // Don't do anything if the theme is the same
-    if (state.value?.currentTheme == theme) return;
+    if (currentState.currentTheme == theme) return;
     
     // Update state based on the new theme option
     await update((currentState) async {
@@ -176,7 +192,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
   
   // Toggle between light and dark themes
   Future<void> toggleTheme() async {
-    if (state.hasValue) {
+    if (state.hasValue && state.valueOrNull != null) {
       final currentState = state.value!;
       ThemeOption newTheme;
       
@@ -196,7 +212,10 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
   
   // Handle system theme changes
   Future<void> handleSystemThemeChange() async {
-    if (state.value?.currentTheme == ThemeOption.system) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+    
+    if (currentState.currentTheme == ThemeOption.system) {
       await update((currentState) async {
         final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
         final newTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();

@@ -1,5 +1,3 @@
-// lib/shared/theme/system_ui_updater.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,14 +43,17 @@ class _SystemUIUpdaterState extends ConsumerState<SystemUIUpdater> with WidgetsB
   }
   
   void _updateUI() {
+    // Get platform brightness as fallback
     final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    
+    // Get theme state, with null safety
     final themeState = ref.read(themeManagerNotifierProvider);
     
     // Default to platform brightness if theme state is not available yet
     bool isDarkMode = isPlatformDark;
     
-    // Only use theme state if it's available
-    if (themeState.hasValue) {
+    // Only use theme state if it's available and has a value
+    if (themeState.hasValue && themeState.value != null) {
       isDarkMode = themeState.value!.isDarkMode;
     }
     
@@ -102,7 +103,7 @@ class _SystemUIUpdaterState extends ConsumerState<SystemUIUpdater> with WidgetsB
     final themeState = ref.watch(themeManagerNotifierProvider);
     
     // Update the UI whenever the theme changes and has a value
-    if (themeState.hasValue) {
+    if (themeState.hasValue && themeState.value != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateUI();
       });
