@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/common/videoviewerscreen.dart';
 
 class VideoThumbnailWidget extends StatelessWidget {
   final String videoUrl;
@@ -33,15 +34,15 @@ class VideoThumbnailWidget extends StatelessWidget {
         if (onTap != null) {
           onTap!();
         } else {
-          // Otherwise, navigate to the VideoViewerScreen
-          Navigator.pushNamed(
-            context,
-            '/videoViewerScreen',
-            arguments: {
-              'videoUrl': videoUrl,
-              'videoTitle': title,
-              'accentColor': accentColor,
-            },
+          // Use direct navigation instead of named routes to avoid null issues
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => VideoViewerScreen(
+                videoUrl: videoUrl,
+                videoTitle: title,
+                accentColor: accentColor,
+              ),
+            ),
           );
         }
       },

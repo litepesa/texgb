@@ -1,6 +1,7 @@
 class Constants {
   // screens routes
   static const String landingScreen = '/landingScreen';
+  static const String videoViewerScreen = '/videoViewerScreen';
   static const String loginScreen = '/loginScreen';
   static const String otpScreen = '/otpScreen';
   static const String userInformationScreen = '/userInformationScreen';

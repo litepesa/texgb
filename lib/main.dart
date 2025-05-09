@@ -20,6 +20,7 @@ import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
 import 'package:textgb/shared/theme/dark_theme.dart';
 import 'package:textgb/shared/theme/light_theme.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
+import 'package:textgb/common/videoviewerscreen.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -132,8 +133,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void didChangePlatformBrightness() {
     // Handle system theme changes
-    final themeNotifier = ref.read(themeManagerNotifierProvider.notifier);
-    themeNotifier.handleSystemThemeChange();
+    if (ref.read(themeManagerNotifierProvider.notifier) != null) {
+      final themeNotifier = ref.read(themeManagerNotifierProvider.notifier);
+      themeNotifier.handleSystemThemeChange();
+    }
     _updateSystemUI();
     super.didChangePlatformBrightness();
   }
@@ -175,8 +178,12 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     }
     
     // Get actual theme with safety check
-    final themeState = themeStateAsync.valueOrNull;
-    final appTheme = themeState?.activeTheme ?? fallbackTheme;
+    final ThemeData appTheme;
+    if (themeStateAsync.valueOrNull?.activeTheme != null) {
+      appTheme = themeStateAsync.valueOrNull!.activeTheme;
+    } else {
+      appTheme = fallbackTheme;
+    }
     
     // Schedule system UI update when theme changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -192,8 +199,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         Constants.landingScreen: (context) => const LandingScreen(),
         Constants.loginScreen: (context) => const LoginScreen(),
         Constants.otpScreen: (context) => const OtpScreen(),
-        Constants.userInformationScreen: (context) => 
-            const UserInformationScreen(),
+        Constants.userInformationScreen: (context) => const UserInformationScreen(),
         Constants.homeScreen: (context) => const HomeScreen(),
         
         // Contact profile routes
@@ -205,9 +211,37 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         Constants.addContactScreen: (context) => const AddContactScreen(),
         Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
         Constants.chatScreen: (context) => const ChatScreen(),
+        
+        // Add video viewer screen explicitly
+        '/videoViewerScreen': (context) {
+          // Safely extract arguments with null checks and defaults
+          final Map<String, dynamic> args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ?? {};
+          final String videoUrl = args['videoUrl'] as String? ?? '';
+          final String? videoTitle = args['videoTitle'] as String?;
+          final Color accentColor = args['accentColor'] as Color? ?? const Color(0xFF2196F3);
+          
+          return VideoViewerScreen(
+            videoUrl: videoUrl,
+            videoTitle: videoTitle,
+            accentColor: accentColor,
+          );
+        },
       },
       // Add the route observer
       navigatorObservers: [routeObserver],
+      // Add error handling for unknown routes
+      onUnknownRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Error'),
+            ),
+            body: const Center(
+              child: Text('Route not found'),
+            ),
+          ),
+        );
+      },
     );
   }
 }
