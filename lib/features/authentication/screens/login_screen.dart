@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -70,7 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: 'Tex',
+                          text: 'Wei',
                           style: GoogleFonts.poppins(
                             fontSize: 44,
                             fontWeight: FontWeight.bold,
@@ -79,7 +79,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         TextSpan(
-                          text: 'GB',
+                          text: 'Bao',
                           style: GoogleFonts.poppins(
                             fontSize: 44,
                             fontWeight: FontWeight.bold,

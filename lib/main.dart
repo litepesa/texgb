@@ -7,16 +7,8 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
-import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
 import 'package:textgb/firebase_options.dart';
-import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
-import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
-import 'package:textgb/features/chat/screens/chat_screen.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/main_screen/home_screen.dart';
-import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
-import 'package:textgb/common/videoviewerscreen.dart';
 import 'package:textgb/shared/theme/dark_theme.dart';
 import 'package:textgb/shared/theme/light_theme.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -49,7 +41,7 @@ void main() async {
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
+      systemNavigationBarContrastEnforced: false, // Prevent Android from overriding colors
       systemNavigationBarIconBrightness: isPlatformDark ? Brightness.light : Brightness.dark,
       statusBarIconBrightness: isPlatformDark ? Brightness.light : Brightness.dark,
     ),
@@ -77,8 +69,8 @@ class MyApp extends StatelessWidget {
     final appTheme = modernDarkTheme();
     
     return MaterialApp(
-      debugShowCheckedModeBanner: true, // Set to true for debugging
-      title: 'TexGB',
+      debugShowCheckedModeBanner: false, // Set to false for production
+      title: 'WeiBao',
       theme: appTheme,
       // Start with a safe screen that handles navigation
       home: const SafeStartScreen(),
@@ -89,32 +81,6 @@ class MyApp extends StatelessWidget {
         Constants.otpScreen: (context) => const OtpScreen(),
         Constants.userInformationScreen: (context) => const UserInformationScreen(),
         Constants.homeScreen: (context) => const HomeScreen(),
-        
-        // Contact profile routes
-        Constants.contactProfileScreen: (context) => const ContactProfileScreen(),
-        Constants.myProfileScreen: (context) => const MyProfileScreen(),
-        Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
-        
-        Constants.contactsScreen: (context) => const ContactsScreen(),
-        Constants.addContactScreen: (context) => const AddContactScreen(),
-        Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
-        Constants.chatScreen: (context) => const ChatScreen(),
-        
-        // Add video viewer screen explicitly
-        '/videoViewerScreen': (context) {
-          // Safely extract arguments with null checks and defaults
-          final Map<String, dynamic> args = 
-              ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ?? {};
-          final String videoUrl = args['videoUrl'] as String? ?? '';
-          final String? videoTitle = args['videoTitle'] as String?;
-          final Color accentColor = args['accentColor'] as Color? ?? const Color(0xFF2196F3);
-          
-          return VideoViewerScreen(
-            videoUrl: videoUrl,
-            videoTitle: videoTitle,
-            accentColor: accentColor,
-          );
-        },
       },
       navigatorObservers: [routeObserver],
       onUnknownRoute: (settings) {
@@ -270,7 +236,7 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            'TExGB',
+            'WeiBao',
             style: TextStyle(
               color: backgroundColor,
               fontSize: 28,

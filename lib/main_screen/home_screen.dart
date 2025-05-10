@@ -2,14 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/contacts/screens/my_profile_screen.dart';
-import 'package:textgb/features/chat/screens/my_chats_screen.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/shared/utilities/assets_manager.dart';
 import 'package:textgb/widgets/modern_bottomnav_bar.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -23,11 +18,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   int pageIndex = 0;
   
-  // Creating separate widget variables with our screens
-  final Widget homeScreen = const _PlaceholderScreen(title: "Home");
-  final Widget chatScreen = const MyChatsScreen();
-  final Widget cartScreen = const _PlaceholderScreen(title: "Cart");
-  final Widget profileScreen = const MyProfileScreen();
+  // Creating placeholder screens
+  late final Widget homeScreen;
+  late final Widget chatScreen;
+  late final Widget cartScreen;
+  late final Widget profileScreen;
   
   // We'll define these in initState to ensure they match our bottom nav bar
   late final List<Widget> pages;
@@ -36,6 +31,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     WidgetsBinding.instance.addObserver(this);
     super.initState();
+    
+    // Initialize placeholder screens
+    homeScreen = _PlaceholderScreen(title: "Home");
+    chatScreen = _PlaceholderScreen(title: "Chats");
+    cartScreen = _PlaceholderScreen(title: "Cart");
+    profileScreen = _PlaceholderScreen(title: "Profile");
     
     // Initialize pages list to match our bottom nav bar (now 4 tabs in new order)
     pages = [
@@ -127,7 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       appBar: pageIndex == 0 ? AppBar(
         elevation: elevation,
         toolbarHeight: 65.0,
-        centerTitle: true,  // Set centerTitle to true
+        centerTitle: true,
         backgroundColor: appBarColor,
         title: RichText(
           text: TextSpan(
@@ -138,13 +139,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             children: [
               TextSpan(
-                text: 'Snap',
+                text: 'Wei',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               TextSpan(
-                text: 'Reel',
+                text: 'Bao',
                 style: TextStyle(
                   color: accentColor,
                   fontWeight: FontWeight.w500,
@@ -246,10 +247,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (pageIndex == 0) {
       return FloatingActionButton(
         onPressed: () {
-          // Navigate to Contacts screen
-          Navigator.pushNamed(
-            context,
-            Constants.contactsScreen,
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('This feature is under development'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
           );
         },
         backgroundColor: accentColor,
