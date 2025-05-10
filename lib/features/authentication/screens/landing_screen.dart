@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
-import 'package:textgb/shared/widgets/custom_button.dart';
+
+// State provider for loading state
+final landingLoadingProvider = StateProvider.autoDispose<bool>((ref) => true);
 
 class LandingScreen extends ConsumerStatefulWidget {
   const LandingScreen({super.key});
@@ -14,47 +16,50 @@ class LandingScreen extends ConsumerStatefulWidget {
 }
 
 class _LandingScreenState extends ConsumerState<LandingScreen> {
-  bool _isLoading = true;
+  // Pre-load Lottie animation
+  late Future<LottieComposition> _lottieComposition;
 
   @override
   void initState() {
-    checkAuthentication();
+    _lottieComposition = AssetLottie(AssetsManager.chatBubble).load();
+    // Fire and forget authentication check
+    _checkAuthentication();
     super.initState();
   }
 
-  void checkAuthentication() async {
-    bool isAuthenticated = await ref.read(authenticationProvider.notifier).checkAuthenticationState();
+  Future<void> _checkAuthentication() async {
+    try {
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final isAuthenticated = await authNotifier.checkAuthenticationState();
 
-    if (isAuthenticated) {
-      Navigator.pushReplacementNamed(context, Constants.homeScreen);
+      if (isAuthenticated && mounted) {
+        Navigator.pushReplacementNamed(context, Constants.homeScreen);
+      }
+    } catch (e) {
+      debugPrint('Authentication check error: $e');
+    } finally {
+      // Update loading state only if still mounted
+      if (mounted) {
+        ref.read(landingLoadingProvider.notifier).state = false;
+      }
     }
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
-  void navigateToLogin() {
+  void _navigateToLogin() {
     Navigator.pushReplacementNamed(context, Constants.loginScreen);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = ref.watch(landingLoadingProvider);
     final size = MediaQuery.of(context).size;
     
-    // Refined color palette
+    // Refined color palette - extracted as constants to avoid recreation
     const wechatGreen = Color(0xFF07C160);
     const darkBackground = Color(0xFF0F0F0F);
     
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: darkBackground,
-        body: const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(wechatGreen),
-          ),
-        ),
-      );
+    if (isLoading) {
+      return const _LoadingScreen();
     }
     
     return Scaffold(
@@ -64,79 +69,50 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
           children: [
             const Spacer(flex: 2),
             
-            // Minimalist app title with elegant styling
-            Padding(
-              padding: const EdgeInsets.only(top: 20),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Subtle green accent line
-                  Positioned(
-                    bottom: 0,
-                    child: Container(
-                      height: 3,
-                      width: 40,
-                      decoration: BoxDecoration(
-                        color: wechatGreen,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  
-                  // Clean, minimalist logo text
-                  RichText(
-                    text: const TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'Wei',
-                          style: TextStyle(
-                            fontSize: 50,
-                            fontWeight: FontWeight.w400,
-                            color: Colors.white,
-                            letterSpacing: -1.0,
-                          ),
-                        ),
-                        TextSpan(
-                          text: 'Bao',
-                          style: TextStyle(
-                            fontSize: 50,
-                            fontWeight: FontWeight.w700,
-                            color: wechatGreen,
-                            letterSpacing: -1.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // Extracted to a separate widget for better tree optimization
+            const _AppLogo(),
             
             const Spacer(flex: 1),
             
-            // Featured Lottie Animation - Center of attention
+            // Featured Lottie Animation
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
+              child: SizedBox(
                 height: size.height * 0.4,
                 width: size.width,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Lottie.asset(
-                  AssetsManager.chatBubble,
-                  fit: BoxFit.contain,
+                child: FutureBuilder<LottieComposition>(
+                  future: _lottieComposition,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      return Lottie(
+                        composition: snapshot.data!,
+                        frameRate: FrameRate.max,
+                        fit: BoxFit.contain,
+                      );
+                    }
+                    // Show a placeholder while loading
+                    return const Center(
+                      child: SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(wechatGreen),
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
             
             const Spacer(flex: 2),
             
-            // Clean, minimal button with slight refinements
+            // Get Started Button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: ElevatedButton(
-                onPressed: () => navigateToLogin(),
+                onPressed: _navigateToLogin,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: wechatGreen,
                   foregroundColor: Colors.white,
@@ -159,22 +135,108 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
             
             const SizedBox(height: 20),
             
-            // Minimal legal text
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40.0),
-              child: Text(
-                'By continuing, you accept our Terms & Privacy Policy',
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
+            // Legal text
+            const _LegalText(),
             
             const Spacer(flex: 1),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// Extracted widgets for better tree optimization
+
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    const wechatGreen = Color(0xFF07C160);
+    const darkBackground = Color(0xFF0F0F0F);
+    
+    return const Scaffold(
+      backgroundColor: darkBackground,
+      body: Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(wechatGreen),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppLogo extends StatelessWidget {
+  const _AppLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    const wechatGreen = Color(0xFF07C160);
+    
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Subtle green accent line
+          Positioned(
+            bottom: 0,
+            child: Container(
+              height: 3,
+              width: 40,
+              decoration: BoxDecoration(
+                color: wechatGreen,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          
+          // Clean, minimalist logo text
+          RichText(
+            text: const TextSpan(
+              children: [
+                TextSpan(
+                  text: 'Wei',
+                  style: TextStyle(
+                    fontSize: 50,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
+                    letterSpacing: -1.0,
+                  ),
+                ),
+                TextSpan(
+                  text: 'Bao',
+                  style: TextStyle(
+                    fontSize: 50,
+                    fontWeight: FontWeight.w700,
+                    color: wechatGreen,
+                    letterSpacing: -1.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegalText extends StatelessWidget {
+  const _LegalText();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 40.0),
+      child: Text(
+        'By continuing, you accept our Terms & Privacy Policy',
+        style: TextStyle(
+          color: Colors.white38,
+          fontSize: 12,
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }

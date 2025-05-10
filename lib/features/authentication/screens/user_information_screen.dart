@@ -1,12 +1,13 @@
+import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
 class UserInformationScreen extends ConsumerStatefulWidget {
@@ -28,7 +29,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   @override
   void initState() {
     super.initState();
-    _aboutMeController.text = "Hey there, I'm using TexGB";
+    _aboutMeController.text = "Hey there, I'm using WeiBao";
   }
 
   @override
@@ -39,62 +40,64 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   }
 
   Future<void> selectImage(bool fromCamera) async {
-    setState(() {
-      isImageProcessing = true;
-    });
-
-    finalFileImage = await pickImage(
-      fromCamera: fromCamera,
-      onFail: (String message) {
-        showSnackBar(context, message);
-      },
-    );
-
-    if (finalFileImage != null) {
-      await cropImage(finalFileImage?.path);
-    } else {
-      showSnackBar(context, 'No image selected');
-    }
-
-    setState(() {
-      isImageProcessing = false;
-    });
-
-    if (mounted) Navigator.pop(context);
-  }
-
-  Future<void> cropImage(filePath) async {
-    if (filePath != null) {
-      CroppedFile? croppedFile = await ImageCropper().cropImage(
-        sourcePath: filePath,
-        maxHeight: 800,
-        maxWidth: 800,
-        compressQuality: 90,
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-        uiSettings: [
-          AndroidUiSettings(
-              toolbarTitle: 'Crop Image',
-              toolbarColor: Colors.white,
-              toolbarWidgetColor: const Color(0xFF09BB07),
-              initAspectRatio: CropAspectRatioPreset.square,
-              lockAspectRatio: true,
-              statusBarColor: Colors.white,
-              activeControlsWidgetColor: const Color(0xFF09BB07)),
-          IOSUiSettings(
-            minimumAspectRatio: 1.0,
-            aspectRatioLockEnabled: true,
-            title: 'Crop Image',
-          ),
-        ],
+    if (!mounted) return;
+    
+    // Close the bottom sheet first
+    Navigator.pop(context);
+    
+    setState(() => isImageProcessing = true);
+    
+    try {
+      final image = await pickImage(
+        fromCamera: fromCamera,
+        onFail: (message) => showSnackBar(context, message),
       );
 
-      if (croppedFile != null) {
-        setState(() {
-          finalFileImage = File(croppedFile.path);
-        });
+      if (image != null) {
+        await cropImage(image.path);
       } else {
-        showSnackBar(context, 'Image cropping cancelled');
+        showSnackBar(context, 'No image selected');
       }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error processing image: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isImageProcessing = false);
+      }
+    }
+  }
+
+  Future<void> cropImage(String filePath) async {
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: filePath,
+      maxHeight: 800,
+      maxWidth: 800,
+      compressQuality: 90,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Profile Photo',
+          toolbarColor: Colors.white,
+          toolbarWidgetColor: const Color(0xFF09BB07),
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+          statusBarColor: Colors.white,
+          activeControlsWidgetColor: const Color(0xFF09BB07),
+        ),
+        IOSUiSettings(
+          minimumAspectRatio: 1.0,
+          aspectRatioLockEnabled: true,
+          title: 'Crop Image',
+        ),
+      ],
+    );
+
+    if (mounted && croppedFile != null) {
+      setState(() => finalFileImage = File(croppedFile.path));
+    } else if (mounted) {
+      showSnackBar(context, 'Image cropping cancelled');
     }
   }
 
@@ -156,44 +159,53 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
     );
   }
 
-  void saveUserDataToFireStore() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> saveUserDataToFireStore() async {
+    if (!_formKey.currentState!.validate() || !mounted) return;
     
-    setState(() {
-      isSubmitting = true;
-    });
+    setState(() => isSubmitting = true);
 
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    final authState = ref.read(authenticationProvider).value;
+    try {
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final authState = ref.read(authenticationProvider).value;
 
-    UserModel userModel = UserModel(
-      uid: authState!.uid!,
-      name: _nameController.text.trim(),
-      phoneNumber: authState.phoneNumber!,
-      image: '',
-      token: '',
-      aboutMe: _aboutMeController.text.trim(),
-      lastSeen: '',
-      createdAt: '',
-      isOnline: true,
-      contactsUIDs: [],
-      blockedUIDs: [],
-    );
+      if (authState == null || authState.uid == null || authState.phoneNumber == null) {
+        throw Exception('Authentication data is missing');
+      }
 
-    authNotifier.saveUserDataToFireStore(
-      userModel: userModel,
-      fileImage: finalFileImage,
-      onSuccess: () async {
-        await authNotifier.saveUserDataToSharedPreferences();
-        navigateToHomeScreen();
-      },
-      onFail: () async {
-        setState(() {
-          isSubmitting = false;
-        });
-        showSnackBar(context, 'Failed to save user data');
-      },
-    );
+      final userModel = UserModel(
+        uid: authState.uid!,
+        name: _nameController.text.trim(),
+        phoneNumber: authState.phoneNumber!,
+        image: '',
+        token: '',
+        aboutMe: _aboutMeController.text.trim(),
+        lastSeen: '',
+        createdAt: '',
+        isOnline: true,
+        contactsUIDs: [],
+        blockedUIDs: [],
+      );
+
+      await authNotifier.saveUserDataToFireStore(
+        userModel: userModel,
+        fileImage: finalFileImage,
+        onSuccess: () async {
+          await authNotifier.saveUserDataToSharedPreferences();
+          if (mounted) navigateToHomeScreen();
+        },
+        onFail: () {
+          if (mounted) {
+            showSnackBar(context, 'Failed to save user data');
+            setState(() => isSubmitting = false);
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => isSubmitting = false);
+        showSnackBar(context, 'An error occurred: ${e.toString()}');
+      }
+    }
   }
 
   void navigateToHomeScreen() {
@@ -204,37 +216,36 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   }
 
   Future<bool> _onWillPop() async {
-    if (_nameController.text.isNotEmpty || finalFileImage != null) {
-      return await showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Discard changes?'),
-              content: const Text('You have unsaved changes. Are you sure you want to go back?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Discard'),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-    }
-    return true;
+    if (_nameController.text.isEmpty && finalFileImage == null) return true;
+    
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Discard changes?'),
+            content: const Text('You have unsaved changes. Are you sure you want to go back?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Discard'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authenticationProvider);
-    final isLoading = authState.when(
-      data: (data) => data.isLoading || isSubmitting,
-      loading: () => true,
-      error: (error, stack) => false,
-    );
+    final isLoading = ref.watch(authenticationProvider.select(
+      (state) => state.maybeWhen(
+        data: (data) => data.isLoading || isSubmitting,
+        orElse: () => false,
+      ),
+    ));
 
     return WillPopScope(
       onWillPop: _onWillPop,
@@ -376,7 +387,10 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                               }
                               return null;
                             },
-                            style: const TextStyle(fontSize: 16),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.black, // Ensuring text is visible
+                            ),
                             decoration: InputDecoration(
                               hintText: 'Enter your name',
                               labelText: 'Your Name',
@@ -403,7 +417,21 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                               filled: true,
                               fillColor: Colors.grey.shade50,
                               contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                              // Add a clear button when text is entered
+                              suffixIcon: _nameController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
+                                        _nameController.clear();
+                                        setState(() {});
+                                      },
+                                    )
+                                  : null,
                             ),
+                            onChanged: (text) {
+                              // Force refresh to show/hide clear button
+                              setState(() {});
+                            },
                           ),
                           
                           const SizedBox(height: 24),
@@ -414,7 +442,10 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                             keyboardType: TextInputType.multiline,
                             textCapitalization: TextCapitalization.sentences,
                             maxLines: 3,
-                            style: const TextStyle(fontSize: 16),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.black, // Ensuring text is visible
+                            ),
                             decoration: InputDecoration(
                               hintText: 'Tell us about yourself',
                               labelText: 'About Me',
