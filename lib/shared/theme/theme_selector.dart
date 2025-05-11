@@ -1,7 +1,9 @@
+// lib/shared/theme/theme_selector.dart
+// Updated to improve naming and use the new light theme
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
-import 'package:textgb/shared/theme/modern_colors.dart';
 
 class ThemeSelector extends ConsumerWidget {
   const ThemeSelector({super.key});
@@ -85,10 +87,7 @@ class ThemeSelector extends ConsumerWidget {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryColor = isDark ? 
-        ModernColors.primaryGreen : // Use the updated green for dark mode
-        ModernColors.primaryTeal;   // Use the teal for light mode
+    final primaryColor = theme.colorScheme.primary;
     
     return Material(
       color: isSelected 
@@ -198,9 +197,7 @@ class ThemeToggleButton extends ConsumerWidget {
     
     final themeState = themeStateAsync.value!;
     final isDark = themeState.isDarkMode;
-    final primaryColor = isDark ? 
-        ModernColors.primaryGreen : // Use the updated green for dark mode
-        ModernColors.primaryTeal;   // Use the teal for light mode
+    final primaryColor = Theme.of(context).colorScheme.primary;
     
     return Container(
       width: size,

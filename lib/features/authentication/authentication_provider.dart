@@ -22,6 +22,7 @@ class AuthenticationState {
   final String? phoneNumber;
   final UserModel? userModel;
   final String? error;
+  final List<UserModel>? savedAccounts; // Added for account switching
 
   const AuthenticationState({
     this.isLoading = false,
@@ -30,6 +31,7 @@ class AuthenticationState {
     this.phoneNumber,
     this.userModel,
     this.error,
+    this.savedAccounts,
   });
 
   AuthenticationState copyWith({
@@ -39,6 +41,7 @@ class AuthenticationState {
     String? phoneNumber,
     UserModel? userModel,
     String? error,
+    List<UserModel>? savedAccounts,
   }) {
     return AuthenticationState(
       isLoading: isLoading ?? this.isLoading,
@@ -47,6 +50,7 @@ class AuthenticationState {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       userModel: userModel ?? this.userModel,
       error: error,
+      savedAccounts: savedAccounts ?? this.savedAccounts,
     );
   }
 }
@@ -65,12 +69,14 @@ class Authentication extends _$Authentication {
     if (isAuthenticated && _auth.currentUser != null) {
       final userModel = await getUserDataFromFireStore();
       await saveUserDataToSharedPreferences();
+      final savedAccounts = await getSavedAccounts();
       
       return AuthenticationState(
         isSuccessful: true,
         uid: _auth.currentUser!.uid,
         phoneNumber: _auth.currentUser!.phoneNumber,
         userModel: userModel,
+        savedAccounts: savedAccounts,
       );
     }
     
@@ -137,6 +143,9 @@ class Authentication extends _$Authentication {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     await sharedPreferences.setString(
         Constants.userModel, jsonEncode(currentState.userModel!.toMap()));
+    
+    // Save account to saved accounts list
+    await addAccountToSavedAccounts(currentState.userModel!);
   }
 
   // Get data from shared preferences
@@ -446,13 +455,132 @@ class Authentication extends _$Authentication {
     }
   }
 
-  Future<void> logout() async {
-    await _auth.signOut();
+  // NEW METHODS FOR ACCOUNT SWITCHING
+  
+  // Get saved accounts from SharedPreferences
+  Future<List<UserModel>> getSavedAccounts() async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
-    await sharedPreferences.clear();
+    final savedAccountsJson = sharedPreferences.getStringList('savedAccounts') ?? [];
     
-    // Reset state
-    state = const AsyncValue.data(AuthenticationState());
+    List<UserModel> savedAccounts = [];
+    for (String accountJson in savedAccountsJson) {
+      try {
+        savedAccounts.add(UserModel.fromMap(jsonDecode(accountJson)));
+      } catch (e) {
+        debugPrint('Error parsing saved account: $e');
+      }
+    }
+    
+    // Update state with saved accounts
+    final currentState = state.value ?? const AuthenticationState();
+    state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
+    
+    return savedAccounts;
+  }
+  
+  // Add account to saved accounts list
+  Future<void> addAccountToSavedAccounts(UserModel userModel) async {
+    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+    List<String> savedAccountsJson = sharedPreferences.getStringList('savedAccounts') ?? [];
+    
+    // Convert accounts to list of UserModels
+    List<UserModel> savedAccounts = [];
+    for (String accountJson in savedAccountsJson) {
+      try {
+        savedAccounts.add(UserModel.fromMap(jsonDecode(accountJson)));
+      } catch (e) {
+        debugPrint('Error parsing saved account: $e');
+      }
+    }
+    
+    // Check if account already exists
+    bool accountExists = savedAccounts.any((account) => account.uid == userModel.uid);
+    if (!accountExists) {
+      // Add the account
+      savedAccountsJson.add(jsonEncode(userModel.toMap()));
+      await sharedPreferences.setStringList('savedAccounts', savedAccountsJson);
+      
+      // Add to local list
+      savedAccounts.add(userModel);
+      
+      // Update state
+      final currentState = state.value ?? const AuthenticationState();
+      state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
+    }
+  }
+  
+  // Switch to another account
+  Future<void> switchAccount(UserModel selectedAccount) async {
+    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    
+    try {
+      // Sign out current user
+      if (_auth.currentUser != null) {
+        await updateUserStatus(value: false);
+        await _auth.signOut();
+      }
+      
+      // We need to sign in with the selected account
+      // This would require getting credentials for the selected account
+      // Since we can't have stored credentials for security reasons,
+      // we'd typically prompt the user for verification
+      
+      // For demonstration, we'll simply update the state to show loading
+      // In a real app, you'd need to implement the authentication flow
+      // specific to your auth method (phone, email, etc.)
+      
+      // Placeholder for authentication logic
+      // After successful authentication, you would:
+      
+      // 1. Update SharedPreferences with the selected account
+      SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+      await sharedPreferences.setString(
+          Constants.userModel, jsonEncode(selectedAccount.toMap()));
+      
+      // 2. Update state with the new user model
+      final savedAccounts = await getSavedAccounts();
+      state = AsyncValue.data(AuthenticationState(
+        isSuccessful: true,
+        uid: selectedAccount.uid,
+        phoneNumber: selectedAccount.phoneNumber,
+        userModel: selectedAccount,
+        savedAccounts: savedAccounts,
+      ));
+      
+      // 3. In a real implementation, you would update online status
+      // await updateUserStatus(value: true);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+      throw e.toString();
+    }
+  }
+  
+  // Remove account from saved accounts
+  Future<void> removeAccount(String uid) async {
+    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+    List<String> savedAccountsJson = sharedPreferences.getStringList('savedAccounts') ?? [];
+    
+    // Convert accounts to list of UserModels
+    List<UserModel> savedAccounts = [];
+    for (String accountJson in savedAccountsJson) {
+      try {
+        savedAccounts.add(UserModel.fromMap(jsonDecode(accountJson)));
+      } catch (e) {
+        debugPrint('Error parsing saved account: $e');
+      }
+    }
+    
+    // Remove the account
+    savedAccounts.removeWhere((account) => account.uid == uid);
+    
+    // Save updated list
+    List<String> updatedAccountsJson = savedAccounts.map((account) => 
+        jsonEncode(account.toMap())).toList();
+    await sharedPreferences.setStringList('savedAccounts', updatedAccountsJson);
+    
+    // Update state
+    final currentState = state.value ?? const AuthenticationState();
+    state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
   }
 
   // Update user profile data in Firestore

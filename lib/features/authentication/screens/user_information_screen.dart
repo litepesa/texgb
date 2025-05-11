@@ -503,7 +503,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                               Icons.description_outlined,
                               color: _aboutMeFocusNode.hasFocus ||
                                      (_aboutMeController.text.isNotEmpty && 
-                                      _aboutMeController.text != "Hey there, I'm using WeiBao")
+                                      _aboutMeController.text != "Hey there, I'm using TexGB")
                                   ? const Color(0xFF09BB07)
                                   : Colors.grey.shade600,
                             ),
@@ -532,11 +532,11 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                           suffixIcon: Padding(
                             padding: const EdgeInsets.only(bottom: 50),
                             child: _aboutMeController.text.isNotEmpty && 
-                                  _aboutMeController.text != "Hey there, I'm using WeiBao"
+                                  _aboutMeController.text != "Hey there, I'm using TexGB"
                                 ? IconButton(
                                     icon: const Icon(Icons.clear, size: 18),
                                     onPressed: () {
-                                      _aboutMeController.text = "Hey there, I'm using WeiBao";
+                                      _aboutMeController.text = "Hey there, I'm using TexGB";
                                       setState(() {});
                                     },
                                   )

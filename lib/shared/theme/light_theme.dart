@@ -10,56 +10,92 @@ ThemeData modernLightTheme() {
   // Define font styles with Google Fonts
   final textTheme = _createTextTheme();
   
-  // New color scheme using the provided colors
-  const newBackground = Color(0xFF131C21);      // Dark background
-  const newSurface = Color(0xFF1F2C34);         // Surface color
-  const newAccent = Color(0xFF25D366);          // Updated Accent green
-  const newSurfaceVariant = Color(0xFF252D31);  // Surface variant
-  const lightText = Color(0xFFF1F1F2);          // Light text color
-  const secondaryText = Colors.grey;            // Secondary text
+  // Light theme colors - modern and fresh
+  const primaryGreen = Color(0xFF00A884);  // Slightly adjusted green
+  const lightBackground = Color(0xFFF6F6F6); // Light gray background
+  const lightSurface = Color(0xFFFFFFFF);   // Pure white surface
+  const lightSurfaceVariant = Color(0xFFF0F0F0); // Light gray for surface variants
+  const darkText = Color(0xFF121212);      // Nearly black text
+  const secondaryText = Color(0xFF6A6A6A); // Dark gray secondary text
+  const tertiaryText = Color(0xFF8E8E8E);  // Medium gray tertiary text
   
   return base.copyWith(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: newAccent,
+      seedColor: primaryGreen,
       brightness: Brightness.light,
-      primary: newAccent,
-      secondary: const Color(0xFF056062),
-      background: newBackground,
-      surface: newSurface,
-      onBackground: lightText,
-      onSurface: lightText,
+      primary: primaryGreen,
+      secondary: const Color(0xFF128C7E), // Darker green for secondary
+      background: lightBackground,
+      surface: lightSurface,
+      onBackground: darkText,
+      onSurface: darkText,
       surfaceTint: Colors.transparent, // Disable surface tint in Material 3
     ),
-    scaffoldBackgroundColor: newBackground,
+    scaffoldBackgroundColor: lightBackground,
     
     // Extensions
     extensions: [
-      ModernThemeExtension.lightMode,
-      ChatThemeExtension.lightMode,
+      const ModernThemeExtension(
+        backgroundColor: lightBackground,
+        surfaceColor: lightSurface,
+        surfaceVariantColor: lightSurfaceVariant,
+        appBarColor: lightSurface,
+        textColor: darkText,
+        textSecondaryColor: secondaryText,
+        textTertiaryColor: tertiaryText,
+        dividerColor: Color(0xFFE0E0E0),
+        primaryColor: primaryGreen,
+        secondaryColor: Color(0xFF128C7E),
+        accentColor: primaryGreen,
+        borderColor: Color(0xFFE0E0E0),
+      ),
+      ChatThemeExtension(
+        chatBackgroundColor: const Color(0xFFE5DDD5), // Classic light chat background with subtle pattern
+        senderBubbleColor: const Color(0xFFDCF8C6), // Light green sender bubble
+        receiverBubbleColor: lightSurface,
+        senderTextColor: darkText,
+        receiverTextColor: darkText,
+        systemMessageColor: lightSurfaceVariant,
+        systemMessageTextColor: secondaryText,
+        timestampColor: tertiaryText,
+        inputBackgroundColor: lightSurface,
+        senderBubbleRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(4),
+        ),
+        receiverBubbleRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+          bottomLeft: Radius.circular(4),
+          bottomRight: Radius.circular(16),
+        ),
+      ),
       const ResponsiveThemeExtension(),
       const AnimationThemeExtension(),
     ],
     
     // AppBar Theme
     appBarTheme: AppBarTheme(
-      backgroundColor: const Color(0xFF1F2C34),
-      foregroundColor: lightText,
-      elevation: 1, // Very subtle elevation
+      backgroundColor: lightSurface,
+      foregroundColor: darkText,
+      elevation: 0,
       shadowColor: Colors.black.withOpacity(0.05),
       surfaceTintColor: Colors.transparent, // Important - removes Material 3 tint
       centerTitle: false,
-      titleTextStyle: TextStyle(
+      titleTextStyle: const TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w600,
-        color: lightText,
+        color: darkText,
       ),
       systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light, // Changed to light for dark background
+        statusBarIconBrightness: Brightness.dark, // Dark icons for light background
       ),
       iconTheme: const IconThemeData(
-        color: Color(0xFF25D366),
+        color: primaryGreen,
         size: 24,
       ),
     ),
@@ -69,27 +105,27 @@ ThemeData modernLightTheme() {
     
     // Bottom Navigation Theme
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Color(0xFF1F2C34),
-      selectedItemColor: Color(0xFF25D366),
-      unselectedItemColor: Colors.grey,
+      backgroundColor: lightSurface,
+      selectedItemColor: primaryGreen,
+      unselectedItemColor: secondaryText,
       selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
       showSelectedLabels: true,
       showUnselectedLabels: true,
       type: BottomNavigationBarType.fixed,
-      elevation: 2, // Add subtle shadow for depth
+      elevation: 4, // Add shadow for depth
     ),
     
     // Tab Bar Theme
     tabBarTheme: const TabBarTheme(
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(
-          color: Color(0xFF25D366),
+          color: primaryGreen,
           width: 2,
         ),
       ),
-      unselectedLabelColor: Colors.grey,
-      labelColor: Color(0xFF25D366),
+      labelColor: primaryGreen,
+      unselectedLabelColor: secondaryText,
       unselectedLabelStyle: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.normal,
@@ -103,7 +139,7 @@ ThemeData modernLightTheme() {
     // Button Themes
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF25D366),
+        backgroundColor: primaryGreen,
         foregroundColor: Colors.white,
         elevation: 1, // Subtle elevation
         shadowColor: Colors.black.withOpacity(0.2),
@@ -121,9 +157,9 @@ ThemeData modernLightTheme() {
     
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFF25D366),
+        foregroundColor: primaryGreen,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        side: const BorderSide(color: Color(0xFF25D366), width: 1.5),
+        side: const BorderSide(color: primaryGreen, width: 1.5),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
@@ -137,7 +173,7 @@ ThemeData modernLightTheme() {
     
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: const Color(0xFF25D366),
+        foregroundColor: primaryGreen,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -149,13 +185,12 @@ ThemeData modernLightTheme() {
     
     // Card Theme
     cardTheme: CardTheme(
-      color: const Color(0xFF1F2C34),
+      color: lightSurface,
       elevation: 1, // Add subtle elevation
       shadowColor: Colors.black.withOpacity(0.1),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFF323739), width: 1),
       ),
       clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
@@ -163,8 +198,8 @@ ThemeData modernLightTheme() {
     
     // Modal and Dialog Themes
     bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: const Color(0xFF1F2C34),
-      modalBackgroundColor: const Color(0xFF1F2C34),
+      backgroundColor: lightSurface,
+      modalBackgroundColor: lightSurface,
       surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
@@ -176,29 +211,29 @@ ThemeData modernLightTheme() {
       shadowColor: Colors.black.withOpacity(0.1),
     ),
     
-    dialogBackgroundColor: const Color(0xFF1F2C34),
+    dialogBackgroundColor: lightSurface,
     dialogTheme: DialogTheme(
-      backgroundColor: const Color(0xFF1F2C34),
+      backgroundColor: lightSurface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       elevation: 4, // Add elevation for dialogs
       shadowColor: Colors.black.withOpacity(0.1),
-      titleTextStyle: TextStyle(
-        color: lightText,
+      titleTextStyle: const TextStyle(
+        color: darkText,
         fontSize: 18,
         fontWeight: FontWeight.w600,
       ),
-      contentTextStyle: TextStyle(
-        color: lightText,
+      contentTextStyle: const TextStyle(
+        color: darkText,
         fontSize: 16,
       ),
     ),
     
     // FAB Theme
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: const Color(0xFF25D366),
+      backgroundColor: primaryGreen,
       foregroundColor: Colors.white,
       elevation: 2,
       highlightElevation: 4,
@@ -210,29 +245,29 @@ ThemeData modernLightTheme() {
     
     // List Tile Theme
     listTileTheme: ListTileThemeData(
-      iconColor: Colors.grey,
-      textColor: lightText,
-      tileColor: const Color(0xFF1F2C34),
+      iconColor: secondaryText,
+      textColor: darkText,
+      tileColor: lightSurface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       minLeadingWidth: 20,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      selectedTileColor: const Color(0xFF25D366).withOpacity(0.1),
-      selectedColor: const Color(0xFF25D366),
+      selectedTileColor: primaryGreen.withOpacity(0.1),
+      selectedColor: primaryGreen,
     ),
     
     // Switch Theme
     switchTheme: SwitchThemeData(
       thumbColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return const Color(0xFF25D366);
+          return primaryGreen;
         }
         return Colors.white;
       }),
       trackColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return const Color(0xFF25D366).withOpacity(0.3);
+          return primaryGreen.withOpacity(0.3);
         }
         return Colors.grey.withOpacity(0.3);
       }),
@@ -248,7 +283,7 @@ ThemeData modernLightTheme() {
     checkboxTheme: CheckboxThemeData(
       fillColor: MaterialStateProperty.resolveWith((states) {
         if (states.contains(MaterialState.selected)) {
-          return const Color(0xFF25D366);
+          return primaryGreen;
         }
         return Colors.transparent;
       }),
@@ -259,14 +294,14 @@ ThemeData modernLightTheme() {
         borderRadius: BorderRadius.circular(4),
       ),
       side: const BorderSide(
-        color: Colors.grey,
+        color: secondaryText,
         width: 1.5,
       ),
     ),
     
     // Divider Theme
     dividerTheme: const DividerThemeData(
-      color: Color(0xFF323739),
+      color: Color(0xFFE0E0E0),
       thickness: 1,
       indent: 16,
       endIndent: 16,
@@ -274,14 +309,14 @@ ThemeData modernLightTheme() {
     
     // Icon Theme
     iconTheme: const IconThemeData(
-      color: Colors.grey,
+      color: secondaryText,
       size: 24,
     ),
     
     // Input Decoration Theme
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFF252D31),
+      fillColor: lightSurfaceVariant,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
@@ -293,29 +328,29 @@ ThemeData modernLightTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
-        borderSide: const BorderSide(color: Color(0xFF25D366), width: 1.5),
+        borderSide: const BorderSide(color: primaryGreen, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
         borderSide: const BorderSide(color: ModernColors.error, width: 1.5),
       ),
-      hintStyle: const TextStyle(color: Colors.grey),
-      labelStyle: TextStyle(color: lightText),
-      helperStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+      hintStyle: const TextStyle(color: tertiaryText),
+      labelStyle: const TextStyle(color: secondaryText),
+      helperStyle: const TextStyle(color: tertiaryText, fontSize: 12),
       errorStyle: const TextStyle(color: ModernColors.error, fontSize: 12),
-      prefixIconColor: Colors.grey,
-      suffixIconColor: Colors.grey,
+      prefixIconColor: secondaryText,
+      suffixIconColor: secondaryText,
     ),
     
     // Chip Theme
     chipTheme: ChipThemeData(
-      backgroundColor: const Color(0xFF252D31),
-      disabledColor: const Color(0xFF252D31).withOpacity(0.5),
-      selectedColor: const Color(0xFF25D366).withOpacity(0.2),
-      secondarySelectedColor: const Color(0xFF25D366),
+      backgroundColor: lightSurfaceVariant,
+      disabledColor: lightSurfaceVariant.withOpacity(0.5),
+      selectedColor: primaryGreen.withOpacity(0.2),
+      secondarySelectedColor: primaryGreen,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      labelStyle: TextStyle(
-        color: lightText,
+      labelStyle: const TextStyle(
+        color: darkText,
         fontSize: 14,
         fontWeight: FontWeight.w500,
       ),
@@ -332,18 +367,18 @@ ThemeData modernLightTheme() {
     
     // Slider Theme
     sliderTheme: const SliderThemeData(
-      activeTrackColor: Color(0xFF25D366),
-      inactiveTrackColor: Colors.grey,
-      thumbColor: Color(0xFF25D366),
+      activeTrackColor: primaryGreen,
+      inactiveTrackColor: Color(0xFFDCDCDC),
+      thumbColor: primaryGreen,
       overlayColor: Color(0x2925D366),
       trackHeight: 4.0,
     ),
     
     // Progress Indicator Theme
     progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: Color(0xFF25D366),
-      circularTrackColor: Color(0xFF252D31),
-      linearTrackColor: Color(0xFF252D31),
+      color: primaryGreen,
+      circularTrackColor: Color(0xFFE0E0E0),
+      linearTrackColor: Color(0xFFE0E0E0),
     ),
     
     // Page Transitions Theme
@@ -356,9 +391,9 @@ ThemeData modernLightTheme() {
     
     // Snack Bar Theme
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: const Color(0xFF252D32),
+      backgroundColor: const Color(0xFF303030),
       contentTextStyle: const TextStyle(color: Colors.white),
-      actionTextColor: const Color(0xFF25D366),
+      actionTextColor: primaryGreen,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
@@ -366,15 +401,15 @@ ThemeData modernLightTheme() {
     ),
     
     // Banner Theme
-    bannerTheme: MaterialBannerThemeData(
-      backgroundColor: const Color(0xFF252D31),
-      contentTextStyle: TextStyle(color: lightText),
-      padding: const EdgeInsets.all(16),
+    bannerTheme: const MaterialBannerThemeData(
+      backgroundColor: lightSurfaceVariant,
+      contentTextStyle: TextStyle(color: darkText),
+      padding: EdgeInsets.all(16),
     ),
     
     // Bottom App Bar Theme
     bottomAppBarTheme: BottomAppBarTheme(
-      color: const Color(0xFF1F2C34),
+      color: lightSurface,
       elevation: 2, // Add subtle elevation
       shadowColor: Colors.black.withOpacity(0.1),
       surfaceTintColor: Colors.transparent,
@@ -384,75 +419,75 @@ ThemeData modernLightTheme() {
 }
 
 TextTheme _createTextTheme() {
-  const lightText = Color(0xFFF1F1F2);
-  const secondaryText = Colors.grey;
+  const darkText = Color(0xFF121212);
+  const secondaryText = Color(0xFF6A6A6A);
   
   return TextTheme(
     displayLarge: GoogleFonts.inter(
       fontSize: 57, 
       fontWeight: FontWeight.w400,
       letterSpacing: -0.25,
-      color: lightText,
+      color: darkText,
     ),
     displayMedium: GoogleFonts.inter(
       fontSize: 45, 
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
-      color: lightText,
+      color: darkText,
     ),
     displaySmall: GoogleFonts.inter(
       fontSize: 36, 
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
-      color: lightText,
+      color: darkText,
     ),
     headlineLarge: GoogleFonts.inter(
       fontSize: 32, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
-      color: lightText,
+      color: darkText,
     ),
     headlineMedium: GoogleFonts.inter(
       fontSize: 28, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
-      color: lightText,
+      color: darkText,
     ),
     headlineSmall: GoogleFonts.inter(
       fontSize: 24, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0,
-      color: lightText,
+      color: darkText,
     ),
     titleLarge: GoogleFonts.inter(
       fontSize: 22, 
       fontWeight: FontWeight.w500,
       letterSpacing: 0,
-      color: lightText,
+      color: darkText,
     ),
     titleMedium: GoogleFonts.inter(
       fontSize: 16, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0.15,
-      color: lightText,
+      color: darkText,
     ),
     titleSmall: GoogleFonts.inter(
       fontSize: 14, 
       fontWeight: FontWeight.w600,
       letterSpacing: 0.1,
-      color: lightText,
+      color: darkText,
     ),
     bodyLarge: GoogleFonts.inter(
       fontSize: 16, 
       fontWeight: FontWeight.w400,
       letterSpacing: 0.5,
-      color: lightText,
+      color: darkText,
     ),
     bodyMedium: GoogleFonts.inter(
       fontSize: 14, 
       fontWeight: FontWeight.w400,
       letterSpacing: 0.25,
-      color: lightText,
+      color: darkText,
     ),
     bodySmall: GoogleFonts.inter(
       fontSize: 12, 
@@ -464,13 +499,13 @@ TextTheme _createTextTheme() {
       fontSize: 14, 
       fontWeight: FontWeight.w500,
       letterSpacing: 0.1,
-      color: lightText,
+      color: darkText,
     ),
     labelMedium: GoogleFonts.inter(
       fontSize: 12, 
       fontWeight: FontWeight.w500,
       letterSpacing: 0.5,
-      color: lightText,
+      color: darkText,
     ),
     labelSmall: GoogleFonts.inter(
       fontSize: 11, 

@@ -21,8 +21,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // Creating placeholder screens
   late final Widget homeScreen;
   late final Widget chatScreen;
-  late final Widget postScreen;
-  late final Widget cartScreen;
+  late final Widget statusScreen;
   late final Widget profileScreen;
   
   // We'll define these in initState to ensure they match our bottom nav bar
@@ -36,17 +35,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Initialize placeholder screens
     homeScreen = _PlaceholderScreen(title: "Home");
     chatScreen = _PlaceholderScreen(title: "Chats");
-    postScreen = _PlaceholderScreen(title: "Post");
-    cartScreen = _PlaceholderScreen(title: "Status");
-    profileScreen = _PlaceholderScreen(title: "Channels");
+    statusScreen = _PlaceholderScreen(title: "Status");
+    profileScreen = _PlaceholderScreen(title: "Profile");
     
-    // Initialize pages list with 5 tabs including the post tab
+    // Initialize pages list with 4 tabs
     pages = [
       chatScreen,        // Index 0 - Chats
       homeScreen,        // Index 1 - Groups
-      postScreen,        // Index 2 - Post (new)
-      cartScreen,        // Index 3 - Status
-      profileScreen,     // Index 4 - Channels
+      statusScreen,      // Index 2 - Status
+      profileScreen,     // Index 3 - Profile
     ];
   }
 
@@ -93,14 +90,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final unselectedItemColor = textSecondaryColor;
     final elevation = isDarkMode ? 1.0 : 2.0;
     
-    // Background color for "Channels" tab (index 4 now)
-    final scaffoldBackgroundColor = pageIndex == 4 
+    // Background color for "Profile" tab (index 3 now)
+    final scaffoldBackgroundColor = pageIndex == 3 
         ? Colors.black 
         : Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
       backgroundColor: scaffoldBackgroundColor,
-      appBar: pageIndex != 4 ? AppBar(
+      appBar: pageIndex != 3 ? AppBar(
         elevation: elevation,
         toolbarHeight: 65.0,
         centerTitle: true,
@@ -114,16 +111,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             children: [
               TextSpan(
-                text: 'Wei',
+                text: 'Tex',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               TextSpan(
-                text: 'Bao',
+                text: 'GB',
                 style: TextStyle(
                   color: accentColor,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -159,24 +156,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color: modernTheme.dividerColor,
             ),
             Container(
-              color: pageIndex == 4 ? Colors.black : null,
+              color: pageIndex == 3 ? Colors.black : null,
               child: ModernBottomNavBar(
                 currentIndex: pageIndex,
                 onTap: (index) {
                   setState(() {
                     pageIndex = index;
                   });
-                  
-                  // Handle the post button tap
-                  if (index == 2) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Post feature is under development'),
-                        duration: const Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
                 },
                 backgroundColor: surfaceColor,
                 selectedItemColor: selectedItemColor,
@@ -195,8 +181,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     label: 'Status',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.camera, size: 24),
-                    label: 'Channels',
+                    icon: Icon(CupertinoIcons.person, size: 24),
+                    label: 'Profile',
                   ),
                 ],
               ),
@@ -248,12 +234,9 @@ class _PlaceholderScreen extends StatelessWidget {
     } else if (title == "Status") {
       textColor = Colors.white;
       iconColor = accentColor;
-    } else if (title == "Channels") {
+    } else if (title == "Profile") {
       textColor = Colors.white;
       iconColor = Colors.white;
-    } else if (title == "Post") {
-      textColor = modernTheme.textColor!;
-      iconColor = accentColor;
     } else {
       textColor = modernTheme.textColor!;
       iconColor = accentColor;
@@ -264,7 +247,7 @@ class _PlaceholderScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            title == "Post" ? CupertinoIcons.add : CupertinoIcons.gear,
+            title == "Profile" ? CupertinoIcons.person : CupertinoIcons.gear,
             size: 80,
             color: iconColor,
           ),

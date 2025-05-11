@@ -1,6 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
@@ -9,11 +8,9 @@ import 'package:textgb/features/authentication/screens/user_information_screen.d
 import 'package:textgb/constants.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
-import 'package:textgb/shared/theme/dark_theme.dart';
-import 'package:textgb/shared/theme/light_theme.dart';
-import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/shared/theme/modern_colors.dart';
+import 'package:textgb/shared/theme/system_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:textgb/shared/theme/theme_manager.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -22,30 +19,8 @@ void main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Set preferred orientations
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-  
-  // Set edge-to-edge mode and transparent system bars
-  SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.edgeToEdge,
-    overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
-  );
-  
-  // Set initial system UI style based on platform brightness
-  final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-  SystemChrome.setSystemUIOverlayStyle(
-    SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false, // Prevent Android from overriding colors
-      systemNavigationBarIconBrightness: isPlatformDark ? Brightness.light : Brightness.dark,
-      statusBarIconBrightness: isPlatformDark ? Brightness.light : Brightness.dark,
-    ),
-  );
+  // Use consolidated system UI setup
+  await AppSystemUI.setupSystemUI();
   
   // Initialize Firebase
   await Firebase.initializeApp(
@@ -65,36 +40,103 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get existing dark theme from your theme file
-    final appTheme = modernDarkTheme();
+    return ThemeObserver(
+      child: const AppRoot(),
+    );
+  }
+}
+
+// Theme observer to handle system theme changes
+class ThemeObserver extends ConsumerStatefulWidget {
+  final Widget child;
+  
+  const ThemeObserver({super.key, required this.child});
+  
+  @override
+  ConsumerState<ThemeObserver> createState() => _ThemeObserverState();
+}
+
+class _ThemeObserverState extends ConsumerState<ThemeObserver> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+  
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  @override
+  void didChangePlatformBrightness() {
+    // Handle system theme changes
+    final themeNotifier = ref.read(themeManagerNotifierProvider.notifier);
+    themeNotifier.handleSystemThemeChange();
+    super.didChangePlatformBrightness();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
+}
+
+// Main app builder with theme support
+class AppRoot extends ConsumerWidget {
+  const AppRoot({super.key});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the theme state to rebuild on theme changes
+    final themeState = ref.watch(themeManagerNotifierProvider);
     
-    return MaterialApp(
-      debugShowCheckedModeBanner: false, // Set to false for production
-      title: 'WeiBao',
-      theme: appTheme,
-      // Start with a safe screen that handles navigation
-      home: const SafeStartScreen(),
-      // Define all your routes
-      routes: {
-        Constants.landingScreen: (context) => const LandingScreen(),
-        Constants.loginScreen: (context) => const LoginScreen(),
-        Constants.otpScreen: (context) => const OtpScreen(),
-        Constants.userInformationScreen: (context) => const UserInformationScreen(),
-        Constants.homeScreen: (context) => const HomeScreen(),
-      },
-      navigatorObservers: [routeObserver],
-      onUnknownRoute: (settings) {
-        return MaterialPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(
-              title: const Text('Error'),
-            ),
-            body: const Center(
-              child: Text('Route not found'),
-            ),
+    return themeState.when(
+      loading: () => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
           ),
-        );
-      },
+        ),
+      ),
+      error: (error, stackTrace) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: Text('Error loading theme: $error'),
+          ),
+        ),
+      ),
+      data: (themeData) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'WeiBao',
+        theme: themeData.activeTheme,
+        // Start with a safe screen that handles navigation
+        home: const SafeStartScreen(),
+        // Define all your routes
+        routes: {
+          Constants.landingScreen: (context) => const LandingScreen(),
+          Constants.loginScreen: (context) => const LoginScreen(),
+          Constants.otpScreen: (context) => const OtpScreen(),
+          Constants.userInformationScreen: (context) => const UserInformationScreen(),
+          Constants.homeScreen: (context) => const HomeScreen(),
+        },
+        navigatorObservers: [routeObserver],
+        onUnknownRoute: (settings) {
+          return MaterialPageRoute(
+            builder: (context) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Error'),
+              ),
+              body: const Center(
+                child: Text('Route not found'),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -236,7 +278,7 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            'WeiBao',
+            'TexGB',
             style: TextStyle(
               color: backgroundColor,
               fontSize: 28,

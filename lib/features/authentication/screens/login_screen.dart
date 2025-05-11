@@ -70,7 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: 'Wei',
+                          text: 'Tex',
                           style: GoogleFonts.poppins(
                             fontSize: 44,
                             fontWeight: FontWeight.bold,
@@ -79,7 +79,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         TextSpan(
-                          text: 'Bao',
+                          text: 'GB',
                           style: GoogleFonts.poppins(
                             fontSize: 44,
                             fontWeight: FontWeight.bold,

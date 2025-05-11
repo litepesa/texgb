@@ -47,58 +47,21 @@ class ModernBottomNavBar extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // First two items
-          ...List.generate(2, (index) {
-            final item = items[index];
-            final isSelected = index == currentIndex;
-            
-            return _NavItem(
-              index: index,
-              icon: item.icon,
-              label: item.label ?? '',
-              isSelected: isSelected,
-              selectedColor: selectedItemColor,
-              unselectedColor: unselectedItemColor,
-              onTap: onTap,
-              showLabel: showLabels,
-              isSpecial: false,
-            );
-          }),
+        children: List.generate(items.length, (index) {
+          final item = items[index];
+          final isSelected = index == currentIndex;
           
-          // Special + button in the middle
-          _NavItem(
-            index: 2,
-            icon: const Icon(Icons.add),
-            label: '',
-            isSelected: 2 == currentIndex,
+          return _NavItem(
+            index: index,
+            icon: item.icon,
+            label: item.label ?? '',
+            isSelected: isSelected,
             selectedColor: selectedItemColor,
             unselectedColor: unselectedItemColor,
             onTap: onTap,
-            showLabel: false, // No label for this one
-            isSpecial: true,
-          ),
-          
-          // Last two items (original indices 2 and 3, but displayed as 3 and 4)
-          ...List.generate(2, (index) {
-            final originalIndex = index + 2; // Original indices 2 and 3
-            final displayIndex = index + 3; // Display as indices 3 and 4
-            final item = items[originalIndex];
-            final isSelected = displayIndex == currentIndex;
-            
-            return _NavItem(
-              index: displayIndex,
-              icon: item.icon,
-              label: item.label ?? '',
-              isSelected: isSelected,
-              selectedColor: selectedItemColor,
-              unselectedColor: unselectedItemColor,
-              onTap: onTap,
-              showLabel: showLabels,
-              isSpecial: false,
-            );
-          }),
-        ],
+            showLabel: showLabels,
+          );
+        }),
       ),
     );
   }
@@ -113,7 +76,6 @@ class _NavItem extends StatelessWidget {
   final Color unselectedColor;
   final Function(int) onTap;
   final bool showLabel;
-  final bool isSpecial;
 
   const _NavItem({
     required this.index,
@@ -124,53 +86,10 @@ class _NavItem extends StatelessWidget {
     required this.unselectedColor,
     required this.onTap,
     required this.showLabel,
-    this.isSpecial = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Special styling for the middle + button
-    if (isSpecial) {
-      return Semantics(
-        button: true,
-        selected: isSelected,
-        child: GestureDetector(
-          onTap: () => onTap(index),
-          behavior: HitTestBehavior.opaque,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Elevated circular icon for special tab
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: isSelected ? selectedColor : selectedColor.withOpacity(0.8),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: selectedColor.withOpacity(0.3),
-                      blurRadius: 8,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-                child: IconTheme(
-                  data: IconThemeData(
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                  child: icon,
-                ),
-              ),
-              // Spacer to align with other tabs
-              if (showLabel) const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Regular tabs
     return Semantics(
       button: true,
       selected: isSelected,
