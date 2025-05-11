@@ -6,6 +6,9 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
+import 'package:textgb/features/profile/screens/my_profile_screen.dart';
+import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/shared/theme/system_ui.dart';
@@ -122,6 +125,9 @@ class AppRoot extends ConsumerWidget {
           Constants.otpScreen: (context) => const OtpScreen(),
           Constants.userInformationScreen: (context) => const UserInformationScreen(),
           Constants.homeScreen: (context) => const HomeScreen(),
+          Constants.myProfileScreen: (context) => const MyProfileScreen(),
+          Constants.editProfileScreen: (context) => const EditProfileScreen(),
+          Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
         },
         navigatorObservers: [routeObserver],
         onUnknownRoute: (settings) {

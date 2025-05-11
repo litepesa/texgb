@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/profile/screens/profile_screens.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/modern_bottomnav_bar.dart';
 
@@ -18,7 +19,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   int pageIndex = 0;
   
-  // Creating placeholder screens
+  // Creating screen widgets
   late final Widget homeScreen;
   late final Widget chatScreen;
   late final Widget statusScreen;
@@ -32,11 +33,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     super.initState();
     
-    // Initialize placeholder screens
-    homeScreen = _PlaceholderScreen(title: "Home");
+    // Initialize screens
     chatScreen = _PlaceholderScreen(title: "Chats");
+    homeScreen = _PlaceholderScreen(title: "Groups");
     statusScreen = _PlaceholderScreen(title: "Status");
-    profileScreen = _PlaceholderScreen(title: "Profile");
+    profileScreen = const MyProfileScreen(); // Using our actual profile screen
     
     // Initialize pages list with 4 tabs
     pages = [
@@ -92,7 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     // Background color for "Profile" tab (index 3 now)
     final scaffoldBackgroundColor = pageIndex == 3 
-        ? Colors.black 
+        ? modernTheme.backgroundColor 
         : Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
@@ -156,7 +157,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color: modernTheme.dividerColor,
             ),
             Container(
-              color: pageIndex == 3 ? Colors.black : null,
+              color: pageIndex == 3 ? modernTheme.backgroundColor : null,
               child: ModernBottomNavBar(
                 currentIndex: pageIndex,
                 onTap: (index) {
@@ -228,15 +229,12 @@ class _PlaceholderScreen extends StatelessWidget {
     Color textColor;
     Color iconColor;
     
-    if (title == "Home") {
-      textColor = Colors.white;
-      iconColor = Colors.white;
-    } else if (title == "Status") {
-      textColor = Colors.white;
+    if (title == "Groups") {
+      textColor = modernTheme.textColor!;
       iconColor = accentColor;
-    } else if (title == "Profile") {
-      textColor = Colors.white;
-      iconColor = Colors.white;
+    } else if (title == "Status") {
+      textColor = modernTheme.textColor!;
+      iconColor = accentColor;
     } else {
       textColor = modernTheme.textColor!;
       iconColor = accentColor;
@@ -247,7 +245,9 @@ class _PlaceholderScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            title == "Profile" ? CupertinoIcons.person : CupertinoIcons.gear,
+            title == "Chats" ? CupertinoIcons.chat_bubble_text : 
+            title == "Groups" ? CupertinoIcons.person_2 :
+            title == "Status" ? CupertinoIcons.rays : CupertinoIcons.gear,
             size: 80,
             color: iconColor,
           ),
