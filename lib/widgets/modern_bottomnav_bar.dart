@@ -31,7 +31,6 @@ class ModernBottomNavBar extends StatelessWidget {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      // Adjusted margins for 4 tabs
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -48,24 +47,58 @@ class ModernBottomNavBar extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(items.length, (index) {
-          final item = items[index];
-          final isSelected = index == currentIndex;
+        children: [
+          // First two items
+          ...List.generate(2, (index) {
+            final item = items[index];
+            final isSelected = index == currentIndex;
+            
+            return _NavItem(
+              index: index,
+              icon: item.icon,
+              label: item.label ?? '',
+              isSelected: isSelected,
+              selectedColor: selectedItemColor,
+              unselectedColor: unselectedItemColor,
+              onTap: onTap,
+              showLabel: showLabels,
+              isSpecial: false,
+            );
+          }),
           
-          // No special tab anymore since we removed the Post tab
-          
-          return _NavItem(
-            index: index,
-            icon: item.icon,
-            label: item.label ?? '',
-            isSelected: isSelected,
+          // Special + button in the middle
+          _NavItem(
+            index: 2,
+            icon: const Icon(Icons.add),
+            label: '',
+            isSelected: 2 == currentIndex,
             selectedColor: selectedItemColor,
             unselectedColor: unselectedItemColor,
             onTap: onTap,
-            showLabel: showLabels, // Show all labels
-            isSpecial: false, // No special tabs anymore
-          );
-        }),
+            showLabel: false, // No label for this one
+            isSpecial: true,
+          ),
+          
+          // Last two items (original indices 2 and 3, but displayed as 3 and 4)
+          ...List.generate(2, (index) {
+            final originalIndex = index + 2; // Original indices 2 and 3
+            final displayIndex = index + 3; // Display as indices 3 and 4
+            final item = items[originalIndex];
+            final isSelected = displayIndex == currentIndex;
+            
+            return _NavItem(
+              index: displayIndex,
+              icon: item.icon,
+              label: item.label ?? '',
+              isSelected: isSelected,
+              selectedColor: selectedItemColor,
+              unselectedColor: unselectedItemColor,
+              onTap: onTap,
+              showLabel: showLabels,
+              isSpecial: false,
+            );
+          }),
+        ],
       ),
     );
   }
@@ -96,7 +129,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Special styling code kept but not used (isSpecial is always false now)
+    // Special styling for the middle + button
     if (isSpecial) {
       return Semantics(
         button: true,
@@ -130,7 +163,7 @@ class _NavItem extends StatelessWidget {
                 ),
               ),
               // Spacer to align with other tabs
-              const SizedBox(height: 16),
+              if (showLabel) const SizedBox(height: 16),
             ],
           ),
         ),
@@ -148,7 +181,6 @@ class _NavItem extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            // Adjusted padding for 4 tabs - more space per tab
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -177,7 +209,7 @@ class _NavItem extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     style: TextStyle(
                       color: isSelected ? selectedColor : unselectedColor,
-                      fontSize: 12, // Slightly larger font for 4 tab layout
+                      fontSize: 12,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       height: 1.1,
                     ),

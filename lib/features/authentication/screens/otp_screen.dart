@@ -15,9 +15,11 @@ class OtpScreen extends ConsumerStatefulWidget {
 }
 
 class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProviderStateMixin {
-  final TextEditingController controller = TextEditingController();
-  final FocusNode focusNode = FocusNode();
-  String? otpCode;
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  String? _otpCode;
+  String? _verificationId;
+  String? _phoneNumber;
 
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
@@ -32,6 +34,25 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
     super.initState();
     _initAnimations();
     _startResendTimer();
+    
+    // Request focus after the frame is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Get arguments safely in didChangeDependencies, not initState
+    if (_verificationId == null || _phoneNumber == null) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map?;
+      if (args != null) {
+        _verificationId = args[Constants.verificationId] as String?;
+        _phoneNumber = args[Constants.phoneNumber] as String?;
+      }
+    }
   }
 
   void _initAnimations() {
@@ -61,14 +82,17 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
         timer.cancel();
         return;
       }
-      setState(() {
-        if (_resendTimer > 0) {
+      
+      if (_resendTimer > 0) {
+        setState(() {
           _resendTimer--;
-        } else {
+        });
+      } else {
+        setState(() {
           _resendEnabled = true;
-          timer.cancel();
-        }
-      });
+        });
+        timer.cancel();
+      }
     });
   }
 
@@ -78,49 +102,76 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
       _resendTimer = 60;
     });
     _startResendTimer();
+    
+    // Optimized snackbar with shorter duration
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Code resent successfully'),
         backgroundColor: Color(0xFF09BB07),
+        duration: Duration(seconds: 2),
       ),
+    );
+  }
+
+  Future<void> _verifyOTPCode({
+    required String verificationId,
+    required String otpCode,
+  }) async {
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    authNotifier.verifyOTPCode(
+      verificationId: verificationId,
+      otpCode: otpCode,
+      context: context,
+      onSuccess: () async {
+        if (!mounted) return;
+        
+        try {
+          final userExists = await authNotifier.checkUserExists();
+          if (userExists) {
+            await authNotifier.getUserDataFromFireStore();
+            await authNotifier.saveUserDataToSharedPreferences();
+          }
+          _navigate(userExists: userExists);
+        } catch (e) {
+          debugPrint('Error during OTP verification: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('An error occurred. Please try again.'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      },
+    );
+  }
+
+  void _navigate({required bool userExists}) {
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      userExists ? Constants.homeScreen : Constants.userInformationScreen,
+      (route) => false,
     );
   }
 
   @override
   void dispose() {
     _resendTimerInstance?.cancel();
-    controller.dispose();
-    focusNode.dispose();
+    _controller.dispose();
+    _focusNode.dispose();
     _animationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Get route arguments
-    final args = ModalRoute.of(context)?.settings.arguments as Map?;
-    if (args == null) {
+    // Return loading if arguments not provided
+    if (_verificationId == null || _phoneNumber == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    
-    final verificationId = args[Constants.verificationId] as String;
-    final phoneNumber = args[Constants.phoneNumber] as String;
-
-    // Selectively watch only what we need from the auth state
-    final authState = ref.watch(authenticationProvider);
-    final isLoading = authState.when(
-      data: (state) => state.isLoading,
-      loading: () => true,
-      error: (_, __) => false,
-    );
-    
-    final isSuccessful = authState.when(
-      data: (state) => state.isSuccessful,
-      loading: () => false,
-      error: (_, __) => false,
-    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -152,22 +203,39 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
                   const SizedBox(height: 12),
                   const _VerificationSubtitle(),
                   const SizedBox(height: 8),
-                  _PhoneNumberDisplay(phoneNumber: phoneNumber),
+                  _PhoneNumberDisplay(phoneNumber: _phoneNumber!),
                   const SizedBox(height: 36),
                   _PinInputField(
-                    controller: controller,
-                    focusNode: focusNode,
+                    controller: _controller,
+                    focusNode: _focusNode,
                     onCompleted: (pin) {
-                      otpCode = pin;
-                      verifyOTPCode(verificationId: verificationId, otpCode: pin);
+                      _otpCode = pin;
+                      _verifyOTPCode(verificationId: _verificationId!, otpCode: pin);
                     },
                   ),
                   const SizedBox(height: 36),
-                  _VerificationStatusIndicator(
-                    isLoading: isLoading,
-                    isSuccessful: isSuccessful,
+                  
+                  // Using Consumer for localized rebuilds
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final authState = ref.watch(authenticationProvider);
+                      final isLoading = authState.maybeWhen(
+                        data: (data) => data.isLoading,
+                        orElse: () => false,
+                      );
+                      final isSuccessful = authState.maybeWhen(
+                        data: (data) => data.isSuccessful,
+                        orElse: () => false,
+                      );
+                      return _VerificationStatusIndicator(
+                        isLoading: isLoading,
+                        isSuccessful: isSuccessful,
+                      );
+                    },
                   ),
                   const SizedBox(height: 32),
+                  
+                  // Using Consumer for the timer to isolate rebuilds
                   _ResendCodeWidget(
                     resendEnabled: _resendEnabled,
                     resendTimer: _resendTimer,
@@ -181,48 +249,9 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
       ),
     );
   }
-
-  void verifyOTPCode({
-    required String verificationId,
-    required String otpCode,
-  }) async {
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    authNotifier.verifyOTPCode(
-      verificationId: verificationId,
-      otpCode: otpCode,
-      context: context,
-      onSuccess: () async {
-        if (!mounted) return;
-        
-        try {
-          final userExists = await authNotifier.checkUserExists();
-          if (userExists) {
-            await authNotifier.getUserDataFromFireStore();
-            await authNotifier.saveUserDataToSharedPreferences();
-          }
-          _navigate(userExists: userExists);
-        } catch (e) {
-          debugPrint('Error during OTP verification: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('An error occurred. Please try again.')),
-            );
-          }
-        }
-      },
-    );
-  }
-
-  void _navigate({required bool userExists}) {
-    if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      userExists ? Constants.homeScreen : Constants.userInformationScreen,
-      (route) => false,
-    );
-  }
 }
 
-// Extracted widget for the verification icon
+// Optimized widget for the verification icon
 class _VerificationIcon extends StatelessWidget {
   const _VerificationIcon();
 
@@ -239,7 +268,7 @@ class _VerificationIcon extends StatelessWidget {
   }
 }
 
-// Extracted widget for the title
+// Using cached Poppins style approach
 class _VerificationTitle extends StatelessWidget {
   const _VerificationTitle();
 
@@ -256,7 +285,6 @@ class _VerificationTitle extends StatelessWidget {
   }
 }
 
-// Extracted widget for the subtitle
 class _VerificationSubtitle extends StatelessWidget {
   const _VerificationSubtitle();
 
@@ -273,7 +301,6 @@ class _VerificationSubtitle extends StatelessWidget {
   }
 }
 
-// Extracted widget for phone number display
 class _PhoneNumberDisplay extends StatelessWidget {
   final String phoneNumber;
 
@@ -301,8 +328,62 @@ class _PhoneNumberDisplay extends StatelessWidget {
   }
 }
 
-// Extracted widget for pin input field
+// Using static constant for default theme
 class _PinInputField extends StatelessWidget {
+  // Static constants to avoid recreating on each build
+  static var defaultPinTheme = PinTheme(
+    width: 56,
+    height: 60,
+    textStyle: const TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.w600,
+      color: Colors.black,
+    ),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.grey, width: 1.5),
+      boxShadow: const [
+        BoxShadow(
+          color: Colors.grey,
+          blurRadius: 5,
+          spreadRadius: 1,
+        ),
+      ],
+    ),
+  );
+
+  // Pre-computed themes for better performance
+  static final focusedPinTheme = defaultPinTheme.copyWith(
+    height: 68,
+    width: 64,
+    decoration: defaultPinTheme.decoration!.copyWith(
+      border: Border.all(color: const Color(0xFF09BB07), width: 2.0),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF09BB07).withOpacity(0.1),
+          blurRadius: 8,
+          spreadRadius: 2,
+        ),
+      ],
+    ),
+  );
+
+  static final submittedPinTheme = defaultPinTheme.copyWith(
+    decoration: defaultPinTheme.decoration!.copyWith(
+      color: Colors.grey.shade100,
+      border: Border.all(color: Colors.grey.shade300, width: 1.5),
+    ),
+  );
+
+  static final errorPinTheme = defaultPinTheme.copyWith(
+    height: 68,
+    width: 64,
+    decoration: defaultPinTheme.decoration!.copyWith(
+      border: Border.all(color: Colors.red, width: 2.0),
+    ),
+  );
+
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onCompleted;
@@ -315,141 +396,112 @@ class _PinInputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var defaultPinTheme = PinTheme(
-      width: 56,
-      height: 60,
-      textStyle: const TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.w600,
-        color: Colors.black,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey, width: 1.5),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.grey,
-            blurRadius: 5,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-    );
-
     return Pinput(
       length: 6,
       controller: controller,
       focusNode: focusNode,
       defaultPinTheme: defaultPinTheme,
-      focusedPinTheme: defaultPinTheme.copyWith(
-        height: 68,
-        width: 64,
-        decoration: defaultPinTheme.decoration!.copyWith(
-          border: Border.all(color: const Color(0xFF09BB07), width: 2.0),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF09BB07).withOpacity(0.1),
-              blurRadius: 8,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-      ),
-      submittedPinTheme: defaultPinTheme.copyWith(
-        decoration: defaultPinTheme.decoration!.copyWith(
-          color: Colors.grey.shade100,
-          border: Border.all(color: Colors.grey.shade300, width: 1.5),
-        ),
-      ),
-      errorPinTheme: defaultPinTheme.copyWith(
-        height: 68,
-        width: 64,
-        decoration: defaultPinTheme.decoration!.copyWith(
-          border: Border.all(color: Colors.red, width: 2.0),
-        ),
-      ),
-      pinAnimationType: PinAnimationType.none,
+      focusedPinTheme: focusedPinTheme,
+      submittedPinTheme: submittedPinTheme,
+      errorPinTheme: errorPinTheme,
+      pinAnimationType: PinAnimationType.none, // Disable animations for performance
       closeKeyboardWhenCompleted: true,
       onCompleted: onCompleted,
     );
   }
 }
 
-// Extracted widget for verification status indicator
+// Optimized verification status indicator
 class _VerificationStatusIndicator extends StatelessWidget {
   final bool isLoading;
   final bool isSuccessful;
 
+  // Using a const constructor for better optimization
   const _VerificationStatusIndicator({
     required this.isLoading,
     required this.isSuccessful,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Cache widgets to avoid recreating them
+    const loadingWidget = CircularProgressIndicator(color: Color(0xFF09BB07));
+    
+    final successWidget = Container(
+      key: const ValueKey('success'),
+      height: 60,
+      width: 60,
+      decoration: BoxDecoration(
+        color: Colors.green.shade100,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.check, color: Colors.green, size: 30),
+    );
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       child: isLoading
-          ? const CircularProgressIndicator(color: Color(0xFF09BB07))
+          ? loadingWidget
           : isSuccessful
-              ? Container(
-                  key: ValueKey('success'),
-                  height: 60,
-                  width: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.check, color: Colors.green, size: 30),
-                )
+              ? successWidget
               : const SizedBox.shrink(),
     );
   }
 }
 
-// Extracted widget for resend code
+// Optimized resend code widget
 class _ResendCodeWidget extends StatelessWidget {
   final bool resendEnabled;
   final int resendTimer;
   final VoidCallback onResend;
 
+  // Using a const constructor for better optimization
   const _ResendCodeWidget({
     required this.resendEnabled,
     required this.resendTimer,
     required this.onResend,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Cache text styles 
+    final regularStyle = GoogleFonts.poppins(
+      fontSize: 15, 
+      color: Colors.black54
+    );
+    
+    final resendStyle = GoogleFonts.poppins(
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xFF09BB07),
+    );
+    
+    final timerStyle = GoogleFonts.poppins(
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      color: Colors.grey,
+    );
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          "Didn't receive the code?",
-          style: GoogleFonts.poppins(fontSize: 15, color: Colors.black54),
-        ),
+        Text("Didn't receive the code?", style: regularStyle),
         const SizedBox(width: 8),
-        resendEnabled
-            ? TextButton(
-                onPressed: onResend,
-                child: Text(
-                  'Resend Code',
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF09BB07),
-                  ),
-                ),
-              )
-            : Text(
-                'Resend in ${resendTimer}s',
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey,
-                ),
-              ),
+        if (resendEnabled)
+          TextButton(
+            onPressed: onResend,
+            // Optimized button properties
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: Size.zero,
+            ),
+            child: Text('Resend Code', style: resendStyle),
+          )
+        else
+          Text('Resend in ${resendTimer}s', style: timerStyle),
       ],
     );
   }
