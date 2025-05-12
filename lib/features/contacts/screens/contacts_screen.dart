@@ -10,6 +10,7 @@ import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:intl/intl.dart';
 
 class ContactsScreen extends ConsumerStatefulWidget {
   const ContactsScreen({Key? key}) : super(key: key);
@@ -23,6 +24,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearching = false;
+  bool _isInitializing = true;
 
   @override
   void initState() {
@@ -35,10 +37,95 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
     });
   }
 
+  // Load contacts with smart sync logic
   Future<void> _initializeContacts() async {
-    final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
-    await contactsNotifier.syncContacts();
-    await contactsNotifier.loadBlockedContacts();
+    setState(() {
+      _isInitializing = true;
+    });
+    
+    try {
+      final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+      
+      // First try to load cached contacts - this will be fast
+      await ref.read(contactsNotifierProvider.future);
+      
+      // Check if we need to sync
+      final syncNeeded = await contactsNotifier.checkSyncStatus();
+      
+      if (syncNeeded) {
+        // Only sync if needed
+        await contactsNotifier.syncContacts(forceSync: false);
+      }
+      
+      // Always load blocked contacts
+      await contactsNotifier.loadBlockedContacts();
+    } catch (e) {
+      // Error handling
+      debugPrint('Error initializing contacts: $e');
+      if (mounted) {
+        showSnackBar(context, 'Error loading contacts: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
+    }
+  }
+
+  // Force sync contacts with server
+  Future<void> _forceSyncContacts() async {
+    if (mounted) {
+      showSnackBar(context, 'Syncing contacts...');
+    }
+    
+    try {
+      final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+      await contactsNotifier.syncContacts(forceSync: true);
+      
+      if (mounted) {
+        showSnackBar(context, 'Contacts synced successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error syncing contacts: $e');
+      }
+    }
+  }
+
+  // Build sync status indicator
+  Widget _buildSyncStatus(DateTime? lastSyncTime, SyncStatus syncStatus) {
+    if (lastSyncTime != null) {
+      final formatter = DateFormat('MMM d, h:mm a');
+      final syncTime = formatter.format(lastSyncTime);
+      
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        color: Theme.of(context).colorScheme.surface,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.sync, 
+              size: 12, 
+              color: syncStatus == SyncStatus.upToDate 
+                  ? Colors.green 
+                  : Colors.orange,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Last synced: $syncTime',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   @override
@@ -85,7 +172,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
             onSelected: (value) {
               switch (value) {
                 case 'refresh':
-                  _initializeContacts();
+                  _forceSyncContacts();
                   break;
                 case 'blocked':
                   Navigator.push(
@@ -106,13 +193,13 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'refresh',
                 child: Row(
                   children: [
-                    Icon(Icons.sync),
-                    SizedBox(width: 10),
-                    Text('Refresh contacts'),
+                    const Icon(Icons.sync),
+                    const SizedBox(width: 10),
+                    const Text('Sync contacts'),
                   ],
                 ),
               ),
@@ -205,7 +292,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
                     Text('Error: ${state.error}'),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _initializeContacts,
+                      onPressed: _forceSyncContacts,
                       child: const Text('Retry'),
                     ),
                   ],
@@ -232,7 +319,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                      onPressed: _initializeContacts,
+                      onPressed: _forceSyncContacts,
                       icon: const Icon(Icons.sync),
                       label: const Text('Sync Contacts'),
                     ),
@@ -250,13 +337,24 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
                     .toList();
             
             return RefreshIndicator(
-              onRefresh: _initializeContacts,
-              child: ListView.builder(
-                itemCount: filteredContacts.length,
-                itemBuilder: (context, index) {
-                  final contact = filteredContacts[index];
-                  return _buildContactItem(contact);
-                },
+              onRefresh: _forceSyncContacts,
+              child: Column(
+                children: [
+                  // Show sync status at top
+                  if (state.lastSyncTime != null)
+                    _buildSyncStatus(state.lastSyncTime, state.syncStatus),
+                  
+                  // Contacts list
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredContacts.length,
+                      itemBuilder: (context, index) {
+                        final contact = filteredContacts[index];
+                        return _buildContactItem(contact);
+                      },
+                    ),
+                  ),
+                ],
               ),
             );
           },
@@ -268,7 +366,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
                 Text('Error: ${error.toString()}'),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: _initializeContacts,
+                  onPressed: _forceSyncContacts,
                   child: const Text('Retry'),
                 ),
               ],
@@ -298,7 +396,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
                     Text('Error: ${state.error}'),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _initializeContacts,
+                      onPressed: _forceSyncContacts,
                       child: const Text('Retry'),
                     ),
                   ],
@@ -325,7 +423,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                      onPressed: _initializeContacts,
+                      onPressed: _forceSyncContacts,
                       icon: const Icon(Icons.sync),
                       label: const Text('Refresh Contacts'),
                     ),
@@ -344,13 +442,24 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
                     .toList();
             
             return RefreshIndicator(
-              onRefresh: _initializeContacts,
-              child: ListView.builder(
-                itemCount: filteredContacts.length,
-                itemBuilder: (context, index) {
-                  final contact = filteredContacts[index];
-                  return _buildInviteItem(contact);
-                },
+              onRefresh: _forceSyncContacts,
+              child: Column(
+                children: [
+                  // Show sync status at top
+                  if (state.lastSyncTime != null)
+                    _buildSyncStatus(state.lastSyncTime, state.syncStatus),
+                  
+                  // Unregistered contacts list
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredContacts.length,
+                      itemBuilder: (context, index) {
+                        final contact = filteredContacts[index];
+                        return _buildInviteItem(contact);
+                      },
+                    ),
+                  ),
+                ],
               ),
             );
           },
@@ -362,7 +471,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
                 Text('Error: ${error.toString()}'),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: _initializeContacts,
+                  onPressed: _forceSyncContacts,
                   child: const Text('Retry'),
                 ),
               ],

@@ -20,6 +20,7 @@ class ContactsState {
   final String? error;
   final bool syncInProgress;
   final DateTime? lastSyncTime;
+  final SyncStatus syncStatus;
 
   const ContactsState({
     this.isLoading = false,
@@ -31,6 +32,7 @@ class ContactsState {
     this.error,
     this.syncInProgress = false,
     this.lastSyncTime,
+    this.syncStatus = SyncStatus.unknown,
   });
 
   ContactsState copyWith({
@@ -43,6 +45,7 @@ class ContactsState {
     String? error,
     bool? syncInProgress,
     DateTime? lastSyncTime,
+    SyncStatus? syncStatus,
   }) {
     return ContactsState(
       isLoading: isLoading ?? this.isLoading,
@@ -54,8 +57,18 @@ class ContactsState {
       error: error,
       syncInProgress: syncInProgress ?? this.syncInProgress,
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
+}
+
+// Define sync status enum for better state management
+enum SyncStatus {
+  unknown,      // Initial state
+  upToDate,     // Recently synced, data is fresh
+  stale,        // Sync needed, data is outdated
+  neverSynced,  // No sync has been performed yet
+  failed,       // Sync attempt failed
 }
 
 @riverpod
@@ -67,7 +80,46 @@ class ContactsNotifier extends _$ContactsNotifier {
     _contactsRepository = ref.read(contactsRepositoryProvider);
     
     // Initialize with empty state
-    return const ContactsState();
+    final initialState = const ContactsState(
+      syncStatus: SyncStatus.unknown,
+    );
+    
+    // Try to load cached contacts first
+    return _loadCachedContacts(initialState);
+  }
+
+  // Load cached contacts from local storage
+  Future<ContactsState> _loadCachedContacts(ContactsState currentState) async {
+    try {
+      // Check if we need to sync based on time threshold
+      final syncNeeded = await _contactsRepository.isSyncNeeded();
+      final cachedData = await _contactsRepository.loadContactsFromStorage();
+      
+      if (cachedData == null) {
+        // No cached data, we need a full sync
+        return currentState.copyWith(
+          syncStatus: SyncStatus.neverSynced,
+        );
+      }
+      
+      // Determine sync status
+      final syncStatus = syncNeeded ? SyncStatus.stale : SyncStatus.upToDate;
+      
+      // Update state with cached data
+      return currentState.copyWith(
+        registeredContacts: cachedData.registeredContacts,
+        unregisteredContacts: cachedData.unregisteredContacts,
+        lastSyncTime: cachedData.syncTime,
+        syncStatus: syncStatus,
+        isSuccessful: true,
+      );
+    } catch (e) {
+      debugPrint('Error loading cached contacts: $e');
+      return currentState.copyWith(
+        syncStatus: SyncStatus.failed,
+        error: 'Failed to load cached contacts: $e',
+      );
+    }
   }
 
   // Load device contacts
@@ -94,8 +146,8 @@ class ContactsNotifier extends _$ContactsNotifier {
     }
   }
 
-  // Synchronize contacts with the app
-  Future<void> syncContacts() async {
+  // Synchronize contacts with the app - with smart sync option
+  Future<void> syncContacts({bool forceSync = false}) async {
     if (!state.hasValue) return;
     
     state = AsyncValue.data(state.value!.copyWith(
@@ -105,8 +157,12 @@ class ContactsNotifier extends _$ContactsNotifier {
 
     try {
       // Load device contacts if not already loaded
-      if (state.value!.deviceContacts.isEmpty) {
-        await loadDeviceContacts();
+      List<Contact> deviceContacts = state.value!.deviceContacts;
+      if (deviceContacts.isEmpty) {
+        deviceContacts = await _contactsRepository.getDeviceContacts();
+        state = AsyncValue.data(state.value!.copyWith(
+          deviceContacts: deviceContacts,
+        ));
       }
 
       // Get current user
@@ -115,10 +171,34 @@ class ContactsNotifier extends _$ContactsNotifier {
         throw Exception('User not authenticated');
       }
 
+      // Check if we need to sync
+      final syncNeeded = forceSync || 
+                         state.value!.syncStatus == SyncStatus.stale || 
+                         state.value!.syncStatus == SyncStatus.neverSynced ||
+                         state.value!.syncStatus == SyncStatus.failed;
+      
+      // If no sync needed and not forced, use cached data
+      if (!syncNeeded && !forceSync && 
+          state.value!.registeredContacts.isNotEmpty && 
+          state.value!.lastSyncTime != null) {
+        
+        debugPrint('Using cached contacts data from ${state.value!.lastSyncTime}');
+        
+        // Just update the state to show we checked
+        state = AsyncValue.data(state.value!.copyWith(
+          syncInProgress: false,
+          syncStatus: SyncStatus.upToDate,
+          isSuccessful: true,
+        ));
+        
+        return;
+      }
+
       // Sync contacts with Firebase
       final result = await _contactsRepository.syncContactsWithFirebase(
-        deviceContacts: state.value!.deviceContacts,
+        deviceContacts: deviceContacts,
         currentUser: authState.userModel!,
+        forceSync: forceSync,
       );
 
       // Update state with results
@@ -126,14 +206,35 @@ class ContactsNotifier extends _$ContactsNotifier {
         registeredContacts: result.registeredContacts,
         unregisteredContacts: result.unregisteredContacts,
         syncInProgress: false,
-        lastSyncTime: DateTime.now(),
+        lastSyncTime: result.syncTime,
+        syncStatus: SyncStatus.upToDate,
         isSuccessful: true,
       ));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         syncInProgress: false,
+        syncStatus: SyncStatus.failed,
         error: e.toString(),
       ));
+    }
+  }
+
+  // Check if sync is needed and update status
+  Future<bool> checkSyncStatus() async {
+    if (!state.hasValue) return true;
+    
+    try {
+      final syncNeeded = await _contactsRepository.isSyncNeeded();
+      
+      // Update sync status based on check
+      state = AsyncValue.data(state.value!.copyWith(
+        syncStatus: syncNeeded ? SyncStatus.stale : SyncStatus.upToDate,
+      ));
+      
+      return syncNeeded;
+    } catch (e) {
+      debugPrint('Error checking sync status: $e');
+      return true; // Default to needing sync if check fails
     }
   }
 
@@ -162,6 +263,9 @@ class ContactsNotifier extends _$ContactsNotifier {
         isLoading: false,
         isSuccessful: true,
       ));
+      
+      // Update local storage with new contact list
+      _updateLocalStorage();
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         isLoading: false,
@@ -193,6 +297,9 @@ class ContactsNotifier extends _$ContactsNotifier {
         isLoading: false,
         isSuccessful: true,
       ));
+      
+      // Update local storage with new contact list
+      _updateLocalStorage();
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         isLoading: false,
@@ -305,6 +412,23 @@ class ContactsNotifier extends _$ContactsNotifier {
     } catch (e) {
       debugPrint('Error searching user: $e');
       return null;
+    }
+  }
+
+  // Helper method to update local storage after contact list changes
+  Future<void> _updateLocalStorage() async {
+    if (!state.hasValue || !state.value!.isSuccessful) return;
+    
+    try {
+      final result = ContactSyncResult(
+        registeredContacts: state.value!.registeredContacts,
+        unregisteredContacts: state.value!.unregisteredContacts,
+        syncTime: state.value!.lastSyncTime ?? DateTime.now(),
+      );
+      
+      await _contactsRepository.saveContactsToStorage(result);
+    } catch (e) {
+      debugPrint('Error updating local storage: $e');
     }
   }
 

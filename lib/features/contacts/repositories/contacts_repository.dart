@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -10,15 +12,23 @@ import 'package:permission_handler/permission_handler.dart';
 class ContactSyncResult {
   final List<UserModel> registeredContacts;
   final List<Contact> unregisteredContacts;
+  final DateTime syncTime;
 
   ContactSyncResult({
     required this.registeredContacts,
     required this.unregisteredContacts,
+    required this.syncTime,
   });
 }
 
 class ContactsRepository {
   final FirebaseFirestore _firestore;
+  static const String _lastSyncTimeKey = 'last_contacts_sync_time';
+  static const String _registeredContactsKey = 'registered_contacts';
+  static const String _unregisteredContactsKey = 'unregistered_contacts';
+  
+  // Sync frequency constants
+  static const Duration syncThreshold = Duration(hours: 6); // Consider contacts stale after 6 hours
   
   ContactsRepository({required FirebaseFirestore firestore}) 
       : _firestore = firestore;
@@ -74,6 +84,94 @@ class ContactsRepository {
     return digits;
   }
 
+  // Check if sync is needed based on last sync time
+  Future<bool> isSyncNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastSyncTimeString = prefs.getString(_lastSyncTimeKey);
+    
+    if (lastSyncTimeString == null) {
+      return true; // Never synced before
+    }
+    
+    final lastSyncTime = DateTime.parse(lastSyncTimeString);
+    final now = DateTime.now();
+    
+    return now.difference(lastSyncTime) > syncThreshold;
+  }
+
+  // Load contacts from local storage
+  Future<ContactSyncResult?> loadContactsFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Get last sync time
+      final lastSyncTimeString = prefs.getString(_lastSyncTimeKey);
+      if (lastSyncTimeString == null) {
+        return null; // No saved data
+      }
+      
+      // Get registered contacts
+      final registeredContactsJson = prefs.getStringList(_registeredContactsKey);
+      if (registeredContactsJson == null) {
+        return null;
+      }
+      
+      List<UserModel> registeredContacts = registeredContactsJson
+          .map((json) => UserModel.fromMap(jsonDecode(json)))
+          .toList();
+      
+      // Get unregistered contacts (store only essential info)
+      final unregisteredContactsJson = prefs.getStringList(_unregisteredContactsKey);
+      List<Contact> unregisteredContacts = [];
+      
+      // Unregistered contacts need to be refreshed from device 
+      // since we can't fully serialize/deserialize Contact objects
+      if (unregisteredContactsJson != null) {
+        final deviceContacts = await getDeviceContacts();
+        final unregisteredIds = unregisteredContactsJson.map((json) => jsonDecode(json)['id'] as String).toSet();
+        
+        unregisteredContacts = deviceContacts
+            .where((contact) => unregisteredIds.contains(contact.id))
+            .toList();
+      }
+      
+      return ContactSyncResult(
+        registeredContacts: registeredContacts,
+        unregisteredContacts: unregisteredContacts,
+        syncTime: DateTime.parse(lastSyncTimeString),
+      );
+    } catch (e) {
+      debugPrint('Error loading contacts from storage: $e');
+      return null;
+    }
+  }
+  
+  // Save contacts to local storage
+  Future<void> saveContactsToStorage(ContactSyncResult result) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Save last sync time
+      await prefs.setString(_lastSyncTimeKey, result.syncTime.toIso8601String());
+      
+      // Save registered contacts
+      final registeredContactsJson = result.registeredContacts
+          .map((contact) => jsonEncode(contact.toMap()))
+          .toList();
+      await prefs.setStringList(_registeredContactsKey, registeredContactsJson);
+      
+      // Save unregistered contacts (minimal info)
+      final unregisteredContactsJson = result.unregisteredContacts
+          .map((contact) => jsonEncode({'id': contact.id, 'name': contact.displayName}))
+          .toList();
+      await prefs.setStringList(_unregisteredContactsKey, unregisteredContactsJson);
+      
+      debugPrint('Contacts saved to local storage successfully');
+    } catch (e) {
+      debugPrint('Error saving contacts to storage: $e');
+    }
+  }
+
   // Search for registered users by phone numbers
   Future<List<UserModel>> findRegisteredUsers(List<String> phoneNumbers) async {
     try {
@@ -106,8 +204,22 @@ class ContactsRepository {
   Future<ContactSyncResult> syncContactsWithFirebase({
     required List<Contact> deviceContacts,
     required UserModel currentUser,
+    bool forceSync = false,
   }) async {
     try {
+      // Check if we can use cached data
+      if (!forceSync) {
+        final cachedResult = await loadContactsFromStorage();
+        final syncNeeded = await isSyncNeeded();
+        
+        if (cachedResult != null && !syncNeeded) {
+          debugPrint('Using cached contacts data from ${cachedResult.syncTime}');
+          return cachedResult;
+        }
+      }
+      
+      debugPrint('Performing full contacts sync with Firebase...');
+      
       // Extract phone numbers from device contacts
       List<String> contactPhoneNumbers = [];
       Map<String, Contact> phoneToContactMap = {};
@@ -145,11 +257,17 @@ class ContactsRepository {
       // Remove duplicates from unregistered contacts
       unregisteredContacts = _removeDuplicateContacts(unregisteredContacts);
       
-      // Return the result
-      return ContactSyncResult(
+      // Create the result with current timestamp
+      final result = ContactSyncResult(
         registeredContacts: registeredUsers,
         unregisteredContacts: unregisteredContacts,
+        syncTime: DateTime.now(),
       );
+      
+      // Save to local storage
+      await saveContactsToStorage(result);
+      
+      return result;
     } catch (e) {
       debugPrint('Error syncing contacts: $e');
       throw Exception('Failed to sync contacts: $e');
