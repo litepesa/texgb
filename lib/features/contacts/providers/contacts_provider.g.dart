@@ -1,26 +1,26 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'authentication_provider.dart';
+part of 'contacts_provider.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$authenticationHash() => r'46526f7cfdb3189553f57c1880d45224b113c4c8';
+String _$contactsNotifierHash() => r'f06eb03ae1b92d341f6926c2f66294a3b825333f';
 
-/// See also [Authentication].
-@ProviderFor(Authentication)
-final authenticationProvider = AutoDisposeAsyncNotifierProvider<Authentication,
-    AuthenticationState>.internal(
-  Authentication.new,
-  name: r'authenticationProvider',
+/// See also [ContactsNotifier].
+@ProviderFor(ContactsNotifier)
+final contactsNotifierProvider =
+    AutoDisposeAsyncNotifierProvider<ContactsNotifier, ContactsState>.internal(
+  ContactsNotifier.new,
+  name: r'contactsNotifierProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$authenticationHash,
+      : _$contactsNotifierHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$Authentication = AutoDisposeAsyncNotifier<AuthenticationState>;
+typedef _$ContactsNotifier = AutoDisposeAsyncNotifier<ContactsState>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

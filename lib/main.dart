@@ -6,11 +6,16 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
+import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
+import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
+import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/system_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -128,6 +133,13 @@ class AppRoot extends ConsumerWidget {
           Constants.myProfileScreen: (context) => const MyProfileScreen(),
           Constants.editProfileScreen: (context) => const EditProfileScreen(),
           Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
+          Constants.contactsScreen: (context) => const ContactsScreen(),
+          Constants.addContactScreen: (context) => const AddContactScreen(),
+          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
+          Constants.contactProfileScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
+            return ContactProfileScreen(contact: args);
+          },
         },
         navigatorObservers: [routeObserver],
         onUnknownRoute: (settings) {

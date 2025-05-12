@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/profile/screens/profile_screens.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/modern_bottomnav_bar.dart';
@@ -129,12 +130,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.people_outline),
+            color: textColor,
+            tooltip: 'Contacts',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ContactsScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.wifi, color: textColor),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+                const SnackBar(
                   content: Text('WiFi feature is under development'),
-                  duration: const Duration(seconds: 1),
+                  duration: Duration(seconds: 1),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -199,11 +213,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (pageIndex == 0) {
       return FloatingActionButton(
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('This feature is under development'),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
+          // Open the contacts screen when FAB is pressed
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ContactsScreen(),
             ),
           );
         },

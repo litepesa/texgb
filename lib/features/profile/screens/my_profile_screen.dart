@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import for SystemChrome
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
@@ -29,10 +30,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     super.initState();
     final user = ref.read(currentUserProvider);
     _aboutController = TextEditingController(text: user?.aboutMe ?? '');
+    
+    // Set system UI overlay style to hide status bar
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
   
   @override
   void dispose() {
+    // Restore system UI when the screen is disposed
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     _aboutController.dispose();
     super.dispose();
   }
@@ -141,26 +150,25 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
       // No AppBar for a more immersive experience
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Profile Header - Full Width Design with Title and Edit Button
-              _buildImmersiveProfileHeader(user, modernTheme),
-              
-              // Profile Information
-              _buildProfileInfo(user, modernTheme),
-              
-              // Theme Selector
-              _buildThemeSelector(modernTheme, isDarkMode),
-              
-              // Account Settings
-              _buildAccountSettings(modernTheme),
-              
-              // Account management section
-              _buildAccountManagementSection(modernTheme),
-            ],
-          ),
+      extendBodyBehindAppBar: true, // Extend content behind where app bar would be
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Profile Header - Full Width Design with Title and Edit Button
+            _buildImmersiveProfileHeader(user, modernTheme),
+            
+            // Profile Information
+            _buildProfileInfo(user, modernTheme),
+            
+            // Theme Selector
+            _buildThemeSelector(modernTheme, isDarkMode),
+            
+            // Account Settings
+            _buildAccountSettings(modernTheme),
+            
+            // Account management section
+            _buildAccountManagementSection(modernTheme),
+          ],
         ),
       ),
     );
@@ -180,192 +188,195 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           ],
         ),
       ),
-      child: Column(
-        children: [
-          // Title Row with My Profile text and Edit button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'My Profile',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Title Row with My Profile text and Edit button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'My Profile',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.edit,
-                    color: Colors.white,
-                    size: 24,
+                  IconButton(
+                    icon: const Icon(
+                      Icons.edit,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      Navigator.pushNamed(context, Constants.editProfileScreen);
+                    },
                   ),
-                  onPressed: () {
-                    Navigator.pushNamed(context, Constants.editProfileScreen);
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          
-          // Profile Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: Column(
-              children: [
-                // Profile Image
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
+            
+            // Profile Content
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: Column(
+                children: [
+                  // Profile Image
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 4,
                           ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: _profileImage != null 
-                          ? Image.file(
-                              _profileImage!,
-                              fit: BoxFit.cover,
-                              width: 100,
-                              height: 100,
-                            )
-                          : user.image.isNotEmpty 
-                            ? Image.network(
-                                user.image,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: _profileImage != null 
+                            ? Image.file(
+                                _profileImage!,
                                 fit: BoxFit.cover,
                                 width: 100,
                                 height: 100,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey[300],
-                                    child: const Icon(
-                                      Icons.person,
-                                      size: 50,
-                                      color: Colors.white,
-                                    ),
-                                  );
-                                },
                               )
-                            : Container(
-                                color: Colors.grey[300],
-                                child: const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.white,
+                            : user.image.isNotEmpty 
+                              ? Image.network(
+                                  user.image,
+                                  fit: BoxFit.cover,
+                                  width: 100,
+                                  height: 100,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const Center(
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[300],
+                                      child: const Icon(
+                                        Icons.person,
+                                        size: 50,
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  color: Colors.grey[300],
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 50,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                              ),
+                        ),
                       ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: _selectImage,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.camera_alt,
+                              color: modernTheme.primaryColor,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Name and Phone - Center Aligned
+                  Text(
+                    user.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: GestureDetector(
-                        onTap: _selectImage,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user.phoneNumber,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Switch Account Button - Better Styling
+                  GestureDetector(
+                    onTap: _showAccountSwitchDialog,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.swap_horiz_rounded,
                             color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 5,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            size: 16,
                           ),
-                          child: Icon(
-                            Icons.camera_alt,
-                            color: modernTheme.primaryColor,
-                            size: 20,
+                          const SizedBox(width: 8),
+                          Text(
+                            'Switch Account',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                
-                // Name and Phone - Center Aligned
-                Text(
-                  user.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  user.phoneNumber,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // Switch Account Button - Better Styling
-                GestureDetector(
-                  onTap: _showAccountSwitchDialog,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.swap_horiz_rounded,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Switch Account',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
