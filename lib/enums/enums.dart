@@ -1,4 +1,4 @@
-// lib/enums/enums.dart
+import 'package:flutter/material.dart';
 
 enum ContactViewType {
   contacts,
@@ -12,6 +12,9 @@ enum MessageEnum {
   image,
   video,
   audio,
+  file,        // For document files
+  location,    // For location sharing
+  contact,     // For contact sharing
 }
 
 enum GroupType {
@@ -46,9 +49,82 @@ extension MessageEnumExtension on String {
         return MessageEnum.video;
       case 'audio':
         return MessageEnum.audio;
+      case 'file':
+        return MessageEnum.file;
+      case 'location':
+        return MessageEnum.location;
+      case 'contact':
+        return MessageEnum.contact;
       default:
         return MessageEnum.text;
     }
+  }
+}
+
+// Extension to add helper methods to MessageEnum
+extension MessageEnumHelper on MessageEnum {
+  String get name {
+    switch (this) {
+      case MessageEnum.text:
+        return 'text';
+      case MessageEnum.image:
+        return 'image';
+      case MessageEnum.video:
+        return 'video';
+      case MessageEnum.audio:
+        return 'audio';
+      case MessageEnum.file:
+        return 'file';
+      case MessageEnum.location:
+        return 'location';
+      case MessageEnum.contact:
+        return 'contact';
+    }
+  }
+  
+  String get displayName {
+    switch (this) {
+      case MessageEnum.text:
+        return 'Text';
+      case MessageEnum.image:
+        return 'Photo';
+      case MessageEnum.video:
+        return 'Video';
+      case MessageEnum.audio:
+        return 'Voice message';
+      case MessageEnum.file:
+        return 'Document';
+      case MessageEnum.location:
+        return 'Location';
+      case MessageEnum.contact:
+        return 'Contact';
+    }
+  }
+  
+  IconData get icon {
+    switch (this) {
+      case MessageEnum.text:
+        return Icons.text_format;
+      case MessageEnum.image:
+        return Icons.image;
+      case MessageEnum.video:
+        return Icons.videocam;
+      case MessageEnum.audio:
+        return Icons.mic;
+      case MessageEnum.file:
+        return Icons.insert_drive_file;
+      case MessageEnum.location:
+        return Icons.location_on;
+      case MessageEnum.contact:
+        return Icons.person;
+    }
+  }
+  
+  bool get isMedia {
+    return this == MessageEnum.image || 
+           this == MessageEnum.video || 
+           this == MessageEnum.audio || 
+           this == MessageEnum.file;
   }
 }
 
@@ -165,3 +241,56 @@ extension StatusPrivacyTypeExtension on StatusPrivacyType {
     }
   }
 }
+
+// Define chat actions that can be performed
+enum ChatAction {
+  reply,
+  forward,
+  delete,
+  copy,
+  pin,
+  star,
+  info,
+}
+
+// Extension to provide helper methods for ChatAction
+extension ChatActionExtension on ChatAction {
+  String get displayName {
+    switch (this) {
+      case ChatAction.reply:
+        return 'Reply';
+      case ChatAction.forward:
+        return 'Forward';
+      case ChatAction.delete:
+        return 'Delete';
+      case ChatAction.copy:
+        return 'Copy';
+      case ChatAction.pin:
+        return 'Pin';
+      case ChatAction.star:
+        return 'Star';
+      case ChatAction.info:
+        return 'Info';
+    }
+  }
+  
+  IconData get icon {
+    switch (this) {
+      case ChatAction.reply:
+        return Icons.reply;
+      case ChatAction.forward:
+        return Icons.forward;
+      case ChatAction.delete:
+        return Icons.delete;
+      case ChatAction.copy:
+        return Icons.content_copy;
+      case ChatAction.pin:
+        return Icons.push_pin;
+      case ChatAction.star:
+        return Icons.star;
+      case ChatAction.info:
+        return Icons.info;
+    }
+  }
+}
+
