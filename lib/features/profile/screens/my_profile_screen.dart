@@ -140,43 +140,36 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.pushNamed(context, Constants.editProfileScreen);
-            },
+      // No AppBar for a more immersive experience
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Profile Header - Full Width Design with Title and Edit Button
+              _buildImmersiveProfileHeader(user, modernTheme),
+              
+              // Profile Information
+              _buildProfileInfo(user, modernTheme),
+              
+              // Theme Selector
+              _buildThemeSelector(modernTheme, isDarkMode),
+              
+              // Account Settings
+              _buildAccountSettings(modernTheme),
+              
+              // Account management section
+              _buildAccountManagementSection(modernTheme),
+            ],
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Profile Header
-            _buildProfileHeader(user, modernTheme),
-            
-            // Profile Information
-            _buildProfileInfo(user, modernTheme),
-            
-            // Theme Selector
-            _buildThemeSelector(modernTheme, isDarkMode),
-            
-            // Account Settings
-            _buildAccountSettings(modernTheme),
-            
-            // Account management section
-            _buildAccountManagementSection(modernTheme),
-          ],
         ),
       ),
     );
   }
   
-  Widget _buildProfileHeader(UserModel user, ModernThemeExtension modernTheme) {
+  // Immersive profile header with integrated title and edit button
+  Widget _buildImmersiveProfileHeader(UserModel user, ModernThemeExtension modernTheme) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24),
+      width: double.infinity,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -189,104 +182,187 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       ),
       child: Column(
         children: [
-          // Profile Image
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
+          // Title Row with My Profile text and Edit button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'My Profile',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.edit,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  onPressed: () {
+                    Navigator.pushNamed(context, Constants.editProfileScreen);
+                  },
+                ),
+              ],
+            ),
+          ),
+          
+          // Profile Content
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: Column(
+              children: [
+                // Profile Image
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: _profileImage != null 
+                          ? Image.file(
+                              _profileImage!,
+                              fit: BoxFit.cover,
+                              width: 100,
+                              height: 100,
+                            )
+                          : user.image.isNotEmpty 
+                            ? Image.network(
+                                user.image,
+                                fit: BoxFit.cover,
+                                width: 100,
+                                height: 100,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey[300],
+                                    child: const Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: Colors.white,
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: Colors.grey[300],
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 50,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: _selectImage,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 5,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.camera_alt,
+                            color: modernTheme.primaryColor,
+                            size: 20,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundColor: modernTheme.backgroundColor,
-                  backgroundImage: _profileImage != null 
-                    ? FileImage(_profileImage!) as ImageProvider
-                    : user.image.isNotEmpty 
-                      ? NetworkImage(user.image) as ImageProvider
-                      : const AssetImage('assets/images/user_icon.png') as ImageProvider,
+                const SizedBox(height: 16),
+                
+                // Name and Phone - Center Aligned
+                Text(
+                  user.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: GestureDetector(
-                  onTap: _selectImage,
+                const SizedBox(height: 4),
+                Text(
+                  user.phoneNumber,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Switch Account Button - Better Styling
+                GestureDetector(
+                  onTap: _showAccountSwitchDialog,
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: modernTheme.surfaceColor,
-                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: modernTheme.backgroundColor!,
-                        width: 2,
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
                       ),
                     ),
-                    child: Icon(
-                      Icons.camera_alt,
-                      color: modernTheme.primaryColor,
-                      size: 20,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.swap_horiz_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Switch Account',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Name
-          Text(
-            user.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Phone
-          Text(
-            user.phoneNumber,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Account indicator
-          GestureDetector(
-            onTap: _showAccountSwitchDialog,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.swap_horiz,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Switch Account',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
         ],
@@ -501,17 +577,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             },
             modernTheme: modernTheme,
           ),
-            
-          // Debugging method to clear local storage - only for development
-          if (false) // Set to false for production
-            _buildSettingsItem(
-              icon: Icons.delete_outline,
-              title: 'Clear App Data (Dev Only)',
-              onTap: () {
-                // This is just for development purposes
-              },
-              modernTheme: modernTheme,
-            ),
         ],
       ),
     );
