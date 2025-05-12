@@ -26,23 +26,25 @@ class MessageNotifier extends _$MessageNotifier {
     
     // Watch the message stream provider and update this provider's state
     ref.listen(messageStreamProvider(contactUID), (previous, messages) {
-      if (messages is AsyncData) {
-        state = AsyncData(messages.value);
-        
-        // Mark chat as seen when messages are loaded
-        final authState = ref.read(authenticationProvider);
-        final currentUID = authState.value?.uid;
-        
-        if (currentUID != null) {
-          ref.read(chatNotifierProvider.notifier).markChatAsSeen(
-            senderUID: currentUID,
-            receiverUID: contactUID,
-          );
-        }
-      } else if (messages is AsyncError) {
-        state = AsyncError(messages.error, messages.stackTrace);
+  state = messages.map(
+    data: (data) {
+      // Side effect: mark chat as seen when messages are loaded
+      final authState = ref.read(authenticationProvider);
+      final currentUID = authState.value?.uid;
+      
+      if (currentUID != null) {
+        ref.read(chatNotifierProvider.notifier).markChatAsSeen(
+          senderUID: currentUID,
+          receiverUID: contactUID,
+        );
       }
-    });
+      
+      return AsyncData(data.value);
+    },
+    error: (error) => AsyncError(error.error, error.stackTrace),
+    loading: (_) => state, // Preserve current state if loading
+  );
+});
     
     // Return empty list initially
     return [];

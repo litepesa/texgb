@@ -18,12 +18,12 @@ class ChatNotifier extends _$ChatNotifier {
     
     // Watch the chat stream provider and update this provider's state
     ref.listen(chatStreamProvider, (previous, chats) {
-      if (chats is AsyncData) {
-        state = AsyncData(chats.value);
-      } else if (chats is AsyncError) {
-        state = AsyncError(chats.error, chats.stackTrace);
-      }
-    });
+  state = chats.map(
+    data: (data) => AsyncData(data.value),
+    error: (error) => AsyncError(error.error, error.stackTrace),
+    loading: (_) => state, // Preserve current state if loading
+    );
+  });
     
     // Return empty list initially
     return [];
