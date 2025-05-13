@@ -17,7 +17,6 @@ import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/models/user_model.dart';
-import 'package:textgb/shared/theme/system_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 
@@ -47,7 +46,7 @@ void main() async {
   ));
   
   // Use consolidated system UI setup - now that the main settings are in place
-  await AppSystemUI.setupSystemUI();
+  //await SystemUIUpdater.setupSystemUI();
   
   runApp(
     const ProviderScope(

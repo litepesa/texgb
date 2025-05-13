@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dark_theme.dart';
 import 'light_theme.dart';
-import 'system_ui.dart';
 
 enum ThemeOption {
   light,
@@ -52,7 +52,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
         );
         
         // Update system UI
-        AppSystemUI.updateSystemUI(initialState.isDarkMode);
+        _updateSystemNavigation(initialState.isDarkMode);
         
         return initialState;
       }
@@ -81,7 +81,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       );
       
       // Update system UI
-      AppSystemUI.updateSystemUI(themeState.isDarkMode);
+      _updateSystemNavigation(themeState.isDarkMode);
       
       return themeState;
     } catch (e) {
@@ -94,7 +94,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       );
       
       // Update system UI
-      AppSystemUI.updateSystemUI(defaultState.isDarkMode);
+      _updateSystemNavigation(defaultState.isDarkMode);
       
       return defaultState;
     }
@@ -111,6 +111,33 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       debugPrint('Error parsing theme option: $e');
       return ThemeOption.system;
     }
+  }
+  
+  // Update system UI to match theme
+  void _updateSystemNavigation(bool isDark) {
+    // Set system navigation bar to transparent
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      ),
+    );
+    
+    // Apply a second time after a short delay to override any system defaults
+    Future.delayed(const Duration(milliseconds: 100), () {
+      SystemChrome.setSystemUIOverlayStyle(
+        SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        ),
+      );
+    });
   }
   
   // Change theme and save preference
@@ -157,7 +184,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       );
       
       // Update system UI
-      AppSystemUI.updateSystemUI(newState.isDarkMode);
+      _updateSystemNavigation(newState.isDarkMode);
       
       return newState;
     });
@@ -196,7 +223,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
         final updatedState = currentState.copyWith(activeTheme: newTheme);
         
         // Update system UI
-        AppSystemUI.updateSystemUI(updatedState.isDarkMode);
+        _updateSystemNavigation(updatedState.isDarkMode);
         
         return updatedState;
       });
