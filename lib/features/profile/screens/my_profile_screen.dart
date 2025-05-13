@@ -1,3 +1,4 @@
+// lib/features/profile/screens/my_profile_screen.dart
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
@@ -29,13 +30,10 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     super.initState();
     final user = ref.read(currentUserProvider);
     _aboutController = TextEditingController(text: user?.aboutMe ?? '');
-    
-    // Remove the system UI mode change to prevent issues with the home screen
   }
   
   @override
   void dispose() {
-    // Remove the system UI mode change to prevent issues with the home screen
     _aboutController.dispose();
     super.dispose();
   }
@@ -43,27 +41,47 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   Future<void> _selectImage() async {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take a photo'),
-              onTap: () {
-                Navigator.pop(context);
-                _getImage(true);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                _getImage(false);
-              },
-            ),
-          ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: context.modernTheme.surfaceColor,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(24),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: context.modernTheme.textSecondaryColor!.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take a photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _getImage(true);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _getImage(false);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -141,31 +159,32 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       );
     }
 
+    // The bottom padding needed for the bottom nav bar
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 64;
+
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Profile Header - Full Width Design with Title and Edit Button
-              _buildImmersiveProfileHeader(user, modernTheme),
-              
-              // Profile Information
-              _buildProfileInfo(user, modernTheme),
-              
-              // Theme Selector
-              _buildThemeSelector(modernTheme, isDarkMode),
-              
-              // Account Settings
-              _buildAccountSettings(modernTheme),
-              
-              // Account management section
-              _buildAccountManagementSection(modernTheme),
-              
-              // Add extra padding at the bottom for the bottom nav bar
-              SizedBox(height: MediaQuery.of(context).padding.bottom + 100),
-            ],
-          ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Profile Header - Full Width Design
+            _buildImmersiveProfileHeader(user, modernTheme),
+            
+            // Profile Information
+            _buildProfileInfo(user, modernTheme),
+            
+            // Theme Selector
+            _buildThemeSelector(modernTheme, isDarkMode),
+            
+            // Account Settings
+            _buildAccountSettings(modernTheme),
+            
+            // Account management section
+            _buildAccountManagementSection(modernTheme),
+            
+            // Add extra padding at the bottom for the bottom nav bar
+            SizedBox(height: bottomPadding),
+          ],
         ),
       ),
     );
@@ -187,37 +206,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       ),
       child: Column(
         children: [
-          // Title Row with My Profile text and Edit button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'My Profile',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.edit,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                  onPressed: () {
-                    Navigator.pushNamed(context, Constants.editProfileScreen);
-                  },
-                ),
-              ],
-            ),
-          ),
+          // Add safe area padding at the top
+          SizedBox(height: MediaQuery.of(context).padding.top),
           
           // Profile Content
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             child: Column(
               children: [
                 // Profile Image
@@ -333,9 +327,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 
-                // Switch Account Button - Better Styling
+                // Edit Profile Button
                 GestureDetector(
-                  onTap: _showAccountSwitchDialog,
+                  onTap: () {
+                    Navigator.pushNamed(context, Constants.editProfileScreen);
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
@@ -350,13 +346,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(
-                          Icons.swap_horiz_rounded,
+                          Icons.edit,
                           color: Colors.white,
                           size: 16,
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'Switch Account',
+                          'Edit Profile',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -697,6 +693,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Handle indicator
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: context.modernTheme.textSecondaryColor!.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             Text(
               'Edit About Me',
               style: TextStyle(
@@ -778,6 +786,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Handle indicator
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: context.modernTheme.textSecondaryColor!.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
