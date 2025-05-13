@@ -5,35 +5,29 @@ import 'package:flutter/services.dart';
 class AppSystemUI {
   /// Update the system UI overlay style based on theme brightness
   static void updateSystemUI(bool isDarkMode) {
-    final uiStyle = SystemUiOverlayStyle(
-      // Always transparent status bar
+    // Set the SYSTEM UI overlay style to transparent with proper contrast
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      // Status bar (top)
       statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
       
-      // Navigation bar settings
+      // Navigation bar (bottom)
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false, // Prevent Android from overriding colors
-      
-      // Icons brightness based on theme
       systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-    );
+      systemNavigationBarContrastEnforced: false,
+    ));
     
-    // Apply UI style
-    SystemChrome.setSystemUIOverlayStyle(uiStyle);
-    
-    // Apply a second time after a short delay to ensure it takes effect
-    // This helps override any system defaults that might interfere
-    Future.delayed(const Duration(milliseconds: 100), () {
-      SystemChrome.setSystemUIOverlayStyle(uiStyle);
-    });
+    // Ensure we're in edge-to-edge mode
+    _setEdgeToEdgeMode();
   }
   
   /// Set edge-to-edge mode for full-screen immersive experience
-  static void setEdgeToEdgeMode() {
+  static void _setEdgeToEdgeMode() {
+    // Set system UI mode to edge-to-edge (content extends behind system UI)
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
-      overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
     );
   }
   
@@ -50,11 +44,15 @@ class AppSystemUI {
     // Set preferred orientations
     await setPreferredOrientations();
     
-    // Set edge-to-edge mode
-    setEdgeToEdgeMode();
-    
-    // Initial UI update based on platform brightness
+    // Get the current platform brightness
     final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    
+    // Initial UI update based on platform brightness 
     updateSystemUI(isPlatformDark);
+    
+    // Apply a second time after a delay to override any system defaults
+    Future.delayed(const Duration(milliseconds: 300), () {
+      updateSystemUI(isPlatformDark);
+    });
   }
 }

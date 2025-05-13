@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
@@ -27,13 +28,26 @@ void main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Use consolidated system UI setup
-  await AppSystemUI.setupSystemUI();
-  
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Setup edge-to-edge display
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  
+  // Apply transparent system UI overlays
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarDividerColor: Colors.transparent,
+    systemNavigationBarContrastEnforced: false,
+    statusBarIconBrightness: Brightness.light, // You can adjust this based on your default theme
+    systemNavigationBarIconBrightness: Brightness.light, // You can adjust this based on your default theme
+  ));
+  
+  // Use consolidated system UI setup - now that the main settings are in place
+  await AppSystemUI.setupSystemUI();
   
   runApp(
     const ProviderScope(
@@ -104,6 +118,8 @@ class AppRoot extends ConsumerWidget {
       loading: () => MaterialApp(
         debugShowCheckedModeBanner: false,
         home: const Scaffold(
+          extendBodyBehindAppBar: true,
+          extendBody: true,
           body: Center(
             child: CircularProgressIndicator(),
           ),
@@ -112,6 +128,8 @@ class AppRoot extends ConsumerWidget {
       error: (error, stackTrace) => MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
+          extendBodyBehindAppBar: true,
+          extendBody: true,
           body: Center(
             child: Text('Error loading theme: $error'),
           ),
@@ -145,7 +163,10 @@ class AppRoot extends ConsumerWidget {
         onUnknownRoute: (settings) {
           return MaterialPageRoute(
             builder: (context) => Scaffold(
+              extendBodyBehindAppBar: true,
+              extendBody: true,
               appBar: AppBar(
+                backgroundColor: Colors.transparent,
                 title: const Text('Error'),
               ),
               body: const Center(
@@ -229,94 +250,109 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
     final textColor = theme.textTheme.bodyLarge?.color ?? Colors.white;
     
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: _hasError 
-            ? _buildErrorScreen(textColor)
-            : _buildLoadingScreen(primaryColor, backgroundColor, textColor),
-        ),
-      ),
+      // Important for edge-to-edge UI
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      backgroundColor: backgroundColor,
+      body: _hasError 
+        ? _buildErrorScreen(textColor)
+        : _buildLoadingScreen(primaryColor, backgroundColor, textColor),
     );
   }
   
   Widget _buildErrorScreen(Color textColor) {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            color: Colors.red,
-            size: 48,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Something went wrong',
-            style: TextStyle(
-              color: textColor,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top,
+        bottom: MediaQuery.of(context).padding.bottom, 
+        left: 24.0, 
+        right: 24.0
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 48,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _errorMessage,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 14,
+            const SizedBox(height: 16),
+            Text(
+              'Something went wrong',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _hasError = false;
-                _errorMessage = '';
-              });
-              _navigateToStartScreen();
-            },
-            child: const Text('Retry'),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _hasError = false;
+                  _errorMessage = '';
+                });
+                _navigateToStartScreen();
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }
   
   Widget _buildLoadingScreen(Color primaryColor, Color backgroundColor, Color textColor) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // App logo or branding
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: primaryColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            'TexGB',
-            style: TextStyle(
-              color: backgroundColor,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+    return Padding(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top,
+        bottom: MediaQuery.of(context).padding.bottom
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // App logo or branding
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'WeiChat',
+                style: TextStyle(
+                  color: backgroundColor,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 24),
+            CircularProgressIndicator(
+              color: primaryColor,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Loading...',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 24),
-        CircularProgressIndicator(
-          color: primaryColor,
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Loading...',
-          style: TextStyle(
-            color: textColor,
-            fontSize: 16,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

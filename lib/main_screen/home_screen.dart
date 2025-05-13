@@ -98,6 +98,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         : Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
+      // Add these properties to fix the status bar issue
+      extendBodyBehindAppBar: true,
+      extendBody: true, // Add this to extend behind bottom nav bar
       backgroundColor: scaffoldBackgroundColor,
       appBar: pageIndex != 3 ? AppBar(
         elevation: elevation,
@@ -113,13 +116,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             children: [
               TextSpan(
-                text: 'Tex',
+                text: 'Wei',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               TextSpan(
-                text: 'GB',
+                text: 'Chat',
                 style: TextStyle(
                   color: accentColor,
                   fontWeight: FontWeight.w700,
@@ -160,50 +163,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         index: pageIndex,
         children: pages,
       ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.only(bottom: 8), // Reduced bottom padding
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Divider(
-              height: 1,
-              thickness: 0.5,
-              color: modernTheme.dividerColor,
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: modernTheme.dividerColor,
+          ),
+          Container(
+            color: pageIndex == 3 ? modernTheme.backgroundColor : null,
+            child: ModernBottomNavBar(
+              currentIndex: pageIndex,
+              onTap: (index) {
+                setState(() {
+                  pageIndex = index;
+                });
+              },
+              backgroundColor: surfaceColor,
+              selectedItemColor: selectedItemColor,
+              unselectedItemColor: unselectedItemColor,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.chat_bubble_text, size: 24),
+                  label: 'Chats',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.person_2, size: 24),
+                  label: 'Groups',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.rays, size: 24),
+                  label: 'Status',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.person, size: 24),
+                  label: 'Profile',
+                ),
+              ],
             ),
-            Container(
-              color: pageIndex == 3 ? modernTheme.backgroundColor : null,
-              child: ModernBottomNavBar(
-                currentIndex: pageIndex,
-                onTap: (index) {
-                  setState(() {
-                    pageIndex = index;
-                  });
-                },
-                backgroundColor: surfaceColor,
-                selectedItemColor: selectedItemColor,
-                unselectedItemColor: unselectedItemColor,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.chat_bubble_text, size: 24),
-                    label: 'Chats',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.person_2, size: 24),
-                    label: 'Groups',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.rays, size: 24),
-                    label: 'Status',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(CupertinoIcons.person, size: 24),
-                    label: 'Profile',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: _buildFloatingActionButton(accentColor),
     );
@@ -254,39 +254,46 @@ class _PlaceholderScreen extends StatelessWidget {
       iconColor = accentColor;
     }
     
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            title == "Chats" ? CupertinoIcons.chat_bubble_text : 
-            title == "Groups" ? CupertinoIcons.person_2 :
-            title == "Status" ? CupertinoIcons.rays : CupertinoIcons.gear,
-            size: 80,
-            color: iconColor,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            '$title Tab',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: textColor,
+    // Add padding to accommodate for the navigation bar at the bottom
+    return Padding(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top, 
+        bottom: MediaQuery.of(context).padding.bottom + 60, // Add extra padding for the nav bar
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              title == "Chats" ? CupertinoIcons.chat_bubble_text : 
+              title == "Groups" ? CupertinoIcons.person_2 :
+              title == "Status" ? CupertinoIcons.rays : CupertinoIcons.gear,
+              size: 80,
+              color: iconColor,
             ),
-          ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Text(
-              'This feature is currently under development. Please check back soon!',
-              textAlign: TextAlign.center,
+            const SizedBox(height: 20),
+            Text(
+              '$title Tab',
               style: TextStyle(
-                fontSize: 16,
-                color: textColor.withOpacity(0.8),
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: textColor,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Text(
+                'This feature is currently under development. Please check back soon!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: textColor.withOpacity(0.8),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
