@@ -19,6 +19,7 @@ import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
+import 'package:textgb/shared/theme/system_ui_updater.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -32,21 +33,19 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  // Initial system UI setup - the SystemUIUpdater will handle ongoing updates
   // Setup edge-to-edge display
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   
-  // Apply transparent system UI overlays
+  // Apply initial transparent system UI overlays
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     systemNavigationBarColor: Colors.transparent,
     systemNavigationBarDividerColor: Colors.transparent,
     systemNavigationBarContrastEnforced: false,
-    statusBarIconBrightness: Brightness.light, // You can adjust this based on your default theme
-    systemNavigationBarIconBrightness: Brightness.light, // You can adjust this based on your default theme
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarIconBrightness: Brightness.light,
   ));
-  
-  // Use consolidated system UI setup - now that the main settings are in place
-  //await SystemUIUpdater.setupSystemUI();
   
   runApp(
     const ProviderScope(
@@ -55,52 +54,15 @@ void main() async {
   );
 }
 
-// Simplified MyApp that maintains your theme but handles navigation properly
+// Updated MyApp to use SystemUIUpdater
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ThemeObserver(
+    return SystemUIUpdater(
       child: const AppRoot(),
     );
-  }
-}
-
-// Theme observer to handle system theme changes
-class ThemeObserver extends ConsumerStatefulWidget {
-  final Widget child;
-  
-  const ThemeObserver({super.key, required this.child});
-  
-  @override
-  ConsumerState<ThemeObserver> createState() => _ThemeObserverState();
-}
-
-class _ThemeObserverState extends ConsumerState<ThemeObserver> with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-  
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-  
-  @override
-  void didChangePlatformBrightness() {
-    // Handle system theme changes
-    final themeNotifier = ref.read(themeManagerNotifierProvider.notifier);
-    themeNotifier.handleSystemThemeChange();
-    super.didChangePlatformBrightness();
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return widget.child;
   }
 }
 
