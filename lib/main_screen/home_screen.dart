@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/marketplace/screens/marketplace_video_feed_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/modern_bottomnav_bar.dart';
+// Import the marketplace feature
+
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -58,7 +61,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     
     return Scaffold(
       extendBody: true, // Important for the floating bottom navigation bar
-      extendBodyBehindAppBar: true, // Extend content behind the AppBar
+      extendBodyBehindAppBar: _currentIndex == 2 || _currentIndex == 3, // Only extend content behind AppBar for tabs without AppBar
       backgroundColor: modernTheme.backgroundColor,
       
       // Custom AppBar
@@ -76,27 +79,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           _buildChatsTab(modernTheme),
           _buildStatusTab(modernTheme),
-          _buildMarketplaceTab(modernTheme),
+          const MarketplaceVideoFeedScreen(), // Use the new marketplace implementation
           const MyProfileScreen(), // Use the existing profile screen
         ],
       ),
       
       // Custom Bottom Navigation Bar
-      bottomNavigationBar: ModernBottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
-        backgroundColor: modernTheme.surfaceColor!,
-        selectedItemColor: modernTheme.primaryColor!,
-        unselectedItemColor: modernTheme.textSecondaryColor!,
-        items: List.generate(
-          _tabNames.length,
-          (index) => BottomNavigationBarItem(
-            icon: Icon(_tabIcons[index]),
-            label: _tabNames[index],
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.only(bottom: 8.0), // Added system nav padding
+        child: ModernBottomNavBar(
+          currentIndex: _currentIndex,
+          onTap: _onTabTapped,
+          backgroundColor: modernTheme.surfaceColor!,
+          selectedItemColor: modernTheme.primaryColor!,
+          unselectedItemColor: modernTheme.textSecondaryColor!,
+          items: List.generate(
+            _tabNames.length,
+            (index) => BottomNavigationBarItem(
+              icon: Icon(_tabIcons[index]),
+              label: _tabNames[index],
+            ),
           ),
+          elevation: 8.0,
+          showLabels: true,
         ),
-        elevation: 8.0,
-        showLabels: true,
       ),
       
       // FAB for new chat or content
@@ -104,16 +110,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
   
-  PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    // Different titles based on the selected tab
-    final title = _tabNames[_currentIndex];
+  PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
+    // Hide AppBar for Marketplace and Profile tabs
+    if (_currentIndex == 2 || _currentIndex == 3) {
+      return null;
+    }
     
+    // Static AppBar for Chats and Status tabs
     return AppBar(
       elevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: modernTheme.backgroundColor,
       centerTitle: true,
       title: Text(
-        _currentIndex == 3 ? "My Profile" : "WeiChat",
+        "WeiChat",
         style: TextStyle(
           color: modernTheme.textColor,
           fontWeight: FontWeight.bold,
@@ -122,6 +131,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       actions: _buildAppBarActions(modernTheme, _currentIndex),
       leading: _buildAppBarLeading(modernTheme, _currentIndex),
+      // Adding system nav padding
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(8.0),
+        child: Container(),
+      ),
     );
   }
   
@@ -221,7 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case 0: // Chats
         fabIcon = Icons.chat;
         onPressed = () {
-          // TODO: Start new chat
+          // Navigate to contacts screen
           Navigator.pushNamed(context, Constants.contactsScreen);
         };
         break;
@@ -234,7 +248,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case 2: // Marketplace
         fabIcon = Icons.add_shopping_cart;
         onPressed = () {
-          // TODO: Add new item to sell
+          // Navigate to create marketplace video screen
+          Navigator.pushNamed(context, Constants.createMarketplaceVideoScreen);
         };
         break;
       default:
@@ -256,7 +271,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       color: modernTheme.backgroundColor,
       child: ListView.builder(
-        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 56, bottom: 100),
+        padding: EdgeInsets.only(top: 8.0, bottom: 100),
         itemCount: 15, // Sample count
         itemBuilder: (context, index) {
           return _buildChatItem(modernTheme, index);
@@ -350,87 +365,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
   
-  Widget _buildCallsTab(ModernThemeExtension modernTheme) {
-    return Container(
-      color: modernTheme.backgroundColor,
-      child: ListView.builder(
-        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 56, bottom: 100),
-        itemCount: 10, // Sample count
-        itemBuilder: (context, index) {
-          return _buildCallItem(modernTheme, index);
-        },
-      ),
-    );
-  }
-  
-  Widget _buildCallItem(ModernThemeExtension modernTheme, int index) {
-    // Sample data
-    final name = "User ${index + 1}";
-    final isMissed = index % 3 == 0;
-    final isOutgoing = index % 2 == 0;
-    final time = index % 4 == 0 
-        ? "Just now" 
-        : index % 4 == 1 
-            ? "5 min ago" 
-            : index % 4 == 2 
-                ? "1 hour ago"
-                : "Yesterday";
-    
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-        child: Text(
-          name.substring(0, 1),
-          style: TextStyle(
-            color: modernTheme.primaryColor,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      title: Text(
-        name,
-        style: TextStyle(
-          color: modernTheme.textColor,
-        ),
-      ),
-      subtitle: Row(
-        children: [
-          Icon(
-            isOutgoing ? Icons.call_made : Icons.call_received,
-            color: isMissed 
-                ? Colors.red 
-                : Colors.green,
-            size: 16,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            time,
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-            ),
-          ),
-        ],
-      ),
-      trailing: IconButton(
-        icon: Icon(
-          Icons.call,
-          color: modernTheme.primaryColor,
-        ),
-        onPressed: () {
-          // TODO: Call this contact
-        },
-      ),
-      onTap: () {
-        // TODO: Show call details
-      },
-    );
-  }
-  
   Widget _buildStatusTab(ModernThemeExtension modernTheme) {
     return Container(
       color: modernTheme.backgroundColor,
       child: ListView(
-        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 56, bottom: 100),
+        padding: EdgeInsets.only(top: 8.0, bottom: 100),
         children: [
           // My status
           ListTile(
@@ -575,134 +514,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onTap: () {
         // TODO: View status
       },
-    );
-  }
-  
-  Widget _buildMarketplaceTab(ModernThemeExtension modernTheme) {
-    return Container(
-      color: modernTheme.backgroundColor,
-      child: GridView.builder(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 56,
-          left: 12,
-          right: 12,
-          bottom: 100,
-        ),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.8,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-        ),
-        itemCount: 10,
-        itemBuilder: (context, index) {
-          return _buildMarketplaceItem(modernTheme, index);
-        },
-      ),
-    );
-  }
-  
-  Widget _buildMarketplaceItem(ModernThemeExtension modernTheme, int index) {
-    // Sample product data
-    final name = "Product ${index + 1}";
-    final price = "\$${(index + 1) * 10 + 5}.99";
-    
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      color: modernTheme.surfaceColor!,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Product image
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.primaries[index % Colors.primaries.length].withOpacity(0.2),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-              ),
-              width: double.infinity,
-              child: Center(
-                child: Icon(
-                  Icons.shopping_bag,
-                  size: 48,
-                  color: Colors.primaries[index % Colors.primaries.length],
-                ),
-              ),
-            ),
-          ),
-          
-          // Product details
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  price,
-                  style: TextStyle(
-                    color: modernTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Seller rating
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star,
-                          color: Colors.amber,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          (3.5 + (index % 3) * 0.5).toStringAsFixed(1),
-                          style: TextStyle(
-                            color: modernTheme.textSecondaryColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Add to cart button
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor!.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.add_shopping_cart,
-                        color: modernTheme.primaryColor,
-                        size: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

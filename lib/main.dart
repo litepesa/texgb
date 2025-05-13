@@ -11,6 +11,10 @@ import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+import 'package:textgb/features/marketplace/screens/create_marketplace_video_screen.dart';
+import 'package:textgb/features/marketplace/screens/marketplace_comments_screen.dart';
+import 'package:textgb/features/marketplace/screens/marketplace_video_detail_screen.dart';
+import 'package:textgb/features/marketplace/screens/marketplace_video_feed_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
@@ -118,6 +122,18 @@ class AppRoot extends ConsumerWidget {
           Constants.contactProfileScreen: (context) {
             final args = ModalRoute.of(context)!.settings.arguments as UserModel;
             return ContactProfileScreen(contact: args);
+          },
+          
+          // Marketplace routes
+          Constants.marketplaceVideoFeedScreen: (context) => const MarketplaceVideoFeedScreen(),
+          Constants.createMarketplaceVideoScreen: (context) => const CreateMarketplaceVideoScreen(),
+          Constants.marketplaceVideoDetailScreen: (context) {
+            final videoId = ModalRoute.of(context)!.settings.arguments as String;
+            return MarketplaceVideoDetailScreen(videoId: videoId);
+          },
+          Constants.marketplaceCommentsScreen: (context) {
+            final videoId = ModalRoute.of(context)!.settings.arguments as String;
+            return MarketplaceCommentsScreen(videoId: videoId);
           },
         },
         navigatorObservers: [routeObserver],
