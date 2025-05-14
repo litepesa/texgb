@@ -1,962 +1,829 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:provider/provider.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
-import 'package:textgb/features/contacts/providers/contacts_provider.dart';
-import 'package:textgb/features/status/providers/status_provider.dart';
-import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/theme/modern_colors.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-import 'package:textgb/shared/widgets/app_bar_back_button.dart';
+import 'package:video_player/video_player.dart';
 
-class CreateStatusScreen extends ConsumerStatefulWidget {
-  final StatusType? initialType;
-  
-  const CreateStatusScreen({Key? key, this.initialType}) : super(key: key);
+class CreateStatusScreen extends StatefulWidget {
+  const CreateStatusScreen({Key? key}) : super(key: key);
 
   @override
-  ConsumerState<CreateStatusScreen> createState() => _CreateStatusScreenState();
+  State<CreateStatusScreen> createState() => _CreateStatusScreenState();
 }
 
-class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
-  late StatusType _selectedType;
-  final TextEditingController _textController = TextEditingController();
+class _CreateStatusScreenState extends State<CreateStatusScreen> {
   final TextEditingController _captionController = TextEditingController();
-  final TextEditingController _linkController = TextEditingController();
-  File? _mediaFile;
-  bool _isLoading = false;
-  StatusPrivacyType _privacyType = StatusPrivacyType.all_contacts;
-  List<String> _privacyUIDs = [];
-  List<UserModel> _selectedContacts = [];
+  File? _selectedMedia;
+  StatusType _selectedType = StatusType.image;
+  bool _isProcessing = false;
+  bool _isCreating = false;
+  VideoPlayerController? _videoController;
+  bool _isVideoReady = false;
+  String? _videoDuration;
   
   @override
   void initState() {
     super.initState();
-    _selectedType = widget.initialType ?? StatusType.text;
+    // Show the media picker automatically on screen open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showMediaPicker();
+    });
   }
   
   @override
   void dispose() {
-    _textController.dispose();
     _captionController.dispose();
-    _linkController.dispose();
+    _disposeVideo();
     super.dispose();
   }
   
-  void _pickImage({required bool fromCamera}) async {
-    final image = await pickImage(
-      fromCamera: fromCamera,
-      onFail: (error) => showSnackBar(context, error),
-    );
-    
-    if (image != null) {
-      setState(() {
-        _mediaFile = image;
-        _selectedType = StatusType.image;
-      });
+  void _disposeVideo() {
+    if (_videoController != null) {
+      _videoController!.dispose();
+      _videoController = null;
+      _isVideoReady = false;
     }
   }
   
-  void _pickVideo({required bool fromCamera}) async {
-    final video = fromCamera 
-        ? await pickVideoFromCamera(onFail: (error) => showSnackBar(context, error))
-        : await pickVideo(onFail: (error) => showSnackBar(context, error));
-    
-    if (video != null) {
+  Future<void> _pickImage(bool fromCamera) async {
+    try {
+      final File? pickedImage = await pickImage(
+        fromCamera: fromCamera,
+        onFail: (String message) {
+          showSnackBar(context, message);
+        },
+      );
+      
+      if (pickedImage == null) return;
+      
+      // Crop the image
+      await _cropImage(pickedImage.path);
+    } catch (e) {
+      showSnackBar(context, 'Error selecting image: $e');
+    }
+  }
+  
+  Future<void> _pickVideo([bool fromCamera = false]) async {
+    try {
       setState(() {
-        _mediaFile = video;
+        _isProcessing = true;
+      });
+      
+      final File? pickedVideo = fromCamera
+          ? await pickVideoFromCamera(
+              onFail: (String message) {
+                showSnackBar(context, message);
+              },
+              maxDuration: const Duration(seconds: 30), // Limit to 30 seconds for status
+            )
+          : await pickVideo(
+              onFail: (String message) {
+                showSnackBar(context, message);
+              },
+              maxDuration: const Duration(seconds: 30), // Limit to 30 seconds for status
+            );
+      
+      setState(() {
+        _isProcessing = false;
+      });
+      
+      if (pickedVideo == null) return;
+      
+      setState(() {
+        // Dispose old video controller if needed
+        _disposeVideo();
+        
+        _selectedMedia = pickedVideo;
         _selectedType = StatusType.video;
+        
+        // Initialize video controller for preview
+        _initializeVideoPreview(pickedVideo);
       });
+    } catch (e) {
+      setState(() {
+        _isProcessing = false;
+      });
+      showSnackBar(context, 'Error selecting video: $e');
     }
   }
   
-  Future<void> _createStatus() async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
+  Future<void> _initializeVideoPreview(File videoFile) async {
+    try {
+      _videoController = VideoPlayerController.file(videoFile);
+      await _videoController!.initialize();
+      
+      // Format duration for display
+      final duration = _videoController!.value.duration;
+      _videoDuration = _formatDuration(duration);
+      
+      setState(() {
+        _isVideoReady = true;
+      });
+    } catch (e) {
+      debugPrint('Error initializing video preview: $e');
+    }
+  }
+  
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
     
-    // Validate input based on type
-    String content = '';
-    String? caption;
+    return '$minutes:$seconds';
+  }
+  
+  Future<void> _cropImage(String filePath) async {
+    try {
+      setState(() {
+        _isProcessing = true;
+      });
+      
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: filePath,
+        aspectRatio: const CropAspectRatio(ratioX: 9, ratioY: 16), // Portrait aspect ratio for status
+        compressQuality: 90,
+        maxHeight: 1920,
+        maxWidth: 1080,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Image',
+            toolbarColor: Theme.of(context).primaryColor,
+            toolbarWidgetColor: Colors.white,
+            lockAspectRatio: true,
+          ),
+          IOSUiSettings(
+            title: 'Crop Image',
+            aspectRatioLockEnabled: true,
+          ),
+        ],
+      );
+      
+      setState(() {
+        _isProcessing = false;
+      });
+      
+      if (croppedFile != null) {
+        // Dispose any existing video controller
+        _disposeVideo();
+        
+        setState(() {
+          _selectedMedia = File(croppedFile.path);
+          _selectedType = StatusType.image;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isProcessing = false;
+      });
+      showSnackBar(context, 'Error cropping image: $e');
+    }
+  }
+  
+  void _createTextStatus() {
+    final text = _captionController.text.trim();
+    if (text.isEmpty) {
+      showSnackBar(context, 'Please enter some text for your status');
+      return;
+    }
     
-    switch (_selectedType) {
-      case StatusType.text:
-        if (_textController.text.trim().isEmpty) {
-          showSnackBar(context, 'Please enter some text');
-          return;
-        }
-        content = _textController.text.trim();
-        break;
-        
-      case StatusType.image:
-        if (_mediaFile == null) {
-          showSnackBar(context, 'Please select an image');
-          return;
-        }
-        content = '';  // Will be replaced with the uploaded image URL
-        caption = _captionController.text.trim();
-        break;
-        
-      case StatusType.video:
-        if (_mediaFile == null) {
-          showSnackBar(context, 'Please select a video');
-          return;
-        }
-        content = '';  // Will be replaced with the uploaded video URL
-        caption = _captionController.text.trim();
-        break;
-        
-      case StatusType.link:
-        if (_linkController.text.trim().isEmpty) {
-          showSnackBar(context, 'Please enter a valid URL');
-          return;
-        }
-        content = _linkController.text.trim();
-        caption = _captionController.text.trim();
-        break;
+    // Create a text status
+    _createStatus(text, null, StatusType.text);
+  }
+  
+  void _createStatus([String? textContent, File? mediaFile, StatusType? type]) async {
+    // Use parameters if provided, otherwise use state variables
+    final content = textContent ?? _captionController.text.trim();
+    final media = mediaFile ?? _selectedMedia;
+    final statusType = type ?? _selectedType;
+    
+    // For media statuses, ensure we have media
+    if (statusType != StatusType.text && media == null) {
+      showSnackBar(context, 'Please select an image or video');
+      return;
     }
     
     setState(() {
-      _isLoading = true;
+      _isCreating = true;
     });
     
-    try {
-      await ref.read(statusProvider.notifier).createStatus(
-        type: _selectedType,
-        content: content,
-        mediaFile: _mediaFile,
-        caption: caption,
-        privacyType: _privacyType,
-        privacyUIDs: _privacyUIDs,
+    final currentUser = context.read<AuthenticationProvider>().userModel!;
+    final statusProvider = context.read<StatusProvider>();
+    
+    if (statusType == StatusType.text) {
+      // For text status, we don't need a file
+      await statusProvider.createTextStatus(
+        currentUser: currentUser,
+        text: content,
+        onSuccess: () {
+          Navigator.of(context).pop(); // Return to the status screen
+          showSnackBar(context, 'Status created successfully');
+        },
+        onError: (error) {
+          setState(() {
+            _isCreating = false;
+          });
+          showSnackBar(context, 'Error creating status: $error');
+        },
       );
-      
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Error creating status: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    } else {
+      // For media status
+      await statusProvider.createStatus(
+        currentUser: currentUser,
+        mediaFile: media!,
+        type: statusType,
+        caption: content.isNotEmpty ? content : null,
+        onSuccess: () {
+          Navigator.of(context).pop(); // Return to the status screen
+          showSnackBar(context, 'Status created successfully');
+        },
+        onError: (error) {
+          setState(() {
+            _isCreating = false;
+          });
+          showSnackBar(context, 'Error creating status: $error');
+        },
+      );
     }
   }
   
-  void _showPrivacyOptions() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Container(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            decoration: BoxDecoration(
-              color: context.modernTheme.surfaceColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Handle indicator
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 12, bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                
-                // Title
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text(
-                    'Status Privacy',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: context.modernTheme.textColor,
-                    ),
-                  ),
-                ),
-                
-                const Divider(),
-                
-                // Privacy options
-                RadioListTile<StatusPrivacyType>(
-                  title: Text(
-                    StatusPrivacyType.all_contacts.displayName,
-                    style: TextStyle(color: context.modernTheme.textColor),
-                  ),
-                  value: StatusPrivacyType.all_contacts,
-                  groupValue: _privacyType,
-                  onChanged: (value) {
-                    setModalState(() {
-                      _privacyType = value!;
-                      _privacyUIDs = [];
-                      _selectedContacts = [];
-                    });
-                  },
-                ),
-                
-                RadioListTile<StatusPrivacyType>(
-                  title: Text(
-                    StatusPrivacyType.except.displayName,
-                    style: TextStyle(color: context.modernTheme.textColor),
-                  ),
-                  value: StatusPrivacyType.except,
-                  groupValue: _privacyType,
-                  onChanged: (value) {
-                    setModalState(() {
-                      _privacyType = value!;
-                    });
-                    // Show contact selection
-                    Navigator.pop(context);
-                    _showContactSelection(
-                      title: 'Hide from...',
-                      isExcluding: true,
-                    );
-                  },
-                ),
-                
-                RadioListTile<StatusPrivacyType>(
-                  title: Text(
-                    StatusPrivacyType.only.displayName,
-                    style: TextStyle(color: context.modernTheme.textColor),
-                  ),
-                  value: StatusPrivacyType.only,
-                  groupValue: _privacyType,
-                  onChanged: (value) {
-                    setModalState(() {
-                      _privacyType = value!;
-                    });
-                    // Show contact selection
-                    Navigator.pop(context);
-                    _showContactSelection(
-                      title: 'Share with...',
-                      isExcluding: false,
-                    );
-                  },
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Display selected contacts if applicable
-                if (_privacyType != StatusPrivacyType.all_contacts && _selectedContacts.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _privacyType == StatusPrivacyType.except
-                              ? 'Hidden from:'
-                              : 'Shared with:',
-                          style: TextStyle(
-                            color: context.modernTheme.textSecondaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: _selectedContacts.map((contact) {
-                            return Chip(
-                              label: Text(contact.name),
-                              onDeleted: () {
-                                setModalState(() {
-                                  _selectedContacts.remove(contact);
-                                  _privacyUIDs.remove(contact.uid);
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      // Update the main state with the modal's state
-                      _privacyType = _privacyType;
-                      _privacyUIDs = _privacyUIDs;
-                    });
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Done'),
-                ),
-                
-                const SizedBox(height: 16),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-  
-  void _showContactSelection({required String title, required bool isExcluding}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return FractionallySizedBox(
-          heightFactor: 0.9,
-          child: Container(
-            decoration: BoxDecoration(
-              color: context.modernTheme.surfaceColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              children: [
-                // Handle indicator
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 12, bottom: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                
-                // Title
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: context.modernTheme.textColor,
-                    ),
-                  ),
-                ),
-                
-                // Search bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search contacts',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    // TODO: Implement search
-                  ),
-                ),
-                
-                const SizedBox(height: 8),
-                
-                // Contact list
-                Expanded(
-                  child: _buildContactSelectionList(isExcluding),
-                ),
-                
-                // Done button
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Done'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-  
-  Widget _buildContactSelectionList(bool isExcluding) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final contactsState = ref.watch(contactsNotifierProvider);
-        
-        return contactsState.when(
-          data: (state) {
-            if (state.registeredContacts.isEmpty) {
-              return Center(
-                child: Text(
-                  'No contacts found',
-                  style: TextStyle(color: context.modernTheme.textSecondaryColor),
-                ),
-              );
-            }
-            
-            return ListView.builder(
-              itemCount: state.registeredContacts.length,
-              itemBuilder: (context, index) {
-                final contact = state.registeredContacts[index];
-                final isSelected = _privacyUIDs.contains(contact.uid);
-                
-                return CheckboxListTile(
-                  title: Text(
-                    contact.name,
-                    style: TextStyle(color: context.modernTheme.textColor),
-                  ),
-                  subtitle: Text(
-                    contact.phoneNumber,
-                    style: TextStyle(color: context.modernTheme.textSecondaryColor),
-                  ),
-                  leading: CircleAvatar(
-                    backgroundImage: contact.image.isNotEmpty
-                        ? NetworkImage(contact.image)
-                        : null,
-                    child: contact.image.isEmpty
-                        ? Text(contact.name.isNotEmpty ? contact.name[0] : '?')
-                        : null,
-                  ),
-                  value: isSelected,
-                  onChanged: (selected) {
-                    setState(() {
-                      if (selected == true) {
-                        _privacyUIDs.add(contact.uid);
-                        _selectedContacts.add(contact);
-                      } else {
-                        _privacyUIDs.remove(contact.uid);
-                        _selectedContacts.removeWhere((c) => c.uid == contact.uid);
-                      }
-                    });
-                  },
-                );
-              },
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) => Center(
-            child: Text('Error: $error'),
-          ),
-        );
-      },
-    );
-  }
-  
-  @override
-  Widget build(BuildContext context) {
+  void _showMediaPicker() {
     final modernTheme = context.modernTheme;
     
-    return Scaffold(
-      backgroundColor: modernTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Create Status'),
-        leading: AppBarBackButton(
-          onPressed: () => Navigator.pop(context),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: modernTheme.surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.privacy_tip),
-            onPressed: _showPrivacyOptions,
-          ),
-        ],
       ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: modernTheme.primaryColor,
-              ),
-            )
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Type selector tabs
-                  _buildTypeSelectorTabs(modernTheme),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Content input based on selected type
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildContentInput(modernTheme),
-                  ),
-                ],
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header with handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: modernTheme.textSecondaryColor!.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-      bottomNavigationBar: _isLoading
-          ? null
-          : Container(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: 16 + MediaQuery.of(context).padding.bottom,
-                top: 16,
-              ),
-              decoration: BoxDecoration(
-                color: modernTheme.surfaceColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _createStatus,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: modernTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text(
-                    'Post Status',
-                    style: TextStyle(fontSize: 16),
-                  ),
+            
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Create Status',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: modernTheme.textColor,
                 ),
               ),
             ),
-    );
-  }
-  
-  Widget _buildTypeSelectorTabs(ModernThemeExtension modernTheme) {
-    return Container(
-      height: 48,
-      margin: const EdgeInsets.only(top: 8),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        children: [
-          _buildTypeTab(
-            modernTheme,
-            type: StatusType.text,
-            icon: Icons.text_fields,
-            label: 'Text',
-          ),
-          _buildTypeTab(
-            modernTheme,
-            type: StatusType.image,
-            icon: Icons.image,
-            label: 'Photo',
-          ),
-          _buildTypeTab(
-            modernTheme,
-            type: StatusType.video,
-            icon: Icons.videocam,
-            label: 'Video',
-          ),
-          _buildTypeTab(
-            modernTheme,
-            type: StatusType.link,
-            icon: Icons.link,
-            label: 'Link',
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildTypeTab(
-    ModernThemeExtension modernTheme, {
-    required StatusType type,
-    required IconData icon,
-    required String label,
-  }) {
-    final isSelected = _selectedType == type;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedType = type;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? modernTheme.primaryColor
-              : modernTheme.surfaceColor,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected
-                ? Colors.transparent
-                : modernTheme.dividerColor ?? Colors.grey.withOpacity(0.3),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? Colors.white
-                  : modernTheme.textSecondaryColor,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected
-                    ? Colors.white
-                    : modernTheme.textColor,
-                fontWeight: isSelected
-                    ? FontWeight.bold
-                    : FontWeight.normal,
+            
+            // Camera option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: ModernColors.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.camera_alt, color: ModernColors.primaryBlue),
               ),
+              title: Text(
+                'Take a photo',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                HapticFeedback.mediumImpact();
+                _pickImage(true);
+              },
             ),
+            
+            // Gallery option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: ModernColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.photo_library, color: ModernColors.success),
+              ),
+              title: Text(
+                'Choose from gallery',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                HapticFeedback.mediumImpact();
+                _pickImage(false);
+              },
+            ),
+            
+            // Video camera option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: ModernColors.warning.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.videocam, color: ModernColors.warning),
+              ),
+              title: Text(
+                'Record video',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                HapticFeedback.mediumImpact();
+                _pickVideo(true); // true for camera
+              },
+            ),
+            
+            // Video gallery option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: ModernColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.video_library, color: ModernColors.error),
+              ),
+              title: Text(
+                'Select video from gallery',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                HapticFeedback.mediumImpact();
+                _pickVideo(false); // false for gallery
+              },
+            ),
+            
+            // Text option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: ModernColors.primaryPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.text_fields, color: ModernColors.primaryPurple),
+              ),
+              title: Text(
+                'Text status',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                HapticFeedback.mediumImpact();
+                _showTextStatusEditor();
+              },
+            ),
+            
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
   
-  Widget _buildContentInput(ModernThemeExtension modernTheme) {
-    switch (_selectedType) {
-      case StatusType.text:
-        return _buildTextInput(modernTheme);
-      case StatusType.image:
-        return _buildImageInput(modernTheme);
-      case StatusType.video:
-        return _buildVideoInput(modernTheme);
-      case StatusType.link:
-        return _buildLinkInput(modernTheme);
-    }
-  }
-  
-  Widget _buildTextInput(ModernThemeExtension modernTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Share your thoughts',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+  void _showTextStatusEditor() {
+    final modernTheme = context.modernTheme;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        const SizedBox(height: 16),
-        Container(
+        child: Container(
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: modernTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: modernTheme.dividerColor ?? Colors.grey.withOpacity(0.3),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
             ),
           ),
-          child: TextField(
-            controller: _textController,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 16,
-            ),
-            maxLines: 6,
-            maxLength: 500,
-            decoration: InputDecoration(
-              hintText: 'What\'s on your mind?',
-              hintStyle: TextStyle(
-                color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(16),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildImageInput(ModernThemeExtension modernTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Share a photo',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _mediaFile == null
-            ? _buildMediaPicker(
-                modernTheme,
-                onCameraTap: () => _pickImage(fromCamera: true),
-                onGalleryTap: () => _pickImage(fromCamera: false),
-                icon: Icons.photo_camera,
-                title: 'Add Photo',
-                subtitle: 'Choose from gallery or take a new photo',
-              )
-            : _buildSelectedMedia(modernTheme),
-        const SizedBox(height: 16),
-        if (_mediaFile != null)
-          TextField(
-            controller: _captionController,
-            style: TextStyle(color: modernTheme.textColor),
-            maxLines: 3,
-            maxLength: 200,
-            decoration: InputDecoration(
-              hintText: 'Add a caption...',
-              hintStyle: TextStyle(
-                color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: modernTheme.dividerColor ?? Colors.grey.withOpacity(0.3),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-  
-  Widget _buildVideoInput(ModernThemeExtension modernTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Share a video',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _mediaFile == null
-            ? _buildMediaPicker(
-                modernTheme,
-                onCameraTap: () => _pickVideo(fromCamera: true),
-                onGalleryTap: () => _pickVideo(fromCamera: false),
-                icon: Icons.videocam,
-                title: 'Add Video',
-                subtitle: 'Choose from gallery or record a new video',
-              )
-            : _buildSelectedMedia(modernTheme),
-        const SizedBox(height: 16),
-        if (_mediaFile != null)
-          TextField(
-            controller: _captionController,
-            style: TextStyle(color: modernTheme.textColor),
-            maxLines: 3,
-            maxLength: 200,
-            decoration: InputDecoration(
-              hintText: 'Add a caption...',
-              hintStyle: TextStyle(
-                color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: modernTheme.dividerColor ?? Colors.grey.withOpacity(0.3),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-  
-  Widget _buildLinkInput(ModernThemeExtension modernTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Share a link',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _linkController,
-          style: TextStyle(color: modernTheme.textColor),
-          keyboardType: TextInputType.url,
-          decoration: InputDecoration(
-            hintText: 'Enter URL',
-            hintStyle: TextStyle(
-              color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-            ),
-            prefixIcon: const Icon(Icons.link),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _captionController,
-          style: TextStyle(color: modernTheme.textColor),
-          maxLines: 3,
-          maxLength: 200,
-          decoration: InputDecoration(
-            hintText: 'Add a description...',
-            hintStyle: TextStyle(
-              color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: modernTheme.dividerColor ?? Colors.grey.withOpacity(0.3),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildMediaPicker(
-    ModernThemeExtension modernTheme, {
-    required VoidCallback onCameraTap,
-    required VoidCallback onGalleryTap,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: modernTheme.dividerColor ?? Colors.grey.withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(height: 24),
-          Icon(
-            icon,
-            size: 48,
-            color: modernTheme.primaryColor,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              ElevatedButton.icon(
-                onPressed: onCameraTap,
-                icon: const Icon(Icons.camera_alt),
-                label: const Text('Camera'),
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: modernTheme.primaryColor,
+              // Header
+              Text(
+                'Create Text Status',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: modernTheme.textColor,
                 ),
               ),
-              OutlinedButton.icon(
-                onPressed: onGalleryTap,
-                icon: const Icon(Icons.photo_library),
-                label: const Text('Gallery'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: modernTheme.primaryColor,
+              const SizedBox(height: 20),
+              
+              // Text input
+              TextField(
+                controller: _captionController,
+                maxLength: 100,
+                maxLines: 3,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Enter your status text...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_captionController.text.trim().isEmpty) {
+                        showSnackBar(context, 'Please enter some text');
+                        return;
+                      }
+                      Navigator.pop(context);
+                      _createTextStatus();
+                    },
+                    child: const Text('Post'),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 24),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Status'),
+        actions: [
+          if (_selectedMedia != null || _selectedType == StatusType.text)
+            TextButton(
+              onPressed: (_selectedMedia != null || _selectedType == StatusType.text) && !_isProcessing && !_isCreating
+                  ? () => _createStatus()
+                  : null,
+              child: _isCreating
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
+                      'Post',
+                      style: TextStyle(
+                        color: (_selectedMedia != null || _selectedType == StatusType.text) && !_isProcessing && !_isCreating
+                            ? primaryColor
+                            : textSecondaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+            ),
+        ],
+      ),
+      body: _isProcessing
+          ? _buildLoadingView()
+          : _selectedMedia != null || _selectedType == StatusType.text
+              ? _buildPreviewView()
+              : _buildInitialView(),
+    );
+  }
+  
+  Widget _buildLoadingView() {
+    final modernTheme = context.modernTheme;
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: modernTheme.primaryColor),
+          const SizedBox(height: 16),
+          Text(
+            'Processing media...',
+            style: TextStyle(
+              fontSize: 16,
+              color: modernTheme.textColor,
+            ),
+          ),
         ],
       ),
     );
   }
   
-  Widget _buildSelectedMedia(ModernThemeExtension modernTheme) {
-    if (_mediaFile == null) return const SizedBox.shrink();
+  Widget _buildInitialView() {
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
+    final textColor = modernTheme.textColor!;
+    final textSecondaryColor = modernTheme.textSecondaryColor!;
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.add_a_photo,
+            size: 80,
+            color: primaryColor.withOpacity(0.5),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Share a moment with your contacts',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Your status will be visible for 24 hours',
+            style: TextStyle(
+              fontSize: 14,
+              color: textSecondaryColor,
+            ),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: _showMediaPicker,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Status'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildPreviewView() {
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
+    final surfaceColor = modernTheme.surfaceColor!;
     
     return Column(
       children: [
-        Stack(
-          children: [
-            Container(
-              width: double.infinity,
-              height: 300,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(16),
-                image: _selectedType == StatusType.image
-                    ? DecorationImage(
-                        image: FileImage(_mediaFile!),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
-              ),
-              child: _selectedType == StatusType.video
-                  ? const Center(
-                      child: Icon(
-                        Icons.play_circle_fill,
-                        color: Colors.white,
-                        size: 64,
+        // Media preview
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Media preview - based on selected type
+                if (_selectedType == StatusType.image)
+                  Image.file(
+                    _selectedMedia!,
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                  )
+                else if (_selectedType == StatusType.video)
+                  _buildVideoPreview()
+                else if (_selectedType == StatusType.text)
+                  _buildTextPreview(),
+                
+                // Caption input
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    controller: _captionController,
+                    maxLength: 100,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Add a caption...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    )
-                  : null,
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _mediaFile = null;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    shape: BoxShape.circle,
+                      contentPadding: const EdgeInsets.all(16),
+                      filled: true,
+                      fillColor: modernTheme.surfaceVariantColor,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.close,
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        // Bottom toolbar
+        Container(
+          padding: const EdgeInsets.all(16.0),
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 5,
+                offset: const Offset(0, -3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton.icon(
+                onPressed: _showMediaPicker,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Change Media'),
+                style: TextButton.styleFrom(
+                  foregroundColor: primaryColor,
+                ),
+              ),
+              ElevatedButton(
+                onPressed: _isCreating ? null : () => _createStatus(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _isCreating
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('Post Status'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildVideoPreview() {
+    if (!_isVideoReady || _videoController == null) {
+      return Container(
+        height: 400,
+        width: double.infinity,
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+    
+    return Container(
+      height: 400,
+      width: double.infinity,
+      color: Colors.black,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Video preview
+          AspectRatio(
+            aspectRatio: _videoController!.value.aspectRatio,
+            child: VideoPlayer(_videoController!),
+          ),
+          
+          // Play button overlay
+          IconButton(
+            icon: Icon(
+              _videoController!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 50,
+            ),
+            onPressed: () {
+              setState(() {
+                if (_videoController!.value.isPlaying) {
+                  _videoController!.pause();
+                } else {
+                  _videoController!.play();
+                }
+              });
+            },
+          ),
+          
+          // Duration indicator
+          if (_videoDuration != null)
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _videoDuration!,
+                  style: const TextStyle(
                     color: Colors.white,
-                    size: 20,
+                    fontSize: 12,
                   ),
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTextPreview() {
+    final text = _captionController.text.isEmpty 
+        ? 'Enter your text status...'
+        : _captionController.text;
+    
+    return Container(
+      height: 400,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.purple.shade800,
+            Colors.purple.shade500,
+            Colors.indigo.shade500,
           ],
         ),
-      ],
+      ),
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: Colors.black,
+                offset: const Offset(2, 2),
+                blurRadius: 4,
+              ),
+            ],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
     );
   }
 }
