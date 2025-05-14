@@ -5,33 +5,34 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/status_model.dart';
-import 'package:textgb/features/status/status_provider.dart';
-import 'package:textgb/features/status/status_reply_handler.dart';
 import 'package:textgb/features/status/widgets/status_media_viewer.dart';
 import 'package:textgb/features/status/widgets/status_response_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class StatusDetailScreen extends StatefulWidget {
+class StatusDetailScreen extends ConsumerStatefulWidget {
   final StatusModel status;
   final bool isMyStatus;
+  final int initialIndex;
 
   const StatusDetailScreen({
     Key? key,
     required this.status,
-    required this.isMyStatus, required int initialIndex,
+    required this.isMyStatus, 
+    required this.initialIndex,
   }) : super(key: key);
 
   @override
-  State<StatusDetailScreen> createState() => _StatusDetailScreenState();
+  ConsumerState<StatusDetailScreen> createState() => _StatusDetailScreenState();
 }
 
-class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTickerProviderStateMixin {
+class _StatusDetailScreenState extends ConsumerState<StatusDetailScreen> with SingleTickerProviderStateMixin {
   // Use this controller to control the progress bar animation
   late AnimationController _progressController;
   
@@ -39,7 +40,7 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
   late PageController _pageController;
   
   // Index of the currently displayed status item
-  int _currentIndex = 0;
+  late int _currentIndex;
   
   // Timer for auto-advancing status
   Timer? _timer;
@@ -57,8 +58,11 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
   void initState() {
     super.initState();
     
+    // Initialize with the provided initial index
+    _currentIndex = widget.initialIndex;
+    
     // Initialize PageController for swiping
-    _pageController = PageController();
+    _pageController = PageController(initialPage: _currentIndex);
     
     // Initialize AnimationController for the progress bar
     _progressController = AnimationController(
@@ -120,10 +124,11 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
     if (widget.isMyStatus) return; // Don't mark own status as viewed
     
     final currentItem = widget.status.items[_currentIndex];
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
     
-    // Mark status as viewed
-    context.read<StatusProvider>().markStatusAsViewed(
+    // Mark status as viewed using the Riverpod provider
+    ref.read(statusNotifierProvider.notifier).markStatusAsViewed(
       statusOwnerId: widget.status.uid,
       statusItemId: currentItem.itemId,
       viewerId: currentUser.uid,
@@ -237,10 +242,10 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
     if (!widget.isMyStatus) return;
     
     final currentItem = widget.status.items[_currentIndex];
-    final statusProvider = context.read<StatusProvider>();
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
     
-    await statusProvider.deleteStatusItem(
+    await ref.read(statusNotifierProvider.notifier).deleteStatusItem(
       userId: currentUser.uid,
       itemId: currentItem.itemId,
       onSuccess: () {
@@ -796,7 +801,10 @@ class _StatusDetailScreenState extends State<StatusDetailScreen> with SingleTick
     final List<Map<String, String>> viewers = [];
     
     // Filter out the current user's ID
-    final currentUserId = context.read<AuthenticationProvider>().userModel!.uid;
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return viewers;
+    
+    final currentUserId = currentUser.uid;
     final otherViewerIds = viewerIds.where((id) => id != currentUserId).toList();
     
     // Fetch user details from Firestore

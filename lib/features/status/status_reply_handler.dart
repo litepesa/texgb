@@ -1,12 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
-import 'package:textgb/features/chat/chat_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/status/status_model.dart';
-import 'package:textgb/models/message_model.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:uuid/uuid.dart';
 
@@ -15,6 +14,7 @@ class StatusReplyHandler {
   /// This makes status replies appear in the normal chat thread, similar to WhatsApp
   static Future<void> replyToStatus({
     required BuildContext context,
+    required WidgetRef ref,
     required StatusModel status,
     required StatusItemModel statusItem,
     required String message,
@@ -22,8 +22,13 @@ class StatusReplyHandler {
     required Function(String) onError,
   }) async {
     try {
-      final currentUser = context.read<AuthenticationProvider>().userModel!;
-      final chatProvider = context.read<ChatProvider>();
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) {
+        onError("Not logged in");
+        return;
+      }
+
+      final chatNotifier = ref.read(chatNotifierProvider.notifier);
       
       // Make sure we're not replying to our own status
       if (status.uid == currentUser.uid) {
@@ -31,47 +36,20 @@ class StatusReplyHandler {
         return;
       }
       
-      // Set loading
-      chatProvider.setLoading(true);
-      
       final messageId = const Uuid().v4();
       
       // Create context text indicating this is a status reply
       final String statusContext = "Replied to ${status.userName}'s status";
       
-      // Prepare the message model
-      final messageModel = MessageModel(
-        senderUID: currentUser.uid,
-        senderName: currentUser.name,
-        senderImage: currentUser.image,
-        contactUID: status.uid,
+      // Send the message using the chat notifier provider
+      await chatNotifier.sendTextMessage(
         message: message,
-        messageType: MessageEnum.text,
-        timeSent: DateTime.now(),
-        messageId: messageId,
-        isSeen: false,
-        repliedMessage: statusItem.mediaUrl,
-        repliedTo: status.userName,
-        repliedMessageType: statusItem.type.toMessageEnum(),
-        reactions: [],
-        isSeenBy: [currentUser.uid],
-        deletedBy: [],
-      );
-      
-      // Send the message using the regular chat provider
-      await chatProvider.handleContactMessage(
-        messageModel: messageModel,
-        contactUID: status.uid,
+        contactId: status.uid,
         contactName: status.userName,
         contactImage: status.userImage,
-        onSucess: () {
-          chatProvider.setLoading(false);
-          onSuccess();
-        },
-        onError: (error) {
-          chatProvider.setLoading(false);
-          onError(error);
-        },
+        replyTo: statusItem.mediaUrl,
+        replyToName: status.userName,
+        replyToMessageType: statusItem.type.toMessageEnum(),
       );
       
       // Also store a reference in the status replies collection for tracking
@@ -83,8 +61,9 @@ class StatusReplyHandler {
         message: message,
         messageId: messageId,
       );
+      
+      onSuccess();
     } catch (e) {
-      context.read<ChatProvider>().setLoading(false);
       onError("Error sending reply: $e");
     }
   }

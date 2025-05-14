@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/status/status_model.dart';
 import 'package:textgb/features/status/status_reply_handler.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class StatusResponseWidget extends StatefulWidget {
+class StatusResponseWidget extends ConsumerStatefulWidget {
   final StatusItemModel statusItem;
   final StatusModel status;
   final Function onSuccess;
@@ -22,10 +22,10 @@ class StatusResponseWidget extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<StatusResponseWidget> createState() => _StatusResponseWidgetState();
+  ConsumerState<StatusResponseWidget> createState() => _StatusResponseWidgetState();
 }
 
-class _StatusResponseWidgetState extends State<StatusResponseWidget> {
+class _StatusResponseWidgetState extends ConsumerState<StatusResponseWidget> {
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isSending = false;
@@ -65,6 +65,7 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
     
     await StatusReplyHandler.replyToStatus(
       context: context,
+      ref: ref,
       status: widget.status,
       statusItem: widget.statusItem,
       message: message,
@@ -97,11 +98,18 @@ class _StatusResponseWidgetState extends State<StatusResponseWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
+    final currentUser = ref.read(currentUserProvider);
     final modernTheme = context.modernTheme;
     final primaryColor = modernTheme.primaryColor!;
     final surfaceColor = modernTheme.surfaceColor!;
     final textColor = modernTheme.textColor!;
+
+    // Safety check for current user
+    if (currentUser == null) {
+      return Center(
+        child: Text('Not logged in', style: TextStyle(color: textColor)),
+      );
+    }
 
     return Container(
       padding: EdgeInsets.only(

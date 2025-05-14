@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/status/screens/status_detail_screen.dart';
 import 'package:textgb/features/status/status_model.dart';
-import 'package:textgb/features/status/status_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class StatusScreen extends StatefulWidget {
+class StatusScreen extends ConsumerStatefulWidget {
   const StatusScreen({Key? key}) : super(key: key);
 
   @override
-  State<StatusScreen> createState() => _StatusScreenState();
+  ConsumerState<StatusScreen> createState() => _StatusScreenState();
 }
 
-class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClientMixin {
+class _StatusScreenState extends ConsumerState<StatusScreen> with AutomaticKeepAliveClientMixin {
   late ScrollController _scrollController;
   bool _isRefreshing = false;
 
@@ -47,10 +47,15 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
       _isRefreshing = true;
     });
     
-    final currentUser = context.read<AuthenticationProvider>().userModel!;
-    final statusProvider = context.read<StatusProvider>();
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      setState(() {
+        _isRefreshing = false;
+      });
+      return;
+    }
     
-    await statusProvider.fetchStatuses(
+    await ref.read(statusNotifierProvider.notifier).fetchStatuses(
       currentUserId: currentUser.uid,
       contactIds: currentUser.contactsUIDs,
     );
@@ -73,6 +78,12 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
     final textSecondaryColor = modernTheme.textSecondaryColor!;
     final surfaceColor = modernTheme.surfaceColor!;
     
+    // Get the current user
+    final currentUser = ref.watch(currentUserProvider);
+    
+    // Watch the status state
+    final statusState = ref.watch(statusNotifierProvider);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Status', style: TextStyle(fontSize: 22)),
@@ -84,20 +95,18 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
           ),
         ],
       ),
-      body: Consumer2<AuthenticationProvider, StatusProvider>(
-        builder: (context, authProvider, statusProvider, _) {
-          final currentUser = authProvider.userModel;
-          
+      body: statusState.when(
+        data: (state) {
           if (currentUser == null) {
             return Center(child: CircularProgressIndicator(color: primaryColor));
           }
           
-          if (statusProvider.isFetching || _isRefreshing) {
+          if (state.isFetching || _isRefreshing) {
             return _buildLoadingView(primaryColor);
           }
           
-          final myStatus = statusProvider.myStatus;
-          final contactStatuses = statusProvider.contactStatuses;
+          final myStatus = state.myStatus;
+          final contactStatuses = state.contactStatuses;
           
           // Show empty state if no statuses (yours or contacts')
           if (myStatus == null && contactStatuses.isEmpty) {
@@ -117,7 +126,6 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
                     myStatus,
                     currentUser.name,
                     currentUser.image,
-                    statusProvider,
                   ),
                 ),
                 
@@ -178,6 +186,27 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
             ),
           );
         },
+        loading: () => Center(
+          child: CircularProgressIndicator(color: primaryColor),
+        ),
+        error: (error, stackTrace) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading statuses',
+                style: TextStyle(fontSize: 18, color: textColor),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: _refreshStatuses,
+                child: const Text('Try Again'),
+              ),
+            ],
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToCreateStatus(context),
@@ -256,7 +285,6 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
     StatusModel? myStatus,
     String userName, 
     String userImage,
-    StatusProvider statusProvider,
   ) {
     final modernTheme = context.modernTheme;
     final primaryColor = modernTheme.primaryColor!;
@@ -656,6 +684,7 @@ class _StatusScreenState extends State<StatusScreen> with AutomaticKeepAliveClie
   }
   
   void _navigateToCreateStatus(BuildContext context) {
+    // Convert to use a ConsumerWidget when updating CreateStatusScreen
     Navigator.push(
       context,
       MaterialPageRoute(

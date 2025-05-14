@@ -1,151 +1,190 @@
 import 'dart:io';
-import 'dart:math' as Math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/status_model.dart';
-import 'package:textgb/models/last_message_model.dart';
-import 'package:textgb/models/message_model.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:uuid/uuid.dart';
 
-class StatusProvider extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-  
-  bool _isLoading = false;
-  bool _isFetching = false;
-  bool _statusTabVisible = false;
-  bool _appFreshStart = true;
-  
-  List<StatusModel> _contactStatuses = [];
-  StatusModel? _myStatus;
-  int _unreadRepliesCount = 0;
-  
-  // Getters
-  bool get isLoading => _isLoading;
-  bool get isFetching => _isFetching;
-  bool get statusTabVisible => _statusTabVisible;
-  bool get appFreshStart => _appFreshStart;
-  List<StatusModel> get contactStatuses => _contactStatuses;
-  StatusModel? get myStatus => _myStatus;
-  int get unreadRepliesCount => _unreadRepliesCount;
-  
-  // Setters
-  void setStatusTabVisible(bool visible) {
-    _statusTabVisible = visible;
-    notifyListeners();
-  }
-  
-  void setAppFreshStart(bool value) {
-    _appFreshStart = value;
-    notifyListeners();
-  }
+part 'status_provider.g.dart';
 
-  Future<void> createTextStatus({
-  required UserModel currentUser,
-  required String text,
-  required Function onSuccess,
-  required Function(String) onError,
-}) async {
-  try {
-    _isLoading = true;
-    notifyListeners();
-    
-    if (text.trim().isEmpty) {
-      _isLoading = false;
-      notifyListeners();
-      onError('Text cannot be empty');
-      return;
-    }
-    
-    // Generate unique IDs
-    final String statusId = const Uuid().v4();
-    final String itemId = const Uuid().v4();
-    
-    // For text status, we use the text as the mediaUrl
-    final StatusItemModel statusItem = StatusItemModel(
-      itemId: itemId,
-      mediaUrl: text,  // Text content goes here
-      caption: null,   // No need for caption
-      timestamp: DateTime.now(),
-      type: StatusType.text,
-      viewedBy: [currentUser.uid],  // Creator has viewed it
-      reactions: {},
+// State class for status features
+class StatusState {
+  final bool isLoading;
+  final bool isFetching;
+  final bool statusTabVisible;
+  final bool appFreshStart;
+  final List<StatusModel> contactStatuses;
+  final StatusModel? myStatus;
+  final int unreadRepliesCount;
+  final String? error;
+
+  const StatusState({
+    this.isLoading = false,
+    this.isFetching = false,
+    this.statusTabVisible = false,
+    this.appFreshStart = true,
+    this.contactStatuses = const [],
+    this.myStatus,
+    this.unreadRepliesCount = 0,
+    this.error,
+  });
+
+  StatusState copyWith({
+    bool? isLoading,
+    bool? isFetching,
+    bool? statusTabVisible,
+    bool? appFreshStart,
+    List<StatusModel>? contactStatuses,
+    StatusModel? myStatus,
+    int? unreadRepliesCount,
+    String? error,
+  }) {
+    return StatusState(
+      isLoading: isLoading ?? this.isLoading,
+      isFetching: isFetching ?? this.isFetching,
+      statusTabVisible: statusTabVisible ?? this.statusTabVisible,
+      appFreshStart: appFreshStart ?? this.appFreshStart,
+      contactStatuses: contactStatuses ?? this.contactStatuses,
+      myStatus: myStatus,
+      unreadRepliesCount: unreadRepliesCount ?? this.unreadRepliesCount,
+      error: error,
     );
-    
-    // Check if user already has a status
-    final DocumentSnapshot statusDoc = await _firestore
-        .collection(Constants.statuses)
-        .doc(currentUser.uid)
-        .get();
-    
-    final DateTime now = DateTime.now();
-    final DateTime expiryTime = now.add(const Duration(hours: 24));
-    
-    if (statusDoc.exists) {
-      // Update existing status with new item
-      final existingStatus = StatusModel.fromMap(
-        statusDoc.data() as Map<String, dynamic>
-      );
-      
-      // Filter out expired items
-      final List<StatusItemModel> activeItems = existingStatus.items
-          .where((item) => now.difference(item.timestamp).inHours < 24)
-          .toList();
-      
-      // Add new item
-      activeItems.add(statusItem);
-      
-      // Update status
-      await _firestore.collection(Constants.statuses).doc(currentUser.uid).update({
-        'items': activeItems.map((item) => item.toMap()).toList(),
-        'expiresAt': expiryTime.millisecondsSinceEpoch,
-      });
-      
-      // Update local state
-      _myStatus = StatusModel(
-        statusId: existingStatus.statusId,
-        uid: currentUser.uid,
-        userName: currentUser.name,
-        userImage: currentUser.image,
-        items: activeItems,
-        createdAt: existingStatus.createdAt,
-        expiresAt: expiryTime,
-      );
-    } else {
-      // Create new status
-      final StatusModel newStatus = StatusModel(
-        statusId: statusId,
-        uid: currentUser.uid,
-        userName: currentUser.name,
-        userImage: currentUser.image,
-        items: [statusItem],
-        createdAt: now,
-        expiresAt: expiryTime,
-      );
-      
-      // Save to Firestore
-      await _firestore.collection(Constants.statuses)
-          .doc(currentUser.uid)
-          .set(newStatus.toMap());
-          
-      // Update local state
-      _myStatus = newStatus;
-    }
-    
-    _isLoading = false;
-    notifyListeners();
-    onSuccess();
-  } catch (e) {
-    _isLoading = false;
-    notifyListeners();
-    onError(e.toString());
   }
 }
+
+@riverpod
+class StatusNotifier extends _$StatusNotifier {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  @override
+  FutureOr<StatusState> build() {
+    return const StatusState();
+  }
+
+  // Set status tab visible
+  void setStatusTabVisible(bool visible) {
+    state = AsyncValue.data(state.value!.copyWith(statusTabVisible: visible));
+  }
+  
+  // Set app fresh start
+  void setAppFreshStart(bool value) {
+    state = AsyncValue.data(state.value!.copyWith(appFreshStart: value));
+  }
+
+  // Create a text status
+  Future<void> createTextStatus({
+    required UserModel currentUser,
+    required String text,
+    required Function onSuccess,
+    required Function(String) onError,
+  }) async {
+    try {
+      state = AsyncValue.data(state.value!.copyWith(isLoading: true));
+      
+      if (text.trim().isEmpty) {
+        state = AsyncValue.data(state.value!.copyWith(isLoading: false));
+        onError('Text cannot be empty');
+        return;
+      }
+      
+      // Generate unique IDs
+      final String statusId = const Uuid().v4();
+      final String itemId = const Uuid().v4();
+      
+      // For text status, we use the text as the mediaUrl
+      final StatusItemModel statusItem = StatusItemModel(
+        itemId: itemId,
+        mediaUrl: text,  // Text content goes here
+        caption: null,   // No need for caption
+        timestamp: DateTime.now(),
+        type: StatusType.text,
+        viewedBy: [currentUser.uid],  // Creator has viewed it
+        reactions: {},
+      );
+      
+      // Check if user already has a status
+      final DocumentSnapshot statusDoc = await _firestore
+          .collection(Constants.statuses)
+          .doc(currentUser.uid)
+          .get();
+      
+      final DateTime now = DateTime.now();
+      final DateTime expiryTime = now.add(const Duration(hours: 24));
+      
+      if (statusDoc.exists) {
+        // Update existing status with new item
+        final existingStatus = StatusModel.fromMap(
+          statusDoc.data() as Map<String, dynamic>
+        );
+        
+        // Filter out expired items
+        final List<StatusItemModel> activeItems = existingStatus.items
+            .where((item) => now.difference(item.timestamp).inHours < 24)
+            .toList();
+        
+        // Add new item
+        activeItems.add(statusItem);
+        
+        // Update status
+        await _firestore.collection(Constants.statuses).doc(currentUser.uid).update({
+          'items': activeItems.map((item) => item.toMap()).toList(),
+          'expiresAt': expiryTime.millisecondsSinceEpoch,
+        });
+        
+        // Update local state
+        final newMyStatus = StatusModel(
+          statusId: existingStatus.statusId,
+          uid: currentUser.uid,
+          userName: currentUser.name,
+          userImage: currentUser.image,
+          items: activeItems,
+          createdAt: existingStatus.createdAt,
+          expiresAt: expiryTime,
+        );
+        
+        state = AsyncValue.data(state.value!.copyWith(
+          isLoading: false,
+          myStatus: newMyStatus,
+        ));
+      } else {
+        // Create new status
+        final StatusModel newStatus = StatusModel(
+          statusId: statusId,
+          uid: currentUser.uid,
+          userName: currentUser.name,
+          userImage: currentUser.image,
+          items: [statusItem],
+          createdAt: now,
+          expiresAt: expiryTime,
+        );
+        
+        // Save to Firestore
+        await _firestore.collection(Constants.statuses)
+            .doc(currentUser.uid)
+            .set(newStatus.toMap());
+            
+        // Update local state
+        state = AsyncValue.data(state.value!.copyWith(
+          isLoading: false,
+          myStatus: newStatus,
+        ));
+      }
+      
+      onSuccess();
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      ));
+      onError(e.toString());
+    }
+  }
   
   // Create a new status
   Future<void> createStatus({
@@ -157,8 +196,7 @@ class StatusProvider extends ChangeNotifier {
     required Function(String) onError,
   }) async {
     try {
-      _isLoading = true;
-      notifyListeners();
+      state = AsyncValue.data(state.value!.copyWith(isLoading: true));
       
       // Generate unique IDs
       final String statusId = const Uuid().v4();
@@ -222,7 +260,7 @@ class StatusProvider extends ChangeNotifier {
         });
         
         // Update local state
-        _myStatus = StatusModel(
+        final updatedStatus = StatusModel(
           statusId: existingStatus.statusId,
           uid: currentUser.uid,
           userName: currentUser.name,
@@ -231,6 +269,11 @@ class StatusProvider extends ChangeNotifier {
           createdAt: existingStatus.createdAt,
           expiresAt: expiryTime,
         );
+        
+        state = AsyncValue.data(state.value!.copyWith(
+          isLoading: false,
+          myStatus: updatedStatus,
+        ));
       } else {
         // Create new status
         final StatusModel newStatus = StatusModel(
@@ -249,15 +292,18 @@ class StatusProvider extends ChangeNotifier {
             .set(newStatus.toMap());
             
         // Update local state
-        _myStatus = newStatus;
+        state = AsyncValue.data(state.value!.copyWith(
+          isLoading: false,
+          myStatus: newStatus,
+        ));
       }
       
-      _isLoading = false;
-      notifyListeners();
       onSuccess();
     } catch (e) {
-      _isLoading = false;
-      notifyListeners();
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      ));
       onError(e.toString());
     }
   }
@@ -270,8 +316,7 @@ class StatusProvider extends ChangeNotifier {
     required Function(String) onError,
   }) async {
     try {
-      _isLoading = true;
-      notifyListeners();
+      state = AsyncValue.data(state.value!.copyWith(isLoading: true));
       
       // Get the current status
       final DocumentSnapshot statusDoc = await _firestore
@@ -316,8 +361,12 @@ class StatusProvider extends ChangeNotifier {
         // If no items left, delete the entire status
         await _firestore.collection(Constants.statuses).doc(userId).delete();
         // Update local state
-        if (_myStatus?.uid == userId) {
-          _myStatus = null;
+        final currentState = state.value!;
+        if (currentState.myStatus?.uid == userId) {
+          state = AsyncValue.data(currentState.copyWith(
+            isLoading: false, 
+            myStatus: null,
+          ));
         }
       } else {
         // Update with remaining items
@@ -326,8 +375,9 @@ class StatusProvider extends ChangeNotifier {
         });
         
         // Update local state if needed
-        if (_myStatus?.uid == userId) {
-          _myStatus = StatusModel(
+        final currentState = state.value!;
+        if (currentState.myStatus?.uid == userId) {
+          final updatedStatus = StatusModel(
             statusId: status.statusId,
             uid: status.uid,
             userName: status.userName,
@@ -336,15 +386,20 @@ class StatusProvider extends ChangeNotifier {
             createdAt: status.createdAt,
             expiresAt: status.expiresAt,
           );
+          
+          state = AsyncValue.data(currentState.copyWith(
+            isLoading: false,
+            myStatus: updatedStatus,
+          ));
         }
       }
       
-      _isLoading = false;
-      notifyListeners();
       onSuccess();
     } catch (e) {
-      _isLoading = false;
-      notifyListeners();
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      ));
       onError(e.toString());
     }
   }
@@ -355,15 +410,12 @@ class StatusProvider extends ChangeNotifier {
     required List<String> contactIds,
   }) async {
     try {
-      _isFetching = true;
-      notifyListeners();
-      
-      // Clear previous data
-      _myStatus = null;
-      _contactStatuses = [];
+      state = AsyncValue.data(state.value!.copyWith(isFetching: true));
       
       // Current time to filter expired statuses
       final DateTime now = DateTime.now();
+      List<StatusModel> updatedContactStatuses = [];
+      StatusModel? updatedMyStatus;
       
       // Fetch my status
       final DocumentSnapshot myStatusDoc = await _firestore
@@ -387,7 +439,7 @@ class StatusProvider extends ChangeNotifier {
               .toList();
           
           if (activeItems.isNotEmpty) {
-            final StatusModel activeStatus = StatusModel(
+            updatedMyStatus = StatusModel(
               statusId: status.statusId,
               uid: status.uid,
               userName: status.userName,
@@ -396,8 +448,6 @@ class StatusProvider extends ChangeNotifier {
               createdAt: status.createdAt,
               expiresAt: status.expiresAt,
             );
-            
-            _myStatus = activeStatus;
           } else {
             // If all items are expired, delete the status
             await _firestore.collection(Constants.statuses).doc(currentUserId).delete();
@@ -446,7 +496,7 @@ class StatusProvider extends ChangeNotifier {
                 expiresAt: status.expiresAt,
               );
               
-              _contactStatuses.add(activeStatus);
+              updatedContactStatuses.add(activeStatus);
             } else {
               // If all items are expired, delete the status
               await _firestore.collection(Constants.statuses).doc(status.uid).delete();
@@ -455,7 +505,7 @@ class StatusProvider extends ChangeNotifier {
         }
         
         // Sort by newest timestamp
-        _contactStatuses.sort((a, b) {
+        updatedContactStatuses.sort((a, b) {
           final DateTime latestA = a.items.map((e) => e.timestamp).reduce(
             (value, element) => value.isAfter(element) ? value : element
           );
@@ -467,15 +517,22 @@ class StatusProvider extends ChangeNotifier {
       }
       
       // Count unread replies for status owner
-      if (_myStatus != null) {
-        await _countUnreadStatusReplies(currentUserId);
+      int unreadCount = 0;
+      if (updatedMyStatus != null) {
+        unreadCount = await _countUnreadStatusReplies(currentUserId);
       }
       
-      _isFetching = false;
-      notifyListeners();
+      state = AsyncValue.data(state.value!.copyWith(
+        isFetching: false,
+        myStatus: updatedMyStatus,
+        contactStatuses: updatedContactStatuses,
+        unreadRepliesCount: unreadCount,
+      ));
     } catch (e) {
-      _isFetching = false;
-      notifyListeners();
+      state = AsyncValue.data(state.value!.copyWith(
+        isFetching: false,
+        error: e.toString(),
+      ));
       debugPrint('Error fetching statuses: $e');
     }
   }
@@ -532,8 +589,9 @@ class StatusProvider extends ChangeNotifier {
       });
       
       // Update local state if needed
-      if (statusOwnerId == _myStatus?.uid) {
-        _myStatus = StatusModel(
+      final currentState = state.value!;
+      if (statusOwnerId == currentState.myStatus?.uid) {
+        final updatedStatus = StatusModel(
           statusId: status.statusId,
           uid: status.uid,
           userName: status.userName,
@@ -542,10 +600,12 @@ class StatusProvider extends ChangeNotifier {
           createdAt: status.createdAt,
           expiresAt: status.expiresAt,
         );
+        
+        state = AsyncValue.data(currentState.copyWith(myStatus: updatedStatus));
       } else {
-        final int contactIndex = _contactStatuses.indexWhere((s) => s.uid == statusOwnerId);
+        final int contactIndex = currentState.contactStatuses.indexWhere((s) => s.uid == statusOwnerId);
         if (contactIndex != -1) {
-          final List<StatusModel> updatedStatuses = List.from(_contactStatuses);
+          final List<StatusModel> updatedStatuses = List.from(currentState.contactStatuses);
           updatedStatuses[contactIndex] = StatusModel(
             statusId: status.statusId,
             uid: status.uid,
@@ -555,11 +615,10 @@ class StatusProvider extends ChangeNotifier {
             createdAt: status.createdAt,
             expiresAt: status.expiresAt,
           );
-          _contactStatuses = updatedStatuses;
+          
+          state = AsyncValue.data(currentState.copyWith(contactStatuses: updatedStatuses));
         }
       }
-      
-      notifyListeners();
     } catch (e) {
       debugPrint('Error marking status as viewed: $e');
     }
@@ -621,8 +680,9 @@ class StatusProvider extends ChangeNotifier {
       });
       
       // Update local state if needed
-      if (statusOwnerId == _myStatus?.uid) {
-        _myStatus = StatusModel(
+      final currentState = state.value!;
+      if (statusOwnerId == currentState.myStatus?.uid) {
+        final updatedStatus = StatusModel(
           statusId: status.statusId,
           uid: status.uid,
           userName: status.userName,
@@ -631,10 +691,12 @@ class StatusProvider extends ChangeNotifier {
           createdAt: status.createdAt,
           expiresAt: status.expiresAt,
         );
+        
+        state = AsyncValue.data(currentState.copyWith(myStatus: updatedStatus));
       } else {
-        final int contactIndex = _contactStatuses.indexWhere((s) => s.uid == statusOwnerId);
+        final int contactIndex = currentState.contactStatuses.indexWhere((s) => s.uid == statusOwnerId);
         if (contactIndex != -1) {
-          final List<StatusModel> updatedStatuses = List.from(_contactStatuses);
+          final List<StatusModel> updatedStatuses = List.from(currentState.contactStatuses);
           updatedStatuses[contactIndex] = StatusModel(
             statusId: status.statusId,
             uid: status.uid,
@@ -644,11 +706,10 @@ class StatusProvider extends ChangeNotifier {
             createdAt: status.createdAt,
             expiresAt: status.expiresAt,
           );
-          _contactStatuses = updatedStatuses;
+          
+          state = AsyncValue.data(currentState.copyWith(contactStatuses: updatedStatuses));
         }
       }
-      
-      notifyListeners();
     } catch (e) {
       debugPrint('Error adding reaction to status: $e');
     }
@@ -668,8 +729,7 @@ class StatusProvider extends ChangeNotifier {
     required Function(String) onError,
   }) async {
     try {
-      _isLoading = true;
-      notifyListeners();
+      state = AsyncValue.data(state.value!.copyWith(isLoading: true));
       
       // Generate unique message ID
       final String messageId = const Uuid().v4();
@@ -705,78 +765,78 @@ class StatusProvider extends ChangeNotifier {
       final DateTime now = DateTime.now();
       
       // 1. Create message object for sender
-      final MessageModel senderMessage = MessageModel(
-        senderUID: senderId,
-        senderName: senderName,
-        senderImage: senderImage,
-        contactUID: statusOwnerId,
-        message: message,
-        messageType: MessageEnum.text,
-        timeSent: now,
-        messageId: messageId,
-        isSeen: false,
-        repliedMessage: '',
-        repliedTo: '',
-        repliedMessageType: MessageEnum.text,
-        reactions: [],
-        isSeenBy: [senderId],
-        deletedBy: [],
+      final messageMapSender = {
+        'senderUID': senderId,
+        'senderName': senderName,
+        'senderImage': senderImage,
+        'contactUID': statusOwnerId,
+        'message': message,
+        'messageType': MessageEnum.text.name,
+        'timeSent': now.millisecondsSinceEpoch,
+        'messageId': messageId,
+        'isSeen': false,
+        'repliedMessage': '',
+        'repliedTo': '',
+        'repliedMessageType': MessageEnum.text.name,
+        'reactions': [],
+        'isSeenBy': [senderId],
+        'deletedBy': [],
         // Status reference data
-        isStatusReply: true,
-        statusId: statusId,
-        statusItemId: statusItemId,
-        statusThumbnailUrl: thumbnailUrl,
-        statusCaption: statusItem.caption,
-      );
+        'isStatusReply': true,
+        'statusId': statusId,
+        'statusItemId': statusItemId,
+        'statusThumbnailUrl': thumbnailUrl,
+        'statusCaption': statusItem.caption,
+      };
       
       // 2. Create message object for receiver (status owner)
-      final MessageModel receiverMessage = MessageModel(
-        senderUID: senderId,
-        senderName: senderName,
-        senderImage: senderImage,
-        contactUID: senderId,
-        message: message,
-        messageType: MessageEnum.text,
-        timeSent: now,
-        messageId: messageId,
-        isSeen: false,
-        repliedMessage: '',
-        repliedTo: '',
-        repliedMessageType: MessageEnum.text,
-        reactions: [],
-        isSeenBy: [senderId],
-        deletedBy: [],
+      final messageMapReceiver = {
+        'senderUID': senderId,
+        'senderName': senderName,
+        'senderImage': senderImage,
+        'contactUID': senderId,
+        'message': message,
+        'messageType': MessageEnum.text.name,
+        'timeSent': now.millisecondsSinceEpoch,
+        'messageId': messageId,
+        'isSeen': false,
+        'repliedMessage': '',
+        'repliedTo': '',
+        'repliedMessageType': MessageEnum.text.name,
+        'reactions': [],
+        'isSeenBy': [senderId],
+        'deletedBy': [],
         // Status reference data
-        isStatusReply: true,
-        statusId: statusId,
-        statusItemId: statusItemId,
-        statusThumbnailUrl: thumbnailUrl,
-        statusCaption: statusItem.caption,
-      );
+        'isStatusReply': true,
+        'statusId': statusId,
+        'statusItemId': statusItemId,
+        'statusThumbnailUrl': thumbnailUrl,
+        'statusCaption': statusItem.caption,
+      };
       
       // 3. Create last message for sender
-      final LastMessageModel senderLastMessage = LastMessageModel(
-        senderUID: senderId,
-        contactUID: statusOwnerId,
-        contactName: statusOwner.name,
-        contactImage: statusOwner.image,
-        message: message,
-        messageType: MessageEnum.text,
-        timeSent: now,
-        isSeen: false,
-      );
+      final lastMessageMapSender = {
+        'senderUID': senderId,
+        'contactUID': statusOwnerId,
+        'contactName': statusOwner.name,
+        'contactImage': statusOwner.image,
+        'message': message,
+        'messageType': MessageEnum.text.name,
+        'timeSent': now.millisecondsSinceEpoch,
+        'isSeen': false,
+      };
       
       // 4. Create last message for receiver
-      final LastMessageModel receiverLastMessage = LastMessageModel(
-        senderUID: senderId,
-        contactUID: senderId,
-        contactName: senderName,
-        contactImage: senderImage,
-        message: message,
-        messageType: MessageEnum.text,
-        timeSent: now,
-        isSeen: false,
-      );
+      final lastMessageMapReceiver = {
+        'senderUID': senderId,
+        'contactUID': senderId,
+        'contactName': senderName,
+        'contactImage': senderImage,
+        'message': message,
+        'messageType': MessageEnum.text.name,
+        'timeSent': now.millisecondsSinceEpoch,
+        'isSeen': false,
+      };
       
       // 5. Use transaction to ensure all updates are atomic
       await _firestore.runTransaction((transaction) async {
@@ -789,7 +849,7 @@ class StatusProvider extends ChangeNotifier {
               .doc(statusOwnerId)
               .collection(Constants.messages)
               .doc(messageId),
-          senderMessage.toMap(),
+          messageMapSender,
         );
         
         // Add message to receiver's chat
@@ -801,7 +861,7 @@ class StatusProvider extends ChangeNotifier {
               .doc(senderId)
               .collection(Constants.messages)
               .doc(messageId),
-          receiverMessage.toMap(),
+          messageMapReceiver,
         );
         
         // Update last message for sender
@@ -811,7 +871,7 @@ class StatusProvider extends ChangeNotifier {
               .doc(senderId)
               .collection(Constants.chats)
               .doc(statusOwnerId),
-          senderLastMessage.toMap(),
+          lastMessageMapSender,
         );
         
         // Update last message for receiver
@@ -821,25 +881,26 @@ class StatusProvider extends ChangeNotifier {
               .doc(statusOwnerId)
               .collection(Constants.chats)
               .doc(senderId),
-          receiverLastMessage.toMap(),
+          lastMessageMapReceiver,
         );
       });
       
-      _isLoading = false;
-      notifyListeners();
+      state = AsyncValue.data(state.value!.copyWith(isLoading: false));
       onSuccess();
     } catch (e) {
-      _isLoading = false;
-      notifyListeners();
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      ));
       onError(e.toString());
       debugPrint('Error replying to status: $e');
     }
   }
   
   // Count unread status replies for notification badge
-  Future<void> _countUnreadStatusReplies(String userId) async {
+  Future<int> _countUnreadStatusReplies(String userId) async {
     try {
-      _unreadRepliesCount = 0;
+      int count = 0;
       
       // Check all chats for the user
       final QuerySnapshot chatSnapshot = await _firestore
@@ -866,12 +927,13 @@ class StatusProvider extends ChangeNotifier {
             .get();
         
         // Add to unread count
-        _unreadRepliesCount += messageSnapshot.docs.length;
+        count += messageSnapshot.docs.length;
       }
       
-      notifyListeners();
+      return count;
     } catch (e) {
       debugPrint('Error counting unread status replies: $e');
+      return 0;
     }
   }
 }
