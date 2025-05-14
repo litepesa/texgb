@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/marketplace/screens/marketplace_video_feed_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/widgets/modern_bottomnav_bar.dart';
-// Import the marketplace feature
-
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -55,14 +53,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Ensure system navigation bar stays transparent
+    _updateSystemUI();
+  }
+  
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update system UI when widget updates
+    _updateSystemUI();
+  }
+  
+  // Method to ensure system navigation bar stays transparent
+  void _updateSystemUI() {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ));
+  }
+
+  @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
+    // Calculate bottom padding to account for system navigation
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    // Update system UI when tab changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateSystemUI();
+    });
+    
     return Scaffold(
-      extendBody: true, // Important for the floating bottom navigation bar
+      extendBody: true, // Important for the transparent navigation bar
       extendBodyBehindAppBar: _currentIndex == 2 || _currentIndex == 3, // Only extend content behind AppBar for tabs without AppBar
-      backgroundColor: modernTheme.backgroundColor,
+      backgroundColor: _currentIndex == 2 ? Colors.black : modernTheme.backgroundColor,
       
       // Custom AppBar
       appBar: _buildAppBar(modernTheme, isDarkMode),
@@ -84,29 +114,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       
-      // Custom Bottom Navigation Bar
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.only(bottom: 8.0), // Added system nav padding
-        child: ModernBottomNavBar(
-          currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          backgroundColor: modernTheme.surfaceColor!,
-          selectedItemColor: modernTheme.primaryColor!,
-          unselectedItemColor: modernTheme.textSecondaryColor!,
-          items: List.generate(
-            _tabNames.length,
-            (index) => BottomNavigationBarItem(
-              icon: Icon(_tabIcons[index]),
-              label: _tabNames[index],
+      // Regular Bottom Navigation Bar with divider
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Divider above bottom nav
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: _currentIndex == 2 ? Colors.grey[900] : modernTheme.dividerColor,
+          ),
+          // Standard BottomNavigationBar with custom styling
+          Container(
+            decoration: BoxDecoration(
+              color: _currentIndex == 2 ? Colors.black : modernTheme.surfaceColor,
+            ),
+            child: SafeArea(
+              child: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: _onTabTapped,
+                backgroundColor: Colors.transparent, // Transparent to use the Container's color
+                selectedItemColor: modernTheme.primaryColor,
+                unselectedItemColor: modernTheme.textSecondaryColor,
+                type: BottomNavigationBarType.fixed,
+                elevation: 0, // No elevation on the BottomNavigationBar itself
+                selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+                items: List.generate(
+                  _tabNames.length,
+                  (index) {
+                    bool isSelected = _currentIndex == index;
+                    return BottomNavigationBarItem(
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isSelected 
+                            ? modernTheme.primaryColor!.withOpacity(0.2) 
+                            : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(_tabIcons[index]),
+                      ),
+                      label: _tabNames[index],
+                    );
+                  },
+                ),
+              ),
             ),
           ),
-          elevation: 8.0,
-          showLabels: true,
-        ),
+        ],
       ),
       
       // FAB for new chat or content
-      floatingActionButton: _currentIndex != 3 ? _buildFab(modernTheme) : null,
+      floatingActionButton: _currentIndex == 2 || _currentIndex == 3 ? null : _buildFab(modernTheme),
     );
   }
   
@@ -121,12 +181,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       elevation: 0,
       backgroundColor: modernTheme.backgroundColor,
       centerTitle: true,
-      title: Text(
-        "WeiChat",
-        style: TextStyle(
-          color: modernTheme.textColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 22,
+      title: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: "Wei",
+              style: TextStyle(
+                color: modernTheme.textColor,          
+                fontWeight: FontWeight.w500,
+                fontSize: 22,
+              ),
+            ),
+            TextSpan(
+              text: "Chat",
+              style: TextStyle(
+                color: modernTheme.primaryColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 24,
+              ),
+            ),
+          ],
         ),
       ),
       actions: _buildAppBarActions(modernTheme, _currentIndex),
@@ -245,13 +319,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // TODO: Add new status
         };
         break;
-      case 2: // Marketplace
-        fabIcon = Icons.add_shopping_cart;
-        onPressed = () {
-          // Navigate to create marketplace video screen
-          Navigator.pushNamed(context, Constants.createMarketplaceVideoScreen);
-        };
-        break;
       default:
         fabIcon = Icons.chat;
         onPressed = () {};
@@ -271,7 +338,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       color: modernTheme.backgroundColor,
       child: ListView.builder(
-        padding: EdgeInsets.only(top: 8.0, bottom: 100),
+        padding: EdgeInsets.only(top: 8.0, bottom: 100), // Padding at bottom to prevent content being hidden behind bottom nav
         itemCount: 15, // Sample count
         itemBuilder: (context, index) {
           return _buildChatItem(modernTheme, index);
@@ -369,7 +436,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       color: modernTheme.backgroundColor,
       child: ListView(
-        padding: EdgeInsets.only(top: 8.0, bottom: 100),
+        padding: EdgeInsets.only(top: 8.0, bottom: 100), // Padding at bottom to prevent content being hidden behind bottom nav
         children: [
           // My status
           ListTile(
