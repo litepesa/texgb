@@ -1,3 +1,4 @@
+// lib/features/marketplace/screens/create_marketplace_video_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -125,7 +126,11 @@ class _CreateMarketplaceVideoScreenState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message)),
           );
-          Navigator.of(context).pop();
+          
+          // Wait a moment before navigating to ensure refresh has started
+          Future.delayed(const Duration(milliseconds: 300), () {
+            Navigator.of(context).pop(true); // Return true to indicate success
+          });
         },
         onError: (error) {
           ScaffoldMessenger.of(context).showSnackBar(

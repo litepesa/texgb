@@ -1,3 +1,4 @@
+// lib/features/marketplace/providers/marketplace_provider.dart - Fixed with Index Issue Handling
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -60,52 +61,141 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
   MarketplaceNotifier() : super(const MarketplaceState()) {
-    // Initialize state on creation
+    // Initialize with empty state and load data
     loadVideos();
     loadCategories();
     loadLikedVideos();
   }
 
-  // Load videos from Firestore
-  Future<void> loadVideos({String? category}) async {
-    state = state.copyWith(isLoading: true);
+  // Debug method to help diagnose issues
+  Future<void> debugMarketplaceData() async {
+    debugPrint('======= DEBUGGING MARKETPLACE DATA =======');
+    
+    try {
+      // 1. Check collection name
+      debugPrint('Using collection name: ${Constants.marketplaceVideos}');
+      
+      // 2. Try to get all documents without any filters
+      final allDocsSnap = await _firestore.collection(Constants.marketplaceVideos).get();
+      debugPrint('Total documents in collection: ${allDocsSnap.docs.length}');
+      
+      // Log document details
+      int activeCount = 0;
+      for (var doc in allDocsSnap.docs) {
+        final data = doc.data();
+        debugPrint('Document ID: ${doc.id}');
+        debugPrint('  isActive: ${data['isActive']} (${data['isActive'].runtimeType})');
+        debugPrint('  productName: ${data['productName']}');
+        if (data['isActive'] == true) activeCount++;
+      }
+      debugPrint('Documents with isActive=true: $activeCount');
+      
+      // 3. Check current state
+      debugPrint('Current state - videos count: ${state.videos.length}');
+      
+      debugPrint('======= END DEBUGGING MARKETPLACE DATA =======');
+    } catch (e) {
+      debugPrint('Error during debugging: $e');
+    }
+  }
+
+  // Load videos from Firestore with index error handling
+  Future<void> loadVideos({String? category, bool forceRefresh = false}) async {
+    debugPrint('loadVideos called - category: $category, forceRefresh: $forceRefresh');
+    
+    // If not forcing refresh and we already have videos, just return
+    if (!forceRefresh && state.videos.isNotEmpty && category == state.selectedCategory) {
+      debugPrint('Using cached videos (${state.videos.length} videos)');
+      return;
+    }
+    
+    // Set loading state
+    state = state.copyWith(isLoading: true, error: null);
+    debugPrint('Loading marketplace videos from Firestore...');
 
     try {
-      Query query = _firestore
-          .collection(Constants.marketplaceVideos)
-          .where('isActive', isEqualTo: true);
-      
-      // Filter by category if provided
-      if (category != null && category.isNotEmpty) {
-        query = query.where('category', isEqualTo: category);
-        state = state.copyWith(selectedCategory: category);
-      } else {
-        state = state.copyWith(selectedCategory: null);
-      }
-      
-      // Order by creation date (newest first)
-      query = query.orderBy('createdAt', descending: true);
-      
-      final QuerySnapshot querySnapshot = await query.get();
-      
       List<MarketplaceVideoModel> videos = [];
       
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        // Add ID to data if not present
-        if (!data.containsKey('id')) {
-          data['id'] = doc.id;
+      try {
+        // First try the query with indexes (may fail if index doesn't exist yet)
+        Query query = _firestore
+            .collection(Constants.marketplaceVideos)
+            .where('isActive', isEqualTo: true);
+        
+        // Add category filter if provided
+        if (category != null && category.isNotEmpty) {
+          query = query.where('category', isEqualTo: category);
         }
         
-        final isLiked = state.likedVideos.contains(doc.id);
-        videos.add(MarketplaceVideoModel.fromMap(data, isLiked: isLiked));
+        // Order by creation date
+        query = query.orderBy('createdAt', descending: true);
+        
+        // Execute query
+        final QuerySnapshot querySnapshot = await query.get();
+        debugPrint('Found ${querySnapshot.docs.length} marketplace videos');
+        
+        // Process results
+        for (var doc in querySnapshot.docs) {
+          final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
+          
+          // Explicitly set the ID in the data
+          data['id'] = doc.id;
+          
+          // Check if user has liked this video
+          final isLiked = state.likedVideos.contains(doc.id);
+          
+          // Add to list
+          videos.add(MarketplaceVideoModel.fromMap(data, isLiked: isLiked));
+          debugPrint('Added video: ${doc.id}, product: ${data['productName']}');
+        }
+      } catch (indexError) {
+        // If we get an index error, use a fallback approach
+        debugPrint('Index error occurred: $indexError');
+        debugPrint('Using fallback query without complex ordering...');
+        
+        // Fallback: Get all documents with simpler query (no compound index needed)
+        final QuerySnapshot fallbackSnapshot = await _firestore
+            .collection(Constants.marketplaceVideos)
+            .get();
+        
+        // Process and filter manually
+        for (var doc in fallbackSnapshot.docs) {
+          final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
+          
+          // Skip inactive videos
+          if (data['isActive'] != true) continue;
+          
+          // Skip if category filter doesn't match
+          if (category != null && category.isNotEmpty && data['category'] != category) {
+            continue;
+          }
+          
+          // Set document ID and check likes
+          data['id'] = doc.id;
+          final isLiked = state.likedVideos.contains(doc.id);
+          
+          // Add to list
+          videos.add(MarketplaceVideoModel.fromMap(data, isLiked: isLiked));
+          debugPrint('Added video (fallback): ${doc.id}, product: ${data['productName']}');
+        }
+        
+        // Sort manually by creation date (newest first)
+        videos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        
+        // Pass the error to state for UI display
+        state = state.copyWith(error: indexError.toString());
       }
       
+      // Update state with videos and selected category
       state = state.copyWith(
         videos: videos,
         isLoading: false,
+        selectedCategory: category,
       );
+      
+      debugPrint('Updated state with ${videos.length} videos');
     } catch (e) {
+      debugPrint('Error loading videos: ${e.toString()}');
       state = state.copyWith(
         error: e.toString(),
         isLoading: false,
@@ -133,6 +223,7 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
         state = state.copyWith(videos: updatedVideos);
       }
     } catch (e) {
+      debugPrint('Error loading liked videos: ${e.toString()}');
       state = state.copyWith(error: e.toString());
     }
   }
@@ -188,6 +279,7 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
       });
       
     } catch (e) {
+      debugPrint('Error toggling like: ${e.toString()}');
       state = state.copyWith(error: e.toString());
       
       // Revert the optimistic update on error
@@ -224,6 +316,7 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
         state = state.copyWith(categories: defaultCategories);
       }
     } catch (e) {
+      debugPrint('Error loading categories: ${e.toString()}');
       state = state.copyWith(error: e.toString());
     }
   }
@@ -250,6 +343,8 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
       final uid = _auth.currentUser!.uid;
       final videoId = const Uuid().v4();
       
+      debugPrint('Starting video upload with ID: $videoId');
+      
       // Start uploading state
       state = state.copyWith(
         isUploading: true,
@@ -269,8 +364,6 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
       
       // 1. Upload video to Firebase Storage
       final storageRef = _storage.ref().child('marketplaceVideos/$videoId.mp4');
-      
-      // Create upload task
       final uploadTask = storageRef.putFile(
         videoFile,
         SettableMetadata(contentType: 'video/mp4'),
@@ -280,24 +373,23 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
         state = state.copyWith(uploadProgress: progress);
+        debugPrint('Upload progress: ${(progress * 100).toStringAsFixed(0)}%');
       });
       
       // Wait for upload to complete
       final taskSnapshot = await uploadTask;
       final videoUrl = await taskSnapshot.ref.getDownloadURL();
+      debugPrint('Video uploaded successfully, URL: $videoUrl');
       
-      // 2. Generate thumbnail (in a real app, you might want to generate this server-side)
-      String thumbnailUrl = ''; // Would be generated from video
-      
-      // 3. Create the marketplace video document
-      final videoData = MarketplaceVideoModel(
-        id: videoId,
+      // 2. Create marketplace video model
+      final MarketplaceVideoModel videoData = MarketplaceVideoModel(
+        id: videoId,  // Important: set ID explicitly
         userId: uid,
         userName: userName,
         userImage: userImage,
         businessName: businessName ?? '',
         videoUrl: videoUrl,
-        thumbnailUrl: thumbnailUrl,
+        thumbnailUrl: '',  // Would be generated from video
         productName: productName,
         price: price,
         description: description,
@@ -313,28 +405,38 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
         isFeatured: false,
       );
       
-      // 4. Save to Firestore
+      // 3. Save to Firestore - use .set with merge:true to ensure all fields are saved
       await _firestore
           .collection(Constants.marketplaceVideos)
           .doc(videoId)
-          .set(videoData.toMap());
+          .set(videoData.toMap(), SetOptions(merge: true));
       
-      // 5. Update user's posted videos
+      debugPrint('Video document saved to Firestore with ID: $videoId');
+      
+      // 4. Update user's posted videos
       await _firestore.collection(Constants.users).doc(uid).update({
         'postedMarketplaceVideos': FieldValue.arrayUnion([videoId]),
       });
       
-      // Reset uploading state
+      // 5. CRITICAL: Update local state directly with the new video
+      // This is what VideoProvider does
+      List<MarketplaceVideoModel> updatedVideos = [
+        videoData,  // Add new video at the beginning
+        ...state.videos,  // Keep existing videos
+      ];
+      
+      // Reset uploading state and update videos
       state = state.copyWith(
         isUploading: false,
         uploadProgress: 0.0,
+        videos: updatedVideos,  // Set the updated videos list
       );
       
-      // Reload videos to include the new one
-      await loadVideos(category: state.selectedCategory);
+      debugPrint('Local state updated with new video, now has ${updatedVideos.length} videos');
       
       onSuccess('Video uploaded successfully');
     } catch (e) {
+      debugPrint('Error uploading video: ${e.toString()}');
       state = state.copyWith(
         isUploading: false,
         uploadProgress: 0.0,
@@ -347,7 +449,8 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
 
   // Filter videos by category
   void filterByCategory(String? category) {
-    loadVideos(category: category);
+    debugPrint('Filtering by category: $category');
+    loadVideos(category: category, forceRefresh: true);
   }
 
   // Increment view count for a video
@@ -367,6 +470,7 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
       
       state = state.copyWith(videos: updatedVideos);
     } catch (e) {
+      debugPrint('Error incrementing view count: ${e.toString()}');
       state = state.copyWith(error: e.toString());
     }
   }
@@ -374,28 +478,32 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
   // Get user's posted videos
   Future<List<MarketplaceVideoModel>> getUserVideos(String userId) async {
     try {
+      // Use simpler query to avoid index issues
       final QuerySnapshot querySnapshot = await _firestore
           .collection(Constants.marketplaceVideos)
-          .where('userId', isEqualTo: userId)
-          .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
           .get();
       
       List<MarketplaceVideoModel> userVideos = [];
       
       for (var doc in querySnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        // Add ID to data if not present
-        if (!data.containsKey('id')) {
-          data['id'] = doc.id;
-        }
+        final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
+        
+        // Filter manually
+        if (data['userId'] != userId || data['isActive'] != true) continue;
+        
+        // Always add the document ID to the data
+        data['id'] = doc.id;
         
         final isLiked = state.likedVideos.contains(doc.id);
         userVideos.add(MarketplaceVideoModel.fromMap(data, isLiked: isLiked));
       }
       
+      // Sort manually by createdAt
+      userVideos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
       return userVideos;
     } catch (e) {
+      debugPrint('Error getting user videos: ${e.toString()}');
       state = state.copyWith(error: e.toString());
       return [];
     }
@@ -434,6 +542,7 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
         onError('You can only delete your own videos');
       }
     } catch (e) {
+      debugPrint('Error deleting video: ${e.toString()}');
       state = state.copyWith(error: e.toString());
       onError(e.toString());
     }

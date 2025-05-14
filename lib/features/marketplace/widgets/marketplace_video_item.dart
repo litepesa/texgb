@@ -1,3 +1,4 @@
+// lib/features/marketplace/widgets/marketplace_video_item.dart
 import 'package:flutter/material.dart';
 import 'package:textgb/features/marketplace/models/marketplace_video_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -23,6 +24,7 @@ class _MarketplaceVideoItemState extends ConsumerState<MarketplaceVideoItem> {
   late VideoPlayerController _videoPlayerController;
   bool _isInitialized = false;
   bool _isPlaying = false;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -33,47 +35,83 @@ class _MarketplaceVideoItemState extends ConsumerState<MarketplaceVideoItem> {
   @override
   void didUpdateWidget(MarketplaceVideoItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isActive && !_isPlaying && _isInitialized) {
-      _videoPlayerController.play();
-      setState(() {
-        _isPlaying = true;
-      });
-    } else if (!widget.isActive && _isPlaying) {
-      _videoPlayerController.pause();
-      setState(() {
-        _isPlaying = false;
-      });
+    
+    // Handle active state changes
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive && _isInitialized && !_isPlaying) {
+        _videoPlayerController.play();
+        setState(() {
+          _isPlaying = true;
+        });
+      } else if (!widget.isActive && _isInitialized && _isPlaying) {
+        _videoPlayerController.pause();
+        setState(() {
+          _isPlaying = false;
+        });
+      }
+    }
+    
+    // Handle video URL changes
+    if (widget.video.videoUrl != oldWidget.video.videoUrl) {
+      // Dispose old controller
+      if (_isInitialized) {
+        _videoPlayerController.dispose();
+      }
+      
+      // Initialize with new URL
+      _initializeVideo();
     }
   }
 
   void _initializeVideo() async {
-    _videoPlayerController = VideoPlayerController.network(widget.video.videoUrl);
-    await _videoPlayerController.initialize();
-    _videoPlayerController.setLooping(true);
+    debugPrint('Initializing video: ${widget.video.id} (${widget.video.videoUrl})');
     
-    if (widget.isActive) {
-      _videoPlayerController.play();
-      _isPlaying = true;
+    try {
+      _videoPlayerController = VideoPlayerController.network(widget.video.videoUrl);
+      await _videoPlayerController.initialize();
+      _videoPlayerController.setLooping(true);
+      
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          _hasError = false;
+        });
+        
+        // Auto-play if this item is active
+        if (widget.isActive) {
+          _videoPlayerController.play();
+          setState(() {
+            _isPlaying = true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error initializing video: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
     }
-    
-    setState(() {
-      _isInitialized = true;
-    });
   }
 
   @override
   void dispose() {
-    _videoPlayerController.dispose();
+    if (_isInitialized) {
+      _videoPlayerController.dispose();
+    }
     super.dispose();
   }
 
   void _togglePlayPause() {
-    if (_isPlaying) {
-      _videoPlayerController.pause();
-    } else {
-      _videoPlayerController.play();
-    }
+    if (!_isInitialized) return;
+    
     setState(() {
+      if (_isPlaying) {
+        _videoPlayerController.pause();
+      } else {
+        _videoPlayerController.play();
+      }
       _isPlaying = !_isPlaying;
     });
   }
@@ -86,16 +124,38 @@ class _MarketplaceVideoItemState extends ConsumerState<MarketplaceVideoItem> {
       fit: StackFit.expand,
       children: [
         // Video player
-        _isInitialized 
-            ? GestureDetector(
-                onTap: _togglePlayPause,
-                child: VideoPlayer(_videoPlayerController),
-              )
-            : Center(
-                child: CircularProgressIndicator(
-                  color: modernTheme.primaryColor,
-                ),
+        _hasError
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    color: Colors.red,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Could not load video',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  TextButton(
+                    onPressed: _initializeVideo,
+                    child: Text('Retry'),
+                  ),
+                ],
               ),
+            )
+          : _isInitialized 
+              ? GestureDetector(
+                  onTap: _togglePlayPause,
+                  child: VideoPlayer(_videoPlayerController),
+                )
+              : Center(
+                  child: CircularProgressIndicator(
+                    color: modernTheme.primaryColor,
+                  ),
+                ),
             
         // Gradient overlay at the bottom
         Positioned(
@@ -267,6 +327,10 @@ class _MarketplaceVideoItemState extends ConsumerState<MarketplaceVideoItem> {
                 Colors.white,
                 () {
                   // Navigate to comments
+                  Navigator.of(context).pushNamed(
+                    '/marketplaceCommentsScreen',
+                    arguments: widget.video.id,
+                  );
                 },
               ),
               

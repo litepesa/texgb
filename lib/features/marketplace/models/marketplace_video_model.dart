@@ -1,4 +1,6 @@
+// lib/features/marketplace/models/marketplace_video_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
 class MarketplaceVideoModel {
   final String id;
@@ -46,8 +48,9 @@ class MarketplaceVideoModel {
   });
 
   Map<String, dynamic> toMap() {
+    // Important: Do NOT include 'id' in the map for Firestore
+    // as it's already the document ID
     return {
-      'id': id,
       'userId': userId,
       'userName': userName,
       'userImage': userImage,
@@ -70,8 +73,14 @@ class MarketplaceVideoModel {
   }
 
   factory MarketplaceVideoModel.fromMap(Map<String, dynamic> map, {bool isLiked = false}) {
+    final id = map['id'] ?? '';
+    
+    if (id.isEmpty) {
+      debugPrint('WARNING: Creating MarketplaceVideoModel with empty ID');
+    }
+    
     return MarketplaceVideoModel(
-      id: map['id'] ?? '',
+      id: id,
       userId: map['userId'] ?? '',
       userName: map['userName'] ?? '',
       userImage: map['userImage'] ?? '',

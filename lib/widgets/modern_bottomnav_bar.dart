@@ -1,3 +1,4 @@
+// lib/widgets/modern_bottomnav_bar.dart - Improved for better spacing
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -28,10 +29,19 @@ class ModernBottomNavBar extends StatelessWidget {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final effectiveElevation = elevation ?? (isDarkMode ? 1.0 : 2.0);
+    
+    // Get system navigation height to add proper padding
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      // Adjust margins to ensure we're not too close to system navigation
+      margin: EdgeInsets.only(
+        left: 16, 
+        right: 16, 
+        bottom: bottomPadding + 8, // Add bottom padding based on system nav height
+        top: 12,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: backgroundColor,
