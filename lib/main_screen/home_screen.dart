@@ -1,3 +1,4 @@
+// lib/main_screen/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,6 +51,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+    
+    // Ensure system UI is updated when page changes via tab
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateSystemUI();
+    });
   }
 
   @override
@@ -75,6 +81,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       systemNavigationBarContrastEnforced: false,
     ));
   }
+  
+  // Handle page changes
+  void _onPageChanged(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    
+    // Ensure system UI is updated when page changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateSystemUI();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +102,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Calculate bottom padding to account for system navigation
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     
-    // Update system UI when tab changes
+    // Update system UI when widget rebuilds
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateSystemUI();
     });
@@ -101,11 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(), // Disable swiping between tabs
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+        onPageChanged: _onPageChanged, // Use the dedicated method
         children: [
           _buildChatsTab(modernTheme),
           _buildStatusTab(modernTheme),

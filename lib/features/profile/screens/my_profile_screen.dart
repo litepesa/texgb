@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
@@ -30,12 +31,32 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     super.initState();
     final user = ref.read(currentUserProvider);
     _aboutController = TextEditingController(text: user?.aboutMe ?? '');
+    
+    // Ensure system UI is consistent with HomeScreen
+    _updateSystemUI();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Update system UI when dependencies change
+    _updateSystemUI();
   }
   
   @override
   void dispose() {
     _aboutController.dispose();
     super.dispose();
+  }
+  
+  // Method to ensure system navigation bar stays transparent
+  void _updateSystemUI() {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ));
   }
 
   Future<void> _selectImage() async {
@@ -151,6 +172,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     final user = ref.watch(currentUserProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
+    // Update system UI when widget rebuilds
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateSystemUI();
+    });
+
     if (user == null) {
       return const Scaffold(
         body: Center(
@@ -164,6 +190,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
+      // Important: set extendBody to true to allow content to extend behind system nav bar
+      extendBody: true,
       body: SingleChildScrollView(
         child: Column(
           children: [
