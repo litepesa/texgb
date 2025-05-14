@@ -1,0 +1,309 @@
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/constants.dart';
+import 'package:textgb/enums/enums.dart';
+import 'package:textgb/features/status/models/status_model.dart';
+import 'package:textgb/models/user_model.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:uuid/uuid.dart';
+
+// Provider for the repository
+final statusRepositoryProvider = Provider((ref) => StatusRepository(
+      firestore: FirebaseFirestore.instance,
+      auth: FirebaseAuth.instance,
+      storage: FirebaseStorage.instance,
+    ));
+
+class StatusRepository {
+  final FirebaseFirestore firestore;
+  final FirebaseAuth auth;
+  final FirebaseStorage storage;
+
+  StatusRepository({
+    required this.firestore,
+    required this.auth,
+    required this.storage,
+  });
+
+  // Create a text status
+  Future<StatusModel> createTextStatus({
+    required UserModel currentUser,
+    required String text,
+    required StatusPrivacyType privacyType,
+    List<String> visibleTo = const [],
+    List<String> hiddenFrom = const [],
+  }) async {
+    try {
+      final statusId = const Uuid().v4();
+      final createdAt = DateTime.now().millisecondsSinceEpoch.toString();
+      // Status expires after 24 hours
+      final expiresAt = DateTime.now()
+          .add(const Duration(hours: 24))
+          .millisecondsSinceEpoch
+          .toString();
+
+      final status = StatusModel(
+        statusId: statusId,
+        userId: currentUser.uid,
+        userName: currentUser.name,
+        userImage: currentUser.image,
+        content: text,
+        type: StatusType.text,
+        createdAt: createdAt,
+        expiresAt: expiresAt,
+        viewedBy: [], // Initially no one has viewed it
+        privacyType: privacyType,
+        visibleTo: visibleTo,
+        hiddenFrom: hiddenFrom,
+      );
+
+      // Add status to Firestore
+      await firestore
+          .collection(Constants.statusPosts)
+          .doc(statusId)
+          .set(status.toMap());
+
+      return status;
+    } catch (e) {
+      debugPrint('Error creating text status: $e');
+      throw Exception('Failed to create status: $e');
+    }
+  }
+
+  // Create a media status (image or video)
+  Future<StatusModel> createMediaStatus({
+    required UserModel currentUser,
+    required File mediaFile,
+    required StatusType mediaType,
+    String caption = '',
+    required StatusPrivacyType privacyType,
+    List<String> visibleTo = const [],
+    List<String> hiddenFrom = const [],
+  }) async {
+    try {
+      final statusId = const Uuid().v4();
+      final createdAt = DateTime.now().millisecondsSinceEpoch.toString();
+      final expiresAt = DateTime.now()
+          .add(const Duration(hours: 24))
+          .millisecondsSinceEpoch
+          .toString();
+
+      // Upload media file to storage
+      final mediaUrl = await storeFileToStorage(
+        file: mediaFile,
+        reference: '${Constants.statusFiles}/${currentUser.uid}/$statusId',
+      );
+
+      final status = StatusModel(
+        statusId: statusId,
+        userId: currentUser.uid,
+        userName: currentUser.name,
+        userImage: currentUser.image,
+        content: mediaUrl,
+        type: mediaType,
+        caption: caption,
+        createdAt: createdAt,
+        expiresAt: expiresAt,
+        viewedBy: [],
+        privacyType: privacyType,
+        visibleTo: visibleTo,
+        hiddenFrom: hiddenFrom,
+      );
+
+      // Add status to Firestore
+      await firestore
+          .collection(Constants.statusPosts)
+          .doc(statusId)
+          .set(status.toMap());
+
+      return status;
+    } catch (e) {
+      debugPrint('Error creating media status: $e');
+      throw Exception('Failed to create status: $e');
+    }
+  }
+
+  // Get all active statuses for the current user
+  Stream<List<StatusModel>> getMyStatuses() {
+    final userId = auth.currentUser?.uid;
+    if (userId == null) {
+      return Stream.value([]);
+    }
+
+    // Get only statuses that haven't expired
+    final now = DateTime.now().millisecondsSinceEpoch.toString();
+    return firestore
+        .collection(Constants.statusPosts)
+        .where(Constants.userId, isEqualTo: userId)
+        .where('expiresAt', isGreaterThan: now)
+        .where('isActive', isEqualTo: true)
+        .orderBy('expiresAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => StatusModel.fromMap(doc.data()))
+          .toList();
+    });
+  }
+
+  // Get statuses from contacts
+  Stream<List<UserStatusSummary>> getContactsStatuses(
+      List<String> contactsUIDs, List<String> mutedUsers) {
+    if (contactsUIDs.isEmpty) {
+      return Stream.value([]);
+    }
+
+    // Filter out muted users
+    final visibleContacts =
+        contactsUIDs.where((uid) => !mutedUsers.contains(uid)).toList();
+
+    if (visibleContacts.isEmpty) {
+      return Stream.value([]);
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch.toString();
+    return firestore
+        .collection(Constants.statusPosts)
+        .where(Constants.userId, whereIn: visibleContacts)
+        .where('expiresAt', isGreaterThan: now)
+        .where('isActive', isEqualTo: true)
+        .orderBy('expiresAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      // Convert status posts to status models
+      final allStatuses =
+          snapshot.docs.map((doc) => StatusModel.fromMap(doc.data())).toList();
+
+      // Group statuses by userId
+      final Map<String, List<StatusModel>> statusesByUser = {};
+      for (final status in allStatuses) {
+        if (!statusesByUser.containsKey(status.userId)) {
+          statusesByUser[status.userId] = [];
+        }
+        statusesByUser[status.userId]!.add(status);
+      }
+
+      // Convert to UserStatusSummary list
+      List<UserStatusSummary> summaries = [];
+      statusesByUser.forEach((userId, statuses) {
+        // Skip if no statuses for this user
+        if (statuses.isEmpty) return;
+
+        // Get latest status time
+        final latestTimestamp = statuses.map((s) => int.parse(s.createdAt)).reduce((max, time) => time > max ? time : max);
+        final latestTime = DateTime.fromMillisecondsSinceEpoch(latestTimestamp);
+
+        // Check if user has any unviewed statuses
+        final currentUserId = auth.currentUser?.uid ?? '';
+        final hasUnviewed = statuses.any((status) => !status.viewedBy.contains(currentUserId));
+
+        summaries.add(UserStatusSummary(
+          userId: userId,
+          userName: statuses.first.userName,
+          userImage: statuses.first.userImage,
+          statuses: statuses,
+          hasUnviewed: hasUnviewed,
+          latestStatusTime: latestTime,
+        ));
+      });
+
+      // Sort summaries by whether they have unviewed statuses and then by latest status time
+      summaries.sort((a, b) {
+        if (a.hasUnviewed && !b.hasUnviewed) return -1;
+        if (!a.hasUnviewed && b.hasUnviewed) return 1;
+        return b.latestStatusTime.compareTo(a.latestStatusTime);
+      });
+
+      return summaries;
+    });
+  }
+
+  // Mark status as viewed
+  Future<void> markStatusAsViewed(String statusId) async {
+    final currentUserId = auth.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    await firestore.collection(Constants.statusPosts).doc(statusId).update({
+      'viewedBy': FieldValue.arrayUnion([currentUserId]),
+      Constants.statusViewCount: FieldValue.increment(1),
+    });
+  }
+
+  // Delete a status
+  Future<void> deleteStatus(String statusId) async {
+    final currentUserId = auth.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    // Check if status belongs to current user
+    final statusDoc = await firestore.collection(Constants.statusPosts).doc(statusId).get();
+    if (statusDoc.exists) {
+      final status = StatusModel.fromMap(statusDoc.data()!);
+      if (status.userId == currentUserId) {
+        // Set status as inactive rather than deleting
+        await firestore.collection(Constants.statusPosts).doc(statusId).update({
+          'isActive': false,
+        });
+      } else {
+        throw Exception('You can only delete your own statuses');
+      }
+    }
+  }
+
+  // Get statuses by ID (for viewing a specific status)
+  Future<StatusModel?> getStatusById(String statusId) async {
+    try {
+      final statusDoc = await firestore.collection(Constants.statusPosts).doc(statusId).get();
+      if (statusDoc.exists) {
+        return StatusModel.fromMap(statusDoc.data()!);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting status by ID: $e');
+      return null;
+    }
+  }
+  
+  // Update status privacy settings
+  Future<void> updateStatusPrivacy({
+    required String statusId,
+    required StatusPrivacyType privacyType,
+    List<String>? visibleTo,
+    List<String>? hiddenFrom,
+  }) async {
+    try {
+      final currentUserId = auth.currentUser?.uid;
+      if (currentUserId == null) return;
+      
+      // Check if status belongs to current user
+      final statusDoc = await firestore.collection(Constants.statusPosts).doc(statusId).get();
+      if (statusDoc.exists) {
+        final status = StatusModel.fromMap(statusDoc.data()!);
+        if (status.userId == currentUserId) {
+          final Map<String, dynamic> updateData = {
+            'privacyType': privacyType.toString().split('.').last,
+          };
+          
+          if (visibleTo != null) {
+            updateData['visibleTo'] = visibleTo;
+          }
+          
+          if (hiddenFrom != null) {
+            updateData['hiddenFrom'] = hiddenFrom;
+          }
+          
+          await firestore.collection(Constants.statusPosts).doc(statusId).update(updateData);
+        } else {
+          throw Exception('You can only update your own statuses');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating status privacy: $e');
+      throw Exception('Failed to update status privacy: $e');
+    }
+  }
+}

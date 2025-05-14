@@ -19,6 +19,12 @@ import 'package:textgb/features/marketplace/screens/marketplace_video_feed_scree
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
+import 'package:textgb/features/status/models/status_model.dart';
+import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/my_statuses_screen.dart';
+import 'package:textgb/features/status/screens/status_detail_screen.dart';
+import 'package:textgb/features/status/screens/status_overview_screen.dart';
+import 'package:textgb/features/status/screens/status_viewer_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/models/user_model.dart';
@@ -131,6 +137,19 @@ class AppRoot extends ConsumerWidget {
               chatId: args['chatId'] as String,
               contact: args['contact'] as UserModel,
             );
+          },
+          
+          // Status routes
+          Constants.statusOverviewScreen: (context) => const StatusOverviewScreen(),
+          Constants.createStatusScreen: (context) => const CreateStatusScreen(),
+          Constants.myStatusesScreen: (context) => const MyStatusesScreen(),
+          Constants.statusViewerScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as UserStatusSummary;
+            return StatusViewerScreen(userStatus: args);
+          },
+          Constants.statusDetailScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as StatusModel;
+            return StatusDetailScreen(status: args);
           },
           
           // Marketplace routes

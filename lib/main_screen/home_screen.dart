@@ -1,4 +1,3 @@
-// lib/main_screen/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +5,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/marketplace/screens/marketplace_video_feed_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
+import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -123,7 +123,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onPageChanged: _onPageChanged, // Use the dedicated method
         children: [
           const ChatsTab(), // Use the real ChatsTab component
-          _buildStatusTab(modernTheme),
+          const StatusOverviewScreen(), // Use our new StatusOverviewScreen 
           const MarketplaceVideoFeedScreen(), // Use the new marketplace implementation
           const MyProfileScreen(), // Use the existing profile screen
         ],
@@ -280,7 +280,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             color: modernTheme.textColor,
           ),
           onPressed: () {
-            // TODO: Open camera for status
+            Navigator.pushNamed(context, Constants.createStatusScreen);
           },
         ),
       ];
@@ -331,7 +331,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case 1: // Status
         fabIcon = Icons.add;
         onPressed = () {
-          // TODO: Add new status
+          // Navigate to create status screen
+          Navigator.pushNamed(context, Constants.createStatusScreen);
         };
         break;
       default:
@@ -345,159 +346,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       elevation: 4,
       onPressed: onPressed,
       child: Icon(fabIcon),
-    );
-  }
-  
-  // Status tab content builder
-  Widget _buildStatusTab(ModernThemeExtension modernTheme) {
-    return Container(
-      color: modernTheme.backgroundColor,
-      child: ListView(
-        padding: EdgeInsets.only(top: 8.0, bottom: 100), // Padding at bottom to prevent content being hidden behind bottom nav
-        children: [
-          // My status
-          ListTile(
-            leading: Stack(
-              children: [
-                CircleAvatar(
-                  backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-                  radius: 24,
-                  child: const Text(
-                    "Me",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: modernTheme.backgroundColor!,
-                        width: 2,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.add,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            title: Text(
-              "My Status",
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: Text(
-              "Tap to add status update",
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-              ),
-            ),
-            onTap: () {
-              // TODO: Add new status
-            },
-          ),
-          
-          // Recent updates
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              "Recent Updates",
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          
-          // Status items
-          ...List.generate(
-            5,
-            (index) => _buildStatusItem(modernTheme, index),
-          ),
-          
-          // Viewed updates
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              "Viewed Updates",
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          
-          // Viewed status items
-          ...List.generate(
-            3,
-            (index) => _buildStatusItem(modernTheme, index + 5, isViewed: true),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildStatusItem(ModernThemeExtension modernTheme, int index, {bool isViewed = false}) {
-    final name = "User ${index + 1}";
-    final time = index % 4 == 0 
-        ? "Just now" 
-        : index % 4 == 1 
-            ? "5 min ago" 
-            : index % 4 == 2 
-                ? "1 hour ago"
-                : "Yesterday";
-    
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isViewed 
-                ? modernTheme.textSecondaryColor!
-                : modernTheme.primaryColor!,
-            width: 2,
-          ),
-        ),
-        child: CircleAvatar(
-          backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-          child: Text(
-            name.substring(0, 1),
-            style: TextStyle(
-              color: modernTheme.primaryColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-      title: Text(
-        name,
-        style: TextStyle(
-          color: modernTheme.textColor,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      subtitle: Text(
-        time,
-        style: TextStyle(
-          color: modernTheme.textSecondaryColor,
-        ),
-      ),
-      onTap: () {
-        // TODO: View status
-      },
     );
   }
 }

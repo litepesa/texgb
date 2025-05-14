@@ -11,7 +11,8 @@ class UserModel {
   String createdAt;
   bool isOnline;
   List<String> contactsUIDs;  
-  List<String> blockedUIDs;   
+  List<String> blockedUIDs;
+  List<String> statusMutedUsers; // Added for status feature
 
   UserModel({
     required this.uid,
@@ -25,6 +26,7 @@ class UserModel {
     required this.isOnline,
     required this.contactsUIDs,
     required this.blockedUIDs,
+    this.statusMutedUsers = const [], // Default to empty list
   });
 
   // from map
@@ -41,6 +43,7 @@ class UserModel {
       isOnline: map[Constants.isOnline] ?? false,
       contactsUIDs: List<String>.from(map[Constants.contactsUIDs] ?? []),
       blockedUIDs: List<String>.from(map[Constants.blockedUIDs] ?? []),
+      statusMutedUsers: List<String>.from(map[Constants.statusMutedUsers] ?? []),
     );
   }
 
@@ -57,6 +60,7 @@ class UserModel {
     bool? isOnline,
     List<String>? contactsUIDs,
     List<String>? blockedUIDs,
+    List<String>? statusMutedUsers,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -70,6 +74,7 @@ class UserModel {
       isOnline: isOnline ?? this.isOnline,
       contactsUIDs: contactsUIDs ?? List<String>.from(this.contactsUIDs),
       blockedUIDs: blockedUIDs ?? List<String>.from(this.blockedUIDs),
+      statusMutedUsers: statusMutedUsers ?? List<String>.from(this.statusMutedUsers),
     );
   }
 
@@ -87,6 +92,7 @@ class UserModel {
       Constants.isOnline: isOnline,
       Constants.contactsUIDs: contactsUIDs,
       Constants.blockedUIDs: blockedUIDs,
+      Constants.statusMutedUsers: statusMutedUsers,
     };
   }
 
