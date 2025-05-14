@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -86,6 +88,36 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
         _isSearching = false;
         _error = 'Error adding contact: ${e.toString()}';
       });
+    }
+  }
+
+  // Start a chat with the found user
+  void _startChatWithContact() async {
+    if (_foundUser == null) return;
+    
+    try {
+      // Get the chat ID for this contact
+      final chatNotifier = ref.read(chatProvider.notifier);
+      final chatId = chatNotifier.getChatIdForContact(_foundUser!.uid);
+      
+      // Create a new chat or open existing chat
+      await chatNotifier.createChat(_foundUser!);
+      
+      // Navigate to chat screen
+      if (mounted) {
+        Navigator.pushNamed(
+          context,
+          Constants.chatScreen,
+          arguments: {
+            'chatId': chatId,
+            'contact': _foundUser!,
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error starting chat: $e');
+      }
     }
   }
 
@@ -234,8 +266,8 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                             Expanded(
                               child: OutlinedButton.icon(
                                 onPressed: _isSearching ? null : () {
-                                  // Will be implemented in chat module
-                                  showSnackBar(context, 'Chat feature coming soon');
+                                  // Start chat with contact
+                                  _startChatWithContact();
                                 },
                                 icon: const Icon(CupertinoIcons.chat_bubble_text),
                                 label: const Text('Message'),

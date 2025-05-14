@@ -7,6 +7,7 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
@@ -122,6 +123,14 @@ class AppRoot extends ConsumerWidget {
           Constants.contactProfileScreen: (context) {
             final args = ModalRoute.of(context)!.settings.arguments as UserModel;
             return ContactProfileScreen(contact: args);
+          },
+          // Chat screen route
+          Constants.chatScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return ChatScreen(
+              chatId: args['chatId'] as String,
+              contact: args['contact'] as UserModel,
+            );
           },
           
           // Marketplace routes

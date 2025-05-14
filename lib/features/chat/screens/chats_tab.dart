@@ -31,7 +31,7 @@ class ChatsTab extends ConsumerWidget {
           itemCount: chats.length,
           itemBuilder: (context, index) {
             final chat = chats[index];
-            return _buildChatItem(context, chat);
+            return _buildChatItem(context, ref, chat);
           },
         );
       },
@@ -92,7 +92,7 @@ class ChatsTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildChatItem(BuildContext context, ChatModel chat) {
+  Widget _buildChatItem(BuildContext context, WidgetRef ref, ChatModel chat) {
     final modernTheme = context.modernTheme;
     
     // Format time
@@ -188,7 +188,7 @@ class ChatsTab extends ConsumerWidget {
             ),
         ],
       ),
-      onTap: () => _openChatScreen(context, chat),
+      onTap: () => _openChatScreen(context, ref, chat),
     );
   }
 
@@ -213,26 +213,61 @@ class ChatsTab extends ConsumerWidget {
     }
   }
 
-  void _openChatScreen(BuildContext context, ChatModel chat) async {
+  void _openChatScreen(BuildContext context, WidgetRef ref, ChatModel chat) async {
     try {
-      // Get contact user data
-      final contactsProvider = ProviderContainer().read(contactsNotifierProvider.notifier);
-      final contact = await contactsProvider.searchUserByPhoneNumber(chat.contactUID);
+      // Get contact data
+      final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+      final contact = await contactsNotifier.searchUserByPhoneNumber(chat.contactUID);
       
       if (contact != null) {
-        Navigator.pushNamed(
-          context,
-          Constants.chatScreen,
-          arguments: {
-            'chatId': chat.id,
-            'contact': contact,
-          },
-        );
+        // First open the chat directly with the ChatNotifier
+        await ref.read(chatProvider.notifier).openChat(chat.id, contact);
+
+        // Then navigate to the chat screen
+        if (context.mounted) {
+          Navigator.pushNamed(
+            context,
+            Constants.chatScreen,
+            arguments: {
+              'chatId': chat.id,
+              'contact': contact,
+            },
+          );
+        }
       } else {
-        showSnackBar(context, 'Contact not found');
+        // Use the contact information from the chat model as fallback
+        // This ensures we can still open the chat even if we can't fetch the full contact
+        final fallbackContact = UserModel(
+          uid: chat.contactUID,
+          name: chat.contactName,
+          phoneNumber: chat.contactUID, // Using contactUID as phoneNumber
+          image: chat.contactImage,
+          aboutMe: '',
+          lastSeen: DateTime.now().millisecondsSinceEpoch.toString(),
+          token: '',
+          isOnline: false,
+          createdAt: DateTime.now().millisecondsSinceEpoch.toString(),
+          contactsUIDs: [],
+          blockedUIDs: [],
+        );
+        
+        await ref.read(chatProvider.notifier).openChat(chat.id, fallbackContact);
+
+        if (context.mounted) {
+          Navigator.pushNamed(
+            context,
+            Constants.chatScreen,
+            arguments: {
+              'chatId': chat.id,
+              'contact': fallbackContact,
+            },
+          );
+        }
       }
     } catch (e) {
-      showSnackBar(context, 'Error opening chat: $e');
+      if (context.mounted) {
+        showSnackBar(context, 'Error opening chat: $e');
+      }
     }
   }
 }

@@ -45,81 +45,136 @@ class _ChatInputState extends State<ChatInput> {
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final chatTheme = context.chatTheme;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 8,
-        bottom: 8 + MediaQuery.of(context).padding.bottom,
-      ),
-      color: chatTheme.inputBackgroundColor,
-      child: Row(
-        children: [
-          // Attachment button
-          IconButton(
-            icon: Icon(
-              Icons.attach_file,
-              color: modernTheme.textSecondaryColor,
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 4,
+          vertical: 4,
+        ),
+        margin: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          bottom: 8 + bottomPadding / 2,
+          top: 4,
+        ),
+        decoration: BoxDecoration(
+          color: chatTheme.inputBackgroundColor,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            onPressed: widget.onAttachmentTap,
-          ),
-          
-          // Message input field
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: modernTheme.surfaceVariantColor,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: widget.controller,
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 16,
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Attachment button
+            Material(
+              color: Colors.transparent,
+              child: IconButton(
+                icon: Icon(
+                  Icons.attach_file_rounded,
+                  color: modernTheme.primaryColor?.withOpacity(0.7),
+                  size: 24,
                 ),
-                maxLines: 5,
-                minLines: 1,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  hintText: 'Type a message',
-                  hintStyle: TextStyle(
-                    color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                ),
+                onPressed: widget.onAttachmentTap,
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+                splashRadius: 24,
               ),
             ),
-          ),
-          
-          const SizedBox(width: 8),
-          
-          // Send or voice button
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: _showSendButton
-                ? IconButton(
-                    key: const ValueKey('send'),
-                    icon: Icon(
-                      Icons.send,
-                      color: modernTheme.primaryColor,
-                    ),
-                    onPressed: widget.onSend,
-                  )
-                : IconButton(
-                    key: const ValueKey('mic'),
-                    icon: Icon(
-                      Icons.mic,
-                      color: modernTheme.textSecondaryColor,
-                    ),
-                    onPressed: () {
-                      // TODO: Implement voice recording
-                    },
+            
+            // Message input field
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: TextField(
+                  controller: widget.controller,
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 16,
                   ),
-          ),
-        ],
+                  maxLines: 5,
+                  minLines: 1,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: 'Message',
+                    hintStyle: TextStyle(
+                      color: modernTheme.textSecondaryColor?.withOpacity(0.7),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    isDense: true,
+                    alignLabelWithHint: true,
+                  ),
+                  textAlignVertical: TextAlignVertical.center,
+                  cursorColor: modernTheme.primaryColor,
+                  cursorWidth: 1.5,
+                  cursorHeight: 20,
+                ),
+              ),
+            ),
+            
+            // Send or voice button
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2, right: 2),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: _showSendButton ? 70 : 40,
+                height: 40,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: _showSendButton
+                      ? ElevatedButton(
+                          key: const ValueKey('send_button'),
+                          onPressed: widget.onSend,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: modernTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            minimumSize: const Size(70, 40),
+                          ),
+                          child: const Text(
+                            'Send',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          key: const ValueKey('mic_button'),
+                          decoration: BoxDecoration(
+                            color: modernTheme.surfaceVariantColor?.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.mic_rounded,
+                              color: modernTheme.primaryColor,
+                              size: 22,
+                            ),
+                            onPressed: () {
+                              // TODO: Implement voice recording
+                            },
+                            padding: EdgeInsets.zero,
+                            splashRadius: 24,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

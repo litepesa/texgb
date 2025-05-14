@@ -79,7 +79,7 @@ class ChatNotifier extends _$ChatNotifier {
     // Listen to the current chat messages if a chat is selected
     ref.listen(currentUserProvider, (previous, next) {
       if (next != null && state.value?.currentChatId != null) {
-        _openChat(state.value!.currentChatId!, state.value!.currentChatContact!);
+        openChat(state.value!.currentChatId!, state.value!.currentChatContact!);
       }
     });
   }
@@ -271,7 +271,5 @@ Stream<List<MessageModel>> messageStream(MessageStreamRef ref, String chatId) {
   return repository.getMessages(chatId);
 }
 
-// Provider for the Chat Notifier
-final chatProvider = AsyncNotifierProvider<ChatNotifier, ChatState>(() {
-  return ChatNotifier();
-});
+// Use the auto-generated provider for ChatNotifier
+final chatProvider = chatNotifierProvider;

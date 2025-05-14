@@ -4,6 +4,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/models/user_model.dart';
@@ -90,6 +91,34 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
     } catch (e) {
       if (mounted) {
         showSnackBar(context, 'Error syncing contacts: $e');
+      }
+    }
+  }
+  
+  // Start a chat with a contact
+  void _startChatWithContact(UserModel contact) async {
+    try {
+      // Get the chat ID for this contact
+      final chatNotifier = ref.read(chatProvider.notifier);
+      final chatId = chatNotifier.getChatIdForContact(contact.uid);
+      
+      // Create a new chat or open existing chat
+      await chatNotifier.createChat(contact);
+      
+      // Navigate to chat screen
+      if (mounted) {
+        Navigator.pushNamed(
+          context,
+          Constants.chatScreen,
+          arguments: {
+            'chatId': chatId,
+            'contact': contact,
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error starting chat: $e');
       }
     }
   }
@@ -532,8 +561,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
             icon: const Icon(CupertinoIcons.chat_bubble_text),
             onPressed: () {
               // Start new chat with contact
-              // Will be implemented in chat module
-              showSnackBar(context, 'Chat feature coming soon');
+              _startChatWithContact(contact);
             },
           ),
           PopupMenuButton<String>(
@@ -604,7 +632,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
       onTap: () {
         // Navigate to chat or contact info based on preference
         // For now, start a chat
-        showSnackBar(context, 'Chat feature coming soon');
+        _startChatWithContact(contact);
       },
     );
   }

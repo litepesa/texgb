@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/marketplace/screens/marketplace_video_feed_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -121,7 +122,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         physics: const NeverScrollableScrollPhysics(), // Disable swiping between tabs
         onPageChanged: _onPageChanged, // Use the dedicated method
         children: [
-          _buildChatsTab(modernTheme),
+          const ChatsTab(), // Use the real ChatsTab component
           _buildStatusTab(modernTheme),
           const MarketplaceVideoFeedScreen(), // Use the new marketplace implementation
           const MyProfileScreen(), // Use the existing profile screen
@@ -347,105 +348,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
   
-  // Tab content builders
-  Widget _buildChatsTab(ModernThemeExtension modernTheme) {
-    return Container(
-      color: modernTheme.backgroundColor,
-      child: ListView.builder(
-        padding: EdgeInsets.only(top: 8.0, bottom: 100), // Padding at bottom to prevent content being hidden behind bottom nav
-        itemCount: 15, // Sample count
-        itemBuilder: (context, index) {
-          return _buildChatItem(modernTheme, index);
-        },
-      ),
-    );
-  }
-  
-  Widget _buildChatItem(ModernThemeExtension modernTheme, int index) {
-    // Sample data
-    final name = "User ${index + 1}";
-    final message = index % 3 == 0 
-        ? "Hey, how are you doing today?" 
-        : index % 3 == 1 
-            ? "Can we meet tomorrow for lunch?"
-            : "I sent you the documents you requested";
-    final time = index % 4 == 0 
-        ? "Just now" 
-        : index % 4 == 1 
-            ? "5 min ago" 
-            : index % 4 == 2 
-                ? "1 hour ago"
-                : "Yesterday";
-    final hasUnread = index % 3 == 0;
-    final unreadCount = hasUnread ? (index % 5) + 1 : 0;
-    
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-        child: Text(
-          name.substring(0, 1),
-          style: TextStyle(
-            color: modernTheme.primaryColor,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      title: Text(
-        name,
-        style: TextStyle(
-          color: modernTheme.textColor,
-          fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      subtitle: Text(
-        message,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: hasUnread 
-              ? modernTheme.textColor 
-              : modernTheme.textSecondaryColor,
-          fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
-        ),
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            time,
-            style: TextStyle(
-              color: hasUnread 
-                  ? modernTheme.primaryColor 
-                  : modernTheme.textSecondaryColor,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 5),
-          if (hasUnread)
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                unreadCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
-      ),
-      onTap: () {
-        // TODO: Open chat
-      },
-    );
-  }
-  
+  // Status tab content builder
   Widget _buildStatusTab(ModernThemeExtension modernTheme) {
     return Container(
       color: modernTheme.backgroundColor,

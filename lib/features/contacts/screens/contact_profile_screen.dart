@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -76,6 +78,34 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     }
   }
 
+  // Start a chat with the contact
+  void _startChatWithContact() async {
+    try {
+      // Get the chat ID for this contact
+      final chatNotifier = ref.read(chatProvider.notifier);
+      final chatId = chatNotifier.getChatIdForContact(_contact.uid);
+      
+      // Create a new chat or open existing chat
+      await chatNotifier.createChat(_contact);
+      
+      // Navigate to chat screen
+      if (mounted) {
+        Navigator.pushNamed(
+          context,
+          Constants.chatScreen,
+          arguments: {
+            'chatId': chatId,
+            'contact': _contact,
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error starting chat: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -138,8 +168,8 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
                 icon: const Icon(Icons.chat),
                 tooltip: 'Message',
                 onPressed: () {
-                  // Start chat
-                  showSnackBar(context, 'Chat feature coming soon');
+                  // Start chat with contact
+                  _startChatWithContact();
                 },
               ),
               PopupMenuButton<String>(
@@ -225,8 +255,8 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
                             IconButton(
                               icon: const Icon(Icons.chat),
                               onPressed: () {
-                                // Message
-                                showSnackBar(context, 'Chat feature coming soon');
+                                // Start chat with contact
+                                _startChatWithContact();
                               },
                             ),
                             IconButton(
@@ -237,8 +267,7 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
                               },
                             ),
                           ],
-                        ),
-                      ),
+                        )),
                       // Last Seen
                       if (_contact.lastSeen.isNotEmpty)
                         ListTile(
