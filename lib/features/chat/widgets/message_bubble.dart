@@ -37,6 +37,12 @@ class MessageBubble extends ConsumerWidget {
       return _buildDeletedMessage(context, isMe);
     }
 
+    // Get bubble styles from theme
+    final chatTheme = context.chatTheme;
+    final borderRadius = isMe 
+        ? BorderRadius.circular(16) // Use fixed radius instead of theme
+        : BorderRadius.circular(16);
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
@@ -46,52 +52,43 @@ class MessageBubble extends ConsumerWidget {
         child: GestureDetector(
           onTap: onTap,
           onLongPress: onLongPress,
-          child: Stack(
-            children: [
-              Container(
-                margin: EdgeInsets.only(
-                  top: 4,
-                  bottom: 4,
-                  left: isMe ? 48 : 8,
-                  right: isMe ? 8 : 48,
+          child: Container(
+            margin: EdgeInsets.only(
+              top: 4,
+              bottom: 4,
+              left: isMe ? 48 : 8,
+              right: isMe ? 8 : 48,
+            ),
+            decoration: BoxDecoration(
+              color: isMe 
+                  ? chatTheme.senderBubbleColor 
+                  : chatTheme.receiverBubbleColor,
+              borderRadius: borderRadius,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Reply message if present
+                if (message.repliedMessage != null)
+                  _buildReplyPreview(context, isMe),
+                
+                // Message content
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+                  child: _buildMessageContent(context, isMe),
                 ),
-                decoration: BoxDecoration(
-                  color: isMe 
-                      ? context.chatTheme.senderBubbleColor 
-                      : context.chatTheme.receiverBubbleColor,
-                  borderRadius: isMe 
-                      ? context.chatTheme.senderBubbleRadius 
-                      : context.chatTheme.receiverBubbleRadius,
+                
+                // Timestamp and seen status
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8, bottom: 4),
+                    child: _buildTimestampAndSeen(context, isMe),
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Reply message if present
-                    if (message.repliedMessage != null)
-                      _buildReplyPreview(context, isMe),
-                    
-                    // Message content
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-                      child: _buildMessageContent(context, isMe),
-                    ),
-                    
-                    // Timestamp and seen status
-                    Positioned(
-                      bottom: 4,
-                      right: 8,
-                      child: Align(
-                        alignment: Alignment.bottomRight,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8, bottom: 4),
-                          child: _buildTimestampAndSeen(context, isMe),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
