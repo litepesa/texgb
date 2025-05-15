@@ -7,8 +7,6 @@ import 'package:textgb/features/marketplace/screens/marketplace_video_feed_scree
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-// Import the live screen (you'll need to create this)
-import 'package:textgb/features/live/screens/live_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,20 +19,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
   final PageController _pageController = PageController();
   
-  // Updated list of tab names (removed Profile, added Live)
+  // List of tab names
   final List<String> _tabNames = [
     'Chats',
     'Status',
     'Marketplace',
-    'Live'
+    'Profile'
   ];
   
-  // Updated list of tab icons (removed Profile icon, added Live icon)
+  // List of tab icons
   final List<IconData> _tabIcons = [
     Icons.chat_bubble_rounded,
     Icons.photo_library_rounded,
     Icons.shopping_bag_rounded,
-    Icons.live_tv_rounded  // Added Live icon
+    Icons.person_rounded
   ];
 
   @override
@@ -59,14 +57,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateSystemUI();
     });
-  }
-
-  // Method to navigate to profile screen
-  void _navigateToProfile() {
-    Navigator.push(
-      context, 
-      MaterialPageRoute(builder: (context) => const MyProfileScreen())
-    );
   }
 
   @override
@@ -120,7 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     
     return Scaffold(
       extendBody: true, // Important for the transparent navigation bar
-      extendBodyBehindAppBar: _currentIndex == 2, // Only extend content behind AppBar for marketplace
+      extendBodyBehindAppBar: _currentIndex == 2 || _currentIndex == 3, // Only extend content behind AppBar for tabs without AppBar
       backgroundColor: _currentIndex == 2 ? Colors.black : modernTheme.backgroundColor,
       
       // Custom AppBar
@@ -135,7 +125,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const ChatsTab(), // Use the real ChatsTab component
           const StatusOverviewScreen(), // Use our new StatusOverviewScreen 
           const MarketplaceVideoFeedScreen(), // Use the new marketplace implementation
-          const LiveScreen(), // Use the new LiveScreen (you'll need to create this)
+          const MyProfileScreen(), // Use the existing profile screen
         ],
       ),
       
@@ -191,17 +181,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       
       // FAB for new chat or content
-      floatingActionButton: _currentIndex == 2 ? null : _buildFab(modernTheme),
+      floatingActionButton: _currentIndex == 2 || _currentIndex == 3 ? null : _buildFab(modernTheme),
     );
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    // Hide AppBar for Marketplace tab
-    if (_currentIndex == 2) {
+    // Hide AppBar for Marketplace and Profile tabs
+    if (_currentIndex == 2 || _currentIndex == 3) {
       return null;
     }
     
-    // Static AppBar for Chats, Status, and Live tabs
+    // Static AppBar for Chats and Status tabs
     return AppBar(
       elevation: 0,
       backgroundColor: modernTheme.backgroundColor,
@@ -229,12 +219,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       actions: _buildAppBarActions(modernTheme, _currentIndex),
+      leading: _buildAppBarLeading(modernTheme, _currentIndex),
       // Adding system nav padding
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(8.0),
         child: Container(),
       ),
     );
+  }
+  
+  // AppBar leading widget based on tab
+  Widget? _buildAppBarLeading(ModernThemeExtension modernTheme, int tabIndex) {
+    // Only show custom leading for tabs that need it
+    if (tabIndex == 3) {
+      return IconButton(
+        icon: Icon(
+          Icons.arrow_back,
+          color: modernTheme.textColor,
+        ),
+        onPressed: () {
+          _onTabTapped(0); // Go back to chats tab
+        },
+      );
+    }
+    return null;
   }
   
   // AppBar actions based on current tab
@@ -251,40 +259,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // TODO: Implement search
           },
         ),
-        PopupMenuButton<String>(
+        IconButton(
           icon: Icon(
             Icons.more_vert,
             color: modernTheme.textColor,
           ),
-          onSelected: (value) {
-            if (value == 'profile') {
-              _navigateToProfile();
-            }
-            // Add other menu options handling here
+          onPressed: () {
+            // TODO: Show more options
           },
-          itemBuilder: (BuildContext context) => [
-            PopupMenuItem<String>(
-              value: 'profile',
-              child: Row(
-                children: [
-                  Icon(Icons.person, color: modernTheme.textColor),
-                  const SizedBox(width: 10),
-                  Text('Profile'),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'settings',
-              child: Row(
-                children: [
-                  Icon(Icons.settings, color: modernTheme.textColor),
-                  const SizedBox(width: 10),
-                  Text('Settings'),
-                ],
-              ),
-            ),
-            // Add more menu items as needed
-          ],
         ),
       ];
     }
@@ -300,31 +282,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onPressed: () {
             Navigator.pushNamed(context, Constants.createStatusScreen);
           },
-        ),
-        // Add more options menu with profile here as well
-        PopupMenuButton<String>(
-          icon: Icon(
-            Icons.more_vert,
-            color: modernTheme.textColor,
-          ),
-          onSelected: (value) {
-            if (value == 'profile') {
-              _navigateToProfile();
-            }
-          },
-          itemBuilder: (BuildContext context) => [
-            PopupMenuItem<String>(
-              value: 'profile',
-              child: Row(
-                children: [
-                  Icon(Icons.person, color: modernTheme.textColor),
-                  const SizedBox(width: 10),
-                  Text('Profile'),
-                ],
-              ),
-            ),
-            // Add more menu items as needed
-          ],
         ),
       ];
     }
@@ -350,74 +307,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // TODO: Open shopping cart
           },
         ),
-        // Add more options menu with profile here as well
-        PopupMenuButton<String>(
-          icon: Icon(
-            Icons.more_vert,
-            color: modernTheme.textColor,
-          ),
-          onSelected: (value) {
-            if (value == 'profile') {
-              _navigateToProfile();
-            }
-          },
-          itemBuilder: (BuildContext context) => [
-            PopupMenuItem<String>(
-              value: 'profile',
-              child: Row(
-                children: [
-                  Icon(Icons.person, color: modernTheme.textColor),
-                  const SizedBox(width: 10),
-                  Text('Profile'),
-                ],
-              ),
-            ),
-            // Add more menu items as needed
-          ],
-        ),
       ];
     }
     
-    // Actions for Live tab
-    else if (tabIndex == 3) {
-      return [
-        IconButton(
-          icon: Icon(
-            Icons.filter_list,
-            color: modernTheme.textColor,
-          ),
-          onPressed: () {
-            // TODO: Implement live filters
-          },
-        ),
-        // Add more options menu with profile here as well
-        PopupMenuButton<String>(
-          icon: Icon(
-            Icons.more_vert,
-            color: modernTheme.textColor,
-          ),
-          onSelected: (value) {
-            if (value == 'profile') {
-              _navigateToProfile();
-            }
-          },
-          itemBuilder: (BuildContext context) => [
-            PopupMenuItem<String>(
-              value: 'profile',
-              child: Row(
-                children: [
-                  Icon(Icons.person, color: modernTheme.textColor),
-                  const SizedBox(width: 10),
-                  Text('Profile'),
-                ],
-              ),
-            ),
-            // Add more menu items as needed
-          ],
-        ),
-      ];
-    }
-    
+    // No custom actions for profile tab
     return [];
   }
   
@@ -440,13 +333,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onPressed = () {
           // Navigate to create status screen
           Navigator.pushNamed(context, Constants.createStatusScreen);
-        };
-        break;
-      case 3: // Live
-        fabIcon = Icons.videocam;
-        onPressed = () {
-          // TODO: Navigate to go live screen
-          // Navigator.pushNamed(context, Constants.goLiveScreen);
         };
         break;
       default:
