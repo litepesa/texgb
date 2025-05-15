@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
+import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/status/models/status_model.dart';
+import 'package:textgb/features/status/models/status_reply_model.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:uuid/uuid.dart';
@@ -305,5 +307,137 @@ class StatusRepository {
       debugPrint('Error updating status privacy: $e');
       throw Exception('Failed to update status privacy: $e');
     }
+  }
+
+  // Send a reply to a status
+  Future<void> sendStatusReply({
+    required String statusId,
+    required String receiverId,
+    required String message,
+    required MessageEnum messageType,
+    required UserModel currentUser,
+    required String statusThumbnail,
+    required StatusType statusType,
+  }) async {
+    try {
+      final replyId = const Uuid().v4();
+      final timeSent = DateTime.now().millisecondsSinceEpoch.toString();
+
+      // Create reply model
+      final reply = StatusReplyModel(
+        replyId: replyId,
+        statusId: statusId,
+        senderId: currentUser.uid,
+        senderName: currentUser.name,
+        senderImage: currentUser.image,
+        receiverId: receiverId,
+        message: message,
+        messageType: messageType,
+        timeSent: timeSent,
+        statusThumbnail: statusThumbnail,
+        statusType: statusType,
+      );
+
+      // Add reply to Firestore
+      await firestore
+          .collection(Constants.statusReplies)
+          .doc(replyId)
+          .set(reply.toMap());
+      
+      // Create or get existing chat ID for direct message
+      final chatId = generateChatId(currentUser.uid, receiverId);
+      
+      // Check if chat exists
+      final chatDoc = await firestore.collection(Constants.chats).doc(chatId).get();
+      
+      // Get recipient user data
+      final recipientDoc = await firestore.collection(Constants.users).doc(receiverId).get();
+      
+      if (!recipientDoc.exists) {
+        throw Exception('Recipient user not found');
+      }
+      
+      final receiverUser = UserModel.fromMap(recipientDoc.data()!);
+      
+      // Prepare status preview text
+      String statusPreview = 'Replied to your status';
+      if (statusType == StatusType.text) {
+        // For text statuses, include part of the text
+        final statusDoc = await firestore.collection(Constants.statusPosts).doc(statusId).get();
+        if (statusDoc.exists) {
+          final status = StatusModel.fromMap(statusDoc.data()!);
+          // Get first 20 chars of text status
+          final previewText = status.content.length > 20 
+              ? '${status.content.substring(0, 20)}...' 
+              : status.content;
+          statusPreview = 'Replied to your status: "$previewText"';
+        }
+      } else {
+        // For media statuses
+        statusPreview = 'Replied to your ${statusType.displayName.toLowerCase()} status';
+      }
+      
+      if (!chatDoc.exists) {
+        // Create a new chat with status reply context
+        await firestore.collection(Constants.chats).doc(chatId).set({
+          'id': chatId,
+          'participants': [currentUser.uid, receiverId],
+          Constants.contactUID: receiverId,
+          Constants.contactName: receiverUser.name,
+          Constants.contactImage: receiverUser.image,
+          Constants.lastMessage: statusPreview,
+          Constants.messageType: MessageEnum.text.name,
+          Constants.timeSent: timeSent,
+          'unreadCount': 1,
+          'isGroup': false,
+        });
+      } else {
+        // Update existing chat with status reply context
+        await firestore.collection(Constants.chats).doc(chatId).update({
+          Constants.lastMessage: statusPreview,
+          Constants.messageType: MessageEnum.text.name,
+          Constants.timeSent: timeSent,
+          'unreadCount': FieldValue.increment(1),
+        });
+      }
+      
+      // Now add the actual message to the chat
+      final messageId = const Uuid().v4();
+      
+      // Create a message with status reply context
+      final messageModel = MessageModel(
+        messageId: messageId,
+        senderUID: currentUser.uid,
+        senderName: currentUser.name,
+        senderImage: currentUser.image,
+        message: message,
+        messageType: messageType,
+        timeSent: timeSent,
+        isSeen: false,
+        repliedMessage: statusPreview, // Include context about the status
+        repliedTo: receiverId,
+        repliedMessageType: MessageEnum.text, // Status preview is always text
+        seenBy: [currentUser.uid],
+        deletedBy: [],
+      );
+      
+      // Add message to chat
+      await firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .set(messageModel.toMap());
+    } catch (e) {
+      debugPrint('Error sending status reply: $e');
+      throw Exception('Failed to send status reply: $e');
+    }
+  }
+
+  // Helper method to generate a chat ID
+  String generateChatId(String userId1, String userId2) {
+    // Sort the IDs to ensure consistency
+    final sortedIds = [userId1, userId2]..sort();
+    return '${sortedIds[0]}_${sortedIds[1]}';
   }
 }

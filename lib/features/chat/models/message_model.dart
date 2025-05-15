@@ -1,3 +1,6 @@
+// lib/features/chat/models/message_model.dart
+// Instead of completely changing the model structure, we'll extend it more safely
+
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 
@@ -13,6 +16,8 @@ class MessageModel {
   final String? repliedMessage;
   final String? repliedTo;
   final MessageEnum? repliedMessageType;
+  // Add statusContext with a safe default value of null
+  final String? statusContext; 
   final List<String> seenBy;
   final List<String> deletedBy;
 
@@ -28,6 +33,7 @@ class MessageModel {
     this.repliedMessage,
     this.repliedTo,
     this.repliedMessageType,
+    this.statusContext, // Optional parameter with default value of null
     required this.seenBy,
     required this.deletedBy,
   });
@@ -47,13 +53,15 @@ class MessageModel {
       repliedMessageType: map[Constants.repliedMessageType] != null
           ? (map[Constants.repliedMessageType] as String).toMessageEnum()
           : null,
+      // Safely extract statusContext if present
+      statusContext: map[Constants.statusContext],
       seenBy: List<String>.from(map[Constants.isSeenBy] ?? []),
       deletedBy: List<String>.from(map[Constants.deletedBy] ?? []),
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final Map<String, dynamic> result = {
       Constants.messageId: messageId,
       Constants.senderUID: senderUID,
       Constants.senderName: senderName,
@@ -68,6 +76,13 @@ class MessageModel {
       Constants.isSeenBy: seenBy,
       Constants.deletedBy: deletedBy,
     };
+
+    // Only add statusContext if it exists
+    if (statusContext != null) {
+      result[Constants.statusContext] = statusContext;
+    }
+
+    return result;
   }
 
   MessageModel copyWith({
@@ -82,6 +97,7 @@ class MessageModel {
     String? repliedMessage,
     String? repliedTo,
     MessageEnum? repliedMessageType,
+    String? statusContext,
     List<String>? seenBy,
     List<String>? deletedBy,
   }) {
@@ -97,6 +113,7 @@ class MessageModel {
       repliedMessage: repliedMessage ?? this.repliedMessage,
       repliedTo: repliedTo ?? this.repliedTo,
       repliedMessageType: repliedMessageType ?? this.repliedMessageType,
+      statusContext: statusContext ?? this.statusContext,
       seenBy: seenBy ?? List.from(this.seenBy),
       deletedBy: deletedBy ?? List.from(this.deletedBy),
     );

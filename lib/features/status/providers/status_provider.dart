@@ -233,6 +233,48 @@ class StatusNotifier extends _$StatusNotifier {
     return true;
   }
 
+  Future<void> sendStatusReply({
+  required String statusId,
+  required String receiverId,
+  required String message,
+  required String statusThumbnail,
+  required StatusType statusType,
+}) async {
+  if (message.trim().isEmpty) return;
+  
+  state = AsyncValue.data(state.value!.copyWith(
+    isLoading: true,
+    error: null,
+  ));
+  
+  try {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      throw Exception('User not authenticated');
+    }
+    
+    await _statusRepository.sendStatusReply(
+      statusId: statusId,
+      receiverId: receiverId,
+      message: message.trim(),
+      messageType: MessageEnum.text,  // For now, we only support text replies
+      currentUser: currentUser,
+      statusThumbnail: statusThumbnail,
+      statusType: statusType,
+    );
+    
+    state = AsyncValue.data(state.value!.copyWith(
+      isLoading: false,
+    ));
+  } catch (e) {
+    state = AsyncValue.data(state.value!.copyWith(
+      isLoading: false,
+      error: e.toString(),
+    ));
+    rethrow;
+  }
+}
+
   // Move to previous status in the current user's status list
   Future<bool> previousStatus() async {
     if (!state.hasValue) return false;

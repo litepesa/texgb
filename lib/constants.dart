@@ -1,3 +1,4 @@
+// lib/constants.dart
 class Constants {
   // screens routes
   static const String landingScreen = '/landingScreen';
@@ -72,6 +73,12 @@ class Constants {
   static const String statusId = 'statusId';
   static const String statusType = 'statusType';
   static const String statusViewCount = 'viewCount';
+  
+  // New constants for status replies
+  static const String statusReplies = 'status_replies';
+  static const String statusReplyId = 'replyId';
+  static const String statusThumbnail = 'statusThumbnail';
+  static const String statusContext = 'statusContext'; // Key for statusContext in message model
   
   // Collection names for Channels
   static const String channels = 'channels';

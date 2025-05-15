@@ -1,3 +1,4 @@
+// lib/features/status/screens/status_viewer_screen.dart
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/widgets/status_progress_bar.dart';
+import 'package:textgb/features/status/widgets/status_reply_bar.dart';
 import 'package:video_player/video_player.dart';
 
 class StatusViewerScreen extends ConsumerStatefulWidget {
@@ -24,10 +26,12 @@ class StatusViewerScreen extends ConsumerStatefulWidget {
 class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with SingleTickerProviderStateMixin {
   late AnimationController _progressController;
   VideoPlayerController? _videoController;
+  TextEditingController _replyController = TextEditingController();
   bool _isLoading = true;
   bool _isPaused = false;
   bool _isTapped = false;
   int _currentIndex = 0;
+  String _statusThumbnailUrl = '';
   
   // Duration for each status view
   final Duration _statusDuration = const Duration(seconds: 5); 
@@ -46,6 +50,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
     
     // Initialize the first status
     _initializeStatus();
+    _updateStatusThumbnailUrl();
     
     // Mark status as viewed through the provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -60,6 +65,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
   void dispose() {
     _progressController.dispose();
     _videoController?.dispose();
+    _replyController.dispose();
     super.dispose();
   }
 
@@ -112,12 +118,31 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
     }
   }
 
+  void _updateStatusThumbnailUrl() {
+    final currentStatus = widget.userStatus.statuses[_currentIndex];
+    
+    // For image and video statuses, use the content URL directly
+    if (currentStatus.type == StatusType.image || currentStatus.type == StatusType.video) {
+      setState(() {
+        _statusThumbnailUrl = currentStatus.content;
+      });
+    } else {
+      // For text and link statuses, we don't have an image
+      // We'll just use an empty string, and the StatusReplyBar will handle displaying
+      // a preview based on the status type
+      setState(() {
+        _statusThumbnailUrl = '';
+      });
+    }
+  }
+
   void _goToNextStatus() {
     if (_currentIndex < widget.userStatus.statuses.length - 1) {
       setState(() {
         _currentIndex++;
       });
       _initializeStatus();
+      _updateStatusThumbnailUrl();
       
       // Mark new status as viewed
       ref.read(statusNotifierProvider.notifier).viewStatus(
@@ -136,6 +161,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
         _currentIndex--;
       });
       _initializeStatus();
+      _updateStatusThumbnailUrl();
     } else {
       // We're already at the first status, close if user presses back
       Navigator.pop(context);
@@ -154,6 +180,45 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
     _isPaused = false;
     _progressController.forward();
     _videoController?.play();
+  }
+
+  void _sendReply() async {
+    if (_replyController.text.trim().isEmpty) return;
+    
+    final currentStatus = widget.userStatus.statuses[_currentIndex];
+    
+    try {
+      await ref.read(statusNotifierProvider.notifier).sendStatusReply(
+        statusId: currentStatus.statusId,
+        receiverId: currentStatus.userId,
+        message: _replyController.text.trim(),
+        statusThumbnail: _statusThumbnailUrl,
+        statusType: currentStatus.type,
+      );
+      
+      // Clear the input field
+      _replyController.clear();
+      
+      // Show a success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reply sent'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send reply: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -274,10 +339,10 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
                 right: 0,
                 child: Container(
                   padding: EdgeInsets.only(
-                    left: 16.0, 
-                    right: 16.0, 
-                    top: 16.0, 
-                    bottom: MediaQuery.of(context).padding.bottom + 16.0,
+                    left: 16.0,
+                    right: 16.0,
+                    top: 16.0,
+                    bottom: 80.0, // Adjusted for floating reply bar
                   ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -326,6 +391,19 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
                   ),
                 ),
               ],
+            ),
+            
+            // Status reply bar at bottom
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: StatusReplyBar(
+                controller: _replyController,
+                onSend: _sendReply,
+                currentStatus: widget.userStatus.statuses[_currentIndex],
+                thumbnailUrl: _statusThumbnailUrl,
+              ),
             ),
           ],
         ),

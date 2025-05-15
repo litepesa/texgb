@@ -1,7 +1,9 @@
+// lib/features/chat/widgets/message_bubble.dart
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
@@ -131,6 +133,11 @@ class MessageBubble extends ConsumerWidget {
   Widget _buildReplyPreview(BuildContext context, bool isMe) {
     final modernTheme = context.modernTheme;
     
+    // Check if this is a status reply
+    final bool isStatusReply = message.repliedMessage != null && 
+                              message.repliedMessage!.contains("status") &&
+                              message.statusContext != null;
+    
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       margin: const EdgeInsets.only(bottom: 4),
@@ -143,37 +150,72 @@ class MessageBubble extends ConsumerWidget {
           topRight: Radius.circular(12),
         ),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Replying to ${message.repliedTo == contact.uid ? contact.name : 'yourself'}',
-            style: TextStyle(
-              color: modernTheme.primaryColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
+          // Status thumbnail (only if this is a status reply with a thumbnail)
+          if (isStatusReply && message.statusContext != null && message.statusContext!.isNotEmpty)
+            Container(
+              width: 40,
+              height: 40,
+              margin: const EdgeInsets.only(right: 8, bottom: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isMe 
+                      ? Colors.black.withOpacity(0.1) 
+                      : Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: CachedNetworkImage(
+                imageUrl: message.statusContext!,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: modernTheme.primaryColor!.withOpacity(0.2),
+                ),
+                errorWidget: (context, url, error) => Icon(
+                  Icons.image_not_supported,
+                  color: modernTheme.textSecondaryColor,
+                  size: 16,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            message.repliedMessageType == MessageEnum.text
-                ? message.repliedMessage ?? ''
-                : '${message.repliedMessageType?.displayName ?? 'Media'}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: isMe 
-                  ? context.chatTheme.senderTextColor 
-                  : context.chatTheme.receiverTextColor,
-              fontSize: 14,
+          
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Replying to ${message.repliedTo == contact.uid ? contact.name : 'yourself'}',
+                  style: TextStyle(
+                    color: modernTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message.repliedMessage ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isMe 
+                        ? context.chatTheme.senderTextColor 
+                        : context.chatTheme.receiverTextColor,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 1,
+                  color: isMe
+                      ? Colors.black.withOpacity(0.1)
+                      : Colors.white.withOpacity(0.1),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: 1,
-            color: isMe
-                ? Colors.black.withOpacity(0.1)
-                : Colors.white.withOpacity(0.1),
           ),
         ],
       ),
