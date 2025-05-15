@@ -200,7 +200,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         text: TextSpan(
           children: [
             TextSpan(
-              text: "Wei",
+              text: "Tex",
               style: TextStyle(
                 color: modernTheme.textColor,          
                 fontWeight: FontWeight.w500,
@@ -208,7 +208,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             TextSpan(
-              text: "Chat",
+              text: "GB",
               style: TextStyle(
                 color: modernTheme.primaryColor,
                 fontWeight: FontWeight.w700,
