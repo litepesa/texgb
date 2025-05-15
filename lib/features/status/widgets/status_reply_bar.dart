@@ -1,4 +1,3 @@
-// lib/features/status/widgets/status_reply_bar.dart
 import 'package:flutter/material.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/models/status_model.dart';
@@ -8,6 +7,7 @@ class StatusReplyBar extends StatefulWidget {
   final VoidCallback onSend;
   final StatusModel currentStatus;
   final String thumbnailUrl;
+  final bool isLoading; // Add this new property
 
   const StatusReplyBar({
     Key? key,
@@ -15,6 +15,7 @@ class StatusReplyBar extends StatefulWidget {
     required this.onSend,
     required this.currentStatus,
     required this.thumbnailUrl,
+    this.isLoading = false, // Default to false
   }) : super(key: key);
 
   @override
@@ -88,31 +89,42 @@ class _StatusReplyBarState extends State<StatusReplyBar> {
                     cursorColor: Colors.white,
                     minLines: 1,
                     maxLines: 1,
+                    // Disable text input while loading
+                    enabled: !widget.isLoading,
                   ),
                 ),
                 
-                // Send button
+                // Send button or loading indicator
                 if (_hasText)
                   Padding(
                     padding: const EdgeInsets.only(right: 14.0),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: widget.onSend,
-                        borderRadius: BorderRadius.circular(20),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4.0),
-                          child: Text(
-                            'Send',
-                            style: TextStyle(
-                              color: Color(0xFF0095F6), // Instagram blue
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                    child: widget.isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF0095F6),
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: widget.onSend,
+                              borderRadius: BorderRadius.circular(20),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4.0),
+                                child: Text(
+                                  'Send',
+                                  style: TextStyle(
+                                    color: Color(0xFF0095F6), // Instagram blue
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
                   ),
               ],
             ),

@@ -187,6 +187,11 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
     
     final currentStatus = widget.userStatus.statuses[_currentIndex];
     
+    // Show loading indicator
+    setState(() {
+      _isLoading = true;
+    });
+    
     try {
       await ref.read(statusNotifierProvider.notifier).sendStatusReply(
         statusId: currentStatus.statusId,
@@ -196,27 +201,42 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
         statusType: currentStatus.type,
       );
       
-      // Clear the input field
+      // Clear the input field before showing success
       _replyController.clear();
       
-      // Show a success message
+      // Only update state and show snackbar if mounted
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Reply sent'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        setState(() {
+          _isLoading = false;
+        });
+        
+        // Add this check to ensure we don't show a snackbar if we're navigating away
+        if (mounted && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Reply sent'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       }
     } catch (e) {
-      // Show error message
+      // Only update state and show error if mounted
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to send reply: $e'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        setState(() {
+          _isLoading = false;
+        });
+        
+        // Add this check to ensure we don't show a snackbar if we're navigating away
+        if (mounted && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to send reply. Please try again.'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -403,6 +423,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
                 onSend: _sendReply,
                 currentStatus: widget.userStatus.statuses[_currentIndex],
                 thumbnailUrl: _statusThumbnailUrl,
+                isLoading: _isLoading, // Pass the loading state
               ),
             ),
           ],
