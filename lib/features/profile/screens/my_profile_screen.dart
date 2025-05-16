@@ -192,28 +192,59 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       backgroundColor: modernTheme.backgroundColor,
       // Important: set extendBody to true to allow content to extend behind system nav bar
       extendBody: true,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Profile Header - Full Width Design
-            _buildImmersiveProfileHeader(user, modernTheme),
-            
-            // Profile Information
-            _buildProfileInfo(user, modernTheme),
-            
-            // Theme Selector
-            _buildThemeSelector(modernTheme, isDarkMode),
-            
-            // Account Settings
-            _buildAccountSettings(modernTheme),
-            
-            // Account management section
-            _buildAccountManagementSection(modernTheme),
-            
-            // Add extra padding at the bottom for the bottom nav bar
-            SizedBox(height: bottomPadding),
-          ],
-        ),
+      body: Stack(
+        children: [
+          // Main Content
+          SingleChildScrollView(
+            child: Column(
+              children: [
+                // Profile Header - Full Width Design
+                _buildImmersiveProfileHeader(user, modernTheme),
+                
+                // Profile Information
+                _buildProfileInfo(user, modernTheme),
+                
+                // Theme Selector
+                _buildThemeSelector(modernTheme, isDarkMode),
+                
+                // Account Settings
+                _buildAccountSettings(modernTheme),
+                
+                // Account management section
+                _buildAccountManagementSection(modernTheme),
+                
+                // Add extra padding at the bottom for the bottom nav bar
+                SizedBox(height: bottomPadding),
+              ],
+            ),
+          ),
+          
+          // Floating Back Button
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 10,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: modernTheme.surfaceColor!.withOpacity(0.7),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: Icon(
+                  Icons.arrow_back,
+                  color: modernTheme.textColor,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
