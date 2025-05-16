@@ -335,7 +335,7 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'WeiChat',
+                'WeiBao',
                 style: TextStyle(
                   color: backgroundColor,
                   fontSize: 28,

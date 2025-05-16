@@ -145,10 +145,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Check which page we're actually on (adjusting for the center button)
     final int actualPageIndex = _currentIndex > 2 ? _currentIndex - 1 : _currentIndex;
     
+    // Only hide AppBar and change background to black for marketplace tab (index 4)
+    final bool isMarketplaceTab = _currentIndex == 4;
+    
     return Scaffold(
       extendBody: true, // Important for the transparent navigation bar
-      extendBodyBehindAppBar: actualPageIndex == 2, // Only extend content behind AppBar for marketplace tab
-      backgroundColor: actualPageIndex == 2 ? Colors.black : modernTheme.backgroundColor,
+      extendBodyBehindAppBar: isMarketplaceTab, // Only extend content behind AppBar for marketplace tab
+      backgroundColor: isMarketplaceTab ? Colors.black : modernTheme.backgroundColor,
       
       // Custom AppBar
       appBar: _buildAppBar(modernTheme, isDarkMode),
@@ -174,12 +177,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Divider(
             height: 1,
             thickness: 0.5,
-            color: actualPageIndex == 2 ? Colors.grey[900] : modernTheme.dividerColor,
+            color: isMarketplaceTab ? Colors.grey[900] : modernTheme.dividerColor,
           ),
           // Standard BottomNavigationBar with custom styling
           Container(
             decoration: BoxDecoration(
-              color: actualPageIndex == 2 ? Colors.black : modernTheme.surfaceColor,
+              color: isMarketplaceTab ? Colors.black : modernTheme.surfaceColor,
             ),
             child: SafeArea(
               child: BottomNavigationBar(
@@ -243,11 +246,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    // Check which page we're actually on (adjusting for the center button)
-    final int actualPageIndex = _currentIndex > 2 ? _currentIndex - 1 : _currentIndex;
-    
-    // Hide AppBar for Marketplace tab
-    if (actualPageIndex == 2) {
+    // Only hide AppBar for Marketplace tab (index 4)
+    if (_currentIndex == 4) {
       return null;
     }
     
@@ -263,7 +263,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         text: TextSpan(
           children: [
             TextSpan(
-              text: "Tex",
+              text: "Wei",
               style: TextStyle(
                 color: modernTheme.textColor,          
                 fontWeight: FontWeight.w500,
@@ -271,7 +271,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             TextSpan(
-              text: "GB",
+              text: "Bao",
               style: TextStyle(
                 color: modernTheme.primaryColor,
                 fontWeight: FontWeight.w700,
@@ -282,54 +282,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       actions: [
-        // Search icon for chats and marketplace
-        if (_currentIndex == 0 || actualPageIndex == 2)
-          IconButton(
-            icon: Icon(
-              Icons.search,
-              color: modernTheme.textColor,
-            ),
-            onPressed: () {
-              // TODO: Implement search
-            },
+        // WiFi icon for all tabs
+        IconButton(
+          icon: Icon(
+            Icons.wifi,
+            color: modernTheme.textColor,
           ),
-          
-        // More options for chats
-        if (_currentIndex == 0)
-          IconButton(
-            icon: Icon(
-              Icons.more_vert,
-              color: modernTheme.textColor,
-            ),
-            onPressed: () {
-              // TODO: Show more options
-            },
-          ),
-          
-        // Camera icon for status tab
-        if (_currentIndex == 3)
-          IconButton(
-            icon: Icon(
-              Icons.camera_alt,
-              color: modernTheme.textColor,
-            ),
-            onPressed: () {
-              Navigator.pushNamed(context, Constants.createStatusScreen);
-            },
-          ),
-          
-        // Shopping cart for marketplace tab
-        if (actualPageIndex == 2)
-          IconButton(
-            icon: Icon(
-              Icons.shopping_cart,
-              color: modernTheme.textColor,
-            ),
-            onPressed: () {
-              // TODO: Open shopping cart
-            },
-          ),
-          
+          onPressed: () {
+            // TODO: WiFi action
+          },
+        ),
+        
         // Profile icon - always shown
         Padding(
           padding: const EdgeInsets.only(right: 8.0),
