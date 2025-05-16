@@ -197,7 +197,7 @@ class _AppLogo extends StatelessWidget {
             text: const TextSpan(
               children: [
                 TextSpan(
-                  text: 'Tex',
+                  text: 'Wei',
                   style: TextStyle(
                     fontSize: 50,
                     fontWeight: FontWeight.w400,
@@ -206,7 +206,7 @@ class _AppLogo extends StatelessWidget {
                   ),
                 ),
                 TextSpan(
-                  text: 'GB',
+                  text: 'Bao',
                   style: TextStyle(
                     fontSize: 50,
                     fontWeight: FontWeight.w700,

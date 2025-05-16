@@ -1,11 +1,13 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/marketplace/screens/create_marketplace_video_screen.dart';
-import 'package:textgb/features/marketplace/screens/marketplace_video_feed_screen.dart';
+import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
+import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -28,17 +30,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     'Groups',
     '',  // Empty for center button
     'Status',
-    'Marketplace'
+    'Channels'  // Changed from Marketplace to Channels
   ];
   
   // Updated list of tab icons (5 tabs now)
   final List<IconData> _tabIcons = [
-    Icons.chat_bubble_rounded,
-    Icons.group_rounded,
+    CupertinoIcons.chat_bubble_text, // Changed from Icons.chat_bubble_rounded
+    CupertinoIcons.person_2,
     Icons.add,  // Placeholder, we'll use CustomIconButton instead
-    Icons.photo_library_rounded,
-    Icons.shopping_bag_rounded
+    CupertinoIcons.rays, // Changed from Icons.photo_library_rounded
+    CupertinoIcons.camera // Changed from Icons.shopping_bag_rounded
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Load user's channel data on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(channelsProvider.notifier).loadUserChannel();
+    });
+  }
 
   @override
   void dispose() {
@@ -49,12 +60,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _onTabTapped(int index) {
     // Special handling for center button (index 2)
     if (index == 2) {
-      // Navigate to CreateMarketplaceVideoScreen
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const CreateMarketplaceVideoScreen(),
-        ),
-      );
+      // Check if user has a channel for creating posts
+      final userChannel = ref.read(channelsProvider).userChannel;
+      
+      if (userChannel == null) {
+        // If no channel exists, always navigate to CreateChannelScreen first
+        Navigator.of(context).pushNamed(Constants.createChannelScreen);
+      } else {
+        // If user has a channel, navigate to CreateChannelPostScreen
+        Navigator.of(context).pushNamed(Constants.createChannelPostScreen);
+      }
       return; // Don't update current index or animate page
     }
     
@@ -87,13 +102,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         builder: (context) => const MyProfileScreen(),
       ),
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    // Ensure system navigation bar stays transparent
-    _updateSystemUI();
   }
   
   @override
@@ -145,13 +153,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Check which page we're actually on (adjusting for the center button)
     final int actualPageIndex = _currentIndex > 2 ? _currentIndex - 1 : _currentIndex;
     
-    // Only hide AppBar and change background to black for marketplace tab (index 4)
-    final bool isMarketplaceTab = _currentIndex == 4;
+    // Only hide AppBar and change background to black for channels tab (index 4)
+    final bool isChannelsTab = _currentIndex == 4;
     
     return Scaffold(
       extendBody: true, // Important for the transparent navigation bar
-      extendBodyBehindAppBar: isMarketplaceTab, // Only extend content behind AppBar for marketplace tab
-      backgroundColor: isMarketplaceTab ? Colors.black : modernTheme.backgroundColor,
+      extendBodyBehindAppBar: isChannelsTab, // Only extend content behind AppBar for channels tab
+      backgroundColor: isChannelsTab ? Colors.black : modernTheme.backgroundColor,
       
       // Custom AppBar
       appBar: _buildAppBar(modernTheme, isDarkMode),
@@ -165,7 +173,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const ChatsTab(),
           Center(child: Text('Groups (Coming Soon)', style: TextStyle(color: modernTheme.textColor))), // Groups placeholder
           const StatusOverviewScreen(),
-          const MarketplaceVideoFeedScreen(),
+          const ChannelsFeedScreen(),
         ],
       ),
       
@@ -177,12 +185,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Divider(
             height: 1,
             thickness: 0.5,
-            color: isMarketplaceTab ? Colors.grey[900] : modernTheme.dividerColor,
+            color: isChannelsTab ? Colors.grey[900] : modernTheme.dividerColor,
           ),
           // Standard BottomNavigationBar with custom styling
           Container(
             decoration: BoxDecoration(
-              color: isMarketplaceTab ? Colors.black : modernTheme.surfaceColor,
+              color: isChannelsTab ? Colors.black : modernTheme.surfaceColor,
             ),
             child: SafeArea(
               child: BottomNavigationBar(
@@ -234,7 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       
-      // FAB for new chat or content (only for specific tabs)
+      // FAB for new chat (only for Chats tab)
       floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
     );
   }
@@ -246,7 +254,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    // Only hide AppBar for Marketplace tab (index 4)
+    // Only hide AppBar for Channels tab (index 4)
     if (_currentIndex == 4) {
       return null;
     }
@@ -343,7 +351,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Different FAB for different tabs
     switch (_currentIndex) {
       case 0: // Chats
-        fabIcon = Icons.chat;
+        fabIcon = CupertinoIcons.chat_bubble_text;
         onPressed = () {
           // Navigate to contacts screen
           Navigator.pushNamed(context, Constants.contactsScreen);

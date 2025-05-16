@@ -1,4 +1,4 @@
-// lib/constants.dart
+// lib/constants.dart - Updated for Channels feature (replacing Marketplace)
 class Constants {
   // screens routes
   static const String landingScreen = '/landingScreen';
@@ -8,8 +8,8 @@ class Constants {
   static const String userInformationScreen = '/userInformationScreen';
   static const String homeScreen = '/homeScreen';
   static const String chatScreen = '/chatScreen';
-  static const String contactProfileScreen = '/contactProfileScreen'; // Updated for privacy
-  static const String myProfileScreen = '/myProfileScreen'; // Added for account management
+  static const String contactProfileScreen = '/contactProfileScreen';
+  static const String myProfileScreen = '/myProfileScreen';
   static const String editProfileScreen = '/editProfileScreen';
   static const String searchScreen = '/searchScreen';
   static const String contactsScreen = '/contactsScreen';
@@ -17,7 +17,7 @@ class Constants {
   static const String settingsScreen = '/settingsScreen';
   static const String aboutScreen = '/aboutScreen';
   static const String privacyPolicyScreen = '/privacyPolicyScreen';
-  static const String privacySettingsScreen = '/privacySettingsScreen'; // Added for privacy controls
+  static const String privacySettingsScreen = '/privacySettingsScreen';
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   static const String groupSettingsScreen = '/groupSettingsScreen';
   static const String groupInformationScreen = '/groupInformationScreen';
@@ -32,13 +32,16 @@ class Constants {
   static const String videoCommentsScreen = '/videoCommentsScreen';
   static const String userVideosScreen = '/userVideosScreen';
 
-  // Marketplace routes
-  static const String marketplaceVideoFeedScreen = '/marketplaceVideoFeedScreen';
-  static const String createMarketplaceVideoScreen = '/createMarketplaceVideoScreen';
-  static const String marketplaceVideoDetailScreen = '/marketplaceVideoDetailScreen';
-  static const String marketplaceProfileScreen = '/marketplaceProfileScreen';
-  static const String marketplaceCommentsScreen = '/marketplaceCommentsScreen';
-  static const String marketplaceCategoryScreen = '/marketplaceCategoryScreen';
+  // Channels routes (replacing Marketplace routes)
+  static const String channelsFeedScreen = '/channelsFeedScreen';
+  static const String createChannelScreen = '/createChannelScreen';
+  static const String channelProfileScreen = '/channelProfileScreen';
+  static const String myChannelScreen = '/myChannelScreen';
+  static const String editChannelScreen = '/editChannelScreen';
+  static const String createChannelPostScreen = '/createChannelPostScreen';
+  static const String channelVideoDetailScreen = '/channelVideoDetailScreen';
+  static const String channelCommentsScreen = '/channelCommentsScreen';
+  static const String exploreChannelsScreen = '/exploreChannelsScreen';
   
   // Status feature routes - Updated for WeChat Moments-like implementation
   static const String statusOverviewScreen = '/statusOverviewScreen';
@@ -55,14 +58,13 @@ class Constants {
   static const String momentsDetailScreen = '/momentsDetailScreen'; // Alias for statusDetailScreen
   static const String createMomentScreen = '/createMomentScreen'; // Alias for createStatusScreen
   
-  // Channel feature routes
-  static const String channelsScreen = '/channelsScreen';
-  static const String createChannelScreen = '/createChannelScreen';
-  static const String channelDetailScreen = '/channelDetailScreen';
-  static const String createChannelPostScreen = '/createChannelPostScreen';
-  static const String channelSettingsScreen = '/channelSettingsScreen';
-  static const String exploreChannelsScreen = '/exploreChannelsScreen';
-  static const String myChannelsScreen = '/myChannelsScreen';
+  // Collection names for Channel feature
+  static const String channels = 'channels';
+  static const String channelVideos = 'channelVideos';
+  static const String channelComments = 'channelComments';
+  static const String channelFiles = 'channelFiles';
+  static const String channelLikes = 'channelLikes';
+  static const String channelViews = 'channelViews';
   
   // Collection names for Status - Updated for new implementation
   static const String statuses = 'statuses'; // Keep for backward compatibility
@@ -80,38 +82,12 @@ class Constants {
   static const String statusThumbnail = 'statusThumbnail';
   static const String statusContext = 'statusContext'; // Key for statusContext in message model
   
-  // Collection names for Channels
-  static const String channels = 'channels';
-  static const String channelPosts = 'channelPosts';
-  static const String channelFiles = 'channelFiles';
-  static const String subscribedChannels = 'subscribedChannels';
-
-  // Marketplace collection names
-  static const String marketplaceVideos = 'marketplaceVideos';
-  static const String marketplaceCategories = 'marketplaceCategories';
-  static const String marketplaceComments = 'marketplaceComments';
-  static const String marketplaceViews = 'marketplaceViews';
-  static const String marketplaceLikes = 'marketplaceLikes';
-
-  // Marketplace video model fields
-  static const String videoId = 'videoId';
-  static const String businessName = 'businessName';
-  static const String videoUrl = 'videoUrl';
-  static const String thumbnailUrl = 'thumbnailUrl';
-  static const String productName = 'productName';
-  static const String price = 'price';
-  static const String category = 'category';
-  static const String tags = 'tags';
-  static const String location = 'location';
-  static const String isFeatured = 'isFeatured';
-  static const String isActive = 'isActive';
-
   // Collection names for Videos
   static const String videos = 'videos';
   static const String videoComments = 'videoComments';
   static const String videoLikes = 'videoLikes';
   static const String videoFiles = 'videoFiles';
-  //static const String videoId = 'videoId';
+  static const String videoId = 'videoId';
   
   // Channel model fields
   static const String channelId = 'channelId';
@@ -126,7 +102,7 @@ class Constants {
 
   // Video model fields
   static const String userId = 'userId';
-  //static const String videoUrl = 'videoUrl';
+  static const String videoUrl = 'videoUrl';
   static const String caption = 'caption';
   static const String songName = 'songName';
   static const String likesCount = 'likesCount';

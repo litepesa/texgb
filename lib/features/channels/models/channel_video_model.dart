@@ -1,151 +1,142 @@
-// lib/features/marketplace/models/marketplace_video_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-class MarketplaceVideoModel {
+class ChannelVideoModel {
   final String id;
+  final String channelId;
+  final String channelName;
+  final String channelImage;
   final String userId;
-  final String userName;
-  final String userImage;
-  final String businessName;
   final String videoUrl;
   final String thumbnailUrl;
-  final String productName;
-  final String price;
-  final String description;
-  final String category;
+  final String caption;
   final int likes;
   final int comments;
   final int views;
+  final int shares;
   final bool isLiked;
   final List<String> tags;
-  final String location;
   final Timestamp createdAt;
   final bool isActive;
   final bool isFeatured;
+  final bool isMultipleImages; // Flag to indicate if this is a carousel of images instead of video
+  final List<String> imageUrls; // Used for multiple images post
 
-  MarketplaceVideoModel({
+  ChannelVideoModel({
     required this.id,
+    required this.channelId,
+    required this.channelName,
+    required this.channelImage,
     required this.userId,
-    required this.userName,
-    required this.userImage,
-    required this.businessName,
     required this.videoUrl,
     required this.thumbnailUrl,
-    required this.productName,
-    required this.price,
-    required this.description,
-    required this.category,
+    required this.caption,
     required this.likes,
     required this.comments,
     required this.views,
+    required this.shares,
     required this.isLiked,
     required this.tags,
-    required this.location,
     required this.createdAt,
     required this.isActive,
     required this.isFeatured,
+    this.isMultipleImages = false,
+    this.imageUrls = const [],
   });
 
   Map<String, dynamic> toMap() {
-    // Important: Do NOT include 'id' in the map for Firestore
-    // as it's already the document ID
     return {
+      'channelId': channelId,
+      'channelName': channelName,
+      'channelImage': channelImage,
       'userId': userId,
-      'userName': userName,
-      'userImage': userImage,
-      'businessName': businessName,
       'videoUrl': videoUrl,
       'thumbnailUrl': thumbnailUrl,
-      'productName': productName,
-      'price': price,
-      'description': description,
-      'category': category,
+      'caption': caption,
       'likes': likes,
       'comments': comments,
       'views': views,
+      'shares': shares,
       'tags': tags,
-      'location': location,
       'createdAt': createdAt,
       'isActive': isActive,
       'isFeatured': isFeatured,
+      'isMultipleImages': isMultipleImages,
+      'imageUrls': imageUrls,
     };
   }
 
-  factory MarketplaceVideoModel.fromMap(Map<String, dynamic> map, {bool isLiked = false}) {
-    final id = map['id'] ?? '';
+  factory ChannelVideoModel.fromMap(Map<String, dynamic> map, {String? id, bool isLiked = false}) {
+    final videoId = id ?? map['id'] ?? '';
     
-    if (id.isEmpty) {
-      debugPrint('WARNING: Creating MarketplaceVideoModel with empty ID');
+    if (videoId.isEmpty) {
+      debugPrint('WARNING: Creating ChannelVideoModel with empty ID');
     }
     
-    return MarketplaceVideoModel(
-      id: id,
+    return ChannelVideoModel(
+      id: videoId,
+      channelId: map['channelId'] ?? '',
+      channelName: map['channelName'] ?? '',
+      channelImage: map['channelImage'] ?? '',
       userId: map['userId'] ?? '',
-      userName: map['userName'] ?? '',
-      userImage: map['userImage'] ?? '',
-      businessName: map['businessName'] ?? '',
       videoUrl: map['videoUrl'] ?? '',
       thumbnailUrl: map['thumbnailUrl'] ?? '',
-      productName: map['productName'] ?? '',
-      price: map['price'] ?? '',
-      description: map['description'] ?? '',
-      category: map['category'] ?? '',
+      caption: map['caption'] ?? '',
       likes: map['likes'] ?? 0,
       comments: map['comments'] ?? 0,
       views: map['views'] ?? 0,
+      shares: map['shares'] ?? 0,
       isLiked: isLiked,
       tags: List<String>.from(map['tags'] ?? []),
-      location: map['location'] ?? '',
       createdAt: map['createdAt'] ?? Timestamp.now(),
       isActive: map['isActive'] ?? true,
       isFeatured: map['isFeatured'] ?? false,
+      isMultipleImages: map['isMultipleImages'] ?? false,
+      imageUrls: List<String>.from(map['imageUrls'] ?? []),
     );
   }
 
-  MarketplaceVideoModel copyWith({
+  ChannelVideoModel copyWith({
     String? id,
+    String? channelId,
+    String? channelName,
+    String? channelImage,
     String? userId,
-    String? userName,
-    String? userImage,
-    String? businessName,
     String? videoUrl,
     String? thumbnailUrl,
-    String? productName,
-    String? price,
-    String? description,
-    String? category,
+    String? caption,
     int? likes,
     int? comments,
     int? views,
+    int? shares,
     bool? isLiked,
     List<String>? tags,
-    String? location,
     Timestamp? createdAt,
     bool? isActive,
     bool? isFeatured,
+    bool? isMultipleImages,
+    List<String>? imageUrls,
   }) {
-    return MarketplaceVideoModel(
+    return ChannelVideoModel(
       id: id ?? this.id,
+      channelId: channelId ?? this.channelId,
+      channelName: channelName ?? this.channelName,
+      channelImage: channelImage ?? this.channelImage,
       userId: userId ?? this.userId,
-      userName: userName ?? this.userName,
-      userImage: userImage ?? this.userImage,
-      businessName: businessName ?? this.businessName,
       videoUrl: videoUrl ?? this.videoUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
-      productName: productName ?? this.productName,
-      price: price ?? this.price,
-      description: description ?? this.description,
-      category: category ?? this.category,
+      caption: caption ?? this.caption,
       likes: likes ?? this.likes,
       comments: comments ?? this.comments,
       views: views ?? this.views,
+      shares: shares ?? this.shares,
       isLiked: isLiked ?? this.isLiked,
       tags: tags ?? this.tags,
-      location: location ?? this.location,
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
+      isMultipleImages: isMultipleImages ?? this.isMultipleImages,
+      imageUrls: imageUrls ?? this.imageUrls,
     );
   }
 }

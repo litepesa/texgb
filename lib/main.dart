@@ -8,14 +8,17 @@ import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
+import 'package:textgb/features/channels/models/channel_model.dart';
+import 'package:textgb/features/channels/screens/channel_comments_screen.dart';
+import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
+import 'package:textgb/features/channels/screens/channel_video_detail_screen.dart';
+import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
-import 'package:textgb/features/marketplace/screens/create_marketplace_video_screen.dart';
-import 'package:textgb/features/marketplace/screens/marketplace_comments_screen.dart';
-import 'package:textgb/features/marketplace/screens/marketplace_video_detail_screen.dart';
-import 'package:textgb/features/marketplace/screens/marketplace_video_feed_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
@@ -152,17 +155,40 @@ class AppRoot extends ConsumerWidget {
             return StatusDetailScreen(status: args);
           },
           
-          // Marketplace routes
-          Constants.marketplaceVideoFeedScreen: (context) => const MarketplaceVideoFeedScreen(),
-          Constants.createMarketplaceVideoScreen: (context) => const CreateMarketplaceVideoScreen(),
-          Constants.marketplaceVideoDetailScreen: (context) {
+          // Channels routes (replacing Marketplace routes)
+          Constants.channelsFeedScreen: (context) => const ChannelsFeedScreen(),
+          Constants.createChannelScreen: (context) => const CreateChannelScreen(),
+          Constants.createChannelPostScreen: (context) => const CreateChannelPostScreen(),
+          Constants.channelVideoDetailScreen: (context) {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
-            return MarketplaceVideoDetailScreen(videoId: videoId);
+            return ChannelVideoDetailScreen(videoId: videoId);
           },
-          Constants.marketplaceCommentsScreen: (context) {
+          Constants.channelCommentsScreen: (context) {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
-            return MarketplaceCommentsScreen(videoId: videoId);
+            return ChannelCommentsScreen(videoId: videoId);
           },
+          Constants.channelProfileScreen: (context) {
+            final channelId = ModalRoute.of(context)!.settings.arguments as String;
+            return ChannelProfileScreen(channelId: channelId);
+          },
+          Constants.editChannelScreen: (context) {
+            final channel = ModalRoute.of(context)!.settings.arguments as ChannelModel;
+            return const Scaffold(
+              body: Center(
+                child: Text('Edit Channel Screen - To be implemented'),
+              ),
+            ); // Placeholder for EditChannelScreen
+          },
+          Constants.myChannelScreen: (context) => const Scaffold(
+              body: Center(
+                child: Text('My Channel Screen - To be implemented'),
+              ),
+            ), // Placeholder for MyChannelScreen
+          Constants.exploreChannelsScreen: (context) => const Scaffold(
+              body: Center(
+                child: Text('Explore Channels Screen - To be implemented'),
+              ),
+            ), // Placeholder for ExploreChannelsScreen
         },
         navigatorObservers: [routeObserver],
         onUnknownRoute: (settings) {

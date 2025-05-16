@@ -4,21 +4,20 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/models/user_model.dart';
 
-class MarketplaceCommentsScreen extends ConsumerStatefulWidget {
+class ChannelCommentsScreen extends ConsumerStatefulWidget {
   final String videoId;
   
-  const MarketplaceCommentsScreen({
+  const ChannelCommentsScreen({
     Key? key,
     required this.videoId,
   }) : super(key: key);
 
   @override
-  ConsumerState<MarketplaceCommentsScreen> createState() => _MarketplaceCommentsScreenState();
+  ConsumerState<ChannelCommentsScreen> createState() => _ChannelCommentsScreenState();
 }
 
-class _MarketplaceCommentsScreenState extends ConsumerState<MarketplaceCommentsScreen> {
+class _ChannelCommentsScreenState extends ConsumerState<ChannelCommentsScreen> {
   final TextEditingController _commentController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -58,7 +57,7 @@ class _MarketplaceCommentsScreenState extends ConsumerState<MarketplaceCommentsS
       final userImage = userData[Constants.image] ?? '';
       
       // Add comment to Firestore
-      await _firestore.collection(Constants.marketplaceComments).add({
+      await _firestore.collection(Constants.channelComments).add({
         'videoId': widget.videoId,
         'userId': uid,
         'userName': userName,
@@ -69,7 +68,7 @@ class _MarketplaceCommentsScreenState extends ConsumerState<MarketplaceCommentsS
       });
       
       // Increment comment count on video
-      await _firestore.collection(Constants.marketplaceVideos).doc(widget.videoId).update({
+      await _firestore.collection(Constants.channelVideos).doc(widget.videoId).update({
         'comments': FieldValue.increment(1),
       });
       
@@ -121,7 +120,7 @@ class _MarketplaceCommentsScreenState extends ConsumerState<MarketplaceCommentsS
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestore
-                  .collection(Constants.marketplaceComments)
+                  .collection(Constants.channelComments)
                   .where('videoId', isEqualTo: widget.videoId)
                   .orderBy('createdAt', descending: true)
                   .snapshots(),
@@ -274,21 +273,17 @@ class _MarketplaceCommentsScreenState extends ConsumerState<MarketplaceCommentsS
                                 // Like and reply buttons
                                 Row(
                                   children: [
-                                    Text(
-                                      'Like',
-                                      style: TextStyle(
-                                        color: modernTheme.textSecondaryColor,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Reply',
-                                      style: TextStyle(
-                                        color: modernTheme.textSecondaryColor,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                    GestureDetector(
+                                      onTap: () {
+                                        // Like comment functionality
+                                      },
+                                      child: Text(
+                                        'Like',
+                                        style: TextStyle(
+                                          color: modernTheme.textSecondaryColor,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                     if (likes > 0) ...[
@@ -345,14 +340,16 @@ class _MarketplaceCommentsScreenState extends ConsumerState<MarketplaceCommentsS
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-                  child: Text(
-                    'Me',
-                    style: TextStyle(
-                      color: modernTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
+                  backgroundImage: _auth.currentUser?.photoURL != null
+                      ? NetworkImage(_auth.currentUser!.photoURL!)
+                      : null,
+                  child: _auth.currentUser?.photoURL == null
+                      ? Icon(
+                          Icons.person,
+                          color: modernTheme.primaryColor,
+                          size: 16,
+                        )
+                      : null,
                 ),
                 
                 const SizedBox(width: 12),
