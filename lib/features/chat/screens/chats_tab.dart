@@ -1,3 +1,4 @@
+// lib/features/chat/screens/chats_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -120,75 +121,196 @@ class ChatsTab extends ConsumerWidget {
       timeText = DateFormat('dd/MM/yyyy').format(dateTime);
     }
     
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-        backgroundImage: chat.contactImage.isNotEmpty
-            ? NetworkImage(chat.contactImage)
-            : null,
-        child: chat.contactImage.isEmpty
-            ? Text(
-                chat.contactName.isNotEmpty
-                    ? chat.contactName.substring(0, 1)
-                    : '?',
-                style: TextStyle(
-                  color: modernTheme.primaryColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              )
-            : null,
-      ),
-      title: Text(
-        chat.contactName,
-        style: TextStyle(
-          color: modernTheme.textColor,
-          fontWeight: chat.unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+    return Dismissible(
+      key: Key('chat_${chat.id}'),
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        child: const Icon(
+          Icons.delete,
+          color: Colors.white,
         ),
       ),
-      subtitle: Text(
-        _getLastMessagePreview(chat),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: chat.unreadCount > 0
-              ? modernTheme.textColor
-              : modernTheme.textSecondaryColor,
-          fontWeight: chat.unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
+      secondaryBackground: Container(
+        color: Colors.blue,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(
+          Icons.archive,
+          color: Colors.white,
         ),
       ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            timeText,
-            style: TextStyle(
-              color: chat.unreadCount > 0
-                  ? modernTheme.primaryColor
-                  : modernTheme.textSecondaryColor,
-              fontSize: 12,
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Delete action
+          return await _showDeleteConfirmation(context);
+        } else {
+          // Archive action
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Archive feature coming soon')),
+          );
+          return false;
+        }
+      },
+      child: ListTile(
+        leading: Stack(
+          children: [
+            CircleAvatar(
+              backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+              backgroundImage: chat.contactImage.isNotEmpty
+                  ? NetworkImage(chat.contactImage)
+                  : null,
+              child: chat.contactImage.isEmpty
+                  ? Text(
+                      chat.contactName.isNotEmpty
+                          ? chat.contactName.substring(0, 1)
+                          : '?',
+                      style: TextStyle(
+                        color: modernTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
             ),
+            // No longer showing online indicator
+          ],
+        ),
+        title: Text(
+          chat.contactName,
+          style: TextStyle(
+            color: modernTheme.textColor,
+            fontWeight: chat.unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
           ),
-          const SizedBox(height: 5),
-          if (chat.unreadCount > 0)
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                chat.unreadCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
+        ),
+        subtitle: Text(
+          _getLastMessagePreview(chat),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: chat.unreadCount > 0
+                ? modernTheme.textColor
+                : modernTheme.textSecondaryColor,
+            fontWeight: chat.unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
+          ),
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              timeText,
+              style: TextStyle(
+                color: chat.unreadCount > 0
+                    ? modernTheme.primaryColor
+                    : modernTheme.textSecondaryColor,
+                fontSize: 12,
               ),
             ),
+            const SizedBox(height: 5),
+            if (chat.unreadCount > 0)
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  chat.unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        onTap: () => _openChatScreen(context, ref, chat),
+        onLongPress: () => _showChatOptions(context, chat),
+      ),
+    );
+  }
+
+  Future<bool> _showDeleteConfirmation(BuildContext context) async {
+    return await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Chat'),
+        content: const Text('Are you sure you want to delete this chat?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
-      onTap: () => _openChatScreen(context, ref, chat),
+    ) ?? false;
+  }
+
+  void _showChatOptions(BuildContext context, ChatModel chat) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.delete),
+              title: const Text('Delete chat'),
+              onTap: () async {
+                Navigator.pop(context);
+                final confirm = await _showDeleteConfirmation(context);
+                if (confirm) {
+                  // Implement chat deletion
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Chat deleted')),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_off),
+              title: const Text('Mute notifications'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Notifications muted')),
+                );
+              },
+            ),
+            if (!chat.isGroup)
+              ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('View contact'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(
+                    context,
+                    Constants.contactProfileScreen,
+                    arguments: {
+                      'uid': chat.contactUID,
+                    },
+                  );
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.archive),
+              title: const Text('Archive chat'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Archive feature coming soon')),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -245,7 +367,6 @@ class ChatsTab extends ConsumerWidget {
           aboutMe: '',
           lastSeen: DateTime.now().millisecondsSinceEpoch.toString(),
           token: '',
-          isOnline: false,
           createdAt: DateTime.now().millisecondsSinceEpoch.toString(),
           contactsUIDs: [],
           blockedUIDs: [],

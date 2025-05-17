@@ -1,3 +1,4 @@
+// lib/features/contacts/screens/contacts_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -225,10 +226,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
               PopupMenuItem<String>(
                 value: 'refresh',
                 child: Row(
-                  children: [
-                    const Icon(Icons.sync),
-                    const SizedBox(width: 10),
-                    const Text('Sync contacts'),
+                  children: const [
+                    Icon(Icons.sync),
+                    SizedBox(width: 10),
+                    Text('Sync contacts'),
                   ],
                 ),
               ),
@@ -515,37 +516,14 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> with SingleTick
     final theme = Theme.of(context);
     final modernTheme = context.modernTheme;
     final primaryColor = modernTheme.primaryColor!;
-    final isOnlineColor = contact.isOnline 
-        ? primaryColor 
-        : Colors.grey;
     
     return ListTile(
-      leading: Stack(
-        children: [
-          userImageWidget(
-            imageUrl: contact.image,
-            radius: 24,
-            onTap: () {
-              // View profile
-            },
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: isOnlineColor,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: theme.scaffoldBackgroundColor,
-                  width: 2,
-                ),
-              ),
-            ),
-          ),
-        ],
+      leading: userImageWidget(
+        imageUrl: contact.image,
+        radius: 24,
+        onTap: () {
+          // View profile
+        },
       ),
       title: Text(
         contact.name,

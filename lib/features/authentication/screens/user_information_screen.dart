@@ -243,7 +243,6 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
         aboutMe: _aboutMeController.text.trim(),
         lastSeen: '',
         createdAt: '',
-        isOnline: true,
         contactsUIDs: [],
         blockedUIDs: [],
       );

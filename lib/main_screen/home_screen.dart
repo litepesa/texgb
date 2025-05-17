@@ -1,3 +1,4 @@
+// lib/main_screen/home_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +13,7 @@ import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart'; // Add this import
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -142,6 +144,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
+    // Get chats list to calculate total unread messages
+    final chatsAsyncValue = ref.watch(chatStreamProvider);
+    
     // Calculate bottom padding to account for system navigation
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     
@@ -221,19 +226,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       );
                     }
                     
-                    return BottomNavigationBarItem(
-                      icon: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isSelected 
-                            ? modernTheme.primaryColor!.withOpacity(0.2) 
-                            : Colors.transparent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(_tabIcons[index]),
-                      ),
-                      label: _tabNames[index],
-                    );
+                    // Check if it's the Chats tab (index 0) and has unread messages
+                    if (index == 0) {
+                      return chatsAsyncValue.when(
+                        data: (chats) {
+                          // Calculate total unread count from all chats
+                          final totalUnreadCount = chats.fold<int>(
+                            0, 
+                            (sum, chat) => sum + chat.unreadCount
+                          );
+                          
+                          return BottomNavigationBarItem(
+                            icon: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected 
+                                      ? modernTheme.primaryColor!.withOpacity(0.2) 
+                                      : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(_tabIcons[index]),
+                                ),
+                                // Show badge only if there are unread messages
+                                if (totalUnreadCount > 0)
+                                  Positioned(
+                                    top: -5,
+                                    right: -5,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        shape: totalUnreadCount > 99 
+                                            ? BoxShape.rectangle 
+                                            : BoxShape.circle,
+                                        borderRadius: totalUnreadCount > 99 
+                                            ? BorderRadius.circular(10) 
+                                            : null,
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 18,
+                                        minHeight: 18,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          totalUnreadCount > 99 
+                                              ? '99+' 
+                                              : totalUnreadCount.toString(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            label: _tabNames[index],
+                          );
+                        },
+                        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+                        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+                      );
+                    }
+                    
+                    // Default case for other tabs
+                    return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
                   },
                 ),
               ),
@@ -244,6 +306,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       
       // FAB for new chat (only for Chats tab)
       floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
+    );
+  }
+  
+  // Helper method to build default bottom nav item (without badge)
+  BottomNavigationBarItem _buildDefaultBottomNavItem(int index, bool isSelected, ModernThemeExtension modernTheme) {
+    return BottomNavigationBarItem(
+      icon: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isSelected 
+            ? modernTheme.primaryColor!.withOpacity(0.2) 
+            : Colors.transparent,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(_tabIcons[index]),
+      ),
+      label: _tabNames[index],
     );
   }
   

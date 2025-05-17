@@ -1,12 +1,13 @@
-// lib/features/chat/widgets/message_bubble.dart
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -15,6 +16,7 @@ class MessageBubble extends ConsumerWidget {
   final UserModel contact;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final Function(String)? onSwipe; // Added for swipe to reply
 
   const MessageBubble({
     Key? key,
@@ -22,6 +24,7 @@ class MessageBubble extends ConsumerWidget {
     required this.contact,
     this.onTap,
     this.onLongPress,
+    this.onSwipe,
   }) : super(key: key);
 
   @override
@@ -32,8 +35,8 @@ class MessageBubble extends ConsumerWidget {
     // Check if the message is from the current user
     final isMe = message.senderUID == currentUser.uid;
     
-    // Check if the message is deleted for the current user
-    final isDeleted = message.deletedBy.contains(currentUser.uid);
+    // Check if the message is deleted for the current user or for everyone
+    final isDeleted = message.deletedBy.contains(currentUser.uid) || message.deletedForEveryone;
     
     if (isDeleted) {
       return _buildDeletedMessage(context, isMe);
@@ -45,15 +48,27 @@ class MessageBubble extends ConsumerWidget {
         ? BorderRadius.circular(16) // Use fixed radius instead of theme
         : BorderRadius.circular(16);
 
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
+    // Add support for swipe to reply using Dismissible
+    return Dismissible(
+      key: Key('message_${message.messageId}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (direction) async {
+        if (onSwipe != null) {
+          onSwipe!(message.messageId);
+        }
+        return false; // Don't dismiss the widget
+      },
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16.0),
+        color: context.modernTheme.primaryColor!.withOpacity(0.2),
+        child: const Icon(Icons.reply, color: Colors.white),
+      ),
+      child: Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
         child: GestureDetector(
           onTap: onTap,
-          onLongPress: onLongPress,
+          onLongPress: () => _showReactionOptions(context, ref),
           child: Container(
             margin: EdgeInsets.only(
               top: 4,
@@ -81,12 +96,30 @@ class MessageBubble extends ConsumerWidget {
                   child: _buildMessageContent(context, isMe),
                 ),
                 
-                // Timestamp and seen status
+                // Display edited indicator if message was edited
+                if (message.editedAt != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8, top: 2, bottom: 2, left: 12),
+                    child: Text(
+                      'Edited',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                        color: chatTheme.timestampColor,
+                      ),
+                    ),
+                  ),
+                
+                // Display reactions if any
+                if (message.reactions.isNotEmpty)
+                  _buildReactions(context),
+                
+                // Timestamp and delivery status
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 8, bottom: 4),
-                    child: _buildTimestampAndSeen(context, isMe),
+                    child: _buildTimestampAndDeliveryStatus(context, isMe),
                   ),
                 ),
               ],
@@ -397,7 +430,32 @@ class MessageBubble extends ConsumerWidget {
     }
   }
 
-  Widget _buildTimestampAndSeen(BuildContext context, bool isMe) {
+  // Build reactions display
+  Widget _buildReactions(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 4, left: 12, right: 12, bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: context.modernTheme.surfaceColor!.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Wrap(
+        spacing: 4,
+        children: message.reactions.entries.map((entry) {
+          return Padding(
+            padding: const EdgeInsets.all(2.0),
+            child: Text(
+              entry.value,
+              style: const TextStyle(fontSize: 14),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // Update timestamp method to show delivery status instead of seen
+  Widget _buildTimestampAndDeliveryStatus(BuildContext context, bool isMe) {
     final dateTime = DateTime.fromMillisecondsSinceEpoch(
       int.parse(message.timeSent),
     );
@@ -417,12 +475,156 @@ class MessageBubble extends ConsumerWidget {
         if (isMe) ...[
           const SizedBox(width: 4),
           Icon(
-            message.isSeen ? Icons.done_all : Icons.done,
-            color: message.isSeen ? Colors.blue : context.chatTheme.timestampColor,
+            message.isDelivered ? Icons.done_all : Icons.done,
+            color: context.chatTheme.timestampColor, // Always gray, no blue ticks
             size: 12,
           ),
         ],
       ],
+    );
+  }
+
+  // Show reaction options dialog
+  void _showReactionOptions(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    // Add haptic feedback for long press
+    HapticFeedback.mediumImpact();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Reactions section
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    '❤️', '👍', '👎', '😂', '😮', '😢'
+                  ].map((emoji) => GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      ref.read(chatProvider.notifier).addReaction(
+                        message.messageId, 
+                        emoji,
+                      );
+                      // Add haptic feedback for reaction
+                      HapticFeedback.lightImpact();
+                    },
+                    child: Text(emoji, style: const TextStyle(fontSize: 30)),
+                  )).toList(),
+                ),
+              ),
+              
+              const Divider(),
+              
+              // Message options
+              ListTile(
+                leading: const Icon(Icons.reply),
+                title: const Text('Reply'),
+                onTap: () {
+                  Navigator.pop(context);
+                  ref.read(chatProvider.notifier).setReplyingTo(message);
+                },
+              ),
+              
+              // Only show edit option for user's own messages
+              if (message.senderUID == currentUser.uid && 
+                  message.messageType == MessageEnum.text)
+                ListTile(
+                  leading: const Icon(Icons.edit),
+                  title: const Text('Edit'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showEditDialog(context, ref);
+                  },
+                ),
+              
+              // Copy option for text messages
+              if (message.messageType == MessageEnum.text)
+                ListTile(
+                  leading: const Icon(Icons.content_copy),
+                  title: const Text('Copy'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Clipboard.setData(ClipboardData(text: message.message));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Message copied to clipboard'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+              
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: const Text('Delete for me'),
+                onTap: () {
+                  Navigator.pop(context);
+                  ref.read(chatProvider.notifier).deleteMessage(message.messageId);
+                },
+              ),
+              
+              // Only show delete for everyone for user's own recent messages
+              if (message.senderUID == currentUser.uid) 
+                ListTile(
+                  leading: const Icon(Icons.delete_forever),
+                  title: const Text('Delete for everyone'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ref.read(chatProvider.notifier).deleteMessageForEveryone(message.messageId);
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Show edit dialog
+  void _showEditDialog(BuildContext context, WidgetRef ref) {
+    final textController = TextEditingController(text: message.message);
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Message'),
+          content: TextField(
+            controller: textController,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Edit your message',
+            ),
+            maxLines: 5,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                if (textController.text.trim().isNotEmpty) {
+                  ref.read(chatProvider.notifier).editMessage(
+                    message.messageId, 
+                    textController.text.trim(),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

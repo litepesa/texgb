@@ -686,6 +686,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             },
             modernTheme: modernTheme,
           ),
+          _buildSettingsItem(
+            icon: Icons.logout,
+            title: 'Sign Out',
+            onTap: () {
+              _signOut();
+            },
+            modernTheme: modernTheme,
+          ),
         ],
       ),
     );
@@ -937,14 +945,28 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   }
   
   void _addNewAccount() {
-    // Set current user to offline
-    ref.read(authenticationProvider.notifier).updateUserStatus(value: false);
-    
     // Navigate to login screen
     Navigator.pushNamedAndRemoveUntil(
       context, 
       Constants.landingScreen, 
       (route) => false,
     );
+  }
+  
+  void _signOut() async {
+    try {
+      await ref.read(authenticationProvider.notifier).signOut();
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context, 
+          Constants.landingScreen, 
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error signing out: $e');
+      }
+    }
   }
 }

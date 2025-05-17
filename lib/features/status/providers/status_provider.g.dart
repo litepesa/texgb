@@ -6,7 +6,7 @@ part of 'status_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$myStatusesStreamHash() => r'8e36a8e0e83dbf1b5f9e2a6f4982c2dba1a912d5';
+String _$myStatusesStreamHash() => r'158b4c9e30c85a805e06d2bb1ef5d6bedd4b5ce5';
 
 /// See also [myStatusesStream].
 @ProviderFor(myStatusesStream)
@@ -21,9 +21,11 @@ final myStatusesStreamProvider =
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef MyStatusesStreamRef = AutoDisposeStreamProviderRef<List<StatusModel>>;
 String _$contactsStatusesStreamHash() =>
-    r'6c01ec1dff43ae5dba25d01551e0b4de81be5ff7';
+    r'6c0de8a5c670ebda10d6535da2fe487460871d4e';
 
 /// See also [contactsStatusesStream].
 @ProviderFor(contactsStatusesStream)
@@ -38,9 +40,11 @@ final contactsStatusesStreamProvider =
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef ContactsStatusesStreamRef
     = AutoDisposeStreamProviderRef<List<UserStatusSummary>>;
-String _$hasActiveStatusHash() => r'f83e3b6e9aa75d5c0ec0a5f9dd51a94ab4def9a0';
+String _$hasActiveStatusHash() => r'4f4987745bb0ed7abbbbde2f0479a9e86441e378';
 
 /// See also [hasActiveStatus].
 @ProviderFor(hasActiveStatus)
@@ -54,8 +58,10 @@ final hasActiveStatusProvider = AutoDisposeProvider<bool>.internal(
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef HasActiveStatusRef = AutoDisposeProviderRef<bool>;
-String _$statusNotifierHash() => r'7e982a81bda0be51e38bb2e5e7c2b0bc7aa85f02';
+String _$statusNotifierHash() => r'2be5993c66b51e6f22913c4eb0d6b545c95de8ad';
 
 /// See also [StatusNotifier].
 @ProviderFor(StatusNotifier)

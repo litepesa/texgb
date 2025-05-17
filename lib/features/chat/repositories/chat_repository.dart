@@ -32,11 +32,13 @@ class ChatRepository {
         .where('participants', arrayContains: currentUser.uid)
         .orderBy(Constants.timeSent, descending: true)
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
+        .asyncMap((snapshot) async {
+          final List<ChatModel> chats = [];
+          
+          for (final doc in snapshot.docs) {
             final data = doc.data();
-            // Determine if this is a group chat
             final isGroup = data['isGroup'] ?? false;
+            
             String? contactUID;
             String contactName = '';
             String contactImage = '';
@@ -47,7 +49,6 @@ class ChatRepository {
               contactName = data[Constants.groupName] as String? ?? 'Group';
               contactImage = data[Constants.groupImage] as String? ?? '';
             } else {
-              // For one-on-one chats, find the other participant
               final participants = List<String>.from(data['participants'] ?? []);
               contactUID = participants.firstWhere(
                 (uid) => uid != currentUser.uid,
@@ -56,8 +57,12 @@ class ChatRepository {
               contactName = data[Constants.contactName] as String? ?? '';
               contactImage = data[Constants.contactImage] as String? ?? '';
             }
-
-            return ChatModel(
+            
+            // Use the unreadCount from the chat document
+            // This will be updated when messages are sent and when the chat is opened
+            final unreadCount = data['unreadCount'] as int? ?? 0;
+            
+            chats.add(ChatModel(
               id: doc.id,
               contactUID: contactUID ?? '',
               contactName: contactName,
@@ -65,16 +70,21 @@ class ChatRepository {
               lastMessage: data[Constants.lastMessage] as String? ?? '',
               lastMessageType: (data[Constants.messageType] as String? ?? 'text').toMessageEnum(),
               lastMessageTime: data[Constants.timeSent] as String? ?? '',
-              unreadCount: data['unreadCount'] as int? ?? 0,
+              unreadCount: unreadCount,
               isGroup: isGroup,
               groupId: groupId,
-            );
-          }).toList();
+            ));
+          }
+          
+          return chats;
         });
   }
 
   // Get messages for a specific chat
   Stream<List<MessageModel>> getMessages(String chatId) {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return Stream.value([]);
+
     return _firestore
         .collection(Constants.chats)
         .doc(chatId)
@@ -82,10 +92,84 @@ class ChatRepository {
         .orderBy(Constants.timeSent, descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            return MessageModel.fromMap(doc.data());
+          List<MessageModel> messages = snapshot.docs.map((doc) {
+            final messageData = doc.data();
+            
+            // Filter messages based on deleted status
+            if (messageData[Constants.deletedBy]?.contains(currentUser.uid) ?? false) {
+              // If message is deleted for this user, return a "deleted" placeholder
+              messageData[Constants.message] = 'This message was deleted';
+            }
+            
+            return MessageModel.fromMap(messageData);
           }).toList();
+          
+          // Mark messages as delivered
+          for (var message in messages) {
+            if (message.senderUID != currentUser.uid && 
+                !message.deliveredTo.contains(currentUser.uid)) {
+              markMessageAsDelivered(chatId: chatId, messageId: message.messageId);
+            }
+          }
+          
+          return messages;
         });
+  }
+
+  // Get unread message count for a chat
+  Future<int> getUnreadMessageCount(String chatId, String userId) async {
+    try {
+      // Only query messages SENT TO the user (not from them)
+      final querySnapshot = await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .where(Constants.senderUID, isNotEqualTo: userId) // Only count messages not sent by user
+          .orderBy(Constants.senderUID) // Required for inequality query
+          .orderBy(Constants.timeSent, descending: true) // Get most recent first
+          .get();
+      
+      // Count messages not sent by this user and delivered but not viewed by opening the chat
+      int count = 0;
+      for (var doc in querySnapshot.docs) {
+        final messageData = doc.data();
+        final isDeleted = (messageData[Constants.deletedBy] as List<dynamic>?)?.contains(userId) ?? false;
+        
+        // Don't count messages that were deleted by this user
+        if (!isDeleted) {
+          count++;
+        }
+      }
+      
+      return count;
+    } catch (e) {
+      debugPrint('Error getting unread count: $e');
+      return 0;
+    }
+  }
+
+  // Get total unread count across all chats
+  Future<int> getTotalUnreadCount() async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return 0;
+      
+      final querySnapshot = await _firestore
+          .collection(Constants.chats)
+          .where('participants', arrayContains: currentUser.uid)
+          .get();
+      
+      int totalUnread = 0;
+      for (var doc in querySnapshot.docs) {
+        final unreadCount = doc.data()['unreadCount'] as int? ?? 0;
+        totalUnread += unreadCount;
+      }
+      
+      return totalUnread;
+    } catch (e) {
+      debugPrint('Error getting total unread count: $e');
+      return 0;
+    }
   }
 
   // Send a message
@@ -118,12 +202,14 @@ class ChatRepository {
         message: message,
         messageType: messageType,
         timeSent: timeSent,
-        isSeen: false,
+        isDelivered: false,
         repliedMessage: repliedMessage,
         repliedTo: repliedTo,
         repliedMessageType: repliedMessageType,
-        seenBy: [currentUser.uid],
+        deliveredTo: [currentUser.uid], // Mark as delivered to sender
         deletedBy: [],
+        reactions: {},
+        deletedForEveryone: false,
       );
 
       // Upload file if present
@@ -148,6 +234,7 @@ class ChatRepository {
           lastMessage: message,
           messageType: messageType,
           timeSent: timeSent,
+          messageId: messageId,
         );
       } else {
         // Update existing chat with last message info
@@ -156,6 +243,7 @@ class ChatRepository {
           lastMessage: message,
           messageType: messageType,
           timeSent: timeSent,
+          messageId: messageId,
         );
       }
 
@@ -173,8 +261,8 @@ class ChatRepository {
     }
   }
 
-  // Mark a message as seen
-  Future<void> markMessageAsSeen({
+  // Mark a message as delivered
+  Future<void> markMessageAsDelivered({
     required String chatId,
     required String messageId,
   }) async {
@@ -191,12 +279,12 @@ class ChatRepository {
           .get();
 
       if (messageDoc.exists) {
-        // Get the current seenBy list
-        final seenBy = List<String>.from(messageDoc.data()?[Constants.isSeenBy] ?? []);
+        // Get the current deliveredTo list
+        final deliveredTo = List<String>.from(messageDoc.data()?[Constants.deliveredTo] ?? []);
         
         // Add the current user if not already in the list
-        if (!seenBy.contains(currentUser.uid)) {
-          seenBy.add(currentUser.uid);
+        if (!deliveredTo.contains(currentUser.uid)) {
+          deliveredTo.add(currentUser.uid);
           
           // Update the message document
           await _firestore
@@ -205,14 +293,34 @@ class ChatRepository {
               .collection(Constants.messages)
               .doc(messageId)
               .update({
-                Constants.isSeenBy: seenBy,
-                Constants.isSeen: true,
+                Constants.deliveredTo: deliveredTo,
+                Constants.isDelivered: true,
               });
         }
       }
     } catch (e) {
-      debugPrint('Error marking message as seen: $e');
-      rethrow;
+      debugPrint('Error marking message as delivered: $e');
+    }
+  }
+
+  // Clear unread count when opening a chat
+  Future<void> clearUnreadCount(String chatId) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      // Update the chat document to reset unread count
+      await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .update({
+            'unreadCount': 0,
+          });
+          
+      // Update any system notification badges (if needed)
+      // This might be platform specific and would require native code
+    } catch (e) {
+      debugPrint('Error clearing unread count: $e');
     }
   }
 
@@ -224,6 +332,7 @@ class ChatRepository {
     required String lastMessage,
     required MessageEnum messageType,
     required String timeSent,
+    required String messageId,
   }) async {
     try {
       // Create the chat document
@@ -236,7 +345,8 @@ class ChatRepository {
         Constants.lastMessage: lastMessage,
         Constants.messageType: messageType.name,
         Constants.timeSent: timeSent,
-        'unreadCount': 1,
+        Constants.lastMessageId: messageId,
+        'unreadCount': 1, // We'll keep this for tracking undelivered messages
         'isGroup': false,
       });
     } catch (e) {
@@ -251,13 +361,30 @@ class ChatRepository {
     required String lastMessage,
     required MessageEnum messageType,
     required String timeSent,
+    required String messageId,
   }) async {
     try {
+      // Get current user ID
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      // Get chat document to check participants
+      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
+      if (!chatDoc.exists) return;
+      
+      // Get the other participants (not the sender)
+      final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
+      final otherParticipants = participants.where((uid) => uid != currentUser.uid).toList();
+      
+      // For each recipient, increment their unread count
+      // In a one-on-one chat, this is just one person
+      // In a group chat, this would be multiple people
       await _firestore.collection(Constants.chats).doc(chatId).update({
         Constants.lastMessage: lastMessage,
         Constants.messageType: messageType.name,
         Constants.timeSent: timeSent,
-        'unreadCount': FieldValue.increment(1),
+        Constants.lastMessageId: messageId,
+        'unreadCount': FieldValue.increment(1), // Only increments for messages TO other users
       });
     } catch (e) {
       debugPrint('Error updating chat last message: $e');
@@ -265,7 +392,7 @@ class ChatRepository {
     }
   }
 
-  // Delete a message
+  // Delete a message for current user
   Future<void> deleteMessage({
     required String chatId,
     required String messageId,
@@ -303,6 +430,156 @@ class ChatRepository {
       }
     } catch (e) {
       debugPrint('Error deleting message: $e');
+      rethrow;
+    }
+  }
+
+  // Delete message for everyone
+  Future<void> deleteMessageForEveryone({
+    required String chatId,
+    required String messageId,
+  }) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      // Get the message document
+      final messageDoc = await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .get();
+      
+      if (!messageDoc.exists) return;
+      
+      // Check if current user is the sender
+      final senderUID = messageDoc.data()?[Constants.senderUID];
+      if (senderUID != currentUser.uid) {
+        throw Exception('You can only delete your own messages for everyone');
+      }
+      
+      // Mark the message as deleted for everyone by updating with special flag
+      await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .update({
+            Constants.deletedForEveryone: true,
+            Constants.message: 'This message was deleted',
+          });
+          
+      // Update last message in chat if this was the last message
+      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
+      if (chatDoc.exists) {
+        final lastMessageId = chatDoc.data()?[Constants.lastMessageId];
+        if (lastMessageId == messageId) {
+          await _firestore.collection(Constants.chats).doc(chatId).update({
+            Constants.lastMessage: 'This message was deleted',
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error deleting message for everyone: $e');
+      rethrow;
+    }
+  }
+
+  // Edit a message
+  Future<void> editMessage({
+    required String chatId,
+    required String messageId,
+    required String newMessage,
+  }) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      // Get the message document
+      final messageDoc = await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .get();
+      
+      if (!messageDoc.exists) return;
+      
+      // Check if current user is the sender
+      final senderUID = messageDoc.data()?[Constants.senderUID];
+      if (senderUID != currentUser.uid) {
+        throw Exception('You can only edit your own messages');
+      }
+      
+      // Update the message
+      await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .update({
+            Constants.message: newMessage,
+            Constants.editedAt: DateTime.now().millisecondsSinceEpoch.toString(),
+          });
+          
+      // Update last message in chat if this was the last message
+      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
+      if (chatDoc.exists) {
+        final lastMessageId = chatDoc.data()?[Constants.lastMessageId];
+        if (lastMessageId == messageId) {
+          await _firestore.collection(Constants.chats).doc(chatId).update({
+            Constants.lastMessage: newMessage,
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error editing message: $e');
+      rethrow;
+    }
+  }
+
+  // Add reaction to message
+  Future<void> addReaction({
+    required String chatId,
+    required String messageId,
+    required String userId,
+    required String emoji,
+  }) async {
+    try {
+      // Add reaction to reactions map
+      await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .update({
+            'reactions.$userId': emoji,
+          });
+    } catch (e) {
+      debugPrint('Error adding reaction: $e');
+      rethrow;
+    }
+  }
+
+  // Remove reaction from message
+  Future<void> removeReaction({
+    required String chatId,
+    required String messageId,
+    required String userId,
+  }) async {
+    try {
+      // Remove user's reaction from the reactions map
+      await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .update({
+            'reactions.$userId': FieldValue.delete(),
+          });
+    } catch (e) {
+      debugPrint('Error removing reaction: $e');
       rethrow;
     }
   }

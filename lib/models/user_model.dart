@@ -1,3 +1,4 @@
+// lib/models/user_model.dart
 import 'package:textgb/constants.dart';
 
 class UserModel {
@@ -9,7 +10,7 @@ class UserModel {
   String aboutMe;
   String lastSeen;
   String createdAt;
-  bool isOnline;
+  // Removed isOnline property
   List<String> contactsUIDs;  
   List<String> blockedUIDs;
   List<String> statusMutedUsers; // Added for status feature
@@ -23,7 +24,7 @@ class UserModel {
     required this.aboutMe,
     required this.lastSeen,
     required this.createdAt,
-    required this.isOnline,
+    // Removed isOnline parameter
     required this.contactsUIDs,
     required this.blockedUIDs,
     this.statusMutedUsers = const [], // Default to empty list
@@ -40,7 +41,7 @@ class UserModel {
       aboutMe: map[Constants.aboutMe] ?? '',
       lastSeen: map[Constants.lastSeen] ?? '',
       createdAt: map[Constants.createdAt] ?? '',
-      isOnline: map[Constants.isOnline] ?? false,
+      // Removed isOnline from map
       contactsUIDs: List<String>.from(map[Constants.contactsUIDs] ?? []),
       blockedUIDs: List<String>.from(map[Constants.blockedUIDs] ?? []),
       statusMutedUsers: List<String>.from(map[Constants.statusMutedUsers] ?? []),
@@ -57,7 +58,7 @@ class UserModel {
     String? aboutMe,
     String? lastSeen,
     String? createdAt,
-    bool? isOnline,
+    // Removed isOnline from copyWith
     List<String>? contactsUIDs,
     List<String>? blockedUIDs,
     List<String>? statusMutedUsers,
@@ -71,7 +72,7 @@ class UserModel {
       aboutMe: aboutMe ?? this.aboutMe,
       lastSeen: lastSeen ?? this.lastSeen,
       createdAt: createdAt ?? this.createdAt,
-      isOnline: isOnline ?? this.isOnline,
+      // Removed isOnline from copyWith
       contactsUIDs: contactsUIDs ?? List<String>.from(this.contactsUIDs),
       blockedUIDs: blockedUIDs ?? List<String>.from(this.blockedUIDs),
       statusMutedUsers: statusMutedUsers ?? List<String>.from(this.statusMutedUsers),
@@ -89,7 +90,7 @@ class UserModel {
       Constants.aboutMe: aboutMe,
       Constants.lastSeen: lastSeen,
       Constants.createdAt: createdAt,
-      Constants.isOnline: isOnline,
+      // Removed isOnline from toMap
       Constants.contactsUIDs: contactsUIDs,
       Constants.blockedUIDs: blockedUIDs,
       Constants.statusMutedUsers: statusMutedUsers,

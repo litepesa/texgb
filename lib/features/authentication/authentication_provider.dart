@@ -1,3 +1,4 @@
+// lib/features/authentication/authentication_provider.dart
 import 'dart:convert';
 import 'dart:io';
 
@@ -103,16 +104,6 @@ class Authentication extends _$Authentication {
     DocumentSnapshot documentSnapshot =
         await _firestore.collection(Constants.users).doc(uid).get();
     return documentSnapshot.exists;
-  }
-
-  // Update user status
-  Future<void> updateUserStatus({required bool value}) async {
-    if (_auth.currentUser == null) return;
-    
-    await _firestore
-        .collection(Constants.users)
-        .doc(_auth.currentUser!.uid)
-        .update({Constants.isOnline: value});
   }
 
   // Get user data from firestore
@@ -516,7 +507,6 @@ class Authentication extends _$Authentication {
     try {
       // Sign out current user
       if (_auth.currentUser != null) {
-        await updateUserStatus(value: false);
         await _auth.signOut();
       }
       
@@ -547,8 +537,7 @@ class Authentication extends _$Authentication {
         savedAccounts: savedAccounts,
       ));
       
-      // 3. In a real implementation, you would update online status
-      // await updateUserStatus(value: true);
+      // Not tracking online status anymore
     } catch (e) {
       state = AsyncValue.error(e, StackTrace.current);
       throw e.toString();
@@ -605,6 +594,25 @@ class Authentication extends _$Authentication {
       // Save updated user data to shared preferences
       await saveUserDataToSharedPreferences();
     } on FirebaseException catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+      throw e.toString();
+    }
+  }
+  
+  // Sign out user
+  Future<void> signOut() async {
+    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    
+    try {
+      // No need to update online status when signing out
+      await _auth.signOut();
+      
+      // Clear local user data
+      SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+      await sharedPreferences.remove(Constants.userModel);
+      
+      state = AsyncValue.data(const AuthenticationState());
+    } catch (e) {
       state = AsyncValue.error(e, StackTrace.current);
       throw e.toString();
     }
