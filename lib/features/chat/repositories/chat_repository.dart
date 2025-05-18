@@ -202,6 +202,126 @@ class ChatRepository {
     }
   }
 
+  // Send a group message
+  Future<void> sendGroupMessage({
+    required String groupId,
+    required String message,
+    required MessageEnum messageType,
+    required UserModel senderUser,
+    String? repliedMessage,
+    String? repliedTo,
+    MessageEnum? repliedMessageType,
+    File? file,
+  }) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+
+      // Generate a message ID
+      final messageId = const Uuid().v4();
+      final timeSent = DateTime.now().millisecondsSinceEpoch.toString();
+
+      // Create message model
+      var messageModel = MessageModel(
+        messageId: messageId,
+        senderUID: currentUser.uid,
+        senderName: senderUser.name,
+        senderImage: senderUser.image,
+        message: message,
+        messageType: messageType,
+        timeSent: timeSent,
+        messageStatus: MessageStatus.sending,
+        repliedMessage: repliedMessage,
+        repliedTo: repliedTo,
+        repliedMessageType: repliedMessageType,
+        deletedBy: [],
+      );
+
+      // Upload file if present
+      if (file != null && messageType.isMedia) {
+        final fileRef = '${Constants.chatFiles}/$groupId/$messageId';
+        String fileUrl = await storeFileToStorage(file: file, reference: fileRef);
+        
+        // Update the message with the file URL
+        messageModel = messageModel.copyWith(message: fileUrl);
+        debugPrint("Repository: Uploaded file: $fileUrl");
+      }
+
+      // Update message status to 'sent'
+      messageModel = messageModel.copyWith(messageStatus: MessageStatus.sent);
+      
+      // Add the message to Firestore
+      await _firestore
+          .collection(Constants.chats)
+          .doc(groupId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .set(messageModel.toMap());
+      
+      // Update last message in group chat
+      await _firestore.collection(Constants.chats).doc(groupId).update({
+        Constants.lastMessage: message,
+        Constants.messageType: messageType.name,
+        Constants.timeSent: timeSent,
+        'lastMessageSender': currentUser.uid,
+      });
+      
+      // Update unread counts for group members
+      await updateUnreadCountsForGroupMessage(
+        groupId: groupId,
+        senderUid: currentUser.uid,
+      );
+      
+      debugPrint("Repository: Group message saved to Firestore successfully");
+      
+    } catch (e) {
+      debugPrint("Repository: Error in sendGroupMessage: $e");
+      debugPrint('Error sending group message: $e');
+      rethrow;
+    }
+  }
+
+  // Update unread counts for group message
+  Future<void> updateUnreadCountsForGroupMessage({
+    required String groupId,
+    required String senderUid,
+  }) async {
+    try {
+      // Get the chat document to access members
+      final chatDoc = await _firestore.collection(Constants.chats).doc(groupId).get();
+      if (!chatDoc.exists) return;
+      
+      // Get the list of participants
+      final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
+      
+      // Get current unread counts
+      Map<String, dynamic> unreadCountByUser = 
+          Map<String, dynamic>.from(chatDoc.data()?['unreadCountByUser'] ?? {});
+      
+      // Update unread count for all members except the sender
+      for (final uid in participants) {
+        if (uid != senderUid) {
+          // Initialize with 0 if not present
+          if (!unreadCountByUser.containsKey(uid)) {
+            unreadCountByUser[uid] = 0;
+          }
+          // Increment the count
+          unreadCountByUser[uid] = (unreadCountByUser[uid] as int? ?? 0) + 1;
+        } else {
+          // Ensure sender's count is 0
+          unreadCountByUser[uid] = 0;
+        }
+      }
+      
+      // Update the chat document
+      await _firestore.collection(Constants.chats).doc(groupId).update({
+        'unreadCountByUser': unreadCountByUser,
+      });
+    } catch (e) {
+      debugPrint('Error updating unread counts for group message: $e');
+    }
+  }
+
   // Reset unread counter for current user when they open a chat
   Future<void> resetUnreadCounter(String chatId) async {
     try {

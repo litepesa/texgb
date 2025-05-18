@@ -318,36 +318,129 @@ class ChatNotifier extends _$ChatNotifier {
     }
   }
 
-  // Add this to lib/features/chat/providers/chat_provider.dart
-
-// Open a group chat
-Future<void> openGroupChat(String groupId, List<UserModel> members) async {
-  state = AsyncValue.data(state.value!.copyWith(
-    isLoading: true,
-    currentChatId: groupId,
-    messages: [],
-  ));
-  
-  try {
-    // Listen to the group chat's messages
-    ref.read(messageStreamProvider(groupId));
-    
-    // Mark messages as delivered
-    await _chatRepository.markChatAsDelivered(groupId);
-    
-    // Reset unread counter
-    await _chatRepository.resetUnreadCounter(groupId);
-    
+  // Open a group chat
+  Future<void> openGroupChat(String groupId, List<UserModel> members) async {
     state = AsyncValue.data(state.value!.copyWith(
-      isLoading: false,
+      isLoading: true,
+      currentChatId: groupId,
+      messages: [],
     ));
-  } catch (e) {
-    state = AsyncValue.data(state.value!.copyWith(
-      isLoading: false,
-      error: 'Error opening group chat: $e',
-    ));
+    
+    try {
+      // Listen to the group chat's messages
+      ref.read(messageStreamProvider(groupId));
+      
+      // Mark messages as delivered
+      await _chatRepository.markChatAsDelivered(groupId);
+      
+      // Reset unread counter
+      await _chatRepository.resetUnreadCounter(groupId);
+      
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+      ));
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: 'Error opening group chat: $e',
+      ));
+    }
   }
-}
+  
+  // Send a group message
+  Future<void> sendGroupMessage({
+    required String message,
+    MessageEnum messageType = MessageEnum.text,
+    File? file,
+  }) async {
+    if (message.trim().isEmpty && file == null) return;
+    if (state.value?.currentChatId == null) return;
+    
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+    
+    final chatId = state.value!.currentChatId!;
+    final replyingTo = state.value!.replyingTo;
+    
+    // Check if we're editing a message
+    final editingMessage = state.value!.editingMessage;
+    
+    if (editingMessage != null) {
+      try {
+        await _chatRepository.editMessage(
+          chatId: chatId,
+          messageId: editingMessage.messageId,
+          newMessage: message,
+        );
+        
+        // Clear edit state after sending
+        state = AsyncValue.data(state.value!.copyWith(
+          editingMessage: null,
+        ));
+      } catch (e) {
+        state = AsyncValue.data(state.value!.copyWith(
+          error: 'Error editing message: $e',
+        ));
+      }
+    } else {
+      try {
+        await _chatRepository.sendGroupMessage(
+          groupId: chatId,
+          message: message,
+          messageType: messageType,
+          senderUser: currentUser,
+          repliedMessage: replyingTo?.message,
+          repliedTo: replyingTo?.senderUID,
+          repliedMessageType: replyingTo?.messageType,
+          file: file,
+        );
+        
+        // Clear reply state after sending
+        if (replyingTo != null) {
+          cancelReply();
+        }
+      } catch (e) {
+        state = AsyncValue.data(state.value!.copyWith(
+          error: 'Error sending group message: $e',
+        ));
+      }
+    }
+  }
+  
+  // Send a group media message
+  Future<void> sendGroupMediaMessage({
+    required File file,
+    required MessageEnum messageType,
+    String? caption,
+  }) async {
+    if (state.value?.currentChatId == null) return;
+    
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+    
+    final chatId = state.value!.currentChatId!;
+    
+    state = AsyncValue.data(state.value!.copyWith(
+      isLoading: true,
+    ));
+    
+    try {
+      await sendGroupMessage(
+        message: caption ?? '',
+        messageType: messageType,
+        file: file,
+      );
+      
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+      ));
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: 'Error sending group media: $e',
+      ));
+    }
+  }
   
   // Remove reaction from message
   Future<void> removeReaction(String messageId) async {

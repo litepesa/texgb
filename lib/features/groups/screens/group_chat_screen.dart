@@ -84,7 +84,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
 
   void _sendMessage() {
     if (_messageController.text.trim().isNotEmpty) {
-      ref.read(chatProvider.notifier).sendTextMessage(_messageController.text);
+      // Use sendGroupMessage instead of sendTextMessage for group chats
+      ref.read(chatProvider.notifier).sendGroupMessage(
+        message: _messageController.text,
+        messageType: MessageEnum.text,
+      );
       _messageController.clear();
     }
   }
@@ -102,7 +106,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     );
 
     if (image != null) {
-      ref.read(chatProvider.notifier).sendMediaMessage(
+      // Use sendGroupMediaMessage for group chats
+      ref.read(chatProvider.notifier).sendGroupMediaMessage(
         file: image,
         messageType: MessageEnum.image,
       );
@@ -119,7 +124,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
         : await pickVideo(onFail: (error) => showSnackBar(context, error));
 
     if (video != null) {
-      ref.read(chatProvider.notifier).sendMediaMessage(
+      // Use sendGroupMediaMessage for group chats
+      ref.read(chatProvider.notifier).sendGroupMediaMessage(
         file: video,
         messageType: MessageEnum.video,
       );
