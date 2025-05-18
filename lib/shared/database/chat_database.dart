@@ -1,37 +1,21 @@
 // lib/shared/database/chat_database.dart
-
-import 'package:sqflite/sqflite.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
-import 'package:textgb/constants.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
-import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 
 class ChatDatabase {
-  static final ChatDatabase _instance = ChatDatabase._internal();
-  factory ChatDatabase() => _instance;
-  ChatDatabase._internal();
-
   static Database? _database;
+  static final ChatDatabase _instance = ChatDatabase._internal();
 
-  // Database tables
-  static const String chatsTable = 'chats';
-  static const String messagesTable = 'messages';
-  static const String reactionsTable = 'reactions';
+  factory ChatDatabase() => _instance;
 
-  // SyncStatus enum conversion
-  static const Map<SyncStatus, String> syncStatusToString = {
-    SyncStatus.synced: 'synced',
-    SyncStatus.pending: 'pending',
-    SyncStatus.failed: 'failed',
-  };
-
-  static const Map<String, SyncStatus> stringToSyncStatus = {
-    'synced': SyncStatus.synced,
-    'pending': SyncStatus.pending,
-    'failed': SyncStatus.failed,
-  };
+  ChatDatabase._internal();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -40,12 +24,11 @@ class ChatDatabase {
   }
 
   Future<Database> _initDatabase() async {
-    final databasePath = await getDatabasesPath();
-    final path = join(databasePath, 'textgb_chat.db');
-
+    final Directory documentsDirectory = await getApplicationDocumentsDirectory();
+    final String path = join(documentsDirectory.path, 'textgb_chat.db');
     return await openDatabase(
       path,
-      version: 2, // Incremented version for schema migration
+      version: 3, // Increment version for schema changes
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -54,109 +37,166 @@ class ChatDatabase {
   Future<void> _createDatabase(Database db, int version) async {
     // Chats table
     await db.execute('''
-      CREATE TABLE $chatsTable (
-        id TEXT PRIMARY KEY,
-        contactUID TEXT,
-        contactName TEXT,
-        contactImage TEXT,
-        lastMessage TEXT,
-        messageType TEXT,
-        timeSent TEXT,
-        unreadCount INTEGER,
-        isGroup INTEGER,
-        groupId TEXT
-      )
+    CREATE TABLE chats(
+      id TEXT PRIMARY KEY,
+      contactUID TEXT,
+      contactName TEXT,
+      contactImage TEXT,
+      lastMessage TEXT,
+      messageType TEXT,
+      timeSent TEXT,
+      unreadCount INTEGER,
+      isGroup INTEGER,
+      groupId TEXT,
+      unreadCountByUser TEXT
+    )
     ''');
 
     // Messages table
     await db.execute('''
-      CREATE TABLE $messagesTable (
-        messageId TEXT PRIMARY KEY,
-        chatId TEXT,
-        senderUID TEXT,
-        senderName TEXT,
-        senderImage TEXT,
-        message TEXT,
-        messageType TEXT,
-        timeSent TEXT,
-        isSent INTEGER,
-        isDelivered INTEGER,
-        repliedMessage TEXT,
-        repliedTo TEXT,
-        repliedMessageType TEXT,
-        statusContext TEXT,
-        isDeletedForEveryone INTEGER DEFAULT 0,
-        isEdited INTEGER DEFAULT 0,
-        originalMessage TEXT,
-        syncStatus TEXT
-      )
+    CREATE TABLE messages(
+      messageId TEXT PRIMARY KEY,
+      chatId TEXT,
+      senderUID TEXT,
+      senderName TEXT,
+      senderImage TEXT,
+      message TEXT,
+      messageType TEXT,
+      timeSent TEXT,
+      messageStatus TEXT,
+      syncStatus TEXT,
+      repliedMessage TEXT,
+      repliedTo TEXT,
+      repliedMessageType TEXT,
+      statusContext TEXT,
+      deletedBy TEXT,
+      isDeletedForEveryone INTEGER,
+      isEdited INTEGER,
+      originalMessage TEXT,
+      editedAt TEXT,
+      reactions TEXT
+    )
     ''');
-
-    // Deleted messages mapping table
-    await db.execute('''
-      CREATE TABLE deleted_messages (
-        messageId TEXT,
-        userId TEXT,
-        PRIMARY KEY (messageId, userId)
-      )
-    ''');
-
-    // Reactions table
-    await db.execute('''
-      CREATE TABLE $reactionsTable (
-        messageId TEXT,
-        userId TEXT,
-        emoji TEXT,
-        timestamp TEXT,
-        PRIMARY KEY (messageId, userId)
-      )
-    ''');
+    
+    // Index for faster chat lookup
+    await db.execute(
+      'CREATE INDEX idx_messages_chatId ON messages(chatId)'
+    );
+    
+    // Index for faster sync status lookup
+    await db.execute(
+      'CREATE INDEX idx_messages_syncStatus ON messages(syncStatus)'
+    );
+    
+    // Index for faster message status lookup
+    await db.execute(
+      'CREATE INDEX idx_messages_messageStatus ON messages(messageStatus)'
+    );
   }
 
   Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // Add new columns for version 2
-      await db.execute('ALTER TABLE $messagesTable ADD COLUMN isDeletedForEveryone INTEGER DEFAULT 0');
-      await db.execute('ALTER TABLE $messagesTable ADD COLUMN isEdited INTEGER DEFAULT 0');
-      await db.execute('ALTER TABLE $messagesTable ADD COLUMN originalMessage TEXT');
-
-      // Create deleted_messages table if it doesn't exist
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS deleted_messages (
-          messageId TEXT,
-          userId TEXT,
-          PRIMARY KEY (messageId, userId)
-        )
-      ''');
-
-      // Create reactions table if it doesn't exist
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS $reactionsTable (
-          messageId TEXT,
-          userId TEXT,
-          emoji TEXT,
-          timestamp TEXT,
-          PRIMARY KEY (messageId, userId)
-        )
-      ''');
+      // Add new columns for v2
+      await db.execute('ALTER TABLE messages ADD COLUMN messageStatus TEXT');
+      await db.execute('ALTER TABLE messages ADD COLUMN syncStatus TEXT');
+      await db.execute('ALTER TABLE messages ADD COLUMN editedAt TEXT');
+      
+      // Create indexes for faster lookup
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_messages_chatId ON messages(chatId)'
+      );
+      
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_messages_syncStatus ON messages(syncStatus)'
+      );
+      
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_messages_messageStatus ON messages(messageStatus)'
+      );
+    }
+    
+    if (oldVersion < 3) {
+      // Add unreadCountByUser for chat table in v3
+      await db.execute('ALTER TABLE chats ADD COLUMN unreadCountByUser TEXT');
     }
   }
 
-  // Save a chat to local database
+  // Save a chat to the database
   Future<void> saveChat(ChatModel chat) async {
     final db = await database;
+    
+    // Prepare the chat map
+    final Map<String, dynamic> chatMap = chat.toMap();
+    
+    // Convert the unreadCountByUser to a JSON string for storage
+    if (chatMap['unreadCountByUser'] is Map) {
+      chatMap['unreadCountByUser'] = jsonEncode(chatMap['unreadCountByUser']);
+    }
+    
+    // Convert boolean values to integers for SQLite
+    chatMap['isGroup'] = chatMap['isGroup'] == true ? 1 : 0;
+    
     await db.insert(
-      chatsTable,
-      chat.toMap(),
+      'chats',
+      chatMap,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  // Get all chats from local database
+  // Get all chats
   Future<List<ChatModel>> getChats() async {
     final db = await database;
-    final maps = await db.query(chatsTable, orderBy: '${Constants.timeSent} DESC');
-    return List.generate(maps.length, (i) => ChatModel.fromMap(maps[i]));
+    final List<Map<String, dynamic>> maps = await db.query(
+      'chats',
+      orderBy: 'timeSent DESC',
+    );
+    
+    return List.generate(maps.length, (i) {
+      // Convert boolean values from integers for Dart
+      maps[i]['isGroup'] = maps[i]['isGroup'] == 1;
+      
+      // Parse the unreadCountByUser JSON
+      if (maps[i]['unreadCountByUser'] is String) {
+        try {
+          maps[i]['unreadCountByUser'] = jsonDecode(maps[i]['unreadCountByUser']);
+        } catch (e) {
+          maps[i]['unreadCountByUser'] = {};
+        }
+      } else {
+        maps[i]['unreadCountByUser'] = {};
+      }
+      
+      return ChatModel.fromMap(maps[i]);
+    });
+  }
+
+  // Get a chat by ID
+  Future<ChatModel?> getChatById(String chatId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'chats',
+      where: 'id = ?',
+      whereArgs: [chatId],
+    );
+
+    if (maps.isNotEmpty) {
+      // Convert boolean values from integers for Dart
+      maps.first['isGroup'] = maps.first['isGroup'] == 1;
+      
+      // Parse the unreadCountByUser JSON
+      if (maps.first['unreadCountByUser'] is String) {
+        try {
+          maps.first['unreadCountByUser'] = jsonDecode(maps.first['unreadCountByUser']);
+        } catch (e) {
+          maps.first['unreadCountByUser'] = {};
+        }
+      } else {
+        maps.first['unreadCountByUser'] = {};
+      }
+      
+      return ChatModel.fromMap(maps.first);
+    }
+    return null;
   }
 
   // Update chat's last message
@@ -168,325 +208,504 @@ class ChatDatabase {
   ) async {
     final db = await database;
     await db.update(
-      chatsTable,
+      'chats',
       {
-        Constants.lastMessage: lastMessage,
-        Constants.messageType: messageType.name,
-        Constants.timeSent: timeSent,
+        'lastMessage': lastMessage,
+        'messageType': messageType.name,
+        'timeSent': timeSent,
       },
       where: 'id = ?',
       whereArgs: [chatId],
     );
   }
 
-  // Reset unread counter for a chat
-  Future<void> resetUnreadCounter(String chatId) async {
+  // Delete a chat
+  Future<void> deleteChat(String chatId) async {
     final db = await database;
-    await db.update(
-      chatsTable,
-      {'unreadCount': 0},
+    await db.delete(
+      'chats',
       where: 'id = ?',
+      whereArgs: [chatId],
+    );
+    // Also delete all messages in the chat
+    await db.delete(
+      'messages',
+      where: 'chatId = ?',
       whereArgs: [chatId],
     );
   }
 
-  // Save a message to local database
+  // Save a message to the database
   Future<void> saveMessage(
     String chatId,
-    MessageModel message, {
-    SyncStatus syncStatus = SyncStatus.synced,
-  }) async {
+    MessageModel message,
+    {SyncStatus syncStatus = SyncStatus.pending}
+  ) async {
     final db = await database;
     
-    // Add chatId to message data for local storage
-    final messageData = message.toMap();
-    messageData['chatId'] = chatId;
-    messageData['syncStatus'] = syncStatusToString[syncStatus];
+    // Prepare the message map with chatId included
+    final messageMap = message.toMap();
+    messageMap['chatId'] = chatId;
+    
+    // Override the syncStatus with the provided value
+    messageMap['syncStatus'] = syncStatus.name;
+    
+    // Convert complex objects to JSON strings
+    if (messageMap['deletedBy'] is List) {
+      messageMap['deletedBy'] = jsonEncode(messageMap['deletedBy']);
+    }
+    
+    if (messageMap['reactions'] is Map) {
+      messageMap['reactions'] = jsonEncode(messageMap['reactions']);
+    }
+    
+    // Convert boolean values to integers for SQLite
+    messageMap['isDeletedForEveryone'] = messageMap['isDeletedForEveryone'] == true ? 1 : 0;
+    messageMap['isEdited'] = messageMap['isEdited'] == true ? 1 : 0;
     
     await db.insert(
-      messagesTable,
-      messageData,
+      'messages',
+      messageMap,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    
-    // Save reactions separately
-    if (message.reactions.isNotEmpty) {
-      for (final entry in message.reactions.entries) {
-        await db.insert(
-          reactionsTable,
-          {
-            'messageId': message.messageId,
-            'userId': entry.key,
-            'emoji': entry.value['emoji'],
-            'timestamp': entry.value['timestamp'],
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-    }
-    
-    // Increment unread counter for recipient if it's a new message
-    if (syncStatus == SyncStatus.synced && message.senderUID != chatId.split('_').firstWhere((uid) => uid != message.senderUID)) {
-      await _incrementUnreadCounter(chatId);
-    }
   }
 
   // Get messages for a chat
-  Future<List<MessageModel>> getMessages(String chatId) async {
+  Future<List<MessageModel>> getMessagesForChat(String chatId) async {
     final db = await database;
-    
-    // Get all messages for the chat
-    final messageMaps = await db.query(
-      messagesTable,
+    final List<Map<String, dynamic>> maps = await db.query(
+      'messages',
       where: 'chatId = ?',
       whereArgs: [chatId],
-      orderBy: '${Constants.timeSent} DESC',
+      orderBy: 'timeSent DESC',
     );
     
-    // Create MessageModel instances
-    List<MessageModel> messages = [];
-    for (final messageMap in messageMaps) {
-      // Get all deletedBy entries for this message
-      final deletedByEntries = await db.query(
-        'deleted_messages',
-        where: 'messageId = ?',
-        whereArgs: [messageMap['messageId']],
-      );
+    return _convertMessagesToModels(maps);
+  }
+  
+  // Helper method to convert message maps to models
+  List<MessageModel> _convertMessagesToModels(List<Map<String, dynamic>> maps) {
+    return maps.map((map) {
+      // Convert integer values to booleans
+      map['isDeletedForEveryone'] = map['isDeletedForEveryone'] == 1;
+      map['isEdited'] = map['isEdited'] == 1;
       
-      // Create a list of user IDs who deleted this message
-      List<String> deletedBy = deletedByEntries.map((entry) => entry['userId'] as String).toList();
-      
-      // Get all reactions for this message
-      final reactionMaps = await db.query(
-        reactionsTable,
-        where: 'messageId = ?',
-        whereArgs: [messageMap['messageId']],
-      );
-      
-      // Create a map of reactions with userId -> {emoji, timestamp}
-      Map<String, Map<String, String>> reactions = {};
-      for (final reactionMap in reactionMaps) {
-        reactions[reactionMap['userId'] as String] = {
-          'emoji': reactionMap['emoji'] as String,
-          'timestamp': reactionMap['timestamp'] as String,
-        };
+      // Parse lists and maps from JSON
+      if (map['deletedBy'] is String) {
+        try {
+          map['deletedBy'] = jsonDecode(map['deletedBy']);
+        } catch (e) {
+          map['deletedBy'] = [];
+        }
       }
       
-      // Create a copy of the message map with deletedBy and reactions
-      final messageWithDeletedBy = Map<String, dynamic>.from(messageMap);
-      messageWithDeletedBy[Constants.deletedBy] = deletedBy;
-      messageWithDeletedBy['reactions'] = reactions;
-      
-      // Create MessageModel from the enhanced map
-      messages.add(MessageModel.fromMap(messageWithDeletedBy));
-    }
-    
-    return messages;
-  }
-
-  // Get all unsynced messages
-  Future<List<MessageModel>> getUnsyncedMessages() async {
-    final db = await database;
-    
-    // Get all messages with syncStatus = 'pending'
-    final messageMaps = await db.query(
-      messagesTable,
-      where: 'syncStatus = ?',
-      whereArgs: ['pending'],
-    );
-    
-    // Create MessageModel instances
-    List<MessageModel> messages = [];
-    for (final messageMap in messageMaps) {
-      // Add deletedBy and reactions as with getMessages
-      final deletedByEntries = await db.query(
-        'deleted_messages',
-        where: 'messageId = ?',
-        whereArgs: [messageMap['messageId']],
-      );
-      
-      List<String> deletedBy = deletedByEntries.map((entry) => entry['userId'] as String).toList();
-      
-      final reactionMaps = await db.query(
-        reactionsTable,
-        where: 'messageId = ?',
-        whereArgs: [messageMap['messageId']],
-      );
-      
-      Map<String, Map<String, String>> reactions = {};
-      for (final reactionMap in reactionMaps) {
-        reactions[reactionMap['userId'] as String] = {
-          'emoji': reactionMap['emoji'] as String,
-          'timestamp': reactionMap['timestamp'] as String,
-        };
+      if (map['reactions'] is String) {
+        try {
+          map['reactions'] = jsonDecode(map['reactions']);
+        } catch (e) {
+          map['reactions'] = {};
+        }
       }
       
-      final messageWithDeletedBy = Map<String, dynamic>.from(messageMap);
-      messageWithDeletedBy[Constants.deletedBy] = deletedBy;
-      messageWithDeletedBy['reactions'] = reactions;
-      
-      messages.add(MessageModel.fromMap(messageWithDeletedBy));
-    }
-    
-    return messages;
+      return MessageModel.fromMap(map);
+    }).toList();
   }
 
-  // Mark a message as synced
-  Future<void> markMessageAsSynced(String messageId) async {
+  // Get a message by ID
+  Future<MessageModel?> getMessageById(String messageId) async {
     final db = await database;
-    await db.update(
-      messagesTable,
-      {'syncStatus': syncStatusToString[SyncStatus.synced]},
+    final List<Map<String, dynamic>> maps = await db.query(
+      'messages',
       where: 'messageId = ?',
       whereArgs: [messageId],
     );
+
+    if (maps.isNotEmpty) {
+      return _convertMessagesToModels([maps.first]).first;
+    }
+    return null;
   }
 
-  // Update message delivery status
+  // Update message delivery status (old method - kept for backward compatibility)
   Future<void> updateMessageDeliveryStatus(String messageId, bool isDelivered) async {
     final db = await database;
     await db.update(
-      messagesTable,
-      {'isDelivered': isDelivered ? 1 : 0},
+      'messages',
+      {
+        'messageStatus': isDelivered ? MessageStatus.delivered.name : MessageStatus.sent.name,
+      },
+      where: 'messageId = ?',
+      whereArgs: [messageId],
+    );
+  }
+
+  // Update message status (enhanced version)
+  Future<void> updateMessageStatus(String messageId, MessageStatus status) async {
+    final db = await database;
+    await db.update(
+      'messages',
+      {
+        'messageStatus': status.name,
+      },
       where: 'messageId = ?',
       whereArgs: [messageId],
     );
   }
   
-  // Mark a message as deleted for a specific user
+  // Update sync status for a message
+  Future<void> updateSyncStatus(String messageId, SyncStatus status) async {
+    final db = await database;
+    
+    try {
+      await db.update(
+        'messages',
+        {'syncStatus': status.name},
+        where: 'messageId = ?',
+        whereArgs: [messageId],
+      );
+    } catch (e) {
+      debugPrint('Error updating sync status in local DB: $e');
+    }
+  }
+  
+  // Mark a message as synced
+  Future<void> markMessageAsSynced(String messageId) async {
+    final db = await database;
+    
+    try {
+      await db.update(
+        'messages',
+        {'syncStatus': SyncStatus.synced.name},
+        where: 'messageId = ?',
+        whereArgs: [messageId],
+      );
+    } catch (e) {
+      debugPrint('Error marking message as synced in local DB: $e');
+    }
+  }
+  
+  // Get unsynced messages
+  Future<List<MessageModel>> getUnsyncedMessages() async {
+    final db = await database;
+    
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'messages',
+        where: 'syncStatus = ?',
+        whereArgs: [SyncStatus.pending.name],
+        orderBy: 'timeSent ASC', // Oldest first to maintain order
+      );
+      
+      return _convertMessagesToModels(maps);
+    } catch (e) {
+      debugPrint('Error getting unsynced messages from local DB: $e');
+      return [];
+    }
+  }
+
+  // Mark a message as deleted for a user
   Future<void> markMessageAsDeleted(String messageId, String userId) async {
     final db = await database;
     
-    // Add entry to deleted_messages table
-    await db.insert(
-      'deleted_messages',
-      {
-        'messageId': messageId,
-        'userId': userId,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-  
-  // Mark a message as deleted for everyone
-  Future<void> deleteMessageForEveryone(String messageId) async {
-    final db = await database;
+    // Get the current message
+    final message = await getMessageById(messageId);
+    if (message == null) return;
     
-    // Update message to mark as deleted for everyone
+    // Update the deletedBy list
+    final deletedBy = List<String>.from(message.deletedBy);
+    if (!deletedBy.contains(userId)) {
+      deletedBy.add(userId);
+    }
+    
     await db.update(
-      messagesTable,
-      {'isDeletedForEveryone': 1},
+      'messages',
+      {
+        'deletedBy': jsonEncode(deletedBy),
+      },
       where: 'messageId = ?',
       whereArgs: [messageId],
     );
   }
-  
+
+  // Mark a message as deleted for everyone
+  Future<void> deleteMessageForEveryone(String messageId) async {
+    final db = await database;
+    await db.update(
+      'messages',
+      {
+        'isDeletedForEveryone': 1,
+      },
+      where: 'messageId = ?',
+      whereArgs: [messageId],
+    );
+  }
+
   // Edit a message
   Future<void> editMessage(String messageId, String newMessage) async {
     final db = await database;
     
-    // Get original message first
-    final messageResult = await db.query(
-      messagesTable,
-      columns: ['message'],
+    // Get the current message to preserve original content
+    final message = await getMessageById(messageId);
+    if (message == null) return;
+    
+    // Only store original message if this is the first edit
+    final originalMessage = message.isEdited ? message.originalMessage : message.message;
+    
+    await db.update(
+      'messages',
+      {
+        'message': newMessage,
+        'isEdited': 1,
+        'originalMessage': originalMessage,
+        'editedAt': DateTime.now().millisecondsSinceEpoch.toString(),
+      },
       where: 'messageId = ?',
       whereArgs: [messageId],
     );
+  }
+
+  // Add a reaction to a message
+  Future<void> addReaction(String messageId, String userId, String emoji) async {
+    final db = await database;
     
-    if (messageResult.isNotEmpty) {
-      final originalMessage = messageResult.first['message'] as String;
-      
-      // Update message
-      await db.update(
-        messagesTable,
-        {
-          'message': newMessage,
-          'isEdited': 1,
-          'originalMessage': originalMessage,
-        },
+    // Get the current message
+    final message = await getMessageById(messageId);
+    if (message == null) return;
+    
+    // Update reactions
+    final reactions = Map<String, Map<String, String>>.from(message.reactions);
+    reactions[userId] = {
+      'emoji': emoji,
+      'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+    };
+    
+    await db.update(
+      'messages',
+      {
+        'reactions': jsonEncode(reactions),
+      },
+      where: 'messageId = ?',
+      whereArgs: [messageId],
+    );
+  }
+
+  // Remove a reaction from a message
+  Future<void> removeReaction(String messageId, String userId) async {
+    final db = await database;
+    
+    // Get the current message
+    final message = await getMessageById(messageId);
+    if (message == null) return;
+    
+    // Update reactions
+    final reactions = Map<String, Map<String, String>>.from(message.reactions);
+    reactions.remove(userId);
+    
+    await db.update(
+      'messages',
+      {
+        'reactions': jsonEncode(reactions),
+      },
+      where: 'messageId = ?',
+      whereArgs: [messageId],
+    );
+  }
+
+  // Reset unread counter for a chat (old method - kept for backward compatibility)
+  Future<void> resetUnreadCounter(String chatId) async {
+    final db = await database;
+    
+    // Update the chat
+    await db.update(
+      'chats',
+      {
+        'unreadCount': 0,
+      },
+      where: 'id = ?',
+      whereArgs: [chatId],
+    );
+  }
+  
+  // Enhanced unread counter method - update for specific user
+  Future<void> updateUnreadCounter(
+    String chatId, 
+    String userId, 
+    bool isIncrease, 
+    int totalUnread
+  ) async {
+    final db = await database;
+    
+    // Get current chat
+    final chat = await getChatById(chatId);
+    if (chat == null) return;
+    
+    // Get or create unreadCountByUser map
+    Map<String, dynamic> unreadCounts = Map<String, dynamic>.from(chat.unreadCountByUser);
+    
+    if (isIncrease) {
+      // Increment count
+      int currentCount = unreadCounts[userId] ?? 0;
+      unreadCounts[userId] = currentCount + 1;
+    } else {
+      // Reset count
+      unreadCounts[userId] = 0;
+    }
+    
+    // Update in database
+    await db.update(
+      'chats',
+      {
+        'unreadCountByUser': jsonEncode(unreadCounts),
+        'unreadCount': totalUnread, // Update total count for backwards compatibility
+      },
+      where: 'id = ?',
+      whereArgs: [chatId],
+    );
+  }
+
+  // Get chat ID for a specific message
+  Future<String?> getChatIdForMessage(String messageId) async {
+    final db = await database;
+    
+    try {
+      final List<Map<String, dynamic>> results = await db.query(
+        'messages',
+        columns: ['chatId'],
         where: 'messageId = ?',
         whereArgs: [messageId],
       );
       
-      // Check if this was the last message in any chat and update if necessary
-      final chatResult = await db.query(
-        chatsTable,
-        columns: ['id', Constants.lastMessage],
-        where: '${Constants.lastMessage} = ?',
-        whereArgs: [originalMessage],
-      );
-      
-      for (final chatMap in chatResult) {
-        await db.update(
-          chatsTable,
-          {Constants.lastMessage: newMessage},
-          where: 'id = ?',
-          whereArgs: [chatMap['id']],
-        );
+      if (results.isNotEmpty) {
+        return results.first['chatId'] as String?;
       }
+    } catch (e) {
+      debugPrint('Error getting chat ID for message: $e');
     }
+    
+    return null;
   }
   
-  // Add reaction to a message
-  Future<void> addReaction(String messageId, String userId, String emoji) async {
+  // Get messages with a specific status
+  Future<List<MessageModel>> getMessagesByStatus(MessageStatus status) async {
     final db = await database;
-    
-    // Add reaction to reactions table
-    await db.insert(
-      reactionsTable,
-      {
-        'messageId': messageId,
-        'userId': userId,
-        'emoji': emoji,
-        'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
+    final List<Map<String, dynamic>> maps = await db.query(
+      'messages',
+      where: 'messageStatus = ?',
+      whereArgs: [status.name],
     );
+    
+    return _convertMessagesToModels(maps);
   }
   
-  // Remove reaction from a message
-  Future<void> removeReaction(String messageId, String userId) async {
+  // Batch update message status
+  Future<void> batchUpdateMessageStatus(
+    List<String> messageIds, 
+    MessageStatus status
+  ) async {
+    if (messageIds.isEmpty) return;
+    
     final db = await database;
+    final batch = db.batch();
     
-    // Delete reaction from reactions table
-    await db.delete(
-      reactionsTable,
-      where: 'messageId = ? AND userId = ?',
-      whereArgs: [messageId, userId],
-    );
-  }
-  
-  // Helper method to increment unread counter for a chat
-  Future<void> _incrementUnreadCounter(String chatId) async {
-    final db = await database;
-    
-    // Get current unread count
-    final result = await db.query(
-      chatsTable,
-      columns: ['unreadCount'],
-      where: 'id = ?',
-      whereArgs: [chatId],
-    );
-    
-    if (result.isNotEmpty) {
-      int currentCount = result.first['unreadCount'] as int? ?? 0;
-      
-      // Increment and update
-      await db.update(
-        chatsTable,
-        {'unreadCount': currentCount + 1},
-        where: 'id = ?',
-        whereArgs: [chatId],
+    for (final messageId in messageIds) {
+      batch.update(
+        'messages',
+        {'messageStatus': status.name},
+        where: 'messageId = ?',
+        whereArgs: [messageId],
       );
     }
+    
+    await batch.commit();
   }
   
   // Clear all data (for testing or logout)
-  Future<void> clearDatabase() async {
+  Future<void> clearAllData() async {
     final db = await database;
-    await db.delete(chatsTable);
-    await db.delete(messagesTable);
-    await db.delete('deleted_messages');
-    await db.delete(reactionsTable);
+    await db.delete('messages');
+    await db.delete('chats');
+  }
+  
+  // Get total unread count across all chats
+  Future<int> getTotalUnreadCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT SUM(unreadCount) as total FROM chats');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+  
+  // Get total unread count for a specific user across all chats
+  Future<int> getTotalUnreadCountForUser(String userId) async {
+    final db = await database;
+    final chats = await getChats();
+    
+    int totalUnread = 0;
+    for (final chat in chats) {
+      totalUnread += chat.getUnreadCountForUser(userId);
+    }
+    
+    return totalUnread;
+  }
+  
+  // Get failed messages to retry
+  Future<List<MessageModel>> getFailedMessages() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'messages',
+      where: 'messageStatus = ?',
+      whereArgs: [MessageStatus.failed.name],
+    );
+    
+    return _convertMessagesToModels(maps);
+  }
+  
+  // Mark message as failed
+  Future<void> markMessageAsFailed(String messageId) async {
+    final db = await database;
+    await db.update(
+      'messages',
+      {
+        'messageStatus': MessageStatus.failed.name,
+      },
+      where: 'messageId = ?',
+      whereArgs: [messageId],
+    );
+  }
+  
+  // Retry all failed messages
+  Future<List<MessageModel>> getMessagesToRetry() async {
+    return getFailedMessages();
+  }
+  
+  // Get all sent messages that haven't been delivered
+  Future<List<MessageModel>> getSentButNotDeliveredMessages() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'messages',
+      where: 'messageStatus = ? AND syncStatus = ?',
+      whereArgs: [MessageStatus.sent.name, SyncStatus.synced.name],
+    );
+    
+    return _convertMessagesToModels(maps);
+  }
+  
+  // Update multiple messages statuses at once
+  Future<void> updateMultipleMessageStatuses(
+    Map<String, MessageStatus> messageStatusUpdates
+  ) async {
+    if (messageStatusUpdates.isEmpty) return;
+    
+    final db = await database;
+    final batch = db.batch();
+    
+    messageStatusUpdates.forEach((messageId, status) {
+      batch.update(
+        'messages',
+        {'messageStatus': status.name},
+        where: 'messageId = ?',
+        whereArgs: [messageId],
+      );
+    });
+    
+    await batch.commit();
   }
 }

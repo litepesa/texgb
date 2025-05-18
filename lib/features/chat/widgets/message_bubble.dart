@@ -112,7 +112,7 @@ class MessageBubble extends ConsumerWidget {
                   if (message.reactions.isNotEmpty)
                     _buildReactionsBar(context, isMe),
                   
-                  // Timestamp and delivery status
+                  // Timestamp and status
                   Align(
                     alignment: Alignment.bottomRight,
                     child: Padding(
@@ -305,7 +305,7 @@ class MessageBubble extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  'edited',
+                  'edited ${_getEditTimeText()}',
                   style: TextStyle(
                     color: isMe 
                         ? context.chatTheme.senderTextColor?.withOpacity(0.6)
@@ -487,6 +487,23 @@ class MessageBubble extends ConsumerWidget {
     return messageWidget;
   }
   
+  String _getEditTimeText() {
+    if (message.editedAt == null) return '';
+    
+    final editTime = DateTime.fromMillisecondsSinceEpoch(int.parse(message.editedAt!));
+    final now = DateTime.now();
+    
+    if (now.difference(editTime).inMinutes < 1) {
+      return 'just now';
+    } else if (now.difference(editTime).inHours < 1) {
+      return '${now.difference(editTime).inMinutes}m ago';
+    } else if (now.difference(editTime).inDays < 1) {
+      return '${now.difference(editTime).inHours}h ago';
+    } else {
+      return DateFormat('MMM d').format(editTime);
+    }
+  }
+  
   Widget _buildReactionsBar(BuildContext context, bool isMe) {
     // Group reactions by emoji
     Map<String, int> reactionCounts = {};
@@ -555,13 +572,53 @@ class MessageBubble extends ConsumerWidget {
         ),
         if (isMe) ...[
           const SizedBox(width: 4),
-          Icon(
-            message.isDelivered ? Icons.done_all : Icons.done,
-            color: context.chatTheme.timestampColor,
-            size: 12,
-          ),
+          _buildMessageStatusIcon(context),
         ],
       ],
+    );
+  }
+  
+  Widget _buildMessageStatusIcon(BuildContext context) {
+    // Use different icons and colors based on message status
+    IconData iconData;
+    Color iconColor = context.chatTheme.timestampColor ?? Colors.grey;
+    String tooltipMessage;
+
+    switch (message.messageStatus) {
+      case MessageStatus.sending:
+        iconData = Icons.access_time;
+        tooltipMessage = 'Sending...';
+        break;
+      case MessageStatus.sent:
+        iconData = Icons.done;
+        tooltipMessage = 'Sent';
+        break;
+      case MessageStatus.delivered:
+        iconData = Icons.done_all;
+        tooltipMessage = 'Delivered';
+        break;
+      case MessageStatus.read:
+        iconData = Icons.done_all;
+        iconColor = Colors.blue;
+        tooltipMessage = 'Read';
+        break;
+      case MessageStatus.failed:
+        iconData = Icons.error_outline;
+        iconColor = Colors.red;
+        tooltipMessage = 'Failed to send';
+        break;
+      default:
+        iconData = Icons.done;
+        tooltipMessage = 'Sent';
+    }
+
+    return Tooltip(
+      message: tooltipMessage,
+      child: Icon(
+        iconData,
+        color: iconColor,
+        size: 12,
+      ),
     );
   }
 }

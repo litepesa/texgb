@@ -1,3 +1,4 @@
+// lib/enums/enums.dart
 import 'package:flutter/material.dart';
 
 enum ContactViewType {
@@ -15,6 +16,81 @@ enum MessageEnum {
   file,        // For document files
   location,    // For location sharing
   contact,     // For contact sharing
+}
+
+// New enum for message status with detailed states
+enum MessageStatus {
+  sending,    // Message is being sent (local only)
+  sent,       // Message has been sent to server
+  delivered,  // Message has been delivered to receiver's device
+  read,       // Message has been read by receiver
+  failed;     // Message failed to send
+  
+  String get name {
+    switch (this) {
+      case MessageStatus.sending: return 'sending';
+      case MessageStatus.sent: return 'sent';
+      case MessageStatus.delivered: return 'delivered';
+      case MessageStatus.read: return 'read';
+      case MessageStatus.failed: return 'failed';
+    }
+  }
+  
+  static MessageStatus fromString(String status) {
+    switch (status) {
+      case 'sending': return MessageStatus.sending;
+      case 'sent': return MessageStatus.sent;
+      case 'delivered': return MessageStatus.delivered;
+      case 'read': return MessageStatus.read;
+      case 'failed': return MessageStatus.failed;
+      default: return MessageStatus.sending;
+    }
+  }
+  
+  IconData get icon {
+    switch (this) {
+      case MessageStatus.sending: return Icons.access_time;
+      case MessageStatus.sent: return Icons.done;
+      case MessageStatus.delivered: return Icons.done_all;
+      case MessageStatus.read: return Icons.done_all;
+      case MessageStatus.failed: return Icons.error_outline;
+    }
+  }
+  
+  Color getColor(BuildContext context) {
+    final theme = Theme.of(context);
+    switch (this) {
+      case MessageStatus.sending: return Colors.grey;
+      case MessageStatus.sent: return Colors.grey;
+      case MessageStatus.delivered: return Colors.grey;
+      case MessageStatus.read: return Colors.blue;
+      case MessageStatus.failed: return Colors.red;
+    }
+  }
+}
+
+// Enum for sync status of messages
+enum SyncStatus {
+  pending,  // Message is pending sync with server
+  syncing,  // Message is currently being synced
+  synced;   // Message is synced with server
+  
+  String get name {
+    switch (this) {
+      case SyncStatus.pending: return 'pending';
+      case SyncStatus.syncing: return 'syncing';
+      case SyncStatus.synced: return 'synced';
+    }
+  }
+  
+  static SyncStatus fromString(String status) {
+    switch (status) {
+      case 'pending': return SyncStatus.pending;
+      case 'syncing': return SyncStatus.syncing;
+      case 'synced': return SyncStatus.synced;
+      default: return SyncStatus.pending;
+    }
+  }
 }
 
 enum GroupType {
@@ -293,4 +369,3 @@ extension ChatActionExtension on ChatAction {
     }
   }
 }
-

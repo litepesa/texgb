@@ -1,3 +1,4 @@
+// lib/features/chat/models/message_model.dart
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 
@@ -9,17 +10,18 @@ class MessageModel {
   final String message;
   final MessageEnum messageType;
   final String timeSent;
-  final bool isSent;           // Simplified status tracking
-  final bool isDelivered;      // Simplified status tracking
+  final MessageStatus messageStatus; // New field for enhanced status tracking
   final String? repliedMessage;
   final String? repliedTo;
   final MessageEnum? repliedMessageType;
   final String? statusContext;
   final List<String> deletedBy;
-  final bool isDeletedForEveryone; // New field for delete for everyone
-  final bool isEdited;         // New field to track edits
-  final String? originalMessage; // Store original message before editing
-  final Map<String, Map<String, String>> reactions; // User ID -> {reaction: emoji, timestamp: time}
+  final bool isDeletedForEveryone;
+  final bool isEdited;
+  final String? originalMessage;
+  final String? editedAt; // Track when message was edited
+  final SyncStatus syncStatus; // Track sync status
+  final Map<String, Map<String, String>> reactions;
 
   MessageModel({
     required this.messageId,
@@ -29,8 +31,7 @@ class MessageModel {
     required this.message,
     required this.messageType,
     required this.timeSent,
-    this.isSent = true,
-    this.isDelivered = false,
+    this.messageStatus = MessageStatus.sending,
     this.repliedMessage,
     this.repliedTo,
     this.repliedMessageType,
@@ -39,6 +40,8 @@ class MessageModel {
     this.isDeletedForEveryone = false,
     this.isEdited = false,
     this.originalMessage,
+    this.editedAt,
+    this.syncStatus = SyncStatus.pending,
     Map<String, Map<String, String>>? reactions,
   }) : this.reactions = reactions ?? {};
 
@@ -51,8 +54,11 @@ class MessageModel {
       message: map[Constants.message] ?? '',
       messageType: (map[Constants.messageType] as String? ?? 'text').toMessageEnum(),
       timeSent: map[Constants.timeSent] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      isSent: map['isSent'] ?? true,
-      isDelivered: map['isDelivered'] ?? false,
+      messageStatus: map['messageStatus'] != null 
+          ? MessageStatus.fromString(map['messageStatus']) 
+          : (map['isDelivered'] == true 
+              ? MessageStatus.delivered 
+              : (map['isSent'] == true ? MessageStatus.sent : MessageStatus.sending)),
       repliedMessage: map[Constants.repliedMessage],
       repliedTo: map[Constants.repliedTo],
       repliedMessageType: map[Constants.repliedMessageType] != null
@@ -63,6 +69,10 @@ class MessageModel {
       isDeletedForEveryone: map['isDeletedForEveryone'] ?? false,
       isEdited: map['isEdited'] ?? false,
       originalMessage: map['originalMessage'],
+      editedAt: map['editedAt'],
+      syncStatus: map['syncStatus'] != null 
+          ? SyncStatus.fromString(map['syncStatus']) 
+          : SyncStatus.synced,
       reactions: map['reactions'] != null
           ? Map<String, Map<String, String>>.from(
               map['reactions'].map((key, value) => MapEntry(
@@ -83,8 +93,7 @@ class MessageModel {
       Constants.message: message,
       Constants.messageType: messageType.name,
       Constants.timeSent: timeSent,
-      'isSent': isSent,
-      'isDelivered': isDelivered,
+      'messageStatus': messageStatus.name,
       Constants.repliedMessage: repliedMessage,
       Constants.repliedTo: repliedTo,
       Constants.repliedMessageType: repliedMessageType?.name,
@@ -92,6 +101,8 @@ class MessageModel {
       'isDeletedForEveryone': isDeletedForEveryone,
       'isEdited': isEdited,
       'originalMessage': originalMessage,
+      'editedAt': editedAt,
+      'syncStatus': syncStatus.name,
       'reactions': reactions,
     };
 
@@ -111,8 +122,7 @@ class MessageModel {
     String? message,
     MessageEnum? messageType,
     String? timeSent,
-    bool? isSent,
-    bool? isDelivered,
+    MessageStatus? messageStatus,
     String? repliedMessage,
     String? repliedTo,
     MessageEnum? repliedMessageType,
@@ -121,6 +131,8 @@ class MessageModel {
     bool? isDeletedForEveryone,
     bool? isEdited,
     String? originalMessage,
+    String? editedAt,
+    SyncStatus? syncStatus,
     Map<String, Map<String, String>>? reactions,
   }) {
     return MessageModel(
@@ -131,8 +143,7 @@ class MessageModel {
       message: message ?? this.message,
       messageType: messageType ?? this.messageType,
       timeSent: timeSent ?? this.timeSent,
-      isSent: isSent ?? this.isSent,
-      isDelivered: isDelivered ?? this.isDelivered,
+      messageStatus: messageStatus ?? this.messageStatus,
       repliedMessage: repliedMessage ?? this.repliedMessage,
       repliedTo: repliedTo ?? this.repliedTo,
       repliedMessageType: repliedMessageType ?? this.repliedMessageType,
@@ -141,6 +152,8 @@ class MessageModel {
       isDeletedForEveryone: isDeletedForEveryone ?? this.isDeletedForEveryone,
       isEdited: isEdited ?? this.isEdited,
       originalMessage: originalMessage ?? this.originalMessage,
+      editedAt: editedAt ?? this.editedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
       reactions: reactions ?? Map.from(this.reactions),
     );
   }
@@ -162,5 +175,52 @@ class MessageModel {
     newReactions.remove(userId);
     
     return copyWith(reactions: newReactions);
+  }
+  
+  // Helper method to update message status
+  MessageModel updateStatus(MessageStatus newStatus) {
+    return copyWith(messageStatus: newStatus);
+  }
+  
+  // Helper method to mark message as synced
+  MessageModel markAsSynced() {
+    return copyWith(syncStatus: SyncStatus.synced);
+  }
+  
+  // Helper method to mark message as edited
+  MessageModel markAsEdited(String newMessage) {
+    return copyWith(
+      message: newMessage,
+      isEdited: true,
+      originalMessage: originalMessage ?? message,
+      editedAt: DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+  }
+  
+  // Helper method to mark message as deleted for a user
+  MessageModel markAsDeletedFor(String userId) {
+    if (deletedBy.contains(userId)) {
+      return this;
+    }
+    
+    final newDeletedBy = List<String>.from(deletedBy);
+    newDeletedBy.add(userId);
+    
+    return copyWith(deletedBy: newDeletedBy);
+  }
+  
+  // Helper method to mark message as deleted for everyone
+  MessageModel markAsDeletedForEveryone() {
+    return copyWith(isDeletedForEveryone: true);
+  }
+  
+  // Helper method to check if message is deleted for a user
+  bool isDeletedFor(String userId) {
+    return deletedBy.contains(userId) || isDeletedForEveryone;
+  }
+  
+  // Helper method to check if message should be shown in UI
+  bool shouldShowFor(String userId) {
+    return !isDeletedFor(userId);
   }
 }
