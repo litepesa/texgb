@@ -12,6 +12,7 @@ class ChatModel {
   final String lastMessage;
   final MessageEnum lastMessageType;
   final String lastMessageTime;
+  final String lastMessageSender; // Added to track who sent the last message
   final int unreadCount;
   final bool isGroup;
   final String? groupId;
@@ -26,6 +27,7 @@ class ChatModel {
     required this.lastMessageType,
     required this.lastMessageTime,
     required this.unreadCount,
+    this.lastMessageSender = '',
     this.isGroup = false,
     this.groupId,
     Map<String, int>? unreadCountByUser,
@@ -74,6 +76,20 @@ class ChatModel {
       unreadCount = map['unreadCount'] as int? ?? 0;
     }
     
+    // For a more reliable determination of whether the current user should show 
+    // unread messages, check if the last message was sent by someone else
+    final String lastMessageSender = map['lastMessageSender'] as String? ?? '';
+    if (currentUser != null && lastMessageSender != currentUser.uid) {
+      // If the user's own unread count wasn't correctly set, we can estimate it
+      // based on the unreadCount field if lastMessageSender isn't the current user
+      if (unreadCount == 0 && map.containsKey('unreadCount')) {
+        unreadCount = map['unreadCount'] as int? ?? 0;
+      }
+    } else if (currentUser != null && lastMessageSender == currentUser.uid) {
+      // If current user is the last message sender, they should have 0 unread messages
+      unreadCount = 0;
+    }
+    
     return ChatModel(
       id: map['id'] ?? '',
       contactUID: map[Constants.contactUID] ?? '',
@@ -82,6 +98,7 @@ class ChatModel {
       lastMessage: map[Constants.lastMessage] ?? '',
       lastMessageType: (map[Constants.messageType] as String? ?? 'text').toMessageEnum(),
       lastMessageTime: map[Constants.timeSent] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      lastMessageSender: lastMessageSender,
       unreadCount: unreadCount,
       isGroup: map['isGroup'] ?? false,
       groupId: map[Constants.groupId],
@@ -98,6 +115,7 @@ class ChatModel {
       Constants.lastMessage: lastMessage,
       Constants.messageType: lastMessageType.name,
       Constants.timeSent: lastMessageTime,
+      'lastMessageSender': lastMessageSender,
       'unreadCount': unreadCount,
       'isGroup': isGroup,
       Constants.groupId: groupId,
@@ -113,6 +131,7 @@ class ChatModel {
     String? lastMessage,
     MessageEnum? lastMessageType,
     String? lastMessageTime,
+    String? lastMessageSender,
     int? unreadCount,
     bool? isGroup,
     String? groupId,
@@ -126,6 +145,7 @@ class ChatModel {
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageType: lastMessageType ?? this.lastMessageType,
       lastMessageTime: lastMessageTime ?? this.lastMessageTime,
+      lastMessageSender: lastMessageSender ?? this.lastMessageSender,
       unreadCount: unreadCount ?? this.unreadCount,
       isGroup: isGroup ?? this.isGroup,
       groupId: groupId ?? this.groupId,
@@ -142,9 +162,18 @@ class ChatModel {
   ChatModel updateUnreadCountForUser(String userId, int count) {
     final newUnreadCountByUser = Map<String, int>.from(unreadCountByUser);
     newUnreadCountByUser[userId] = count;
+    
+    // If this is the current user, update the main unreadCount property too
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null && userId == currentUser.uid) {
+      return copyWith(
+        unreadCountByUser: newUnreadCountByUser,
+        unreadCount: count,
+      );
+    }
+    
     return copyWith(
       unreadCountByUser: newUnreadCountByUser,
-      unreadCount: userId == FirebaseAuth.instance.currentUser?.uid ? count : unreadCount,
     );
   }
   
@@ -157,5 +186,42 @@ class ChatModel {
   // Helper method to reset unread count for a specific user
   ChatModel resetUnreadCountForUser(String userId) {
     return updateUnreadCountForUser(userId, 0);
+  }
+  
+  // Helper method to check if the current user has unread messages
+  bool hasUnreadMessages() {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return false;
+    
+    // Check if we have an unread count for the current user
+    if (unreadCountByUser.containsKey(currentUser.uid)) {
+      return unreadCountByUser[currentUser.uid]! > 0;
+    }
+    
+    // Fall back to the traditional unreadCount if the last message is from someone else
+    if (lastMessageSender != currentUser.uid) {
+      return unreadCount > 0;
+    }
+    
+    return false;
+  }
+  
+  // Helper method to get the correct unread count for display
+  int getDisplayUnreadCount() {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return 0;
+    
+    // If the last message was sent by the current user, they should have 0 unread messages
+    if (lastMessageSender == currentUser.uid) {
+      return 0;
+    }
+    
+    // Try to get the unread count from unreadCountByUser first
+    if (unreadCountByUser.containsKey(currentUser.uid)) {
+      return unreadCountByUser[currentUser.uid] ?? 0;
+    }
+    
+    // Fall back to the traditional unreadCount
+    return unreadCount;
   }
 }

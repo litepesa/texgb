@@ -132,6 +132,12 @@ class ChatRepository {
       
       if (!chatDoc.exists) {
         // Create a new chat
+        // Initialize unreadCountByUser with 0 for sender and 1 for receiver
+        Map<String, int> unreadCountByUser = {
+          currentUser.uid: 0,  // No unread messages for sender
+          receiverUID: 1,      // One unread message for receiver
+        };
+        
         await _firestore.collection(Constants.chats).doc(chatId).set({
           'id': chatId,
           'participants': [currentUser.uid, receiverUID],
@@ -142,20 +148,28 @@ class ChatRepository {
           Constants.messageType: messageType.name,
           Constants.timeSent: timeSent,
           'lastMessageSender': currentUser.uid,
-          'unreadCount': 0,
-          'unreadCountByUser': {}, // Initialize empty map for user-specific counts
+          'unreadCount': 1, // For backward compatibility - receiver has 1 unread message
+          'unreadCountByUser': unreadCountByUser,
           'isGroup': false,
         });
         debugPrint("Repository: Created new chat in Firestore");
       } else {
         // Update existing chat
-        // Calculate unread count for the receiver
+        // Get current unread counts by user
         Map<String, dynamic> unreadCountByUser = 
             Map<String, dynamic>.from(chatDoc.data()?['unreadCountByUser'] ?? {});
         
-        // Increment unread count for receiver (only if they're not the sender)
-        int receiverUnreadCount = unreadCountByUser[receiverUID] ?? 0;
-        unreadCountByUser[receiverUID] = receiverUnreadCount + 1;
+        // Initialize if not present
+        if (!unreadCountByUser.containsKey(currentUser.uid)) {
+          unreadCountByUser[currentUser.uid] = 0;
+        }
+        if (!unreadCountByUser.containsKey(receiverUID)) {
+          unreadCountByUser[receiverUID] = 0;
+        }
+        
+        // Always set sender's unread count to 0 and increment receiver's count by 1
+        unreadCountByUser[currentUser.uid] = 0;
+        unreadCountByUser[receiverUID] = (unreadCountByUser[receiverUID] as int? ?? 0) + 1;
         
         await _firestore.collection(Constants.chats).doc(chatId).update({
           Constants.lastMessage: message,
@@ -163,7 +177,7 @@ class ChatRepository {
           Constants.timeSent: timeSent,
           'lastMessageSender': currentUser.uid,
           'unreadCountByUser': unreadCountByUser,
-          'unreadCount': receiverUnreadCount + 1, // For backward compatibility
+          'unreadCount': unreadCountByUser[receiverUID], // For backward compatibility
         });
         debugPrint("Repository: Updated existing chat in Firestore");
       }
@@ -188,8 +202,8 @@ class ChatRepository {
     }
   }
 
-  // Update unread counter for a specific chat
-  Future<void> updateUnreadCounter(String chatId, String messageId, bool isIncrease) async {
+  // Reset unread counter for current user when they open a chat
+  Future<void> resetUnreadCounter(String chatId) async {
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
@@ -202,59 +216,29 @@ class ChatRepository {
         Map<String, dynamic> unreadCountByUser = 
             Map<String, dynamic>.from(chatDoc.data()?['unreadCountByUser'] ?? {});
         
-        if (isIncrease) {
-          // Increment unread count for current user
-          int currentCount = unreadCountByUser[currentUser.uid] ?? 0;
-          unreadCountByUser[currentUser.uid] = currentCount + 1;
+        // Reset unread count for current user only
+        unreadCountByUser[currentUser.uid] = 0;
+        
+        // For backward compatibility, only update unreadCount field if current user is receiver
+        final lastMessageSender = chatDoc.data()?['lastMessageSender'] as String?;
+        final isReceiver = lastMessageSender != null && lastMessageSender != currentUser.uid;
+        
+        // Update the chat document
+        if (isReceiver) {
+          // Current user is receiver, so reset the traditional unreadCount
+          await _firestore.collection(Constants.chats).doc(chatId).update({
+            'unreadCountByUser': unreadCountByUser,
+            'unreadCount': 0, // Reset for backward compatibility
+          });
         } else {
-          // Reset unread count for current user
-          unreadCountByUser[currentUser.uid] = 0;
+          // Current user is sender, don't change traditional unreadCount
+          await _firestore.collection(Constants.chats).doc(chatId).update({
+            'unreadCountByUser': unreadCountByUser,
+          });
         }
-        
-        // Calculate total unread count (for backwards compatibility)
-        int totalUnreadCount = unreadCountByUser[currentUser.uid] ?? 0;
-        
-        // Update the chat document with new unread counts
-        await _firestore.collection(Constants.chats).doc(chatId).update({
-          'unreadCountByUser': unreadCountByUser,
-          'unreadCount': totalUnreadCount,
-        });
       }
     } catch (e) {
-      debugPrint('Error updating unread counter: $e');
-    }
-  }
-
-  // Mark messages as delivered/read
-  Future<void> updateMessageStatuses(String chatId, List<String> messageIds, MessageStatus status) async {
-    if (messageIds.isEmpty) return;
-    
-    try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return;
-      
-      // Use a batch write for efficiency
-      WriteBatch batch = _firestore.batch();
-      
-      // Add each message update to the batch
-      for (final messageId in messageIds) {
-        final messageRef = _firestore
-            .collection(Constants.chats)
-            .doc(chatId)
-            .collection(Constants.messages)
-            .doc(messageId);
-            
-        batch.update(messageRef, {
-          'messageStatus': status.name,
-        });
-      }
-      
-      // Commit the batch
-      await batch.commit();
-      
-      debugPrint("Repository: Successfully updated status to ${status.name} for ${messageIds.length} messages");
-    } catch (e) {
-      debugPrint("Repository: Error updating message statuses: $e");
+      debugPrint('Error resetting unread counter: $e');
     }
   }
 
@@ -550,33 +534,36 @@ class ChatRepository {
     }
   }
 
-  // Reset unread counter for a chat when opened
-  Future<void> resetUnreadCounter(String chatId) async {
+  // Mark messages as delivered
+  Future<void> updateMessageStatuses(String chatId, List<String> messageIds, MessageStatus status) async {
+    if (messageIds.isEmpty) return;
+    
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
-
-      // Get the chat document
-      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
       
-      if (chatDoc.exists) {
-        // Get current unread counts or initialize empty map
-        Map<String, dynamic> unreadCountByUser = 
-            Map<String, dynamic>.from(chatDoc.data()?['unreadCountByUser'] ?? {});
-        
-        // Reset unread count for current user
-        unreadCountByUser[currentUser.uid] = 0;
-        
-        // Update the chat document
-        await _firestore.collection(Constants.chats).doc(chatId).update({
-          'unreadCountByUser': unreadCountByUser,
-          // Also update traditional unreadCount if this user is the receiver
-          if (chatDoc.data()?['lastMessageSender'] != currentUser.uid)
-            'unreadCount': 0,
+      // Use a batch write for efficiency
+      WriteBatch batch = _firestore.batch();
+      
+      // Add each message update to the batch
+      for (final messageId in messageIds) {
+        final messageRef = _firestore
+            .collection(Constants.chats)
+            .doc(chatId)
+            .collection(Constants.messages)
+            .doc(messageId);
+            
+        batch.update(messageRef, {
+          'messageStatus': status.name,
         });
       }
+      
+      // Commit the batch
+      await batch.commit();
+      
+      debugPrint("Repository: Successfully updated status to ${status.name} for ${messageIds.length} messages");
     } catch (e) {
-      debugPrint('Error resetting unread counter: $e');
+      debugPrint("Repository: Error updating message statuses: $e");
     }
   }
 }

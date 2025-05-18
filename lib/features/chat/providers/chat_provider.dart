@@ -102,7 +102,10 @@ class ChatNotifier extends _$ChatNotifier {
       // Cancel previous listener and listen to the new chat's messages
       ref.read(messageStreamProvider(chatId));
       
-      // Reset unread counter in Firestore
+      // Mark messages as delivered when opening a chat
+      await _chatRepository.markChatAsDelivered(chatId);
+      
+      // Reset unread counter in Firestore for current user
       await _chatRepository.resetUnreadCounter(chatId);
       
       state = AsyncValue.data(state.value!.copyWith(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
@@ -16,6 +17,7 @@ class ChatsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
+    final currentUser = ref.watch(currentUserProvider);
     
     // Watch chats stream
     final chatsStream = ref.watch(chatStreamProvider);
@@ -85,6 +87,8 @@ class ChatsTab extends ConsumerWidget {
                 horizontal: 24,
                 vertical: 12,
               ),
+              backgroundColor: modernTheme.primaryColor,
+              foregroundColor: Colors.white,
             ),
           ),
         ],
@@ -94,6 +98,9 @@ class ChatsTab extends ConsumerWidget {
 
   Widget _buildChatItem(BuildContext context, WidgetRef ref, ChatModel chat) {
     final modernTheme = context.modernTheme;
+    final chatTheme = context.chatTheme;
+    final animationTheme = context.animationTheme;
+    final currentUser = ref.read(currentUserProvider);
     
     // Format time
     final timestamp = int.parse(chat.lastMessageTime);
@@ -120,76 +127,121 @@ class ChatsTab extends ConsumerWidget {
       timeText = DateFormat('dd/MM/yyyy').format(dateTime);
     }
     
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-        backgroundImage: chat.contactImage.isNotEmpty
-            ? NetworkImage(chat.contactImage)
-            : null,
-        child: chat.contactImage.isEmpty
-            ? Text(
-                chat.contactName.isNotEmpty
-                    ? chat.contactName.substring(0, 1)
-                    : '?',
-                style: TextStyle(
-                  color: modernTheme.primaryColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              )
-            : null,
+    // Get the correct unread count for display
+    final unreadCount = chat.getDisplayUnreadCount();
+    
+    // Check if this is the sender of the last message
+    final bool isLastMessageSender = currentUser != null && 
+                                    chat.lastMessageSender == currentUser.uid;
+                                    
+    // If current user is the sender of the last message, unread count should be 0
+    final bool hasUnread = unreadCount > 0 && !isLastMessageSender;
+    
+    return AnimatedContainer(
+      duration: animationTheme.shortDuration,
+      curve: animationTheme.standardCurve,
+      decoration: BoxDecoration(
+        color: hasUnread ? modernTheme.surfaceVariantColor?.withOpacity(0.3) : Colors.transparent,
       ),
-      title: Text(
-        chat.contactName,
-        style: TextStyle(
-          color: modernTheme.textColor,
-          fontWeight: chat.unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+          backgroundImage: chat.contactImage.isNotEmpty
+              ? NetworkImage(chat.contactImage)
+              : null,
+          child: chat.contactImage.isEmpty
+              ? Text(
+                  chat.contactName.isNotEmpty
+                      ? chat.contactName.substring(0, 1)
+                      : '?',
+                  style: TextStyle(
+                    color: modernTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
         ),
-      ),
-      subtitle: Text(
-        _getLastMessagePreview(chat),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: chat.unreadCount > 0
-              ? modernTheme.textColor
-              : modernTheme.textSecondaryColor,
-          fontWeight: chat.unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
-        ),
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            timeText,
-            style: TextStyle(
-              color: chat.unreadCount > 0
-                  ? modernTheme.primaryColor
-                  : modernTheme.textSecondaryColor,
-              fontSize: 12,
-            ),
+        title: Text(
+          chat.contactName,
+          style: TextStyle(
+            color: modernTheme.textColor,
+            fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
           ),
-          const SizedBox(height: 5),
-          if (chat.unreadCount > 0)
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor,
-                shape: BoxShape.circle,
+        ),
+        subtitle: Row(
+          children: [
+            // Message status indicator (only for messages sent by current user)
+            if (isLastMessageSender)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  _getMessageStatusIcon(),
+                  size: 14,
+                  color: _getMessageStatusColor(context),
+                ),
               ),
+            Expanded(
               child: Text(
-                chat.unreadCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                _getLastMessagePreview(chat),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: hasUnread
+                      ? modernTheme.textColor
+                      : modernTheme.textSecondaryColor,
+                  fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
                 ),
               ),
             ),
-        ],
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              timeText,
+              style: TextStyle(
+                color: hasUnread
+                    ? modernTheme.primaryColor
+                    : modernTheme.textSecondaryColor,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 5),
+            if (hasUnread)
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        onTap: () => _openChatScreen(context, ref, chat),
       ),
-      onTap: () => _openChatScreen(context, ref, chat),
     );
+  }
+  
+  // New method to get the appropriate message status icon
+  IconData _getMessageStatusIcon() {
+    // We don't have access to the actual message status from the chat list
+    // So we'll just use a simple sent icon
+    return Icons.done;
+  }
+  
+  // New method to get the appropriate message status color
+  Color _getMessageStatusColor(BuildContext context) {
+    return context.modernTheme.textSecondaryColor ?? Colors.grey;
   }
 
   String _getLastMessagePreview(ChatModel chat) {

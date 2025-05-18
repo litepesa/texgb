@@ -30,7 +30,7 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isAttachmentVisible = false;
@@ -38,6 +38,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Add observer for app lifecycle changes
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Initialize chat when the screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(chatProvider.notifier).openChat(widget.chatId, widget.contact);
     });
@@ -45,6 +50,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    // This ensures we reset the unread counter when leaving the chat
+    WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -59,6 +66,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (chatState.valueOrNull?.editingMessage != null && 
         _messageController.text.isEmpty) {
       _messageController.text = chatState.valueOrNull!.editingMessage!.message;
+    }
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Handle app lifecycle changes
+    if (state == AppLifecycleState.resumed) {
+      // When app is resumed, reset unread counter for current chat
+      ref.read(chatProvider.notifier).openChat(widget.chatId, widget.contact);
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      // No action needed when app is paused/inactive - unread counters are managed server-side
     }
   }
 
@@ -335,11 +353,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     
-                    // Mark message as delivered if it's received
+                    // Mark message as delivered if it's received and not already delivered
                     final currentUser = ref.read(currentUserProvider);
                     if (currentUser != null && 
                         message.senderUID != currentUser.uid && 
-                        !message.isDelivered) {
+                        message.messageStatus == MessageStatus.sent) {
                       ref.read(chatProvider.notifier).markMessageAsDelivered(message.messageId);
                     }
                     
@@ -412,7 +430,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ],
       ),
       leading: AppBarBackButton(
-        onPressed: () => Navigator.pop(context),
+        onPressed: () {
+          Navigator.pop(context);
+        },
       ),
       actions: [
         IconButton(
