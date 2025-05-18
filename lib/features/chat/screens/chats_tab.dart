@@ -1,3 +1,4 @@
+// lib/features/chat/screens/chats_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -24,15 +25,18 @@ class ChatsTab extends ConsumerWidget {
     
     return chatsStream.when(
       data: (chats) {
-        if (chats.isEmpty) {
+        // Filter out group chats - only show direct chats
+        final directChats = chats.where((chat) => !chat.isGroup).toList();
+        
+        if (directChats.isEmpty) {
           return _buildEmptyState(context);
         }
 
         return ListView.builder(
           padding: const EdgeInsets.only(top: 8.0, bottom: 100),
-          itemCount: chats.length,
+          itemCount: directChats.length,
           itemBuilder: (context, index) {
-            final chat = chats[index];
+            final chat = directChats[index];
             return _buildChatItem(context, ref, chat);
           },
         );

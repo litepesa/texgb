@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
@@ -16,6 +17,17 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
+
+// Define a new provider for group chats from chat provider
+final groupChatStreamProvider = Provider<AsyncValue<List<ChatModel>>>((ref) {
+  final allChats = ref.watch(chatStreamProvider);
+  
+  return allChats.when(
+    data: (chats) => AsyncValue.data(chats.where((chat) => chat.isGroup).toList()),
+    loading: () => const AsyncValue.loading(),
+    error: (error, stack) => AsyncValue.error(error, stack),
+  );
+});
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -152,6 +164,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Get groups list to calculate unread messages
     final groupsAsyncValue = ref.watch(userGroupsStreamProvider);
     
+    // Get group chats for Groups tab
+    final groupChatsAsyncValue = ref.watch(groupChatStreamProvider);
+    
     // Calculate bottom padding to account for system navigation
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     
@@ -235,11 +250,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     if (index == 0) {
                       return chatsAsyncValue.when(
                         data: (chats) {
-                          // Calculate total unread count from all chats
-                          // Only include direct chats, not group chats
-                          final totalUnreadCount = chats.fold<int>(
+                          // Calculate total unread count from direct chats only
+                          final directChats = chats.where((chat) => !chat.isGroup).toList();
+                          final totalUnreadCount = directChats.fold<int>(
                             0, 
-                            (sum, chat) => sum + (chat.isGroup ? 0 : chat.getDisplayUnreadCount())
+                            (sum, chat) => sum + chat.getDisplayUnreadCount()
                           );
                           
                           return BottomNavigationBarItem(
@@ -304,21 +319,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     if (index == 1) {
                       return groupsAsyncValue.when(
                         data: (groups) {
-                          // Calculate total unread count across all groups
+                          // Calculate total unread count from regular groups
                           final currentUserUid = ref.read(groupProvider.notifier).getCurrentUserUid();
-                          final totalUnreadCount = currentUserUid != null
+                          final groupUnreadCount = currentUserUid != null
                               ? groups.fold<int>(
                                   0, 
                                   (sum, group) => sum + group.getUnreadCountForUser(currentUserUid)
                                 )
                               : 0;
                           
-                          // Also include pending requests for admins in the badge count
+                          // Calculate unread count from group chats
+                          int groupChatUnreadCount = 0;
+                          if (groupChatsAsyncValue.hasValue) {
+                            final groupChats = groupChatsAsyncValue.value!;
+                            // Use a for loop instead of fold
+                            for (final chat in groupChats) {
+                              groupChatUnreadCount += chat.getDisplayUnreadCount();
+                            }
+                          }
+                          
+                          // Add pending requests for admins in the badge count
                           final pendingRequests = groups
                               .where((group) => ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId))
                               .fold<int>(0, (sum, group) => sum + group.awaitingApprovalUIDs.length);
                           
-                          final badgeCount = totalUnreadCount + pendingRequests;
+                          // Total badge count combines all three sources
+                          final badgeCount = groupUnreadCount + groupChatUnreadCount + pendingRequests;
                           
                           return BottomNavigationBarItem(
                             icon: Stack(

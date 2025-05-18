@@ -1,4 +1,3 @@
-// lib/features/chat/providers/chat_provider.dart
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -484,6 +483,22 @@ class ChatNotifier extends _$ChatNotifier {
 Stream<List<ChatModel>> chatStream(ChatStreamRef ref) {
   final repository = ref.watch(chatRepositoryProvider);
   return repository.getChats();
+}
+
+// Stream provider for direct chats only (non-group chats)
+@riverpod
+Stream<List<ChatModel>> directChatStream(DirectChatStreamRef ref) {
+  return ref.watch(chatStreamProvider.stream).map(
+    (chats) => chats.where((chat) => !chat.isGroup).toList()
+  );
+}
+
+// Stream provider for group chats only
+@riverpod
+Stream<List<ChatModel>> groupChatStream(GroupChatStreamRef ref) {
+  return ref.watch(chatStreamProvider.stream).map(
+    (chats) => chats.where((chat) => chat.isGroup).toList()
+  );
 }
 
 // Stream provider for messages in the current chat

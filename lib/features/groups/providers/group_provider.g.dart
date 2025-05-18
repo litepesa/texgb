@@ -1,5 +1,3 @@
-// lib/features/groups/providers/group_provider.g.dart
-
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'group_provider.dart';
@@ -8,15 +6,17 @@ part of 'group_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$userGroupsStreamHash() => r'e3e6f09c57a8b3f9d7a4e2c81d6548f9a7b52c10';
+String _$userGroupsStreamHash() => r'd0132aa420aaba9adfec1362957f102ef2cf5f18';
 
 /// See also [userGroupsStream].
 @ProviderFor(userGroupsStream)
-final userGroupsStreamProvider = AutoDisposeStreamProvider<List<GroupModel>>.internal(
+final userGroupsStreamProvider =
+    AutoDisposeStreamProvider<List<GroupModel>>.internal(
   userGroupsStream,
   name: r'userGroupsStreamProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$userGroupsStreamHash,
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$userGroupsStreamHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
@@ -24,15 +24,18 @@ final userGroupsStreamProvider = AutoDisposeStreamProvider<List<GroupModel>>.int
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef UserGroupsStreamRef = AutoDisposeStreamProviderRef<List<GroupModel>>;
-String _$publicGroupsStreamHash() => r'9f47a5c81e32075d8a3f9cc3a1e67b2e5d7c8f2a';
+String _$publicGroupsStreamHash() =>
+    r'fedaab3e2b68904227e1b68f5ba9dc5153bc749d';
 
 /// See also [publicGroupsStream].
 @ProviderFor(publicGroupsStream)
-final publicGroupsStreamProvider = AutoDisposeStreamProvider<List<GroupModel>>.internal(
+final publicGroupsStreamProvider =
+    AutoDisposeStreamProvider<List<GroupModel>>.internal(
   publicGroupsStream,
   name: r'publicGroupsStreamProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$publicGroupsStreamHash,
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$publicGroupsStreamHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
@@ -40,7 +43,7 @@ final publicGroupsStreamProvider = AutoDisposeStreamProvider<List<GroupModel>>.i
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef PublicGroupsStreamRef = AutoDisposeStreamProviderRef<List<GroupModel>>;
-String _$groupNotifierHash() => r'2a7cdaf5e8b491c3d94a723f156e8f4b9a6c8e10';
+String _$groupNotifierHash() => r'14789da9d30e4a0930125da0d8c2e19c8268516c';
 
 /// See also [GroupNotifier].
 @ProviderFor(GroupNotifier)
@@ -48,10 +51,13 @@ final groupNotifierProvider =
     AutoDisposeAsyncNotifierProvider<GroupNotifier, GroupState>.internal(
   GroupNotifier.new,
   name: r'groupNotifierProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$groupNotifierHash,
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$groupNotifierHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
 typedef _$GroupNotifier = AutoDisposeAsyncNotifier<GroupState>;
+// ignore_for_file: type=lint
+// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

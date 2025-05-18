@@ -2,10 +2,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/chat/models/chat_model.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
 import 'package:textgb/features/groups/widgets/group_tile.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/models/user_model.dart';
+
+// Provider to filter only group chats from the chat stream
+final groupChatStreamProvider = Provider<AsyncValue<List<ChatModel>>>((ref) {
+  final allChats = ref.watch(chatStreamProvider);
+  
+  return allChats.when(
+    data: (chats) => AsyncValue.data(chats.where((chat) => chat.isGroup).toList()),
+    loading: () => const AsyncValue.loading(),
+    error: (error, stack) => AsyncValue.error(error, stack),
+  );
+});
 
 class GroupsTab extends ConsumerStatefulWidget {
   const GroupsTab({super.key});
@@ -47,21 +63,14 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
     });
   }
 
-  // Calculate total unread count for groups tab badge
-  int _calculateTotalUnreadCount(List<GroupModel> groups) {
-    final currentUserUid = ref.read(groupProvider.notifier).getCurrentUserUid();
-    if (currentUserUid == null) return 0;
-    
-    return groups.fold<int>(
-      0, 
-      (sum, group) => sum + group.getUnreadCountForUser(currentUserUid)
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
+    // Watch user groups stream
     final userGroupsAsync = ref.watch(userGroupsStreamProvider);
+    
+    // Watch group chats stream
+    final groupChatsAsync = ref.watch(groupChatStreamProvider);
     
     return Scaffold(
       backgroundColor: theme.backgroundColor,
@@ -95,7 +104,7 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
           Expanded(
             child: _searchController.text.isNotEmpty
                 ? _buildSearchResults()
-                : _buildUserGroups(userGroupsAsync),
+                : _buildGroupsContent(userGroupsAsync, groupChatsAsync),
           ),
         ],
       ),
@@ -110,65 +119,47 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
     );
   }
 
-  Widget _buildUserGroups(AsyncValue<List<GroupModel>> userGroupsAsync) {
+  // New method to build combined groups content 
+  Widget _buildGroupsContent(
+    AsyncValue<List<GroupModel>> userGroupsAsync, 
+    AsyncValue<List<ChatModel>> groupChatsAsync
+  ) {
+    final theme = context.modernTheme;
+    
     return userGroupsAsync.when(
       data: (userGroups) {
-        if (userGroups.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        return groupChatsAsync.when(
+          data: (groupChats) {
+            // If both are empty, show empty state
+            if (userGroups.isEmpty && groupChats.isEmpty) {
+              return _buildEmptyState();
+            }
+            
+            // Otherwise show the list of groups
+            return ListView(
+              padding: const EdgeInsets.only(bottom: 80),
               children: [
-                const Icon(Icons.group_outlined, size: 80, color: Colors.grey),
-                const SizedBox(height: 16),
-                Text(
-                  'No groups yet',
-                  style: TextStyle(
-                    color: context.modernTheme.textColor,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Create a new group or join an existing one',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: context.modernTheme.textSecondaryColor,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, Constants.createGroupScreen);
+                // First show group chats from the chat provider
+                ...groupChats.map((chat) => _buildGroupChatTile(chat)),
+                
+                // Then show groups from the group provider
+                ...userGroups.map((group) => GroupTile(
+                  group: group,
+                  onTap: () {
+                    // Open with normal group chat handler
+                    ref.read(groupProvider.notifier).openGroupChat(group, context);
                   },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Create Group'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: context.modernTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
+                )),
               ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.only(bottom: 80),
-          itemCount: userGroups.length,
-          itemBuilder: (context, index) {
-            final group = userGroups[index];
-            return GroupTile(
-              group: group,
-              onTap: () {
-                // Open group chat instead of group info
-                ref.read(groupProvider.notifier).openGroupChat(group, context);
-              },
             );
           },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, s) => Center(
+            child: Text(
+              'Error loading group chats: $e',
+              style: TextStyle(color: theme.textColor),
+            ),
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -180,8 +171,148 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
       ),
     );
   }
+  
+  // Helper method to build a group chat tile from a chat model
+  Widget _buildGroupChatTile(ChatModel chat) {
+    // Convert chat model to group model for display consistency
+    final group = GroupModel(
+      groupId: chat.id,
+      groupName: chat.contactName,
+      groupDescription: '',
+      groupImage: chat.contactImage,
+      creatorUID: '',
+      isPrivate: true,
+      editSettings: false,
+      approveMembers: false,
+      lockMessages: false,
+      requestToJoin: false,
+      // For group chats, we'll use empty members list since we don't have participants field
+      membersUIDs: const [],
+      adminsUIDs: const [],
+      awaitingApprovalUIDs: const [],
+      lastMessage: chat.lastMessage,
+      lastMessageSender: chat.lastMessageSender,
+      lastMessageTime: chat.lastMessageTime,
+      unreadCount: chat.unreadCount,
+      unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
+      createdAt: '',
+    );
+    
+    return GroupTile(
+      group: group,
+      onTap: () {
+        _openGroupChat(chat);
+      },
+    );
+  }
 
+  // Method to handle opening a group chat from chat model
+  void _openGroupChat(ChatModel chat) async {
+    try {
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) return;
+      
+      // Create an empty list of members
+      final List<UserModel> members = [];
+      
+      // Open the chat in the chat provider
+      await ref.read(chatProvider.notifier).openGroupChat(
+        chat.id, 
+        members, // Pass empty member list
+      );
+      
+      if (mounted) {
+        // Create temporary group model to pass to the screen
+        final tempGroup = GroupModel(
+          groupId: chat.id,
+          groupName: chat.contactName,
+          groupDescription: '',
+          groupImage: chat.contactImage,
+          creatorUID: '',
+          isPrivate: true,
+          editSettings: false,
+          approveMembers: false,
+          lockMessages: false,
+          requestToJoin: false,
+          membersUIDs: const [], // Empty list since we don't have participants
+          adminsUIDs: const [],
+          awaitingApprovalUIDs: const [],
+          lastMessage: chat.lastMessage,
+          lastMessageSender: chat.lastMessageSender,
+          lastMessageTime: chat.lastMessageTime,
+          unreadCount: chat.unreadCount,
+          unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
+          createdAt: '',
+        );
+        
+        // Navigate to group chat screen
+        Navigator.pushNamed(
+          context,
+          Constants.groupChatScreen,
+          arguments: {
+            'groupId': chat.id,
+            'group': tempGroup,
+            'isGroup': true,
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error opening group chat: $e');
+      }
+    }
+  }
+
+  // Empty state widget
+  Widget _buildEmptyState() {
+    final theme = context.modernTheme;
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.group_outlined, size: 80, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            'No groups yet',
+            style: TextStyle(
+              color: theme.textColor,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create a new group or join an existing one',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: theme.textSecondaryColor,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pushNamed(context, Constants.createGroupScreen);
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Create Group'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Search results widget
   Widget _buildSearchResults() {
+    final theme = context.modernTheme;
+    
     if (_isSearching) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -190,7 +321,7 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
       return Center(
         child: Text(
           'No groups found',
-          style: TextStyle(color: context.modernTheme.textColor),
+          style: TextStyle(color: theme.textColor),
         ),
       );
     }
@@ -203,7 +334,7 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
         return GroupTile(
           group: group,
           onTap: () {
-            // Open group chat instead of group info
+            // Open group
             ref.read(groupProvider.notifier).openGroupChat(group, context);
           },
         );
