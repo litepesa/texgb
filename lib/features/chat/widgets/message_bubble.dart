@@ -7,6 +7,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -15,6 +16,7 @@ class MessageBubble extends ConsumerWidget {
   final UserModel contact;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final Function(MessageModel)? onSwipe;
 
   const MessageBubble({
     Key? key,
@@ -22,6 +24,7 @@ class MessageBubble extends ConsumerWidget {
     required this.contact,
     this.onTap,
     this.onLongPress,
+    this.onSwipe,
   }) : super(key: key);
 
   @override
@@ -32,64 +35,93 @@ class MessageBubble extends ConsumerWidget {
     // Check if the message is from the current user
     final isMe = message.senderUID == currentUser.uid;
     
-    // Check if the message is deleted for the current user
-    final isDeleted = message.deletedBy.contains(currentUser.uid);
+    // Check if the message is deleted for everyone or just for the current user
+    final isDeletedForEveryone = message.isDeletedForEveryone;
+    final isDeletedForMe = message.deletedBy.contains(currentUser.uid);
     
-    if (isDeleted) {
+    if (isDeletedForEveryone) {
+      return _buildDeletedForEveryoneMessage(context);
+    }
+    
+    if (isDeletedForMe) {
       return _buildDeletedMessage(context, isMe);
     }
 
     // Get bubble styles from theme
     final chatTheme = context.chatTheme;
     final borderRadius = isMe 
-        ? BorderRadius.circular(16) // Use fixed radius instead of theme
+        ? BorderRadius.circular(16)
         : BorderRadius.circular(16);
-
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
+    
+    // Build swipeable container for reply functionality
+    return Dismissible(
+      key: Key('message_${message.messageId}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (_) async {
+        if (onSwipe != null) {
+          onSwipe!(message);
+        }
+        return false; // Don't actually dismiss the item
+      },
+      background: Container(
+        color: Colors.blue.withOpacity(0.2),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16.0),
+        child: const Icon(
+          Icons.reply,
+          color: Colors.blue,
         ),
-        child: GestureDetector(
-          onTap: onTap,
-          onLongPress: onLongPress,
-          child: Container(
-            margin: EdgeInsets.only(
-              top: 4,
-              bottom: 4,
-              left: isMe ? 48 : 8,
-              right: isMe ? 8 : 48,
-            ),
-            decoration: BoxDecoration(
-              color: isMe 
-                  ? chatTheme.senderBubbleColor 
-                  : chatTheme.receiverBubbleColor,
-              borderRadius: borderRadius,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Reply message if present
-                if (message.repliedMessage != null)
-                  _buildReplyPreview(context, isMe),
-                
-                // Message content
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
-                  child: _buildMessageContent(context, isMe),
-                ),
-                
-                // Timestamp and seen status
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 8, bottom: 4),
-                    child: _buildTimestampAndSeen(context, isMe),
+      ),
+      child: Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.75,
+          ),
+          child: GestureDetector(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: Container(
+              margin: EdgeInsets.only(
+                top: 4,
+                bottom: 4,
+                left: isMe ? 48 : 8,
+                right: isMe ? 8 : 48,
+              ),
+              decoration: BoxDecoration(
+                color: isMe 
+                    ? chatTheme.senderBubbleColor 
+                    : chatTheme.receiverBubbleColor,
+                borderRadius: borderRadius,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Reply message if present
+                  if (message.repliedMessage != null)
+                    _buildReplyPreview(context, isMe),
+                  
+                  // Message content
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+                    child: _buildMessageContent(context, isMe),
                   ),
-                ),
-              ],
+                  
+                  // Reactions if present
+                  if (message.reactions.isNotEmpty)
+                    _buildReactionsBar(context, isMe),
+                  
+                  // Timestamp and delivery status
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8, bottom: 4),
+                      child: _buildTimestampAndStatus(context, isMe),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -124,6 +156,33 @@ class MessageBubble extends ConsumerWidget {
             color: context.modernTheme.textSecondaryColor,
             fontStyle: FontStyle.italic,
             fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDeletedForEveryoneMessage(BuildContext context) {
+    return Align(
+      alignment: Alignment.center,
+      child: Container(
+        margin: const EdgeInsets.symmetric(
+          vertical: 8,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 6,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          'This message was deleted',
+          style: TextStyle(
+            color: context.modernTheme.textSecondaryColor,
+            fontStyle: FontStyle.italic,
+            fontSize: 12,
           ),
         ),
       ),
@@ -223,20 +282,45 @@ class MessageBubble extends ConsumerWidget {
   }
 
   Widget _buildMessageContent(BuildContext context, bool isMe) {
+    final modernTheme = context.modernTheme;
+    
+    // Show edited indicator if applicable
+    Widget messageWidget;
+    
     switch (message.messageType) {
       case MessageEnum.text:
-        return Text(
-          message.message,
-          style: TextStyle(
-            color: isMe 
-                ? context.chatTheme.senderTextColor 
-                : context.chatTheme.receiverTextColor,
-            fontSize: 16,
-          ),
+        messageWidget = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.message,
+              style: TextStyle(
+                color: isMe 
+                    ? context.chatTheme.senderTextColor 
+                    : context.chatTheme.receiverTextColor,
+                fontSize: 16,
+              ),
+            ),
+            if (message.isEdited)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'edited',
+                  style: TextStyle(
+                    color: isMe 
+                        ? context.chatTheme.senderTextColor?.withOpacity(0.6)
+                        : context.chatTheme.receiverTextColor?.withOpacity(0.6),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+          ],
         );
+        break;
         
       case MessageEnum.image:
-        return Column(
+        messageWidget = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
@@ -264,9 +348,10 @@ class MessageBubble extends ConsumerWidget {
             ),
           ],
         );
+        break;
         
       case MessageEnum.video:
-        return Container(
+        messageWidget = Container(
           height: 200,
           decoration: BoxDecoration(
             color: Colors.black,
@@ -304,9 +389,10 @@ class MessageBubble extends ConsumerWidget {
             ],
           ),
         );
+        break;
         
       case MessageEnum.audio:
-        return Container(
+        messageWidget = Container(
           padding: const EdgeInsets.symmetric(
             vertical: 8,
           ),
@@ -339,9 +425,10 @@ class MessageBubble extends ConsumerWidget {
             ],
           ),
         );
+        break;
         
       case MessageEnum.file:
-        return Container(
+        messageWidget = Container(
           padding: const EdgeInsets.symmetric(
             vertical: 8,
           ),
@@ -383,9 +470,10 @@ class MessageBubble extends ConsumerWidget {
             ],
           ),
         );
+        break;
         
       default:
-        return Text(
+        messageWidget = Text(
           message.message,
           style: TextStyle(
             color: isMe 
@@ -395,9 +483,60 @@ class MessageBubble extends ConsumerWidget {
           ),
         );
     }
+    
+    return messageWidget;
+  }
+  
+  Widget _buildReactionsBar(BuildContext context, bool isMe) {
+    // Group reactions by emoji
+    Map<String, int> reactionCounts = {};
+    for (var reaction in message.reactions.values) {
+      final emoji = reaction['emoji'] ?? '👍';
+      reactionCounts[emoji] = (reactionCounts[emoji] ?? 0) + 1;
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4, left: 12, right: 12),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: reactionCounts.entries.map((entry) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  entry.key,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  entry.value.toString(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isMe 
+                        ? context.chatTheme.senderTextColor?.withOpacity(0.7)
+                        : context.chatTheme.receiverTextColor?.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
-  Widget _buildTimestampAndSeen(BuildContext context, bool isMe) {
+  Widget _buildTimestampAndStatus(BuildContext context, bool isMe) {
     final dateTime = DateTime.fromMillisecondsSinceEpoch(
       int.parse(message.timeSent),
     );
@@ -417,8 +556,8 @@ class MessageBubble extends ConsumerWidget {
         if (isMe) ...[
           const SizedBox(width: 4),
           Icon(
-            message.isSeen ? Icons.done_all : Icons.done,
-            color: message.isSeen ? Colors.blue : context.chatTheme.timestampColor,
+            message.isDelivered ? Icons.done_all : Icons.done,
+            color: context.chatTheme.timestampColor,
             size: 12,
           ),
         ],

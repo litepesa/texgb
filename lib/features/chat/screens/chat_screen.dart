@@ -1,13 +1,16 @@
+// lib/features/chat/screens/chat_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/chat_input.dart';
 import 'package:textgb/features/chat/widgets/message_bubble.dart';
+import 'package:textgb/features/chat/widgets/reaction_picker.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -45,6 +48,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Set message text if editing
+    final chatState = ref.watch(chatProvider);
+    if (chatState.valueOrNull?.editingMessage != null && 
+        _messageController.text.isEmpty) {
+      _messageController.text = chatState.valueOrNull!.editingMessage!.message;
+    }
   }
 
   void _sendMessage() {
@@ -95,6 +110,183 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
+  // Handle message tap
+  void _handleMessageTap(MessageModel message) {
+    if (message.messageType == MessageEnum.image) {
+      // Navigate to image viewer
+      Navigator.pushNamed(
+        context,
+        '/mediaViewerScreen',
+        arguments: {
+          'message': message,
+          'sender': message.senderUID == widget.contact.uid 
+              ? widget.contact 
+              : ref.read(currentUserProvider)!,
+        },
+      );
+    } else if (message.messageType == MessageEnum.video) {
+      // Navigate to video player
+      Navigator.pushNamed(
+        context,
+        '/mediaViewerScreen',
+        arguments: {
+          'message': message,
+          'sender': message.senderUID == widget.contact.uid 
+              ? widget.contact 
+              : ref.read(currentUserProvider)!,
+        },
+      );
+    }
+  }
+  
+  // Handle message long press to show options
+  void _showMessageOptions(MessageModel message) {
+    final chatNotifier = ref.read(chatProvider.notifier);
+    final currentUser = ref.read(currentUserProvider);
+    
+    // Check if the message is from the current user
+    final isFromMe = message.senderUID == currentUser?.uid;
+    
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Reply option
+              ListTile(
+                leading: const Icon(Icons.reply),
+                title: const Text('Reply'),
+                onTap: () {
+                  Navigator.pop(context);
+                  chatNotifier.setReplyingTo(message);
+                },
+              ),
+              
+              // React option
+              ListTile(
+                leading: const Icon(Icons.emoji_emotions),
+                title: const Text('React'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showReactionPicker(message);
+                },
+              ),
+              
+              // Edit option (only for text messages from current user)
+              if (isFromMe && message.messageType == MessageEnum.text)
+                ListTile(
+                  leading: const Icon(Icons.edit),
+                  title: const Text('Edit'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    chatNotifier.setEditingMessage(message);
+                    _messageController.text = message.message;
+                    _messageController.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _messageController.text.length),
+                    );
+                    FocusScope.of(context).requestFocus(FocusNode());
+                  },
+                ),
+              
+              // Copy option for text messages
+              if (message.messageType == MessageEnum.text)
+                ListTile(
+                  leading: const Icon(Icons.content_copy),
+                  title: const Text('Copy'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Copy to clipboard
+                  },
+                ),
+              
+              // Delete for me option
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: const Text('Delete for me'),
+                onTap: () {
+                  Navigator.pop(context);
+                  chatNotifier.deleteMessage(message.messageId);
+                },
+              ),
+              
+              // Delete for everyone option (only for messages from current user)
+              if (isFromMe)
+                ListTile(
+                  leading: const Icon(Icons.delete_forever),
+                  title: const Text('Delete for everyone'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showDeleteForEveryoneConfirmation(message);
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  // Show confirmation dialog for delete for everyone
+  void _showDeleteForEveryoneConfirmation(MessageModel message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete for everyone?'),
+        content: const Text(
+          'This message will be deleted for everyone in this chat. This action cannot be undone.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(chatProvider.notifier).deleteMessageForEveryone(message.messageId);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Show reaction picker
+  void _showReactionPicker(MessageModel message) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => ReactionPicker(
+        onReactionSelected: (emoji) {
+          Navigator.pop(context);
+          
+          // Check if the user already has this reaction
+          final currentUser = ref.read(currentUserProvider);
+          if (currentUser == null) return;
+          
+          final hasReaction = message.reactions.containsKey(currentUser.uid);
+          final hasSameReaction = hasReaction && 
+              message.reactions[currentUser.uid]?['emoji'] == emoji;
+          
+          if (hasSameReaction) {
+            // Remove reaction if it's the same
+            ref.read(chatProvider.notifier).removeReaction(message.messageId);
+          } else {
+            // Add or update reaction
+            ref.read(chatProvider.notifier).addReaction(message.messageId, emoji);
+          }
+        },
+      ),
+    );
+  }
+  
+  // Handle swipe to reply
+  void _handleSwipeToReply(MessageModel message) {
+    ref.read(chatProvider.notifier).setReplyingTo(message);
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
@@ -103,14 +295,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Watch messages stream for current chat
     final messagesStream = ref.watch(messageStreamProvider(widget.chatId));
     final chatState = ref.watch(chatProvider);
+    
+    // Check if we're editing a message
+    final bool isEditing = chatState.valueOrNull?.editingMessage != null;
 
     return Scaffold(
       backgroundColor: chatTheme.chatBackgroundColor,
       appBar: _buildAppBar(context),
       body: Column(
         children: [
+          // Editing indicator
+          if (isEditing)
+            _buildEditingContainer(chatState.valueOrNull!.editingMessage!),
+          
           // Reply UI if replying to a message
-          if (chatState.valueOrNull?.replyingTo != null)
+          if (!isEditing && chatState.valueOrNull?.replyingTo != null)
             _buildReplyContainer(chatState.valueOrNull!.replyingTo!),
 
           // Messages list
@@ -136,9 +335,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     
-                    // Mark message as seen if it's received
-                    if (!message.seenBy.contains(message.senderUID)) {
-                      ref.read(chatProvider.notifier).markMessageAsSeen(message.messageId);
+                    // Mark message as delivered if it's received
+                    final currentUser = ref.read(currentUserProvider);
+                    if (currentUser != null && 
+                        message.senderUID != currentUser.uid && 
+                        !message.isDelivered) {
+                      ref.read(chatProvider.notifier).markMessageAsDelivered(message.messageId);
                     }
                     
                     // Add date header if needed
@@ -152,6 +354,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           contact: widget.contact,
                           onTap: () => _handleMessageTap(message),
                           onLongPress: () => _showMessageOptions(message),
+                          onSwipe: _handleSwipeToReply,
                         ),
                       ],
                     );
@@ -175,6 +378,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             controller: _messageController,
             onSend: _sendMessage,
             onAttachmentTap: _toggleAttachmentMenu,
+            isEditing: isEditing,
+            onCancelEditing: isEditing 
+                ? () {
+                    ref.read(chatProvider.notifier).cancelEditing();
+                    _messageController.clear();
+                  }
+                : null,
           ),
         ],
       ),
@@ -192,26 +402,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             radius: 20,
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.contact.name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                widget.contact.isOnline ? 'Online' : 'Offline',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: widget.contact.isOnline 
-                      ? Colors.green 
-                      : context.modernTheme.textSecondaryColor,
-                ),
-              ),
-            ],
+          Text(
+            widget.contact.name,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -241,6 +437,64 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildEditingContainer(MessageModel editingMessage) {
+    final modernTheme = context.modernTheme;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.blue.withOpacity(0.1),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Editing message',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  editingMessage.message,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.close,
+              color: modernTheme.textSecondaryColor,
+              size: 20,
+            ),
+            onPressed: () {
+              ref.read(chatProvider.notifier).cancelEditing();
+              _messageController.clear();
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -429,56 +683,5 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return currentDate.year != previousDate.year ||
            currentDate.month != previousDate.month ||
            currentDate.day != previousDate.day;
-  }
-
-  void _handleMessageTap(MessageModel message) {
-    // Handle different message types
-    if (message.messageType == MessageEnum.image) {
-      // TODO: Show full image viewer
-    } else if (message.messageType == MessageEnum.video) {
-      // TODO: Show video player
-    }
-  }
-
-  void _showMessageOptions(MessageModel message) {
-    final chatNotifier = ref.read(chatProvider.notifier);
-    
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.reply),
-                title: const Text('Reply'),
-                onTap: () {
-                  Navigator.pop(context);
-                  chatNotifier.setReplyingTo(message);
-                },
-              ),
-              if (message.messageType == MessageEnum.text)
-                ListTile(
-                  leading: const Icon(Icons.content_copy),
-                  title: const Text('Copy'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: Copy to clipboard
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.delete),
-                title: const Text('Delete'),
-                onTap: () {
-                  Navigator.pop(context);
-                  chatNotifier.deleteMessage(message.messageId);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 }

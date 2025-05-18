@@ -427,11 +427,11 @@ class StatusRepository {
           message: message,
           messageType: messageType,
           timeSent: timeSent,
-          isSeen: false,
+          //isSeen: false,
           repliedMessage: statusPreview, // Include context about the status
           repliedTo: receiverId,
           repliedMessageType: MessageEnum.text, // Status preview is always text
-          seenBy: [currentUser.uid],
+          //seenBy: [currentUser.uid],
           deletedBy: [],
         );
         

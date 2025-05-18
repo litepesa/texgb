@@ -1,3 +1,4 @@
+// lib/features/chat/widgets/chat_input.dart
 import 'package:flutter/material.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -5,12 +6,16 @@ class ChatInput extends StatefulWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
   final VoidCallback onAttachmentTap;
+  final bool isEditing; // New parameter for edit mode
+  final VoidCallback? onCancelEditing; // New parameter for canceling edit
 
   const ChatInput({
     Key? key,
     required this.controller,
     required this.onSend,
     required this.onAttachmentTap,
+    this.isEditing = false, // Default is not editing
+    this.onCancelEditing,
   }) : super(key: key);
 
   @override
@@ -60,7 +65,9 @@ class _ChatInputState extends State<ChatInput> {
           top: 4,
         ),
         decoration: BoxDecoration(
-          color: chatTheme.inputBackgroundColor,
+          color: widget.isEditing 
+              ? Colors.blue.withOpacity(0.1) // Different color for editing mode
+              : chatTheme.inputBackgroundColor,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -73,21 +80,39 @@ class _ChatInputState extends State<ChatInput> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // Attachment button
-            Material(
-              color: Colors.transparent,
-              child: IconButton(
-                icon: Icon(
-                  Icons.attach_file_rounded,
-                  color: modernTheme.primaryColor?.withOpacity(0.7),
-                  size: 24,
+            // Attachment button (hide when editing)
+            if (!widget.isEditing)
+              Material(
+                color: Colors.transparent,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.attach_file_rounded,
+                    color: modernTheme.primaryColor?.withOpacity(0.7),
+                    size: 24,
+                  ),
+                  onPressed: widget.onAttachmentTap,
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                  splashRadius: 24,
                 ),
-                onPressed: widget.onAttachmentTap,
-                padding: const EdgeInsets.all(8),
-                constraints: const BoxConstraints(),
-                splashRadius: 24,
               ),
-            ),
+            
+            // Cancel edit button (show only when editing)
+            if (widget.isEditing)
+              Material(
+                color: Colors.transparent,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.close,
+                    color: Colors.red.withOpacity(0.7),
+                    size: 24,
+                  ),
+                  onPressed: widget.onCancelEditing,
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                  splashRadius: 24,
+                ),
+              ),
             
             // Message input field
             Expanded(
@@ -103,7 +128,7 @@ class _ChatInputState extends State<ChatInput> {
                   minLines: 1,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    hintText: 'Message',
+                    hintText: widget.isEditing ? 'Edit message' : 'Message',
                     hintStyle: TextStyle(
                       color: modernTheme.textSecondaryColor?.withOpacity(0.7),
                     ),
@@ -113,7 +138,7 @@ class _ChatInputState extends State<ChatInput> {
                     alignLabelWithHint: true,
                   ),
                   textAlignVertical: TextAlignVertical.center,
-                  cursorColor: modernTheme.primaryColor,
+                  cursorColor: widget.isEditing ? Colors.blue : modernTheme.primaryColor,
                   cursorWidth: 1.5,
                   cursorHeight: 20,
                 ),
@@ -134,7 +159,7 @@ class _ChatInputState extends State<ChatInput> {
                           key: const ValueKey('send_button'),
                           onPressed: widget.onSend,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: modernTheme.primaryColor,
+                            backgroundColor: widget.isEditing ? Colors.blue : modernTheme.primaryColor,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -143,9 +168,9 @@ class _ChatInputState extends State<ChatInput> {
                             ),
                             minimumSize: const Size(70, 40),
                           ),
-                          child: const Text(
-                            'Send',
-                            style: TextStyle(
+                          child: Text(
+                            widget.isEditing ? 'Save' : 'Send',
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),

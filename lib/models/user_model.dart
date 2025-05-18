@@ -9,10 +9,10 @@ class UserModel {
   String aboutMe;
   String lastSeen;
   String createdAt;
-  bool isOnline;
+  // Removed isOnline field
   List<String> contactsUIDs;  
   List<String> blockedUIDs;
-  List<String> statusMutedUsers; // Added for status feature
+  List<String> statusMutedUsers;
 
   UserModel({
     required this.uid,
@@ -23,10 +23,10 @@ class UserModel {
     required this.aboutMe,
     required this.lastSeen,
     required this.createdAt,
-    required this.isOnline,
+    // Removed isOnline parameter
     required this.contactsUIDs,
     required this.blockedUIDs,
-    this.statusMutedUsers = const [], // Default to empty list
+    this.statusMutedUsers = const [],
   });
 
   // from map
@@ -40,7 +40,7 @@ class UserModel {
       aboutMe: map[Constants.aboutMe] ?? '',
       lastSeen: map[Constants.lastSeen] ?? '',
       createdAt: map[Constants.createdAt] ?? '',
-      isOnline: map[Constants.isOnline] ?? false,
+      // Removed isOnline field
       contactsUIDs: List<String>.from(map[Constants.contactsUIDs] ?? []),
       blockedUIDs: List<String>.from(map[Constants.blockedUIDs] ?? []),
       statusMutedUsers: List<String>.from(map[Constants.statusMutedUsers] ?? []),
@@ -57,7 +57,7 @@ class UserModel {
     String? aboutMe,
     String? lastSeen,
     String? createdAt,
-    bool? isOnline,
+    // Removed isOnline parameter
     List<String>? contactsUIDs,
     List<String>? blockedUIDs,
     List<String>? statusMutedUsers,
@@ -71,7 +71,7 @@ class UserModel {
       aboutMe: aboutMe ?? this.aboutMe,
       lastSeen: lastSeen ?? this.lastSeen,
       createdAt: createdAt ?? this.createdAt,
-      isOnline: isOnline ?? this.isOnline,
+      // Removed isOnline field
       contactsUIDs: contactsUIDs ?? List<String>.from(this.contactsUIDs),
       blockedUIDs: blockedUIDs ?? List<String>.from(this.blockedUIDs),
       statusMutedUsers: statusMutedUsers ?? List<String>.from(this.statusMutedUsers),
@@ -89,7 +89,7 @@ class UserModel {
       Constants.aboutMe: aboutMe,
       Constants.lastSeen: lastSeen,
       Constants.createdAt: createdAt,
-      Constants.isOnline: isOnline,
+      // Removed isOnline field
       Constants.contactsUIDs: contactsUIDs,
       Constants.blockedUIDs: blockedUIDs,
       Constants.statusMutedUsers: statusMutedUsers,

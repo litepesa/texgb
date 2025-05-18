@@ -245,7 +245,6 @@ class ChatsTab extends ConsumerWidget {
           aboutMe: '',
           lastSeen: DateTime.now().millisecondsSinceEpoch.toString(),
           token: '',
-          isOnline: false,
           createdAt: DateTime.now().millisecondsSinceEpoch.toString(),
           contactsUIDs: [],
           blockedUIDs: [],
