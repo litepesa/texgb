@@ -1,5 +1,4 @@
-// lib/features/chat/repositories/chat_repository.dart (continued)
-import 'dart:async';
+// lib/features/chat/repositories/chat_repository.dart
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -34,184 +33,77 @@ class ChatRepository {
     final currentUser = _auth.currentUser;
     if (currentUser == null) return Stream.value([]);
 
-    // First try to get from local database
-    return _getChatsStream(currentUser.uid);
-  }
-  
-  // Create a stream from the local database, but also listen to Firestore
-  Stream<List<ChatModel>> _getChatsStream(String userId) {
-    // Create a stream controller to manage the chats stream
-    final controller = StreamController<List<ChatModel>>();
-    
-    // Load initial chats from local database
-    _chatDatabase.getChats().then((localChats) {
-      if (!controller.isClosed) {
-        controller.add(localChats);
-      }
-      
-      // Check connectivity
-      Connectivity().checkConnectivity().then((result) {
-        if (result != ConnectivityResult.none) {
-          // If we have internet, set up a Firestore listener
-          final subscription = _firestore
-            .collection(Constants.chats)
-            .where('participants', arrayContains: userId)
-            .orderBy(Constants.timeSent, descending: true)
-            .snapshots()
-            .listen((snapshot) async {
-              // Process Firestore data
-              final List<ChatModel> firestoreChats = [];
-              
-              for (final doc in snapshot.docs) {
-                final data = doc.data();
-                
-                // Determine if this is a group chat
-                final isGroup = data['isGroup'] ?? false;
-                String? contactUID;
-                String contactName = '';
-                String contactImage = '';
-                String? groupId;
-
-                if (isGroup) {
-                  groupId = data[Constants.groupId] as String?;
-                  contactName = data[Constants.groupName] as String? ?? 'Group';
-                  contactImage = data[Constants.groupImage] as String? ?? '';
-                } else {
-                  // For one-on-one chats, find the other participant
-                  final participants = List<String>.from(data['participants'] ?? []);
-                  contactUID = participants.firstWhere(
-                    (uid) => uid != userId,
-                    orElse: () => '',
-                  );
-                  contactName = data[Constants.contactName] as String? ?? '';
-                  contactImage = data[Constants.contactImage] as String? ?? '';
-                }
-                
-                // Only count unread messages if not from current user
-                int unreadCount = 0;
-                if (data['unreadCount'] != null) {
-                  final lastMessageSender = data['lastMessageSender'] as String?;
-                  if (lastMessageSender != null && lastMessageSender != userId) {
-                    unreadCount = data['unreadCount'] as int? ?? 0;
-                  }
-                }
-                
-                // Create chat model
-                final chat = ChatModel(
-                  id: doc.id,
-                  contactUID: contactUID ?? '',
-                  contactName: contactName,
-                  contactImage: contactImage,
-                  lastMessage: data[Constants.lastMessage] as String? ?? '',
-                  lastMessageType: (data[Constants.messageType] as String? ?? 'text').toMessageEnum(),
-                  lastMessageTime: data[Constants.timeSent] as String? ?? '',
-                  unreadCount: unreadCount,
-                  isGroup: isGroup,
-                  groupId: groupId,
-                );
-                
-                firestoreChats.add(chat);
-                
-                // Save to local database
-                await _chatDatabase.saveChat(chat);
-              }
-              
-              // Send updated chats to stream
-              if (!controller.isClosed) {
-                controller.add(firestoreChats);
-              }
-            }, onError: (error) {
-              // On error, just log it and rely on local data
-              debugPrint('Error getting Firestore chats: $error');
-            });
+    // Use Firestore directly since this is a stream
+    return _firestore
+        .collection(Constants.chats)
+        .where('participants', arrayContains: currentUser.uid)
+        .orderBy(Constants.timeSent, descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
             
-          // Clean up subscription when controller is closed
-          controller.onCancel = () {
-            subscription.cancel();
-          };
-        }
-      });
-    });
-    
-    return controller.stream;
+            // Determine if this is a group chat
+            final isGroup = data['isGroup'] ?? false;
+            String? contactUID;
+            String contactName = '';
+            String contactImage = '';
+            String? groupId;
+
+            if (isGroup) {
+              groupId = data[Constants.groupId] as String?;
+              contactName = data[Constants.groupName] as String? ?? 'Group';
+              contactImage = data[Constants.groupImage] as String? ?? '';
+            } else {
+              // For one-on-one chats, find the other participant
+              final participants = List<String>.from(data['participants'] ?? []);
+              contactUID = participants.firstWhere(
+                (uid) => uid != currentUser.uid,
+                orElse: () => '',
+              );
+              contactName = data[Constants.contactName] as String? ?? '';
+              contactImage = data[Constants.contactImage] as String? ?? '';
+            }
+
+            // Only count unread messages if they're not from the current user
+            int unreadCount = 0;
+            if (data['unreadCount'] != null) {
+              final lastMessageSender = data['lastMessageSender'] as String?;
+              if (lastMessageSender != null && lastMessageSender != currentUser.uid) {
+                unreadCount = data['unreadCount'] as int? ?? 0;
+              }
+            }
+
+            // Create chat model
+            return ChatModel(
+              id: doc.id,
+              contactUID: contactUID ?? '',
+              contactName: contactName,
+              contactImage: contactImage,
+              lastMessage: data[Constants.lastMessage] as String? ?? '',
+              lastMessageType: (data[Constants.messageType] as String? ?? 'text').toMessageEnum(),
+              lastMessageTime: data[Constants.timeSent] as String? ?? '',
+              unreadCount: unreadCount,
+              isGroup: isGroup,
+              groupId: groupId,
+            );
+          }).toList();
+        });
   }
 
   // Get messages for a specific chat
   Stream<List<MessageModel>> getMessages(String chatId) {
-    // Create a stream controller to manage the messages stream
-    final controller = StreamController<List<MessageModel>>();
-    
-    // Load initial messages from local database
-    _chatDatabase.getMessages(chatId).then((localMessages) {
-      if (!controller.isClosed) {
-        controller.add(localMessages);
-      }
-      
-      // Check connectivity
-      Connectivity().checkConnectivity().then((result) {
-        if (result != ConnectivityResult.none) {
-          // If we have internet, set up a Firestore listener
-          final subscription = _firestore
-            .collection(Constants.chats)
-            .doc(chatId)
-            .collection(Constants.messages)
-            .orderBy(Constants.timeSent, descending: true)
-            .snapshots()
-            .listen((snapshot) async {
-              final List<MessageModel> messages = [];
-              
-              for (final doc in snapshot.docs) {
-                final message = MessageModel.fromMap(doc.data());
-                messages.add(message);
-                
-                // Save to local database with synced status
-                await _chatDatabase.saveMessage(chatId, message, syncStatus: SyncStatus.synced);
-                
-                // Update delivery status for sent messages
-                if (message.senderUID != _auth.currentUser?.uid) {
-                  await _chatDatabase.updateMessageDeliveryStatus(message.messageId, true);
-                  
-                  // Mark as delivered in Firestore too
-                  await _firestore
-                      .collection(Constants.chats)
-                      .doc(chatId)
-                      .collection(Constants.messages)
-                      .doc(message.messageId)
-                      .update({
-                        'isDelivered': true,
-                      });
-                }
-              }
-              
-              // Send updated messages to stream
-              if (!controller.isClosed) {
-                controller.add(messages);
-              }
-              
-              // Reset unread counter when opening a chat
-              await _chatDatabase.resetUnreadCounter(chatId);
-              // Also reset in Firestore
-              final currentUser = _auth.currentUser;
-              if (currentUser != null) {
-                await _firestore.collection(Constants.chats).doc(chatId).update({
-                  'unreadCount': 0,
-                });
-              }
-              
-            }, onError: (error) {
-              // On error, just log it and rely on local data
-              debugPrint('Error getting Firestore messages: $error');
-            });
-            
-          // Clean up subscription when controller is closed
-          controller.onCancel = () {
-            subscription.cancel();
-          };
-        }
-      });
-    });
-    
-    return controller.stream;
+    return _firestore
+        .collection(Constants.chats)
+        .doc(chatId)
+        .collection(Constants.messages)
+        .orderBy(Constants.timeSent, descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return MessageModel.fromMap(doc.data());
+          }).toList();
+        });
   }
 
   // Send a message
@@ -228,6 +120,7 @@ class ChatRepository {
     File? file,
   }) async {
     try {
+      print("Repository: Sending message to $chatId");
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
 
@@ -253,61 +146,35 @@ class ChatRepository {
       );
 
       // Upload file if present
-      String fileUrl = '';
       if (file != null && messageType.isMedia) {
         final fileRef = '${Constants.chatFiles}/$chatId/$messageId';
+        String fileUrl = await storeFileToStorage(file: file, reference: fileRef);
         
-        // Check connectivity before attempting upload
+        // Update the message with the file URL
+        messageModel = messageModel.copyWith(message: fileUrl);
+        print("Repository: Uploaded file: $fileUrl");
+      }
+
+      // Check connectivity
+      bool isOnline = true;
+      try {
         final connectivityResult = await Connectivity().checkConnectivity();
-        if (connectivityResult != ConnectivityResult.none) {
-          fileUrl = await storeFileToStorage(file: file, reference: fileRef);
-          
-          // Update the message with the file URL
-          messageModel = messageModel.copyWith(message: fileUrl);
-        } else {
-          // If offline, use a local file path or placeholder
-          // In a real implementation, you'd need to queue the file for upload
-          messageModel = messageModel.copyWith(
-            message: file.path,
-          );
-        }
+        isOnline = connectivityResult != ConnectivityResult.none;
+      } catch (e) {
+        // If we can't check connectivity, assume we're online
+        print("Repository: Error checking connectivity: $e");
+        isOnline = true;
       }
 
-      // Check if the chat exists in local database
-      final localChats = await _chatDatabase.getChats();
-      final chatExists = localChats.any((chat) => chat.id == chatId);
-      
-      if (!chatExists) {
-        // Create a new chat locally
-        await _createNewChat(
-          chatId: chatId,
-          currentUser: senderUser,
-          receiverUser: receiverUser,
-          lastMessage: message,
-          messageType: messageType,
-          timeSent: timeSent,
-        );
-      } else {
-        // Update existing chat with last message info
-        await _updateChatLastMessage(
-          chatId: chatId,
-          lastMessage: message,
-          messageType: messageType,
-          timeSent: timeSent,
-        );
-      }
-
-      // Save the message to local database
-      await _chatDatabase.saveMessage(chatId, messageModel);
-
-      // Check connectivity before uploading to Firestore
-      final connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult != ConnectivityResult.none) {
-        // Check if chat exists in Firestore
+      if (isOnline) {
+        // We're online, prioritize Firebase operations
+        print("Repository: Device is online, sending to Firebase");
+        
+        // Check if the chat exists
         final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
         
         if (!chatDoc.exists) {
-          // Create a new chat in Firestore
+          // Create a new chat
           await _firestore.collection(Constants.chats).doc(chatId).set({
             'id': chatId,
             'participants': [currentUser.uid, receiverUID],
@@ -318,18 +185,19 @@ class ChatRepository {
             Constants.messageType: messageType.name,
             Constants.timeSent: timeSent,
             'lastMessageSender': currentUser.uid,
-            'unreadCount': 0, // No unread messages for sender
+            'unreadCount': 0, // No unread for messages sent by current user
             'isGroup': false,
           });
+          print("Repository: Created new chat in Firestore");
         } else {
-          // Update existing chat in Firestore
+          // Update existing chat
           await _firestore.collection(Constants.chats).doc(chatId).update({
             Constants.lastMessage: message,
             Constants.messageType: messageType.name,
             Constants.timeSent: timeSent,
             'lastMessageSender': currentUser.uid,
-            // Don't increment unread count for sender's messages
           });
+          print("Repository: Updated existing chat in Firestore");
         }
 
         // Add the message to Firestore
@@ -340,12 +208,67 @@ class ChatRepository {
             .doc(messageId)
             .set(messageModel.toMap());
         
-        // Mark the message as synced in local database
-        await _chatDatabase.markMessageAsSynced(messageId);
+        print("Repository: Message saved to Firestore successfully");
+        
+        // Also save to local database for offline access
+        try {
+          await _chatDatabase.saveMessage(chatId, messageModel, syncStatus: SyncStatus.synced);
+          print("Repository: Also saved message to local DB for offline access");
+        } catch (e) {
+          // If saving to local DB fails, it's not critical since we're online
+          print("Repository: Warning - Failed to save message to local DB: $e");
+        }
+      } else {
+        // We're offline, save to local database for later sync
+        print("Repository: Device is offline, queueing message for later sync");
+        
+        try {
+          // Create/update chat in local database
+          final chatExists = await _checkChatExistsLocally(chatId);
+          
+          if (!chatExists) {
+            await _createNewChat(
+              chatId: chatId,
+              currentUser: senderUser,
+              receiverUser: receiverUser,
+              lastMessage: message,
+              messageType: messageType,
+              timeSent: timeSent,
+            );
+          } else {
+            await _updateChatLastMessage(
+              chatId: chatId,
+              lastMessage: message,
+              messageType: messageType,
+              timeSent: timeSent,
+            );
+          }
+          
+          // Save message to local database with pending status
+          await _chatDatabase.saveMessage(chatId, messageModel, syncStatus: SyncStatus.pending);
+          
+          print("Repository: Message saved locally for later sync");
+        } catch (e) {
+          print("Repository: Error saving message locally: $e");
+          throw Exception("Failed to save message for offline use: $e");
+        }
       }
     } catch (e) {
+      print("Repository: Error in sendMessage: $e");
       debugPrint('Error sending message: $e');
       rethrow;
+    }
+  }
+
+  // Helper method to check if chat exists locally
+  Future<bool> _checkChatExistsLocally(String chatId) async {
+    try {
+      final chats = await _chatDatabase.getChats();
+      return chats.any((chat) => chat.id == chatId);
+    } catch (e) {
+      // If there's an error checking, assume it doesn't exist
+      print("Repository: Error checking if chat exists locally: $e");
+      return false;
     }
   }
 
@@ -355,13 +278,9 @@ class ChatRepository {
     required String messageId,
   }) async {
     try {
-      // Update local database
-      await _chatDatabase.updateMessageDeliveryStatus(messageId, true);
-      
-      // Check connectivity before updating Firestore
+      // Update in Firestore
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
-        // Update in Firestore
         await _firestore
             .collection(Constants.chats)
             .doc(chatId)
@@ -371,9 +290,15 @@ class ChatRepository {
               'isDelivered': true,
             });
       }
+      
+      // Also update in local database
+      try {
+        await _chatDatabase.updateMessageDeliveryStatus(messageId, true);
+      } catch (e) {
+        print("Repository: Error updating message delivery status in local DB: $e");
+      }
     } catch (e) {
       debugPrint('Error marking message as delivered: $e');
-      rethrow;
     }
   }
 
@@ -386,10 +311,7 @@ class ChatRepository {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
 
-      // Update local database
-      await _chatDatabase.markMessageAsDeleted(messageId, currentUser.uid);
-      
-      // Check connectivity before updating Firestore
+      // Check connectivity
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
         // Get the message document
@@ -420,6 +342,13 @@ class ChatRepository {
           }
         }
       }
+      
+      // Update locally too
+      try {
+        await _chatDatabase.markMessageAsDeleted(messageId, currentUser.uid);
+      } catch (e) {
+        print("Repository: Error marking message as deleted in local DB: $e");
+      }
     } catch (e) {
       debugPrint('Error deleting message: $e');
       rethrow;
@@ -435,10 +364,7 @@ class ChatRepository {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
       
-      // Update local database
-      await _chatDatabase.deleteMessageForEveryone(messageId);
-      
-      // Check connectivity before updating Firestore
+      // Check connectivity
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
         // Update the message document in Firestore
@@ -450,6 +376,13 @@ class ChatRepository {
             .update({
               'isDeletedForEveryone': true,
             });
+      }
+      
+      // Update locally too
+      try {
+        await _chatDatabase.deleteMessageForEveryone(messageId);
+      } catch (e) {
+        print("Repository: Error marking message as deleted for everyone in local DB: $e");
       }
     } catch (e) {
       debugPrint('Error deleting message for everyone: $e');
@@ -467,10 +400,7 @@ class ChatRepository {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
       
-      // Update local database
-      await _chatDatabase.editMessage(messageId, newMessage);
-      
-      // Check connectivity before updating Firestore
+      // Check connectivity
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
         // Get the original message first
@@ -510,6 +440,13 @@ class ChatRepository {
           }
         }
       }
+      
+      // Update locally too
+      try {
+        await _chatDatabase.editMessage(messageId, newMessage);
+      } catch (e) {
+        print("Repository: Error editing message in local DB: $e");
+      }
     } catch (e) {
       debugPrint('Error editing message: $e');
       rethrow;
@@ -526,10 +463,7 @@ class ChatRepository {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
       
-      // Update local database
-      await _chatDatabase.addReaction(messageId, currentUser.uid, emoji);
-      
-      // Check connectivity before updating Firestore
+      // Check connectivity
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
         // Get the message document
@@ -562,6 +496,13 @@ class ChatRepository {
               });
         }
       }
+      
+      // Update locally too
+      try {
+        await _chatDatabase.addReaction(messageId, currentUser.uid, emoji);
+      } catch (e) {
+        print("Repository: Error adding reaction in local DB: $e");
+      }
     } catch (e) {
       debugPrint('Error adding reaction: $e');
       rethrow;
@@ -577,10 +518,7 @@ class ChatRepository {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
       
-      // Update local database
-      await _chatDatabase.removeReaction(messageId, currentUser.uid);
-      
-      // Check connectivity before updating Firestore
+      // Check connectivity
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
         // Get the message document
@@ -611,6 +549,13 @@ class ChatRepository {
                 });
           }
         }
+      }
+      
+      // Update locally too
+      try {
+        await _chatDatabase.removeReaction(messageId, currentUser.uid);
+      } catch (e) {
+        print("Repository: Error removing reaction in local DB: $e");
       }
     } catch (e) {
       debugPrint('Error removing reaction: $e');
@@ -678,22 +623,54 @@ class ChatRepository {
         return; // No connectivity, can't sync
       }
       
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
       // Get unsynced messages
       final unsyncedMessages = await _chatDatabase.getUnsyncedMessages();
+      print("Repository: Found ${unsyncedMessages.length} unsynced messages to sync");
       
       for (final message in unsyncedMessages) {
-        // Get the message's chat ID from local database
-        // In a real implementation, you would store the chatId with the message
-        // For simplicity, we'll skip this step
-        
-        // Upload message to Firestore
-        // For simplicity, we'll skip the actual implementation
-        
-        // Mark message as synced
-        await _chatDatabase.markMessageAsSynced(message.messageId);
+        try {
+          // We need to know which chat this message belongs to
+          // This would be better stored with the message, but for now we'll query
+          final chats = await _chatDatabase.getChats();
+          
+          // Find a chat that might contain this message
+          // This is not a perfect solution but works for basic offline functionality
+          for (final chat in chats) {
+            // Try to add message to Firestore
+            await _firestore
+                .collection(Constants.chats)
+                .doc(chat.id)
+                .collection(Constants.messages)
+                .doc(message.messageId)
+                .set(message.toMap());
+            
+            // Update chat's last message if this is the most recent
+            if (int.parse(message.timeSent) > int.parse(chat.lastMessageTime)) {
+              await _firestore.collection(Constants.chats).doc(chat.id).update({
+                Constants.lastMessage: message.message,
+                Constants.messageType: message.messageType.name,
+                Constants.timeSent: message.timeSent,
+                'lastMessageSender': currentUser.uid,
+              });
+            }
+            
+            // Mark message as synced
+            await _chatDatabase.markMessageAsSynced(message.messageId);
+            print("Repository: Synced message ${message.messageId} to Firestore");
+            
+            // Once we find a chat, we can stop looking
+            break;
+          }
+        } catch (e) {
+          print("Repository: Error syncing message ${message.messageId}: $e");
+          // Continue with other messages even if one fails
+        }
       }
     } catch (e) {
-      debugPrint('Error syncing pending messages: $e');
+      print("Repository: Error syncing pending messages: $e");
     }
   }
 
