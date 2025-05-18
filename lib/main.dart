@@ -21,6 +21,7 @@ import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/screens/create_group_screen.dart';
+import 'package:textgb/features/groups/screens/group_chat_screen.dart';
 import 'package:textgb/features/groups/screens/group_information_screen.dart';
 import 'package:textgb/features/groups/screens/group_settings_screen.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
@@ -164,6 +165,13 @@ class AppRoot extends ConsumerWidget {
           Constants.pendingRequestsScreen: (context) {
             final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
             return PendingRequestsScreen(group: group);
+          },
+          Constants.groupChatScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return GroupChatScreen(
+              groupId: args['groupId'] as String,
+              group: args['group'] as GroupModel,
+            );
           },
           
           // Status routes

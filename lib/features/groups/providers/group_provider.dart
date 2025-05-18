@@ -177,7 +177,30 @@ class GroupNotifier extends _$GroupNotifier {
     }
   }
 
-  // lib/features/groups/providers/group_provider.dart (continued)
+  // Get current user ID
+  String? getCurrentUserUid() {
+    final currentUser = ref.read(currentUserProvider);
+    return currentUser?.uid;
+  }
+
+  // Open a group chat
+  void openGroupChat(GroupModel group, BuildContext context) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+    
+    // Reset unread counter in the store when opening the chat
+    _groupRepository.resetGroupUnreadCounter(group.groupId, currentUser.uid);
+    
+    // Navigate to the dedicated group chat screen
+    Navigator.pushNamed(
+      context,
+      Constants.groupChatScreen,
+      arguments: {
+        'groupId': group.groupId,
+        'group': group,
+      },
+    );
+  }
 
   // Join a group
   Future<void> joinGroup(String groupId) async {
@@ -440,23 +463,30 @@ class GroupNotifier extends _$GroupNotifier {
     return group.isCreator(currentUser.uid);
   }
 
-  // Open a group chat
-  void openGroupChat(GroupModel group, BuildContext context) {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
+  // Calculate total unread messages for groups
+  int getTotalUnreadCount() {
+    final currentUserUid = getCurrentUserUid();
+    if (currentUserUid == null) return 0;
     
-    ref.read(chatProvider.notifier).openChat(group.groupId, currentUser);
+    final groups = state.value?.userGroups ?? [];
+    return groups.fold<int>(
+      0, 
+      (sum, group) => sum + group.getUnreadCountForUser(currentUserUid)
+    );
+  }
+
+  // Count pending requests for groups where user is admin
+  int getTotalPendingRequestsCount() {
+    final currentUserUid = getCurrentUserUid();
+    if (currentUserUid == null) return 0;
     
-    // Navigate to chat screen with group info
-    Navigator.pushNamed(
-      context,
-      Constants.chatScreen,
-      arguments: {
-        'chatId': group.groupId,
-        'contact': currentUser, // Passing current user as we're in a group
-        'isGroup': true,
-        'group': group,
-      },
+    final groups = state.value?.userGroups.where(
+      (group) => group.isAdmin(currentUserUid)
+    ).toList() ?? [];
+    
+    return groups.fold<int>(
+      0, 
+      (sum, group) => sum + group.awaitingApprovalUIDs.length
     );
   }
 }

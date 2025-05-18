@@ -194,6 +194,30 @@ class GroupRepository {
     }
   }
 
+  // Reset unread counter for a specific user in a group
+  Future<void> resetGroupUnreadCounter(String groupId, String userId) async {
+    try {
+      // Get the chat document for this group
+      final chatDoc = await _firestore.collection(Constants.chats).doc(groupId).get();
+      
+      if (chatDoc.exists) {
+        // Get current unread counts or initialize empty map
+        Map<String, dynamic> unreadCountByUser = 
+            Map<String, dynamic>.from(chatDoc.data()?['unreadCountByUser'] ?? {});
+        
+        // Reset unread count for current user only
+        unreadCountByUser[userId] = 0;
+        
+        // Update the chat document
+        await _firestore.collection(Constants.chats).doc(groupId).update({
+          'unreadCountByUser': unreadCountByUser,
+        });
+      }
+    } catch (e) {
+      debugPrint('Error resetting group unread counter: $e');
+    }
+  }
+
   // Join a group (for public groups)
   Future<void> joinGroup(String groupId) async {
     try {
@@ -225,6 +249,20 @@ class GroupRepository {
         await _firestore.collection(Constants.chats).doc(groupId).update({
           'participants': FieldValue.arrayUnion([currentUser.uid]),
         });
+        
+        // Initialize unread counter for this user
+        final chatDoc = await _firestore.collection(Constants.chats).doc(groupId).get();
+        if (chatDoc.exists) {
+          Map<String, dynamic> unreadCountByUser = 
+              Map<String, dynamic>.from(chatDoc.data()?['unreadCountByUser'] ?? {});
+          
+          // Set initial unread count to 0 for the new member
+          unreadCountByUser[currentUser.uid] = 0;
+          
+          await _firestore.collection(Constants.chats).doc(groupId).update({
+            'unreadCountByUser': unreadCountByUser,
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error joining group: $e');
@@ -304,6 +342,20 @@ class GroupRepository {
       'participants': FieldValue.arrayRemove([userId]),
     });
     
+    // Remove user from unreadCountByUser map in chat document
+    final chatDoc = await _firestore.collection(Constants.chats).doc(groupId).get();
+    if (chatDoc.exists) {
+      Map<String, dynamic> unreadCountByUser = 
+          Map<String, dynamic>.from(chatDoc.data()?['unreadCountByUser'] ?? {});
+      
+      // Remove the user's entry from the map
+      unreadCountByUser.remove(userId);
+      
+      batch.update(_firestore.collection(Constants.chats).doc(groupId), {
+        'unreadCountByUser': unreadCountByUser,
+      });
+    }
+    
     await batch.commit();
   }
 
@@ -351,7 +403,60 @@ class GroupRepository {
         'participants': FieldValue.arrayUnion([userId]),
       });
       
+      // Get the chat document to update unreadCountByUser
+      final chatDoc = await _firestore.collection(Constants.chats).doc(groupId).get();
+      if (chatDoc.exists) {
+        Map<String, dynamic> unreadCountByUser = 
+            Map<String, dynamic>.from(chatDoc.data()?['unreadCountByUser'] ?? {});
+        
+        // Initialize unread count for the new member
+        unreadCountByUser[userId] = 0;
+        
+        batch.update(_firestore.collection(Constants.chats).doc(groupId), {
+          'unreadCountByUser': unreadCountByUser,
+        });
+      }
+      
       await batch.commit();
+      
+      // Send a welcome message to the group
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        // Get user data to send a formatted welcome message
+        final userDoc = await _firestore.collection(Constants.users).doc(userId).get();
+        String userName = 'New member';
+        if (userDoc.exists) {
+          userName = userDoc.data()?[Constants.name] as String? ?? 'New member';
+        }
+        
+        final messageId = const Uuid().v4();
+        final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+        
+        await _firestore
+            .collection(Constants.chats)
+            .doc(groupId)
+            .collection(Constants.messages)
+            .doc(messageId)
+            .set(MessageModel(
+              messageId: messageId,
+              senderUID: currentUser.uid,
+              senderName: 'System',
+              senderImage: '',
+              message: '$userName joined the group',
+              messageType: MessageEnum.text,
+              timeSent: timestamp,
+              messageStatus: MessageStatus.delivered,
+              deletedBy: [],
+            ).toMap());
+        
+        // Update last message in the chat
+        await _firestore.collection(Constants.chats).doc(groupId).update({
+          Constants.lastMessage: '$userName joined the group',
+          Constants.messageType: MessageEnum.text.name,
+          Constants.timeSent: timestamp,
+          'lastMessageSender': currentUser.uid,
+        });
+      }
     } catch (e) {
       debugPrint('Error approving join request: $e');
       throw e.toString();
@@ -416,6 +521,45 @@ class GroupRepository {
   Future<void> removeMember(String groupId, String userId) async {
     try {
       await _removeUserFromGroup(groupId, userId);
+      
+      // Send a notification message to the group
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        // Get user data to send a formatted removal message
+        final userDoc = await _firestore.collection(Constants.users).doc(userId).get();
+        String userName = 'A member';
+        if (userDoc.exists) {
+          userName = userDoc.data()?[Constants.name] as String? ?? 'A member';
+        }
+        
+        final messageId = const Uuid().v4();
+        final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+        
+        await _firestore
+            .collection(Constants.chats)
+            .doc(groupId)
+            .collection(Constants.messages)
+            .doc(messageId)
+            .set(MessageModel(
+              messageId: messageId,
+              senderUID: currentUser.uid,
+              senderName: 'System',
+              senderImage: '',
+              message: '$userName was removed from the group',
+              messageType: MessageEnum.text,
+              timeSent: timestamp,
+              messageStatus: MessageStatus.delivered,
+              deletedBy: [],
+            ).toMap());
+        
+        // Update last message in the chat
+        await _firestore.collection(Constants.chats).doc(groupId).update({
+          Constants.lastMessage: '$userName was removed from the group',
+          Constants.messageType: MessageEnum.text.name,
+          Constants.timeSent: timestamp,
+          'lastMessageSender': currentUser.uid,
+        });
+      }
     } catch (e) {
       debugPrint('Error removing member: $e');
       throw e.toString();
@@ -465,6 +609,80 @@ class GroupRepository {
     } catch (e) {
       debugPrint('Error getting group members: $e');
       throw e.toString();
+    }
+  }
+
+  // Get total unread count for all groups for a specific user
+  Future<int> getTotalGroupUnreadCount(String userId) async {
+    try {
+      if (userId.isEmpty) return 0;
+      
+      // Get all the user's group chats
+      final querySnapshot = await _firestore
+          .collection(Constants.chats)
+          .where('isGroup', isEqualTo: true)
+          .where('participants', arrayContains: userId)
+          .get();
+      
+      int totalUnread = 0;
+      
+      for (final doc in querySnapshot.docs) {
+        // Get unread count from unreadCountByUser map
+        final unreadCountByUser = doc.data()['unreadCountByUser'] as Map<String, dynamic>?;
+        if (unreadCountByUser != null && unreadCountByUser.containsKey(userId)) {
+          totalUnread += (unreadCountByUser[userId] as int? ?? 0);
+        }
+      }
+      
+      return totalUnread;
+    } catch (e) {
+      debugPrint('Error getting total group unread count: $e');
+      return 0;
+    }
+  }
+
+  // Update unread counts when a new message is sent
+  Future<void> updateUnreadCountsForGroupMessage({
+    required String groupId,
+    required String senderUid,
+  }) async {
+    try {
+      // Get the group members
+      final groupDoc = await _firestore.collection(Constants.groups).doc(groupId).get();
+      if (!groupDoc.exists) return;
+      
+      final group = GroupModel.fromMap(groupDoc.data()!);
+      
+      // Get current unread counts from chat
+      final chatDoc = await _firestore.collection(Constants.chats).doc(groupId).get();
+      if (!chatDoc.exists) return;
+      
+      Map<String, dynamic> unreadCountByUser = 
+          Map<String, dynamic>.from(chatDoc.data()?['unreadCountByUser'] ?? {});
+      
+      // Update unread count for all members except the sender
+      for (final memberId in group.membersUIDs) {
+        if (memberId != senderUid) {
+          // Initialize with 0 if not present
+          if (!unreadCountByUser.containsKey(memberId)) {
+            unreadCountByUser[memberId] = 0;
+          }
+          // Increment the count
+          unreadCountByUser[memberId] = (unreadCountByUser[memberId] as int? ?? 0) + 1;
+        } else {
+          // Ensure sender's count is 0
+          unreadCountByUser[memberId] = 0;
+        }
+      }
+      
+      // Update the chat document
+      await _firestore.collection(Constants.chats).doc(groupId).update({
+        'unreadCountByUser': unreadCountByUser,
+        // For backward compatibility
+        'unreadCount': 1,
+      });
+    } catch (e) {
+      debugPrint('Error updating unread counts for group message: $e');
     }
   }
 

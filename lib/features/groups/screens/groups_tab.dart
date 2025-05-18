@@ -47,6 +47,17 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
     });
   }
 
+  // Calculate total unread count for groups tab badge
+  int _calculateTotalUnreadCount(List<GroupModel> groups) {
+    final currentUserUid = ref.read(groupProvider.notifier).getCurrentUserUid();
+    if (currentUserUid == null) return 0;
+    
+    return groups.fold<int>(
+      0, 
+      (sum, group) => sum + group.getUnreadCountForUser(currentUserUid)
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
@@ -153,11 +164,8 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
             return GroupTile(
               group: group,
               onTap: () {
-                Navigator.pushNamed(
-                  context,
-                  Constants.groupInformationScreen,
-                  arguments: group,
-                );
+                // Open group chat instead of group info
+                ref.read(groupProvider.notifier).openGroupChat(group, context);
               },
             );
           },
@@ -195,11 +203,8 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
         return GroupTile(
           group: group,
           onTap: () {
-            Navigator.pushNamed(
-              context,
-              Constants.groupInformationScreen,
-              arguments: group,
-            );
+            // Open group chat instead of group info
+            ref.read(groupProvider.notifier).openGroupChat(group, context);
           },
         );
       },

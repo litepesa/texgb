@@ -47,6 +47,26 @@ class GroupModel {
 
   factory GroupModel.fromMap(Map<String, dynamic> map) {
     try {
+      // Parse the unreadCountByUser map
+      Map<String, int> parsedUnreadCountByUser = {};
+      if (map['unreadCountByUser'] != null) {
+        final unreadMap = map['unreadCountByUser'] as Map<String, dynamic>;
+        unreadMap.forEach((key, value) {
+          if (value is int) {
+            parsedUnreadCountByUser[key] = value;
+          } else if (value is num) {
+            parsedUnreadCountByUser[key] = value.toInt();
+          } else {
+            // Try to parse other types
+            try {
+              parsedUnreadCountByUser[key] = int.parse(value.toString());
+            } catch (e) {
+              parsedUnreadCountByUser[key] = 0;
+            }
+          }
+        });
+      }
+      
       return GroupModel(
         groupId: map[Constants.groupId]?.toString() ?? '',
         groupName: map[Constants.groupName]?.toString() ?? '',
@@ -75,16 +95,7 @@ class GroupModel {
         lastMessageSender: map['lastMessageSender']?.toString() ?? '',
         lastMessageTime: map[Constants.timeSent]?.toString() ?? '',
         unreadCount: map['unreadCount'] is int ? map['unreadCount'] : 0,
-        unreadCountByUser: map['unreadCountByUser'] != null
-            ? Map<String, int>.from(
-                (map['unreadCountByUser'] as Map).map(
-                  (key, value) => MapEntry(
-                    key.toString(),
-                    value is int ? value : 0,
-                  ),
-                ),
-              )
-            : {},
+        unreadCountByUser: parsedUnreadCountByUser,
         createdAt: map[Constants.createdAt]?.toString() ?? '',
       );
     } catch (e, stackTrace) {
@@ -185,11 +196,99 @@ class GroupModel {
 
   // Helper method to get unread count for a specific user
   int getUnreadCountForUser(String userId) {
-    return unreadCountByUser[userId] ?? 0;
+    // If the user ID is empty, return 0
+    if (userId.isEmpty) return 0;
+    
+    // Check if we have unread counts in the unreadCountByUser map
+    if (unreadCountByUser.containsKey(userId)) {
+      return unreadCountByUser[userId] ?? 0;
+    }
+    
+    // If this user is the last message sender, they should have 0 unread
+    if (lastMessageSender == userId) {
+      return 0;
+    }
+    
+    // Fall back to the overall unread count if no user-specific count exists
+    // This is for backward compatibility
+    return unreadCount;
+  }
+  
+  // Get total unread count for all users
+  int getTotalUnreadCount() {
+    return unreadCountByUser.values.fold(0, (sum, count) => sum + count);
+  }
+  
+  // Helper to check if the group has any pending requests
+  bool hasPendingRequests() {
+    return awaitingApprovalUIDs.isNotEmpty;
+  }
+  
+  // Helper to get the count of pending requests
+  int getPendingRequestsCount() {
+    return awaitingApprovalUIDs.length;
   }
 
   // Helper to get group type
   GroupType getGroupType() {
     return isPrivate ? GroupType.private : GroupType.public;
+  }
+  
+  // Check if the group has unread messages for a user
+  bool hasUnreadForUser(String userId) {
+    return getUnreadCountForUser(userId) > 0;
+  }
+  
+  // Format the membership size text
+  String getMembershipText() {
+    final count = membersUIDs.length;
+    return count == 1 ? '1 member' : '$count members';
+  }
+  
+  // Get a formatted time text for last message
+  String getFormattedLastMessageTime() {
+    if (lastMessageTime.isEmpty) {
+      return '';
+    }
+    
+    try {
+      final timestamp = int.parse(lastMessageTime);
+      final messageTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+      final now = DateTime.now();
+      final difference = now.difference(messageTime);
+      
+      if (difference.inDays > 7) {
+        // If more than a week, show date in short format
+        return '${messageTime.day}/${messageTime.month}/${messageTime.year}';
+      } else if (difference.inDays > 0) {
+        // If more than a day but less than a week, show days ago
+        return '${difference.inDays}d ago';
+      } else if (difference.inHours > 0) {
+        // If more than an hour but less than a day, show hours ago
+        return '${difference.inHours}h ago';
+      } else if (difference.inMinutes > 0) {
+        // If more than a minute but less than an hour, show minutes ago
+        return '${difference.inMinutes}m ago';
+      } else {
+        // Otherwise, show "Just now"
+        return 'Just now';
+      }
+    } catch (e) {
+      // If parsing fails, return empty string
+      return '';
+    }
+  }
+  
+  // Get the last message preview
+  String getLastMessagePreview() {
+    if (lastMessage.isEmpty) {
+      return 'No messages yet';
+    }
+    
+    if (lastMessage.length > 30) {
+      return '${lastMessage.substring(0, 27)}...';
+    }
+    
+    return lastMessage;
   }
 }

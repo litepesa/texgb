@@ -26,6 +26,7 @@ class Constants {
   static const String groupsScreen = '/groupsScreen';
   static const String createGroupScreen = '/createGroupScreen';
   static const String pendingRequestsScreen = '/pendingRequestsScreen';
+  static const String groupChatScreen = '/groupChatScreen';
   
   static const String blockedContactsScreen = '/blockedContactsScreen';
 

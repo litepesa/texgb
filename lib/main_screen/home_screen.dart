@@ -236,9 +236,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       return chatsAsyncValue.when(
                         data: (chats) {
                           // Calculate total unread count from all chats
+                          // Only include direct chats, not group chats
                           final totalUnreadCount = chats.fold<int>(
                             0, 
-                            (sum, chat) => sum + chat.unreadCount
+                            (sum, chat) => sum + (chat.isGroup ? 0 : chat.getDisplayUnreadCount())
                           );
                           
                           return BottomNavigationBarItem(
@@ -303,11 +304,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     if (index == 1) {
                       return groupsAsyncValue.when(
                         data: (groups) {
-                          // Calculate unread messages in groups (placeholder for now)
-                          // You would need to implement group unread counts in your model
+                          // Calculate total unread count across all groups
+                          final currentUserUid = ref.read(groupProvider.notifier).getCurrentUserUid();
+                          final totalUnreadCount = currentUserUid != null
+                              ? groups.fold<int>(
+                                  0, 
+                                  (sum, group) => sum + group.getUnreadCountForUser(currentUserUid)
+                                )
+                              : 0;
+                          
+                          // Also include pending requests for admins in the badge count
                           final pendingRequests = groups
-                              .where((group) => group.awaitingApprovalUIDs.isNotEmpty)
+                              .where((group) => ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId))
                               .fold<int>(0, (sum, group) => sum + group.awaitingApprovalUIDs.length);
+                          
+                          final badgeCount = totalUnreadCount + pendingRequests;
                           
                           return BottomNavigationBarItem(
                             icon: Stack(
@@ -323,8 +334,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                   child: Icon(_tabIcons[index]),
                                 ),
-                                // Show badge only if there are pending requests
-                                if (pendingRequests > 0)
+                                // Show badge only if there are unread messages or pending requests
+                                if (badgeCount > 0)
                                   Positioned(
                                     top: -5,
                                     right: -5,
@@ -332,10 +343,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
                                         color: Colors.red,
-                                        shape: pendingRequests > 99 
+                                        shape: badgeCount > 99 
                                             ? BoxShape.rectangle 
                                             : BoxShape.circle,
-                                        borderRadius: pendingRequests > 99 
+                                        borderRadius: badgeCount > 99 
                                             ? BorderRadius.circular(10) 
                                             : null,
                                       ),
@@ -345,9 +356,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       ),
                                       child: Center(
                                         child: Text(
-                                          pendingRequests > 99 
+                                          badgeCount > 99 
                                               ? '99+' 
-                                              : pendingRequests.toString(),
+                                              : badgeCount.toString(),
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 10,

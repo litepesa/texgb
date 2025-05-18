@@ -7,12 +7,12 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class GroupTile extends ConsumerWidget {
   final GroupModel group;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const GroupTile({
     super.key,
     required this.group,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
@@ -20,10 +20,14 @@ class GroupTile extends ConsumerWidget {
     final theme = context.modernTheme;
     final isAdmin = ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId);
     
+    // Calculate unread messages for this group
+    final unreadCount = group.getUnreadCountForUser(ref.read(groupProvider.notifier).getCurrentUserUid() ?? '');
+    final hasUnread = unreadCount > 0;
+    
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       elevation: 0,
-      color: theme.surfaceColor,
+      color: hasUnread ? theme.surfaceVariantColor?.withOpacity(0.3) : theme.surfaceColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
@@ -39,19 +43,56 @@ class GroupTile extends ConsumerWidget {
           child: Row(
             children: [
               // Group image
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: theme.primaryColor!.withOpacity(0.2),
-                backgroundImage: group.groupImage.isNotEmpty
-                    ? NetworkImage(group.groupImage)
-                    : null,
-                child: group.groupImage.isEmpty
-                    ? Icon(
-                        Icons.group,
-                        color: theme.primaryColor,
-                        size: 24,
-                      )
-                    : null,
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: theme.primaryColor!.withOpacity(0.2),
+                    backgroundImage: group.groupImage.isNotEmpty
+                        ? NetworkImage(group.groupImage)
+                        : null,
+                    child: group.groupImage.isEmpty
+                        ? Icon(
+                            Icons.group,
+                            color: theme.primaryColor,
+                            size: 24,
+                          )
+                        : null,
+                  ),
+                  if (hasUnread)
+                    Positioned(
+                      top: -5,
+                      right: -5,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: unreadCount > 99 
+                              ? BoxShape.rectangle 
+                              : BoxShape.circle,
+                          borderRadius: unreadCount > 99 
+                              ? BorderRadius.circular(10) 
+                              : null,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Center(
+                          child: Text(
+                            unreadCount > 99 
+                                ? '99+' 
+                                : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(width: 16),
               // Group info
@@ -66,7 +107,7 @@ class GroupTile extends ConsumerWidget {
                             group.groupName,
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
                               color: theme.textColor,
                             ),
                             maxLines: 1,
@@ -100,7 +141,8 @@ class GroupTile extends ConsumerWidget {
                           : group.groupDescription,
                       style: TextStyle(
                         fontSize: 14,
-                        color: theme.textSecondaryColor,
+                        color: hasUnread ? theme.textColor : theme.textSecondaryColor,
+                        fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -129,7 +171,7 @@ class GroupTile extends ConsumerWidget {
                               : group.createdAt),
                           style: TextStyle(
                             fontSize: 12,
-                            color: theme.textTertiaryColor,
+                            color: hasUnread ? theme.primaryColor : theme.textTertiaryColor,
                           ),
                         ),
                       ],
