@@ -9,6 +9,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/database/chat_database.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';

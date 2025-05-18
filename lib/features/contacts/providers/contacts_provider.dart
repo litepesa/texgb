@@ -68,7 +68,7 @@ enum SyncStatus {
   upToDate,     // Recently synced, data is fresh
   stale,        // Sync needed, data is outdated
   neverSynced,  // No sync has been performed yet
-  failed,       // Sync attempt failed
+  failed, synced, pending,       // Sync attempt failed
 }
 
 @riverpod
