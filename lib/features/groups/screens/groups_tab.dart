@@ -119,7 +119,7 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
     );
   }
 
-  // New method to build combined groups content 
+  // Updated method to build combined groups content
   Widget _buildGroupsContent(
     AsyncValue<List<GroupModel>> userGroupsAsync, 
     AsyncValue<List<ChatModel>> groupChatsAsync
@@ -135,22 +135,104 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
               return _buildEmptyState();
             }
             
-            // Otherwise show the list of groups
-            return ListView(
-              padding: const EdgeInsets.only(bottom: 80),
-              children: [
-                // First show group chats from the chat provider
-                ...groupChats.map((chat) => _buildGroupChatTile(chat)),
+            // Create a unified list of groups
+            final List<GroupModel> allGroups = List.from(userGroups);
+            final Map<String, bool> groupIds = {};
+            
+            // Track existing group IDs
+            for (final group in userGroups) {
+              groupIds[group.groupId] = true;
+            }
+            
+            // Add group chats that aren't in userGroups
+            for (final chat in groupChats) {
+              if (!groupIds.containsKey(chat.id)) {
+                // Create a new group model from the chat
+                final group = GroupModel(
+                  groupId: chat.id,
+                  groupName: chat.contactName,
+                  groupDescription: '',
+                  groupImage: chat.contactImage,
+                  creatorUID: '',
+                  isPrivate: true,
+                  editSettings: false,
+                  approveMembers: false,
+                  lockMessages: false,
+                  requestToJoin: false,
+                  membersUIDs: const [],
+                  adminsUIDs: const [],
+                  awaitingApprovalUIDs: const [],
+                  lastMessage: chat.lastMessage,
+                  lastMessageSender: chat.lastMessageSender,
+                  lastMessageTime: chat.lastMessageTime,
+                  unreadCount: chat.unreadCount,
+                  unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
+                  createdAt: '',
+                );
                 
-                // Then show groups from the group provider
-                ...userGroups.map((group) => GroupTile(
-                  group: group,
-                  onTap: () {
-                    // Open with normal group chat handler
-                    ref.read(groupProvider.notifier).openGroupChat(group, context);
-                  },
-                )),
-              ],
+                allGroups.add(group);
+              } else {
+                // Update existing group with latest message info
+                final existingGroupIndex = allGroups.indexWhere((g) => g.groupId == chat.id);
+                if (existingGroupIndex != -1) {
+                  final existingGroup = allGroups[existingGroupIndex];
+                  
+                  // Only update if chat has more recent message
+                  if (chat.lastMessageTime.isNotEmpty && 
+                      (existingGroup.lastMessageTime.isEmpty || 
+                       int.parse(chat.lastMessageTime) > int.parse(existingGroup.lastMessageTime))) {
+                    
+                    allGroups[existingGroupIndex] = existingGroup.copyWith(
+                      lastMessage: chat.lastMessage,
+                      lastMessageSender: chat.lastMessageSender,
+                      lastMessageTime: chat.lastMessageTime,
+                      unreadCount: chat.unreadCount,
+                      unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
+                    );
+                  }
+                }
+              }
+            }
+            
+            // Sort by most recent message
+            allGroups.sort((a, b) {
+              if (a.lastMessageTime.isEmpty) return 1;
+              if (b.lastMessageTime.isEmpty) return -1;
+              return int.parse(b.lastMessageTime).compareTo(int.parse(a.lastMessageTime));
+            });
+            
+            // Show a single unified list
+            return ListView.builder(
+              padding: const EdgeInsets.only(bottom: 80),
+              itemCount: allGroups.length,
+              itemBuilder: (context, index) {
+                final group = allGroups[index];
+                
+                // Check if this is from groupChats or userGroups
+                final isFromChat = !groupIds.containsKey(group.groupId) || 
+                  (groupIds.containsKey(group.groupId) && 
+                   groupChats.any((c) => c.id == group.groupId && 
+                                          c.lastMessageTime == group.lastMessageTime));
+                
+                if (isFromChat) {
+                  // Find the original chat
+                  final chat = groupChats.firstWhere((c) => c.id == group.groupId);
+                  
+                  return GroupTile(
+                    group: group,
+                    onTap: () {
+                      _openGroupChat(chat);
+                    },
+                  );
+                } else {
+                  return GroupTile(
+                    group: group,
+                    onTap: () {
+                      ref.read(groupProvider.notifier).openGroupChat(group, context);
+                    },
+                  );
+                }
+              },
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),

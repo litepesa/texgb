@@ -43,56 +43,19 @@ class GroupTile extends ConsumerWidget {
           child: Row(
             children: [
               // Group image
-              Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: theme.primaryColor!.withOpacity(0.2),
-                    backgroundImage: group.groupImage.isNotEmpty
-                        ? NetworkImage(group.groupImage)
-                        : null,
-                    child: group.groupImage.isEmpty
-                        ? Icon(
-                            Icons.group,
-                            color: theme.primaryColor,
-                            size: 24,
-                          )
-                        : null,
-                  ),
-                  if (hasUnread)
-                    Positioned(
-                      top: -5,
-                      right: -5,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          shape: unreadCount > 99 
-                              ? BoxShape.rectangle 
-                              : BoxShape.circle,
-                          borderRadius: unreadCount > 99 
-                              ? BorderRadius.circular(10) 
-                              : null,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
-                        ),
-                        child: Center(
-                          child: Text(
-                            unreadCount > 99 
-                                ? '99+' 
-                                : unreadCount.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: theme.primaryColor!.withOpacity(0.2),
+                backgroundImage: group.groupImage.isNotEmpty
+                    ? NetworkImage(group.groupImage)
+                    : null,
+                child: group.groupImage.isEmpty
+                    ? Icon(
+                        Icons.group,
+                        color: theme.primaryColor,
+                        size: 24,
+                      )
+                    : null,
               ),
               const SizedBox(width: 16),
               // Group info
@@ -137,7 +100,7 @@ class GroupTile extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       group.lastMessage.isNotEmpty
-                          ? group.lastMessage
+                          ? group.getLastMessagePreview()
                           : group.groupDescription,
                       style: TextStyle(
                         fontSize: 14,
@@ -174,6 +137,38 @@ class GroupTile extends ConsumerWidget {
                             color: hasUnread ? theme.primaryColor : theme.textTertiaryColor,
                           ),
                         ),
+                        // Add unread count badge to the right
+                        if (hasUnread) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor,
+                              shape: unreadCount > 99 
+                                  ? BoxShape.rectangle 
+                                  : BoxShape.circle,
+                              borderRadius: unreadCount > 99 
+                                  ? BorderRadius.circular(10) 
+                                  : null,
+                            ),
+                            constraints: BoxConstraints(
+                              minWidth: unreadCount > 99 ? 32 : 24,
+                              minHeight: 24,
+                            ),
+                            child: Center(
+                              child: Text(
+                                unreadCount > 99 
+                                    ? '99+' 
+                                    : unreadCount.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
