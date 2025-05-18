@@ -51,39 +51,74 @@ class MessageModel {
   }) : this.reactions = reactions ?? {};
 
   factory MessageModel.fromMap(Map<String, dynamic> map) {
-    return MessageModel(
-      messageId: map[Constants.messageId] ?? '',
-      senderUID: map[Constants.senderUID] ?? '',
-      senderName: map[Constants.senderName] ?? '',
-      senderImage: map[Constants.senderImage] ?? '',
-      message: map[Constants.message] ?? '',
-      messageType: (map[Constants.messageType] as String? ?? 'text').toMessageEnum(),
-      timeSent: map[Constants.timeSent] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      messageStatus: map['messageStatus'] != null 
-          ? MessageStatus.fromString(map['messageStatus']) 
-          : (map['isDelivered'] == true 
-              ? MessageStatus.delivered 
-              : (map['isSent'] == true ? MessageStatus.sent : MessageStatus.sending)),
-      repliedMessage: map[Constants.repliedMessage],
-      repliedTo: map[Constants.repliedTo],
-      repliedMessageType: map[Constants.repliedMessageType] != null
-          ? (map[Constants.repliedMessageType] as String).toMessageEnum()
-          : null,
-      statusContext: map[Constants.statusContext],
-      deletedBy: List<String>.from(map[Constants.deletedBy] ?? []),
-      isDeletedForEveryone: map['isDeletedForEveryone'] ?? false,
-      isEdited: map['isEdited'] ?? false,
-      originalMessage: map['originalMessage'],
-      editedAt: map['editedAt'],
-      reactions: map['reactions'] != null
-          ? Map<String, Map<String, String>>.from(
-              map['reactions'].map((key, value) => MapEntry(
-                key,
-                Map<String, String>.from(value),
-              )),
-            )
-          : {},
-    );
+    try {
+      return MessageModel(
+        messageId: map[Constants.messageId]?.toString() ?? '',
+        senderUID: map[Constants.senderUID]?.toString() ?? '',
+        senderName: map[Constants.senderName]?.toString() ?? '',
+        senderImage: map[Constants.senderImage]?.toString() ?? '',
+        message: map[Constants.message]?.toString() ?? '',
+        messageType: ((map[Constants.messageType] as String?) ?? 'text').toMessageEnum(),
+        timeSent: map[Constants.timeSent]?.toString() ?? 
+          DateTime.now().millisecondsSinceEpoch.toString(),
+        messageStatus: map['messageStatus'] != null 
+            ? MessageStatus.fromString(map['messageStatus'].toString()) 
+            : (map['isDelivered'] == true 
+                ? MessageStatus.delivered 
+                : (map['isSent'] == true ? MessageStatus.sent : MessageStatus.sending)),
+        repliedMessage: map[Constants.repliedMessage]?.toString(),
+        repliedTo: map[Constants.repliedTo]?.toString(),
+        repliedMessageType: map[Constants.repliedMessageType] != null
+            ? (map[Constants.repliedMessageType].toString()).toMessageEnum()
+            : null,
+        statusContext: map[Constants.statusContext]?.toString(),
+        // Safe conversion for deletedBy list
+        deletedBy: (map[Constants.deletedBy] as List?)
+            ?.map((item) => item.toString())
+            .toList()
+            .cast<String>() ?? [],
+        isDeletedForEveryone: map['isDeletedForEveryone'] == true,
+        isEdited: map['isEdited'] == true,
+        originalMessage: map['originalMessage']?.toString(),
+        editedAt: map['editedAt']?.toString(),
+        // Improved reactions map handling
+        reactions: map['reactions'] != null
+            ? _parseReactionsMap(map['reactions'])
+            : {},
+      );
+    } catch (e, stackTrace) {
+      print('Error parsing MessageModel: $e');
+      print('Map data: $map');
+      print('Stack trace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  // Helper to safely parse the reactions map
+  static Map<String, Map<String, String>> _parseReactionsMap(dynamic reactions) {
+    if (reactions is! Map) {
+      return {};
+    }
+
+    try {
+      return Map<String, Map<String, String>>.from(
+        reactions.map((key, value) {
+          if (value is! Map) {
+            return MapEntry(key.toString(), <String, String>{});
+          }
+          
+          return MapEntry(
+            key.toString(),
+            Map<String, String>.from(
+              value.map((k, v) => MapEntry(k.toString(), v.toString()))
+            ),
+          );
+        }),
+      );
+    } catch (e) {
+      print('Error parsing reactions map: $e');
+      return {};
+    }
   }
 
   Map<String, dynamic> toMap() {

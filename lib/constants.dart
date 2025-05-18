@@ -1,4 +1,4 @@
-// lib/constants.dart - Updated for Channels feature (replacing Marketplace)
+// lib/constants.dart - Updated for Channels feature and Groups feature
 class Constants {
   // screens routes
   static const String landingScreen = '/landingScreen';
@@ -19,10 +19,14 @@ class Constants {
   static const String privacyPolicyScreen = '/privacyPolicyScreen';
   static const String privacySettingsScreen = '/privacySettingsScreen';
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
+  
+  // Group routes
   static const String groupSettingsScreen = '/groupSettingsScreen';
   static const String groupInformationScreen = '/groupInformationScreen';
   static const String groupsScreen = '/groupsScreen';
   static const String createGroupScreen = '/createGroupScreen';
+  static const String pendingRequestsScreen = '/pendingRequestsScreen';
+  
   static const String blockedContactsScreen = '/blockedContactsScreen';
 
   // Video feed routes
@@ -168,6 +172,7 @@ class Constants {
   static const String private = 'private';
   static const String public = 'public';
 
+  // Group-related constants
   static const String creatorUID = 'creatorUID';
   static const String groupName = 'groupName';
   static const String groupDescription = 'groupDescription';

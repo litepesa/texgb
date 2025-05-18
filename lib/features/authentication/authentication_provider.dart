@@ -598,6 +598,23 @@ class Authentication extends _$Authentication {
       throw e.toString();
     }
   }
+
+  // Add this method to lib/features/authentication/authentication_provider.dart class
+
+// Get user data by ID
+Future<UserModel?> getUserDataById(String userId) async {
+  try {
+    DocumentSnapshot documentSnapshot =
+        await _firestore.collection(Constants.users).doc(userId).get();
+    
+    if (!documentSnapshot.exists) return null;
+    
+    return UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
+  } catch (e) {
+    debugPrint('Error getting user by ID: $e');
+    return null;
+  }
+}
   
   // Sign out user
   Future<void> signOut() async {

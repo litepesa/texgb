@@ -9,11 +9,13 @@ import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
+import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart'; // Add this import
+import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/groups/providers/group_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -147,6 +149,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Get chats list to calculate total unread messages
     final chatsAsyncValue = ref.watch(chatStreamProvider);
     
+    // Get groups list to calculate unread messages
+    final groupsAsyncValue = ref.watch(userGroupsStreamProvider);
+    
     // Calculate bottom padding to account for system navigation
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     
@@ -176,7 +181,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onPageChanged: _onPageChanged,
         children: [
           const ChatsTab(),
-          Center(child: Text('Groups (Coming Soon)', style: TextStyle(color: modernTheme.textColor))), // Groups placeholder
+          const GroupsTab(), // Now using the actual GroupsTab
           const StatusOverviewScreen(),
           const ChannelsFeedScreen(),
         ],
@@ -294,6 +299,74 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       );
                     }
                     
+                    // Check if it's the Groups tab (index 1) and has unread messages
+                    if (index == 1) {
+                      return groupsAsyncValue.when(
+                        data: (groups) {
+                          // Calculate unread messages in groups (placeholder for now)
+                          // You would need to implement group unread counts in your model
+                          final pendingRequests = groups
+                              .where((group) => group.awaitingApprovalUIDs.isNotEmpty)
+                              .fold<int>(0, (sum, group) => sum + group.awaitingApprovalUIDs.length);
+                          
+                          return BottomNavigationBarItem(
+                            icon: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected 
+                                      ? modernTheme.primaryColor!.withOpacity(0.2) 
+                                      : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(_tabIcons[index]),
+                                ),
+                                // Show badge only if there are pending requests
+                                if (pendingRequests > 0)
+                                  Positioned(
+                                    top: -5,
+                                    right: -5,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        shape: pendingRequests > 99 
+                                            ? BoxShape.rectangle 
+                                            : BoxShape.circle,
+                                        borderRadius: pendingRequests > 99 
+                                            ? BorderRadius.circular(10) 
+                                            : null,
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 18,
+                                        minHeight: 18,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          pendingRequests > 99 
+                                              ? '99+' 
+                                              : pendingRequests.toString(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            label: _tabNames[index],
+                          );
+                        },
+                        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+                        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+                      );
+                    }
+                    
                     // Default case for other tabs
                     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
                   },
@@ -304,7 +377,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       
-      // FAB for new chat (only for Chats tab)
+      // FAB for new chat (only for Chats tab) or new group (for Groups tab)
       floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
     );
   }
@@ -328,8 +401,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   
   // Determine if FAB should be shown
   bool _shouldShowFab() {
-    // Only show FAB for Chats and Status tabs
-    return _currentIndex == 0 || _currentIndex == 3;
+    // Show FAB for Chats, Groups, and Status tabs
+    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 3;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -434,6 +507,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onPressed = () {
           // Navigate to contacts screen
           Navigator.pushNamed(context, Constants.contactsScreen);
+        };
+        break;
+      case 1: // Groups
+        fabIcon = Icons.group_add;
+        onPressed = () {
+          // Navigate to create group screen
+          Navigator.pushNamed(context, Constants.createGroupScreen);
         };
         break;
       case 3: // Status (now at index 3)

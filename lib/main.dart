@@ -19,6 +19,12 @@ import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+import 'package:textgb/features/groups/models/group_model.dart';
+import 'package:textgb/features/groups/screens/create_group_screen.dart';
+import 'package:textgb/features/groups/screens/group_information_screen.dart';
+import 'package:textgb/features/groups/screens/group_settings_screen.dart';
+import 'package:textgb/features/groups/screens/groups_tab.dart';
+import 'package:textgb/features/groups/screens/pending_requests_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
@@ -139,7 +145,25 @@ class AppRoot extends ConsumerWidget {
             return ChatScreen(
               chatId: args['chatId'] as String,
               contact: args['contact'] as UserModel,
+              isGroup: args['isGroup'] as bool? ?? false,
+              group: args['group'] as GroupModel?,
             );
+          },
+          
+          // Group routes
+          Constants.groupsScreen: (context) => const GroupsTab(),
+          Constants.createGroupScreen: (context) => const CreateGroupScreen(),
+          Constants.groupInformationScreen: (context) {
+            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
+            return GroupInformationScreen(group: group);
+          },
+          Constants.groupSettingsScreen: (context) {
+            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
+            return GroupSettingsScreen(group: group);
+          },
+          Constants.pendingRequestsScreen: (context) {
+            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
+            return PendingRequestsScreen(group: group);
           },
           
           // Status routes

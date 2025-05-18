@@ -317,6 +317,37 @@ class ChatNotifier extends _$ChatNotifier {
       ));
     }
   }
+
+  // Add this to lib/features/chat/providers/chat_provider.dart
+
+// Open a group chat
+Future<void> openGroupChat(String groupId, List<UserModel> members) async {
+  state = AsyncValue.data(state.value!.copyWith(
+    isLoading: true,
+    currentChatId: groupId,
+    messages: [],
+  ));
+  
+  try {
+    // Listen to the group chat's messages
+    ref.read(messageStreamProvider(groupId));
+    
+    // Mark messages as delivered
+    await _chatRepository.markChatAsDelivered(groupId);
+    
+    // Reset unread counter
+    await _chatRepository.resetUnreadCounter(groupId);
+    
+    state = AsyncValue.data(state.value!.copyWith(
+      isLoading: false,
+    ));
+  } catch (e) {
+    state = AsyncValue.data(state.value!.copyWith(
+      isLoading: false,
+      error: 'Error opening group chat: $e',
+    ));
+  }
+}
   
   // Remove reaction from message
   Future<void> removeReaction(String messageId) async {
@@ -353,6 +384,7 @@ class ChatNotifier extends _$ChatNotifier {
     return _chatRepository.generateChatId(currentUser.uid, contactId);
   }
 }
+
 
 // Stream provider for all chats
 @riverpod

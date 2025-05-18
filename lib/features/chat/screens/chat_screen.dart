@@ -11,6 +11,7 @@ import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/chat_input.dart';
 import 'package:textgb/features/chat/widgets/message_bubble.dart';
 import 'package:textgb/features/chat/widgets/reaction_picker.dart';
+import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -23,7 +24,7 @@ class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
     Key? key,
     required this.chatId,
-    required this.contact,
+    required this.contact, required bool isGroup, GroupModel? group,
   }) : super(key: key);
 
   @override
