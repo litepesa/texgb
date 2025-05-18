@@ -9,7 +9,7 @@ class ChatModel {
   final String lastMessage;
   final MessageEnum lastMessageType;
   final String lastMessageTime;
-  final int unreadCount; // This counts only unread messages TO the user
+  final int unreadCount;
   final bool isGroup;
   final String? groupId;
 

@@ -1,4 +1,4 @@
-// lib/constants.dart
+// lib/constants.dart - Updated for Channels feature (replacing Marketplace)
 class Constants {
   // screens routes
   static const String landingScreen = '/landingScreen';
@@ -127,7 +127,7 @@ class Constants {
   static const String aboutMe = 'aboutMe';
   static const String lastSeen = 'lastSeen';
   static const String createdAt = 'createdAt';
-  // Removed isOnline constant
+  static const String isOnline = 'isOnline';
   static const String contactsUIDs = 'contactsUIDs';
   static const String blockedUIDs = 'blockedUIDs';
   static const String statusMutedUsers = 'statusMutedUsers'; // New field for muted users in status
@@ -150,17 +150,14 @@ class Constants {
   static const String messageType = 'messageType';
   static const String timeSent = 'timeSent';
   static const String messageId = 'messageId';
-  static const String isDelivered = 'isDelivered'; // Replaced isSeen with isDelivered
+  static const String isSeen = 'isSeen';
   static const String repliedMessage = 'repliedMessage';
   static const String repliedTo = 'repliedTo';
   static const String repliedMessageType = 'repliedMessageType';
   static const String isMe = 'isMe';
-  static const String reactions = 'reactions'; // New constant for reactions
-  static const String deliveredTo = 'deliveredTo'; // Replaced isSeenBy with deliveredTo
+  static const String reactions = 'reactions';
+  static const String isSeenBy = 'isSeenBy';
   static const String deletedBy = 'deletedBy';
-  static const String editedAt = 'editedAt'; // New constant for edit tracking
-  static const String deletedForEveryone = 'deletedForEveryone'; // New constant for delete for everyone
-  static const String lastMessageId = 'lastMessageId'; // New constant for last message ID
 
   static const String lastMessage = 'lastMessage';
   static const String chats = 'chats';

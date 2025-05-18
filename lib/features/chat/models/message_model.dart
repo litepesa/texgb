@@ -1,3 +1,6 @@
+// lib/features/chat/models/message_model.dart
+// Instead of completely changing the model structure, we'll extend it more safely
+
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 
@@ -6,19 +9,17 @@ class MessageModel {
   final String senderUID;
   final String senderName;
   final String senderImage;
-  String message; // Changed from final to support editing
+  final String message;
   final MessageEnum messageType;
   final String timeSent;
-  final bool isDelivered; // For delivery status only
-  final String? editedAt; // New field for edit tracking
+  final bool isSeen;
   final String? repliedMessage;
   final String? repliedTo;
   final MessageEnum? repliedMessageType;
-  final String? statusContext;
-  final List<String> deliveredTo; // For delivery tracking only
+  // Add statusContext with a safe default value of null
+  final String? statusContext; 
+  final List<String> seenBy;
   final List<String> deletedBy;
-  final Map<String, String> reactions; // New field for message reactions
-  final bool deletedForEveryone; // Flag for messages deleted for everyone
 
   MessageModel({
     required this.messageId,
@@ -28,16 +29,13 @@ class MessageModel {
     required this.message,
     required this.messageType,
     required this.timeSent,
-    this.isDelivered = false,
-    this.editedAt,
+    required this.isSeen,
     this.repliedMessage,
     this.repliedTo,
     this.repliedMessageType,
-    this.statusContext,
-    required this.deliveredTo,
+    this.statusContext, // Optional parameter with default value of null
+    required this.seenBy,
     required this.deletedBy,
-    this.reactions = const {},
-    this.deletedForEveryone = false,
   });
 
   factory MessageModel.fromMap(Map<String, dynamic> map) {
@@ -49,18 +47,16 @@ class MessageModel {
       message: map[Constants.message] ?? '',
       messageType: (map[Constants.messageType] as String? ?? 'text').toMessageEnum(),
       timeSent: map[Constants.timeSent] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      isDelivered: map[Constants.isDelivered] ?? false,
-      editedAt: map[Constants.editedAt],
+      isSeen: map[Constants.isSeen] ?? false,
       repliedMessage: map[Constants.repliedMessage],
       repliedTo: map[Constants.repliedTo],
       repliedMessageType: map[Constants.repliedMessageType] != null
           ? (map[Constants.repliedMessageType] as String).toMessageEnum()
           : null,
+      // Safely extract statusContext if present
       statusContext: map[Constants.statusContext],
-      deliveredTo: List<String>.from(map[Constants.deliveredTo] ?? []),
+      seenBy: List<String>.from(map[Constants.isSeenBy] ?? []),
       deletedBy: List<String>.from(map[Constants.deletedBy] ?? []),
-      reactions: Map<String, String>.from(map[Constants.reactions] ?? {}),
-      deletedForEveryone: map[Constants.deletedForEveryone] ?? false,
     );
   }
 
@@ -73,30 +69,15 @@ class MessageModel {
       Constants.message: message,
       Constants.messageType: messageType.name,
       Constants.timeSent: timeSent,
-      Constants.isDelivered: isDelivered,
-      Constants.deliveredTo: deliveredTo,
+      Constants.isSeen: isSeen,
+      Constants.repliedMessage: repliedMessage,
+      Constants.repliedTo: repliedTo,
+      Constants.repliedMessageType: repliedMessageType?.name,
+      Constants.isSeenBy: seenBy,
       Constants.deletedBy: deletedBy,
-      Constants.reactions: reactions,
-      Constants.deletedForEveryone: deletedForEveryone,
     };
 
-    // Only add optional fields if they exist
-    if (editedAt != null) {
-      result[Constants.editedAt] = editedAt;
-    }
-    
-    if (repliedMessage != null) {
-      result[Constants.repliedMessage] = repliedMessage;
-    }
-    
-    if (repliedTo != null) {
-      result[Constants.repliedTo] = repliedTo;
-    }
-    
-    if (repliedMessageType != null) {
-      result[Constants.repliedMessageType] = repliedMessageType!.name;
-    }
-
+    // Only add statusContext if it exists
     if (statusContext != null) {
       result[Constants.statusContext] = statusContext;
     }
@@ -112,16 +93,13 @@ class MessageModel {
     String? message,
     MessageEnum? messageType,
     String? timeSent,
-    bool? isDelivered,
-    String? editedAt,
+    bool? isSeen,
     String? repliedMessage,
     String? repliedTo,
     MessageEnum? repliedMessageType,
     String? statusContext,
-    List<String>? deliveredTo,
+    List<String>? seenBy,
     List<String>? deletedBy,
-    Map<String, String>? reactions,
-    bool? deletedForEveryone,
   }) {
     return MessageModel(
       messageId: messageId ?? this.messageId,
@@ -131,16 +109,13 @@ class MessageModel {
       message: message ?? this.message,
       messageType: messageType ?? this.messageType,
       timeSent: timeSent ?? this.timeSent,
-      isDelivered: isDelivered ?? this.isDelivered,
-      editedAt: editedAt ?? this.editedAt,
+      isSeen: isSeen ?? this.isSeen,
       repliedMessage: repliedMessage ?? this.repliedMessage,
       repliedTo: repliedTo ?? this.repliedTo,
       repliedMessageType: repliedMessageType ?? this.repliedMessageType,
       statusContext: statusContext ?? this.statusContext,
-      deliveredTo: deliveredTo ?? List.from(this.deliveredTo),
+      seenBy: seenBy ?? List.from(this.seenBy),
       deletedBy: deletedBy ?? List.from(this.deletedBy),
-      reactions: reactions ?? Map.from(this.reactions),
-      deletedForEveryone: deletedForEveryone ?? this.deletedForEveryone,
     );
   }
 }

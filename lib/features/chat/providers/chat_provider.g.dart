@@ -175,24 +175,7 @@ class _MessageStreamProviderElement
   String get chatId => (origin as MessageStreamProvider).chatId;
 }
 
-String _$totalUnreadCountHash() => r'a8bcb8361c6005e046e9ebb35ee43ba8371f2dcc';
-
-/// See also [totalUnreadCount].
-@ProviderFor(totalUnreadCount)
-final totalUnreadCountProvider = AutoDisposeStreamProvider<int>.internal(
-  totalUnreadCount,
-  name: r'totalUnreadCountProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$totalUnreadCountHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef TotalUnreadCountRef = AutoDisposeStreamProviderRef<int>;
-String _$chatNotifierHash() => r'7a0ebc8ca60705d12f0886b88950ed36fc6b1a6d';
+String _$chatNotifierHash() => r'ea5377ee48e51049b95fe11c316edede30e00606';
 
 /// See also [ChatNotifier].
 @ProviderFor(ChatNotifier)

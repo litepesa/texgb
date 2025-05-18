@@ -1,4 +1,3 @@
-// lib/features/status/repositories/status_repository.dart
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -403,7 +402,6 @@ class StatusRepository {
             Constants.lastMessage: statusPreview,
             Constants.messageType: MessageEnum.text.name,
             Constants.timeSent: timeSent,
-            Constants.lastMessageId: replyId,
             'unreadCount': 1,
             'isGroup': false,
           });
@@ -413,7 +411,6 @@ class StatusRepository {
             Constants.lastMessage: statusPreview,
             Constants.messageType: MessageEnum.text.name,
             Constants.timeSent: timeSent,
-            Constants.lastMessageId: replyId,
             'unreadCount': FieldValue.increment(1),
           });
         }
@@ -421,7 +418,7 @@ class StatusRepository {
         // Now add the actual message to the chat
         final messageId = const Uuid().v4();
         
-        // Create a message with status reply context - updated for new message model
+        // Create a message with status reply context
         final messageModel = MessageModel(
           messageId: messageId,
           senderUID: currentUser.uid,
@@ -430,15 +427,12 @@ class StatusRepository {
           message: message,
           messageType: messageType,
           timeSent: timeSent,
-          isDelivered: false,
+          isSeen: false,
           repliedMessage: statusPreview, // Include context about the status
           repliedTo: receiverId,
           repliedMessageType: MessageEnum.text, // Status preview is always text
-          statusContext: statusThumbnail, // Add status thumbnail for context
-          deliveredTo: [currentUser.uid], // Initially delivered only to sender
+          seenBy: [currentUser.uid],
           deletedBy: [],
-          reactions: {},
-          deletedForEveryone: false,
         );
         
         // Add message to chat
