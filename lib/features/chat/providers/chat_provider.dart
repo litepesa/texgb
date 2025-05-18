@@ -1,4 +1,4 @@
-// lib/features/chat/providers/chat_provider.dart (continued)
+// lib/features/chat/providers/chat_provider.dart
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,7 +10,6 @@ import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/models/user_model.dart';
-import 'package:textgb/shared/database/chat_database.dart';
 import 'package:uuid/uuid.dart';
 
 part 'chat_provider.g.dart';
@@ -23,7 +22,7 @@ class ChatState {
   final String? currentChatId;
   final UserModel? currentChatContact;
   final MessageModel? replyingTo;
-  final MessageModel? editingMessage; // New field for message editing
+  final MessageModel? editingMessage; // For message editing
   final String? error;
 
   const ChatState({
@@ -33,7 +32,7 @@ class ChatState {
     this.currentChatId,
     this.currentChatContact,
     this.replyingTo,
-    this.editingMessage, // Initialize as null
+    this.editingMessage,
     this.error,
   });
 
@@ -63,18 +62,13 @@ class ChatState {
 @riverpod
 class ChatNotifier extends _$ChatNotifier {
   late ChatRepository _chatRepository;
-  late ChatDatabase _chatDatabase;
 
   @override
   FutureOr<ChatState> build() {
     _chatRepository = ref.read(chatRepositoryProvider);
-    _chatDatabase = ChatDatabase(); // Initialize database
     
     // Initialize stream listeners
     _initChatListeners();
-    
-    // Sync pending messages with Firestore on startup
-    _syncPendingMessages();
     
     return const ChatState();
   }
@@ -87,17 +81,12 @@ class ChatNotifier extends _$ChatNotifier {
       }
     });
     
-    // Listen to the current chat messages if a chat is selected
+    // Listen to the current user to update chat if needed
     ref.listen(currentUserProvider, (previous, next) {
       if (next != null && state.value?.currentChatId != null) {
         openChat(state.value!.currentChatId!, state.value!.currentChatContact!);
       }
     });
-  }
-  
-  // Sync any pending messages with Firestore
-  Future<void> _syncPendingMessages() async {
-    await _chatRepository.syncPendingMessages();
   }
 
   // Open a chat and load its messages
@@ -113,8 +102,8 @@ class ChatNotifier extends _$ChatNotifier {
       // Cancel previous listener and listen to the new chat's messages
       ref.read(messageStreamProvider(chatId));
       
-      // Reset unread counter in local database
-      await _chatDatabase.resetUnreadCounter(chatId);
+      // Reset unread counter in Firestore
+      await _chatRepository.resetUnreadCounter(chatId);
       
       state = AsyncValue.data(state.value!.copyWith(
         isLoading: false,

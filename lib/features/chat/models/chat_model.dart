@@ -15,7 +15,7 @@ class ChatModel {
   final int unreadCount;
   final bool isGroup;
   final String? groupId;
-  final Map<String, int> unreadCountByUser; // New field for per-user unread counts
+  final Map<String, int> unreadCountByUser; // Per-user unread counts
 
   ChatModel({
     required this.id,

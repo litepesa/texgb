@@ -1,4 +1,5 @@
 // lib/features/chat/models/message_model.dart
+
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 
@@ -10,7 +11,7 @@ class MessageModel {
   final String message;
   final MessageEnum messageType;
   final String timeSent;
-  final MessageStatus messageStatus; // New field for enhanced status tracking
+  final MessageStatus messageStatus; // For enhanced status tracking
   final String? repliedMessage;
   final String? repliedTo;
   final MessageEnum? repliedMessageType;
@@ -20,8 +21,13 @@ class MessageModel {
   final bool isEdited;
   final String? originalMessage;
   final String? editedAt; // Track when message was edited
-  final SyncStatus syncStatus; // Track sync status
   final Map<String, Map<String, String>> reactions;
+
+  // Add compatibility properties for backward compatibility
+  bool get isDelivered => messageStatus.isDelivered;
+  bool get isRead => messageStatus.isRead;
+  bool get isSent => messageStatus.isSent;
+  bool get isFailed => messageStatus.isFailed;
 
   MessageModel({
     required this.messageId,
@@ -41,7 +47,6 @@ class MessageModel {
     this.isEdited = false,
     this.originalMessage,
     this.editedAt,
-    this.syncStatus = SyncStatus.pending,
     Map<String, Map<String, String>>? reactions,
   }) : this.reactions = reactions ?? {};
 
@@ -70,9 +75,6 @@ class MessageModel {
       isEdited: map['isEdited'] ?? false,
       originalMessage: map['originalMessage'],
       editedAt: map['editedAt'],
-      syncStatus: map['syncStatus'] != null 
-          ? SyncStatus.fromString(map['syncStatus']) 
-          : SyncStatus.synced,
       reactions: map['reactions'] != null
           ? Map<String, Map<String, String>>.from(
               map['reactions'].map((key, value) => MapEntry(
@@ -102,7 +104,6 @@ class MessageModel {
       'isEdited': isEdited,
       'originalMessage': originalMessage,
       'editedAt': editedAt,
-      'syncStatus': syncStatus.name,
       'reactions': reactions,
     };
 
@@ -132,7 +133,6 @@ class MessageModel {
     bool? isEdited,
     String? originalMessage,
     String? editedAt,
-    SyncStatus? syncStatus,
     Map<String, Map<String, String>>? reactions,
   }) {
     return MessageModel(
@@ -153,7 +153,6 @@ class MessageModel {
       isEdited: isEdited ?? this.isEdited,
       originalMessage: originalMessage ?? this.originalMessage,
       editedAt: editedAt ?? this.editedAt,
-      syncStatus: syncStatus ?? this.syncStatus,
       reactions: reactions ?? Map.from(this.reactions),
     );
   }
@@ -180,11 +179,6 @@ class MessageModel {
   // Helper method to update message status
   MessageModel updateStatus(MessageStatus newStatus) {
     return copyWith(messageStatus: newStatus);
-  }
-  
-  // Helper method to mark message as synced
-  MessageModel markAsSynced() {
-    return copyWith(syncStatus: SyncStatus.synced);
   }
   
   // Helper method to mark message as edited

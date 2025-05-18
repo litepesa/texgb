@@ -67,30 +67,12 @@ enum MessageStatus {
       case MessageStatus.failed: return Colors.red;
     }
   }
-}
-
-// Enum for sync status of messages
-enum SyncStatus {
-  pending,  // Message is pending sync with server
-  syncing,  // Message is currently being synced
-  synced;   // Message is synced with server
   
-  String get name {
-    switch (this) {
-      case SyncStatus.pending: return 'pending';
-      case SyncStatus.syncing: return 'syncing';
-      case SyncStatus.synced: return 'synced';
-    }
-  }
-  
-  static SyncStatus fromString(String status) {
-    switch (status) {
-      case 'pending': return SyncStatus.pending;
-      case 'syncing': return SyncStatus.syncing;
-      case 'synced': return SyncStatus.synced;
-      default: return SyncStatus.pending;
-    }
-  }
+  // Add helper extension methods for easier status checking
+  bool get isDelivered => this == MessageStatus.delivered || this == MessageStatus.read;
+  bool get isRead => this == MessageStatus.read;
+  bool get isSent => this == MessageStatus.sent || isDelivered || isRead;
+  bool get isFailed => this == MessageStatus.failed;
 }
 
 enum GroupType {
