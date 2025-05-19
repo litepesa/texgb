@@ -153,6 +153,13 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
     
+    // Get member stats
+    final memberCount = _group.membersUIDs.length;
+    final memberPercentage = _group.getMemberCapacityPercentage();
+    final isNearCapacity = memberPercentage > 0.9; // 90% full
+    final isAtCapacity = _group.hasReachedMemberLimit();
+    final remainingSlots = _group.getRemainingMemberSlots();
+    
     return Scaffold(
       backgroundColor: theme.backgroundColor,
       appBar: AppBar(
@@ -268,6 +275,85 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               maxLines: 3,
             ),
             const SizedBox(height: 24),
+            
+            // Member limit info
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isNearCapacity
+                    ? (isAtCapacity ? Colors.red.shade50 : Colors.orange.shade50)
+                    : theme.surfaceVariantColor?.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isNearCapacity
+                      ? (isAtCapacity ? Colors.red.shade200 : Colors.orange.shade200)
+                      : theme.borderColor!.withOpacity(0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isAtCapacity ? Icons.error_outline : Icons.people,
+                        color: isAtCapacity 
+                            ? Colors.red
+                            : (isNearCapacity ? Colors.orange : theme.primaryColor),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Member Capacity',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isAtCapacity 
+                                ? Colors.red
+                                : (isNearCapacity ? Colors.orange : theme.textColor),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '$memberCount/${GroupModel.MAX_MEMBERS}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isAtCapacity 
+                              ? Colors.red
+                              : (isNearCapacity ? Colors.orange : theme.textColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: memberPercentage,
+                      backgroundColor: theme.surfaceVariantColor,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isAtCapacity
+                            ? Colors.red
+                            : (isNearCapacity ? Colors.orange : theme.primaryColor!),
+                      ),
+                      minHeight: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isAtCapacity
+                        ? 'The group has reached its maximum capacity. Remove members to add new ones.'
+                        : 'The group can have up to ${GroupModel.MAX_MEMBERS} members. $remainingSlots ${remainingSlots == 1 ? 'slot' : 'slots'} remaining.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isAtCapacity
+                          ? Colors.red.shade700
+                          : (isNearCapacity ? Colors.orange.shade700 : theme.textSecondaryColor),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             
             // Group settings
             Card(
@@ -411,6 +497,110 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                         },
                         activeColor: theme.primaryColor,
                         contentPadding: EdgeInsets.zero,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Informational card about member management
+            Card(
+              elevation: 0,
+              color: theme.surfaceColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: theme.borderColor!.withOpacity(0.2),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Group Member Management',
+                      style: TextStyle(
+                        color: theme.textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 20,
+                          color: theme.primaryColor,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'To add or remove members, go to Group Info → Members',
+                            style: TextStyle(
+                              color: theme.textSecondaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_group.hasPendingRequests())
+                      InkWell(
+                        onTap: () {
+                          Navigator.pop(context); // Close settings first
+                          Navigator.pushNamed(
+                            context,
+                            '/pendingRequestsScreen',
+                            arguments: _group,
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor!.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.person_add,
+                                size: 20,
+                                color: theme.primaryColor,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Pending Requests',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.primaryColor,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_group.getPendingRequestsCount()} users are waiting to join',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: theme.textSecondaryColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: theme.primaryColor,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                   ],
                 ),

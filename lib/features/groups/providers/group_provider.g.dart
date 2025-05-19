@@ -43,7 +43,7 @@ final publicGroupsStreamProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef PublicGroupsStreamRef = AutoDisposeStreamProviderRef<List<GroupModel>>;
-String _$groupNotifierHash() => r'14789da9d30e4a0930125da0d8c2e19c8268516c';
+String _$groupNotifierHash() => r'f4ffc127c52bcffadfadf1522f3955566d492522';
 
 /// See also [GroupNotifier].
 @ProviderFor(GroupNotifier)

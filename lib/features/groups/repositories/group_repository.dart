@@ -42,6 +42,11 @@ class GroupRepository {
         throw Exception('User not authenticated');
       }
 
+      // Ensure the member count doesn't exceed the limit
+      if (membersUIDs.length > GroupModel.MAX_MEMBERS) {
+        throw Exception('Group cannot have more than ${GroupModel.MAX_MEMBERS} members');
+      }
+
       // Generate group ID
       final groupId = const Uuid().v4();
       final createdAt = DateTime.now().millisecondsSinceEpoch.toString();
@@ -168,6 +173,11 @@ class GroupRepository {
   // Update group details
   Future<void> updateGroup(GroupModel updatedGroup, File? newGroupImage) async {
     try {
+      // Ensure the member count doesn't exceed the limit
+      if (updatedGroup.membersUIDs.length > GroupModel.MAX_MEMBERS) {
+        throw Exception('Group cannot have more than ${GroupModel.MAX_MEMBERS} members');
+      }
+      
       // Upload new group image if provided
       if (newGroupImage != null) {
         final imageUrl = await storeFileToStorage(
@@ -232,6 +242,11 @@ class GroupRepository {
       }
 
       final group = GroupModel.fromMap(groupDoc.data()!);
+      
+      // Check if the group has reached its member limit
+      if (group.hasReachedMemberLimit()) {
+        throw Exception('This group has reached its maximum member limit of ${GroupModel.MAX_MEMBERS}');
+      }
 
       // Check if it's a private group with approval required
       if (group.isPrivate && group.approveMembers) {
@@ -267,6 +282,100 @@ class GroupRepository {
     } catch (e) {
       debugPrint('Error joining group: $e');
       throw e.toString();
+    }
+  }
+
+  // Join a group using a join code
+  Future<void> joinGroupByCode(String joinCode) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // First, find the group with this joining code
+      final querySnapshot = await _firestore
+          .collection(Constants.groups)
+          .get();
+      
+      // Filter groups that start with this code (first 8 chars of groupId)
+      final matchingGroups = querySnapshot.docs.where((doc) {
+        final groupId = doc.id;
+        if (groupId.length < 8) return false;
+        final codePrefix = groupId.substring(0, 8);
+        return codePrefix == joinCode;
+      }).toList();
+      
+      if (matchingGroups.isEmpty) {
+        throw Exception('Invalid group code or group does not exist');
+      }
+      
+      // Get the first matching group
+      final groupDoc = matchingGroups.first;
+      final groupId = groupDoc.id;
+      
+      // Check if user is already a member
+      final group = GroupModel.fromMap(groupDoc.data());
+      if (group.isMember(currentUser.uid)) {
+        throw Exception('You are already a member of this group');
+      }
+      
+      // Join the group using the existing method
+      await joinGroup(groupId);
+      
+      return;
+    } catch (e) {
+      debugPrint('Error joining group by code: $e');
+      rethrow;
+    }
+  }
+
+  // Check if a user is a member of a group
+  Future<bool> isUserMemberOfGroup(String userId, String groupId) async {
+    try {
+      if (userId.isEmpty) return false;
+      
+      final groupDoc = await _firestore.collection(Constants.groups).doc(groupId).get();
+      if (!groupDoc.exists) return false;
+      
+      final group = GroupModel.fromMap(groupDoc.data()!);
+      return group.isMember(userId);
+    } catch (e) {
+      debugPrint('Error checking group membership: $e');
+      return false;
+    }
+  }
+
+  // Enforce group membership - throws exception if not a member
+  Future<void> enforceGroupMembership(String userId, String groupId) async {
+    final isMember = await isUserMemberOfGroup(userId, groupId);
+    if (!isMember) {
+      throw Exception('User is not a member of this group');
+    }
+  }
+
+  // Check if a user can send messages (based on membership and lock status)
+  Future<bool> canUserSendMessagesToGroup(String userId, String groupId) async {
+    try {
+      if (userId.isEmpty) return false;
+      
+      final groupDoc = await _firestore.collection(Constants.groups).doc(groupId).get();
+      if (!groupDoc.exists) return false;
+      
+      final group = GroupModel.fromMap(groupDoc.data()!);
+      // Must be a member first
+      if (!group.isMember(userId)) return false;
+      
+      // If messages are locked, must be an admin
+      if (group.lockMessages) {
+        return group.isAdmin(userId);
+      }
+      
+      // Otherwise, any member can send
+      return true;
+    } catch (e) {
+      debugPrint('Error checking messaging permissions: $e');
+      return false;
     }
   }
 
@@ -386,6 +495,19 @@ class GroupRepository {
   // Approve a user's request to join
   Future<void> approveJoinRequest(String groupId, String userId) async {
     try {
+      // First get the group to check member limit
+      final groupDoc = await _firestore.collection(Constants.groups).doc(groupId).get();
+      if (!groupDoc.exists) {
+        throw Exception('Group not found');
+      }
+
+      final group = GroupModel.fromMap(groupDoc.data()!);
+      
+      // Check if the group has reached its member limit
+      if (group.hasReachedMemberLimit()) {
+        throw Exception('This group has reached its maximum member limit of ${GroupModel.MAX_MEMBERS}');
+      }
+      
       final batch = _firestore.batch();
       
       // Remove from awaiting approval

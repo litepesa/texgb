@@ -27,6 +27,7 @@ class Constants {
   static const String createGroupScreen = '/createGroupScreen';
   static const String pendingRequestsScreen = '/pendingRequestsScreen';
   static const String groupChatScreen = '/groupChatScreen';
+  static const String joinGroupByCodeScreen = '/joinGroupByCodeScreen'; // NEW: Route for joining by code
   
   static const String blockedContactsScreen = '/blockedContactsScreen';
 
@@ -188,6 +189,13 @@ class Constants {
   static const String awaitingApprovalUIDs = 'awaitingApprovalUIDs';
 
   static const String groupImages = 'groupImages';
+  
+  // NEW: Group join code constants
+  static const String groupJoinCode = 'groupJoinCode';
+  static const String groupShareableLink = 'groupShareableLink';
+  
+  // NEW: Group member limit constant 
+  static const int GROUP_MEMBER_LIMIT = 512;
 
   static var privacySettings;
 }

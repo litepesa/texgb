@@ -1,8 +1,12 @@
 // lib/features/groups/models/group_model.dart
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
+import 'dart:math' as Math;
 
 class GroupModel {
+  // Set the maximum number of members allowed in a group
+  static const int MAX_MEMBERS = 512;
+  
   final String groupId;
   final String groupName;
   final String groupDescription;
@@ -290,5 +294,71 @@ class GroupModel {
     }
     
     return lastMessage;
+  }
+  
+  // NEW: Check if the group has reached member limit
+  bool hasReachedMemberLimit() {
+    return membersUIDs.length >= MAX_MEMBERS;
+  }
+  
+  // NEW: Get remaining member slots
+  int getRemainingMemberSlots() {
+    return MAX_MEMBERS - membersUIDs.length;
+  }
+  
+  // NEW: Generate a joining code for this group
+  String getJoiningCode() {
+    // Use the first 8 characters of the groupId as a simple joining code
+    return groupId.substring(0, Math.min(8, groupId.length));
+  }
+  
+  // NEW: Get a sharable link for this group
+  String getShareableLink() {
+    // Using a deep link format, you'll need to set up deep linking in your app
+    return 'textgb://group/${getJoiningCode()}';
+  }
+  
+  // NEW: Check if a user can send messages to this group
+  bool canSendMessages(String uid) {
+    // Must be a member first
+    if (!isMember(uid)) return false;
+    
+    // If messages are locked, must be an admin
+    if (lockMessages) {
+      return isAdmin(uid);
+    }
+    
+    // Otherwise, any member can send
+    return true;
+  }
+  
+  // NEW: Get a description of member count with limit
+  String getMemberCountWithLimit() {
+    return '${membersUIDs.length}/${MAX_MEMBERS} members';
+  }
+  
+  // NEW: Get percentage of member capacity filled
+  double getMemberCapacityPercentage() {
+    return membersUIDs.length / MAX_MEMBERS;
+  }
+  
+  // NEW: Check if member capacity is getting close to full
+  bool isApproachingMemberLimit() {
+    return membersUIDs.length >= (MAX_MEMBERS * 0.9); // 90% or more
+  }
+  
+  // NEW: Get a status description of the member limit
+  String getMemberLimitStatus() {
+    final remaining = getRemainingMemberSlots();
+    
+    if (remaining <= 0) {
+      return 'Member limit reached';
+    } else if (remaining < 10) {
+      return 'Almost full: $remaining ${remaining == 1 ? 'slot' : 'slots'} left';
+    } else if (remaining < 50) {
+      return 'Getting full: $remaining slots left';
+    } else {
+      return '$remaining slots available';
+    }
   }
 }

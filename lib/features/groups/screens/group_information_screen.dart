@@ -2,6 +2,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
@@ -58,6 +59,46 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
 
   void _openGroupChat() {
     final group = ref.read(groupProvider).value?.currentGroup ?? widget.group;
+    
+    // Check if the current user is a member before opening the chat
+    final isMember = ref.read(groupProvider.notifier).isCurrentUserMember(group.groupId);
+    
+    if (!isMember) {
+      // Show join dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Join Group'),
+          content: const Text('You need to be a member to view and send messages in this group. Would you like to join?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                try {
+                  await ref.read(groupProvider.notifier).joinGroup(group.groupId);
+                  if (mounted) {
+                    showSnackBar(context, 'You have joined the group');
+                    // Open chat after joining
+                    ref.read(groupProvider.notifier).openGroupChat(group, context);
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    showSnackBar(context, 'Error joining group: $e');
+                  }
+                }
+              },
+              child: const Text('Join Group'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    
     ref.read(groupProvider.notifier).openGroupChat(group, context);
   }
 
@@ -98,6 +139,127 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
       }
     }
   }
+  
+  void _shareGroupLink() async {
+    try {
+      final group = ref.read(groupProvider).value?.currentGroup ?? widget.group;
+      final joinCode = group.getJoiningCode();
+      
+      // Check if group is near member limit before sharing
+      final remainingSlots = GroupModel.MAX_MEMBERS - group.membersUIDs.length;
+      if (remainingSlots <= 10) {
+        // Show warning dialog first
+        final shouldContinue = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Group Nearly Full'),
+            content: Text(
+              'This group has only $remainingSlots ${remainingSlots == 1 ? 'slot' : 'slots'} '
+              'remaining out of ${GroupModel.MAX_MEMBERS}. Do you still want to share the invite link?'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Continue Sharing'),
+              ),
+            ],
+          ),
+        );
+        
+        if (shouldContinue != true) {
+          return;
+        }
+      }
+      
+      // Share the join code and a message
+      final shareText = 'Join my group "${group.groupName}" on TextGB! Use this code: $joinCode';
+      
+      // Show dialog with the code
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Share Group'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Share this group code with friends:'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: context.modernTheme.surfaceVariantColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      joinCode,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy),
+                      onPressed: () async {
+                        // Copy to clipboard
+                        await Clipboard.setData(ClipboardData(text: joinCode));
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          showSnackBar(context, 'Group code copied to clipboard');
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Or share this message:',
+                style: TextStyle(
+                  color: context.modernTheme.textSecondaryColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                shareText,
+                style: TextStyle(
+                  color: context.modernTheme.textColor,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: shareText));
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  showSnackBar(context, 'Share message copied to clipboard');
+                }
+              },
+              child: const Text('Copy Message'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      showSnackBar(context, 'Error sharing group link: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +271,13 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
     
     final isAdmin = ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId);
     final isCreator = ref.read(groupProvider.notifier).isCurrentUserCreator(group.groupId);
+    final isMember = ref.read(groupProvider.notifier).isCurrentUserMember(group.groupId);
+    
+    // Calculate member stats
+    final memberPercentage = group.getMemberCapacityPercentage();
+    final isNearCapacity = memberPercentage > 0.9; // 90% full
+    final isAtCapacity = group.hasReachedMemberLimit();
+    final remainingSlots = group.getRemainingMemberSlots();
     
     return Scaffold(
       backgroundColor: theme.backgroundColor,
@@ -122,6 +291,12 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          if (isMember)
+            IconButton(
+              icon: const Icon(Icons.share),
+              tooltip: 'Share Group',
+              onPressed: _shareGroupLink,
+            ),
           if (isAdmin)
             IconButton(
               icon: Icon(
@@ -179,9 +354,31 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${group.membersUIDs.length} members',
+                                group.getMemberCountWithLimit(),
                                 style: TextStyle(
-                                  color: theme.textSecondaryColor,
+                                  color: isAtCapacity
+                                      ? Colors.red
+                                      : (isNearCapacity
+                                          ? Colors.orange
+                                          : theme.textSecondaryColor),
+                                  fontWeight: isNearCapacity ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              // Member capacity progress bar
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: memberPercentage,
+                                  backgroundColor: theme.surfaceVariantColor,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    isAtCapacity
+                                        ? Colors.red
+                                        : (isNearCapacity
+                                            ? Colors.orange
+                                            : theme.primaryColor!),
+                                  ),
+                                  minHeight: 6,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -211,7 +408,6 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                                         horizontal: 8,
                                         vertical: 4,
                                       ),
-                                      // lib/features/groups/screens/group_information_screen.dart (continued)
                                       decoration: BoxDecoration(
                                         color: theme.primaryColor!.withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(12),
@@ -242,6 +438,27 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                                       ),
                                     ),
                                   ),
+                                  if (isMember)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 8.0),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          'Member',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.green,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ],
@@ -250,6 +467,73 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                       ],
                     ),
                   ),
+                  
+                  // Member capacity info card (when near capacity)
+                  if (isNearCapacity)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: Card(
+                        elevation: 0,
+                        color: isAtCapacity
+                            ? Colors.red.shade50
+                            : Colors.orange.shade50,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: isAtCapacity
+                                ? Colors.red.shade200
+                                : Colors.orange.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isAtCapacity
+                                    ? Icons.error_outline
+                                    : Icons.warning_amber_rounded,
+                                color: isAtCapacity
+                                    ? Colors.red
+                                    : Colors.orange,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isAtCapacity
+                                          ? 'Member Limit Reached'
+                                          : 'Group Almost Full',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isAtCapacity
+                                            ? Colors.red
+                                            : Colors.orange.shade800,
+                                      ),
+                                    ),
+                                    Text(
+                                      isAtCapacity
+                                          ? 'This group has reached the maximum of ${GroupModel.MAX_MEMBERS} members.'
+                                          : 'Only $remainingSlots ${remainingSlots == 1 ? 'slot' : 'slots'} remaining out of ${GroupModel.MAX_MEMBERS}.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isAtCapacity
+                                            ? Colors.red.shade700
+                                            : Colors.orange.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   
                   // Description
                   if (group.groupDescription.isNotEmpty)
@@ -298,7 +582,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                         Expanded(
                           child: ElevatedButton.icon(
                             icon: const Icon(Icons.chat),
-                            label: const Text('Open Chat'),
+                            label: Text(isMember ? 'Open Chat' : 'Join Group'),
                             onPressed: _openGroupChat,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: theme.primaryColor,
@@ -310,20 +594,22 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.exit_to_app),
-                          label: const Text('Leave'),
-                          onPressed: _showLeaveGroupDialog,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        if (isMember) ...[
+                          const SizedBox(width: 16),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.exit_to_app),
+                            label: const Text('Leave'),
+                            onPressed: _showLeaveGroupDialog,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -337,20 +623,52 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Members',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: theme.textColor,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  'Members',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.textColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isAtCapacity
+                                        ? Colors.red.withOpacity(0.2)
+                                        : (isNearCapacity
+                                            ? Colors.orange.withOpacity(0.2)
+                                            : theme.surfaceVariantColor),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${group.membersUIDs.length}/${GroupModel.MAX_MEMBERS}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isAtCapacity
+                                          ? Colors.red
+                                          : (isNearCapacity
+                                              ? Colors.orange
+                                              : theme.textSecondaryColor),
+                                      fontWeight: isNearCapacity ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            if (isAdmin)
+                            if (isAdmin && !isAtCapacity)
                               TextButton.icon(
                                 icon: const Icon(Icons.add),
                                 label: const Text('Add'),
                                 onPressed: () {
-                                  // TODO: Navigate to add members screen
+                                  // Navigate to add members screen
+                                  // TODO: Implement add members screen
                                 },
                               ),
                           ],
@@ -427,6 +745,14 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                                   title: 'Request to Join',
                                   value: group.requestToJoin ? 'Yes' : 'No',
                                 ),
+                              _buildSettingItem(
+                                icon: Icons.people,
+                                title: 'Member Limit',
+                                value: '${GroupModel.MAX_MEMBERS}',
+                                valueColor: isNearCapacity
+                                    ? (isAtCapacity ? Colors.red : Colors.orange)
+                                    : null,
+                              ),
                             ],
                           ),
                         ),
@@ -441,10 +767,14 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
   // Build awaiting approval section
   Widget _buildAwaitingApprovalSection(GroupModel group) {
     final theme = context.modernTheme;
+    final remainingSlots = group.getRemainingMemberSlots();
+    final canApproveAll = remainingSlots >= group.awaitingApprovalUIDs.length;
     
     return Card(
       elevation: 0,
-      color: theme.primaryColor!.withOpacity(0.1),
+      color: canApproveAll
+          ? theme.primaryColor!.withOpacity(0.1)
+          : Colors.orange.shade50,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -457,14 +787,20 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
               'Awaiting Approval (${group.awaitingApprovalUIDs.length})',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: theme.primaryColor,
+                color: canApproveAll
+                    ? theme.primaryColor
+                    : Colors.orange.shade800,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Users have requested to join this group. As an admin, you can approve or reject their requests.',
+              canApproveAll
+                  ? 'Users have requested to join this group. As an admin, you can approve or reject their requests.'
+                  : 'Not enough slots to approve all pending requests. Only $remainingSlots ${remainingSlots == 1 ? 'slot' : 'slots'} remaining.',
               style: TextStyle(
-                color: theme.textSecondaryColor,
+                color: canApproveAll
+                    ? theme.textSecondaryColor
+                    : Colors.orange.shade700,
                 fontSize: 12,
               ),
             ),
@@ -472,9 +808,16 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
             ElevatedButton(
               onPressed: () {
                 // TODO: Navigate to pending requests screen
+                Navigator.pushNamed(
+                  context,
+                  Constants.pendingRequestsScreen,
+                  arguments: group,
+                );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor,
+                backgroundColor: canApproveAll
+                    ? theme.primaryColor
+                    : Colors.orange,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 40),
                 shape: RoundedRectangleBorder(
@@ -643,6 +986,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
     required IconData icon,
     required String title,
     required String value,
+    Color? valueColor,
   }) {
     final theme = context.modernTheme;
     
@@ -667,7 +1011,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
           Text(
             value,
             style: TextStyle(
-              color: theme.textSecondaryColor,
+              color: valueColor ?? theme.textSecondaryColor,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -697,9 +1041,33 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
           }
           break;
         case 'remove':
-          await ref.read(groupProvider.notifier).removeMember(group.groupId, member.uid);
-          if (mounted) {
-            showSnackBar(context, '${member.name} has been removed from the group');
+          // Show confirmation dialog
+          final shouldRemove = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Remove Member'),
+              content: Text('Are you sure you want to remove ${member.name} from the group?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                  child: Text('Remove'),
+                ),
+              ],
+            ),
+          );
+          
+          if (shouldRemove == true) {
+            await ref.read(groupProvider.notifier).removeMember(group.groupId, member.uid);
+            if (mounted) {
+              showSnackBar(context, '${member.name} has been removed from the group');
+            }
           }
           break;
       }

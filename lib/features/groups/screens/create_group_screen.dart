@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
+import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -105,6 +106,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       return;
     }
     
+    // Check member limit
+    if (_selectedContacts.length > GroupModel.MAX_MEMBERS - 1) { // -1 to account for current user
+      showSnackBar(context, 'Group cannot have more than ${GroupModel.MAX_MEMBERS} members');
+      return;
+    }
+    
     setState(() {
       _isLoading = true;
     });
@@ -156,6 +163,15 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   }
 
   void _selectContacts() async {
+    // Check if we've already reached the limit
+    if (_selectedContacts.length >= GroupModel.MAX_MEMBERS - 1) { // -1 to account for current user
+      showSnackBar(context, 'Group member limit of ${GroupModel.MAX_MEMBERS} reached');
+      return;
+    }
+    
+    // Calculate how many more members can be added
+    final remainingSlots = GroupModel.MAX_MEMBERS - 1 - _selectedContacts.length;
+    
     // Show modal with contact selection
     final selectedContacts = await showModalBottomSheet<List<UserModel>>(
       context: context,
@@ -166,6 +182,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       ),
       builder: (context) => ContactSelectionBottomSheet(
         initialSelection: _selectedContacts,
+        maxSelections: remainingSlots, // Pass remaining slots
       ),
     );
     
@@ -208,10 +225,16 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
     
+    // Calculate remaining slots
+    final currentUser = ref.read(currentUserProvider);
+    final alreadyIncluded = _selectedContacts.any((c) => c.uid == currentUser?.uid) ? 0 : 1;
+    final remainingSlots = GroupModel.MAX_MEMBERS - _selectedContacts.length - alreadyIncluded;
+    final isNearLimit = remainingSlots < 50;
+    final isAtLimit = remainingSlots <= 0;
+    
     return Scaffold(
       backgroundColor: theme.backgroundColor,
       appBar: AppBar(
-        // lib/features/groups/screens/create_group_screen.dart (continued)
         backgroundColor: theme.backgroundColor,
         title: Text(
           'Create Group',
@@ -312,6 +335,63 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   ),
                   const SizedBox(height: 24),
                   
+                  // Member limit info
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isNearLimit 
+                          ? (isAtLimit ? Colors.red.shade50 : Colors.orange.shade50)
+                          : theme.surfaceVariantColor?.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isNearLimit
+                            ? (isAtLimit ? Colors.red.shade200 : Colors.orange.shade200)
+                            : theme.borderColor!.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isAtLimit ? Icons.error_outline : Icons.info_outline,
+                          color: isAtLimit 
+                              ? Colors.red
+                              : (isNearLimit ? Colors.orange : theme.primaryColor),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isAtLimit
+                                    ? 'Member Limit Reached'
+                                    : 'Member Limit',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isAtLimit
+                                      ? Colors.red
+                                      : (isNearLimit ? Colors.orange : theme.textColor),
+                                ),
+                              ),
+                              Text(
+                                isAtLimit
+                                    ? 'You need to remove some members to stay under the ${GroupModel.MAX_MEMBERS} member limit.'
+                                    : 'Groups can have up to ${GroupModel.MAX_MEMBERS} members. You have $remainingSlots ${remainingSlots == 1 ? 'slot' : 'slots'} remaining.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isAtLimit
+                                      ? Colors.red.shade700
+                                      : (isNearLimit ? Colors.orange.shade700 : theme.textSecondaryColor),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
                   // Members selection
                   ListTile(
                     title: Text(
@@ -324,18 +404,41 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                     subtitle: Text(
                       _selectedContacts.isEmpty
                           ? 'No members selected'
-                          : '${_selectedContacts.length} members selected',
+                          : '${_selectedContacts.length + alreadyIncluded} members selected (maximum ${GroupModel.MAX_MEMBERS})',
                       style: TextStyle(
-                        color: theme.textSecondaryColor,
+                        color: isAtLimit ? Colors.red : theme.textSecondaryColor,
+                        fontWeight: isAtLimit ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                     trailing: TextButton.icon(
                       icon: const Icon(Icons.add),
                       label: const Text('Select'),
-                      onPressed: _selectContacts,
+                      onPressed: isAtLimit
+                          ? null // Disable button if limit reached
+                          : _selectContacts,
+                      style: TextButton.styleFrom(
+                        foregroundColor: isAtLimit ? Colors.grey : null,
+                      ),
                     ),
                     contentPadding: EdgeInsets.zero,
                   ),
+                  
+                  // Show a capacity bar
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (_selectedContacts.length + alreadyIncluded) / GroupModel.MAX_MEMBERS,
+                      backgroundColor: theme.surfaceVariantColor,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isAtLimit
+                            ? Colors.red
+                            : (isNearLimit ? Colors.orange : theme.primaryColor!),
+                      ),
+                      minHeight: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  
                   if (_selectedContacts.isNotEmpty)
                     SizedBox(
                       height: 80,
@@ -346,32 +449,62 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                           final contact = _selectedContacts[index];
                           return Padding(
                             padding: const EdgeInsets.only(right: 16.0),
-                            child: Column(
+                            child: Stack(
                               children: [
-                                CircleAvatar(
-                                  radius: 24,
-                                  backgroundImage: contact.image.isNotEmpty
-                                      ? NetworkImage(contact.image)
-                                      : null,
-                                  backgroundColor: theme.primaryColor!.withOpacity(0.2),
-                                  child: contact.image.isEmpty
-                                      ? Text(
-                                          contact.name[0].toUpperCase(),
-                                          style: TextStyle(
-                                            color: theme.primaryColor,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        )
-                                      : null,
+                                Column(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 24,
+                                      backgroundImage: contact.image.isNotEmpty
+                                          ? NetworkImage(contact.image)
+                                          : null,
+                                      backgroundColor: theme.primaryColor!.withOpacity(0.2),
+                                      child: contact.image.isEmpty
+                                          ? Text(
+                                              contact.name[0].toUpperCase(),
+                                              style: TextStyle(
+                                                color: theme.primaryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      contact.name.length > 10
+                                          ? '${contact.name.substring(0, 8)}...'
+                                          : contact.name,
+                                      style: TextStyle(
+                                        color: theme.textSecondaryColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  contact.name.length > 10
-                                      ? '${contact.name.substring(0, 8)}...'
-                                      : contact.name,
-                                  style: TextStyle(
-                                    color: theme.textSecondaryColor,
-                                    fontSize: 12,
+                                // Remove button
+                                Positioned(
+                                  top: 0,
+                                  right: 0,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedContacts.removeAt(index);
+                                        // Also remove from admins if they were an admin
+                                        _selectedAdmins.removeWhere((admin) => admin.uid == contact.uid);
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 12,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -394,7 +527,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                     subtitle: Text(
                       _selectedAdmins.isEmpty
                           ? 'No admins selected (you will be admin)'
-                          : '${_selectedAdmins.length} admins selected',
+                          : '${_selectedAdmins.length + 1} admins selected', // +1 for current user
                       style: TextStyle(
                         color: theme.textSecondaryColor,
                       ),
@@ -402,7 +535,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                     trailing: TextButton.icon(
                       icon: const Icon(Icons.add),
                       label: const Text('Select'),
-                      onPressed: _selectAdmins,
+                      onPressed: _selectedContacts.isEmpty ? null : _selectAdmins,
                     ),
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -446,6 +579,30 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                                           Icons.star,
                                           color: Colors.white,
                                           size: 10,
+                                        ),
+                                      ),
+                                    ),
+                                    // Remove admin button
+                                    Positioned(
+                                      top: 0,
+                                      right: 0,
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedAdmins.removeAt(index);
+                                          });
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 12,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -614,7 +771,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   
                   // Create button
                   ElevatedButton(
-                    onPressed: _createGroup,
+                    onPressed: isAtLimit ? null : _createGroup,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.primaryColor,
                       foregroundColor: Colors.white,
@@ -622,9 +779,13 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      disabledBackgroundColor: Colors.grey,
+                      disabledForegroundColor: Colors.white,
                     ),
                     child: Text(
-                      'Create Group',
+                      isAtLimit 
+                          ? 'Cannot Create (Member Limit Exceeded)' 
+                          : 'Create Group',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -641,10 +802,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 // Bottom sheet for selecting contacts
 class ContactSelectionBottomSheet extends ConsumerStatefulWidget {
   final List<UserModel> initialSelection;
+  final int maxSelections;
 
   const ContactSelectionBottomSheet({
     super.key,
     required this.initialSelection,
+    this.maxSelections = GroupModel.MAX_MEMBERS,
   });
 
   @override
@@ -667,6 +830,10 @@ class _ContactSelectionBottomSheetState
   Widget build(BuildContext context) {
     final contactsAsync = ref.watch(contactsNotifierProvider);
     final theme = context.modernTheme;
+    
+    // Calculate remaining slots
+    final remainingSlots = widget.maxSelections - _selectedContacts.length;
+    final isAtLimit = remainingSlots <= 0;
     
     return Container(
       padding: EdgeInsets.only(
@@ -692,6 +859,30 @@ class _ContactSelectionBottomSheetState
                   ),
                 ),
                 const Spacer(),
+                // Show remaining slots
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isAtLimit
+                        ? Colors.red.withOpacity(0.2)
+                        : theme.primaryColor!.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    isAtLimit
+                        ? 'Maximum reached'
+                        : '$remainingSlots ${remainingSlots == 1 ? 'slot' : 'slots'} remaining',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isAtLimit ? Colors.red : theme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () {
                     Navigator.pop(context, _selectedContacts);
@@ -727,10 +918,45 @@ class _ContactSelectionBottomSheetState
                 setState(() {
                   _searchQuery = value.toLowerCase();
                 });
-              },
+                },
             ),
           ),
           const SizedBox(height: 8),
+          
+          // Member limit info
+          if (widget.maxSelections < GroupModel.MAX_MEMBERS)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.surfaceVariantColor?.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: BorderSide(
+                    color: theme.borderColor!.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: theme.primaryColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'You can select up to ${widget.maxSelections} contacts to add to this group',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.textSecondaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           
           // Contact list
           Flexible(
@@ -759,6 +985,15 @@ class _ContactSelectionBottomSheetState
                       (c) => c.uid == contact.uid,
                     );
                     
+                    // Check if this is the current user
+                    final currentUser = ref.read(currentUserProvider);
+                    final isCurrentUser = currentUser?.uid == contact.uid;
+                    
+                    // Skip current user as they're automatically added
+                    if (isCurrentUser) {
+                      return const SizedBox.shrink();
+                    }
+                    
                     return CheckboxListTile(
                       title: Text(
                         contact.name,
@@ -785,17 +1020,29 @@ class _ContactSelectionBottomSheetState
                       ),
                       value: isSelected,
                       activeColor: theme.primaryColor,
-                      onChanged: (selected) {
-                        setState(() {
-                          if (selected == true) {
-                            _selectedContacts.add(contact);
-                          } else {
-                            _selectedContacts.removeWhere(
-                              (c) => c.uid == contact.uid,
-                            );
-                          }
-                        });
-                      },
+                      onChanged: remainingSlots <= 0 && !isSelected
+                          ? null // Disable if limit reached and not already selected
+                          : (selected) {
+                              setState(() {
+                                if (selected == true) {
+                                  _selectedContacts.add(contact);
+                                } else {
+                                  _selectedContacts.removeWhere(
+                                    (c) => c.uid == contact.uid,
+                                  );
+                                }
+                              });
+                            },
+                      // Show hint text when disabled
+                      subtitle: isSelected || remainingSlots > 0
+                          ? Text(
+                              contact.phoneNumber,
+                              style: TextStyle(color: theme.textSecondaryColor),
+                            )
+                          : Text(
+                              'Member limit reached',
+                              style: TextStyle(color: Colors.red, fontSize: 12),
+                            ),
                     );
                   },
                 );
@@ -876,12 +1123,20 @@ class _AdminSelectionBottomSheetState extends State<AdminSelectionBottomSheet> {
                   ),
                 ),
                 const Spacer(),
+                Text(
+                  'You + ${_selectedAdmins.length} selected',
+                  style: TextStyle(
+                    color: theme.textSecondaryColor,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () {
                     Navigator.pop(context, _selectedAdmins);
                   },
                   child: Text(
-                    'Done (${_selectedAdmins.length})',
+                    'Done',
                     style: TextStyle(
                       color: theme.primaryColor,
                       fontWeight: FontWeight.bold,
@@ -897,7 +1152,7 @@ class _AdminSelectionBottomSheetState extends State<AdminSelectionBottomSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Search contacts...',
+                hintText: 'Search members...',
                 prefixIcon: Icon(Icons.search, color: theme.textSecondaryColor),
                 filled: true,
                 fillColor: theme.surfaceVariantColor,
@@ -916,12 +1171,47 @@ class _AdminSelectionBottomSheetState extends State<AdminSelectionBottomSheet> {
           ),
           const SizedBox(height: 8),
           
+          // Admin info
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.surfaceVariantColor?.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: BorderSide(
+                  color: theme.borderColor!.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: theme.primaryColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Admins can manage group settings, approve new members, and moderate messages',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.textSecondaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          
           // Admin selection
           Flexible(
             child: filteredContacts.isEmpty
                 ? Center(
                     child: Text(
-                      'No contacts found',
+                      'No members found',
                       style: TextStyle(color: theme.textSecondaryColor),
                     ),
                   )
@@ -932,6 +1222,16 @@ class _AdminSelectionBottomSheetState extends State<AdminSelectionBottomSheet> {
                       final isSelected = _selectedAdmins.any(
                         (c) => c.uid == contact.uid,
                       );
+                      
+                      // Check if this is the current user
+                      final currentUserProvider = Provider((ref) => ref.read(currentUserProvider));
+                      final currentUser = ProviderScope.containerOf(context).read(currentUserProvider);
+                      final isCurrentUser = currentUser?.uid == contact.uid;
+                      
+                      // Skip current user as they're automatically an admin
+                      if (isCurrentUser) {
+                        return const SizedBox.shrink();
+                      }
                       
                       return CheckboxListTile(
                         title: Text(
@@ -954,20 +1254,45 @@ class _AdminSelectionBottomSheetState extends State<AdminSelectionBottomSheet> {
                             ],
                           ],
                         ),
-                        secondary: CircleAvatar(
-                          backgroundImage: contact.image.isNotEmpty
-                              ? NetworkImage(contact.image)
-                              : null,
-                          backgroundColor: theme.primaryColor!.withOpacity(0.2),
-                          child: contact.image.isEmpty
-                              ? Text(
-                                  contact.name[0].toUpperCase(),
-                                  style: TextStyle(
+                        secondary: Stack(
+                          children: [
+                            CircleAvatar(
+                              backgroundImage: contact.image.isNotEmpty
+                                  ? NetworkImage(contact.image)
+                                  : null,
+                              backgroundColor: theme.primaryColor!.withOpacity(0.2),
+                              child: contact.image.isEmpty
+                                  ? Text(
+                                      contact.name[0].toUpperCase(),
+                                      style: TextStyle(
+                                        color: theme.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            if (isSelected)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
                                     color: theme.primaryColor,
-                                    fontWeight: FontWeight.bold,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: theme.backgroundColor!,
+                                      width: 1.5,
+                                    ),
                                   ),
-                                )
-                              : null,
+                                  child: const Icon(
+                                    Icons.star,
+                                    color: Colors.white,
+                                    size: 10,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                         value: isSelected,
                         activeColor: theme.primaryColor,

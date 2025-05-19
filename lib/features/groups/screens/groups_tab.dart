@@ -7,6 +7,7 @@ import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
+import 'package:textgb/features/groups/repositories/group_repository.dart';
 import 'package:textgb/features/groups/widgets/group_tile.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -108,13 +109,33 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        onPressed: () {
-          Navigator.pushNamed(context, Constants.createGroupScreen);
-        },
-        child: const Icon(Icons.group_add),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // Join group by code button
+          FloatingActionButton.small(
+            heroTag: 'joinGroupButton',
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+            onPressed: () {
+              Navigator.pushNamed(context, Constants.joinGroupByCodeScreen);
+            },
+            child: const Icon(Icons.link),
+            tooltip: 'Join group by code',
+          ),
+          const SizedBox(height: 16),
+          // Create group button
+          FloatingActionButton(
+            heroTag: 'createGroupButton',
+            backgroundColor: theme.primaryColor,
+            foregroundColor: Colors.white,
+            onPressed: () {
+              Navigator.pushNamed(context, Constants.createGroupScreen);
+            },
+            child: const Icon(Icons.group_add),
+            tooltip: 'Create new group',
+          ),
+        ],
       ),
     );
   }
@@ -254,93 +275,129 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
     );
   }
   
-  // Helper method to build a group chat tile from a chat model
-  Widget _buildGroupChatTile(ChatModel chat) {
-    // Convert chat model to group model for display consistency
-    final group = GroupModel(
-      groupId: chat.id,
-      groupName: chat.contactName,
-      groupDescription: '',
-      groupImage: chat.contactImage,
-      creatorUID: '',
-      isPrivate: true,
-      editSettings: false,
-      approveMembers: false,
-      lockMessages: false,
-      requestToJoin: false,
-      // For group chats, we'll use empty members list since we don't have participants field
-      membersUIDs: const [],
-      adminsUIDs: const [],
-      awaitingApprovalUIDs: const [],
-      lastMessage: chat.lastMessage,
-      lastMessageSender: chat.lastMessageSender,
-      lastMessageTime: chat.lastMessageTime,
-      unreadCount: chat.unreadCount,
-      unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
-      createdAt: '',
-    );
-    
-    return GroupTile(
-      group: group,
-      onTap: () {
-        _openGroupChat(chat);
-      },
-    );
-  }
-
   // Method to handle opening a group chat from chat model
   void _openGroupChat(ChatModel chat) async {
     try {
       final currentUser = ref.read(currentUserProvider);
       if (currentUser == null) return;
       
-      // Create an empty list of members
-      final List<UserModel> members = [];
-      
-      // Open the chat in the chat provider
-      await ref.read(chatProvider.notifier).openGroupChat(
-        chat.id, 
-        members, // Pass empty member list
+      // First check if user is a member of this group
+      final isUserMember = await ref.read(groupRepositoryProvider).isUserMemberOfGroup(
+        currentUser.uid, 
+        chat.id
       );
       
-      if (mounted) {
-        // Create temporary group model to pass to the screen
-        final tempGroup = GroupModel(
-          groupId: chat.id,
-          groupName: chat.contactName,
-          groupDescription: '',
-          groupImage: chat.contactImage,
-          creatorUID: '',
-          isPrivate: true,
-          editSettings: false,
-          approveMembers: false,
-          lockMessages: false,
-          requestToJoin: false,
-          membersUIDs: const [], // Empty list since we don't have participants
-          adminsUIDs: const [],
-          awaitingApprovalUIDs: const [],
-          lastMessage: chat.lastMessage,
-          lastMessageSender: chat.lastMessageSender,
-          lastMessageTime: chat.lastMessageTime,
-          unreadCount: chat.unreadCount,
-          unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
-          createdAt: '',
+      if (!isUserMember) {
+        if (mounted) {
+          // Show dialog to join the group instead of directly opening chat
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Join Group'),
+              content: const Text('You must be a member to view and send messages in this group. Would you like to join?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _joinGroup(chat.id);
+                  },
+                  child: const Text('Join Group'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+      }
+      
+      // Create temporary group model to pass to the screen
+      final tempGroup = GroupModel(
+        groupId: chat.id,
+        groupName: chat.contactName,
+        groupDescription: '',
+        groupImage: chat.contactImage,
+        creatorUID: '',
+        isPrivate: true,
+        editSettings: false,
+        approveMembers: false,
+        lockMessages: false,
+        requestToJoin: false,
+        membersUIDs: isUserMember ? [currentUser.uid] : [], // Add current user if they're a member
+        adminsUIDs: const [],
+        awaitingApprovalUIDs: const [],
+        lastMessage: chat.lastMessage,
+        lastMessageSender: chat.lastMessageSender,
+        lastMessageTime: chat.lastMessageTime,
+        unreadCount: chat.unreadCount,
+        unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
+        createdAt: '',
+      );
+      
+      // If user is a member, proceed with opening the chat
+      if (isUserMember) {
+        await ref.read(chatProvider.notifier).openGroupChat(
+          chat.id, 
+          [], 
         );
         
-        // Navigate to group chat screen
-        Navigator.pushNamed(
-          context,
-          Constants.groupChatScreen,
-          arguments: {
-            'groupId': chat.id,
-            'group': tempGroup,
-            'isGroup': true,
-          },
-        );
+        if (mounted) {
+          // Navigate to group chat screen
+          Navigator.pushNamed(
+            context,
+            Constants.groupChatScreen,
+            arguments: {
+              'groupId': chat.id,
+              'group': tempGroup,
+              'isGroup': true,
+            },
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         showSnackBar(context, 'Error opening group chat: $e');
+      }
+    }
+  }
+  
+  // Helper method to join a group
+  Future<void> _joinGroup(String groupId) async {
+    try {
+      await ref.read(groupProvider.notifier).joinGroup(groupId);
+      if (mounted) {
+        final group = await ref.read(groupRepositoryProvider).getGroupById(groupId);
+        if (group != null) {
+          showSnackBar(context, 'You have joined the group');
+          
+          // Check if approval is required
+          if (group.isPrivate && group.approveMembers) {
+            showSnackBar(context, 'Your request is pending admin approval');
+          } else {
+            // Try opening the chat again after joining
+            final chat = ChatModel(
+              id: groupId,
+              contactName: group.groupName,
+              contactImage: group.groupImage,
+              lastMessage: group.lastMessage,
+              messageType: '',
+              timeSent: group.lastMessageTime,
+              unreadCount: 0,
+              isGroup: true,
+              lastMessageSender: '',
+              contactUID: '',
+              unreadCountByUser: {},
+            );
+            _openGroupChat(chat);
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error joining group: $e');
       }
     }
   }
@@ -371,20 +428,41 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
             ),
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pushNamed(context, Constants.createGroupScreen);
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Create Group'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(context, Constants.createGroupScreen);
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Create Group'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 16),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(context, Constants.joinGroupByCodeScreen);
+                },
+                icon: const Icon(Icons.link),
+                label: const Text('Join by Code'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.primaryColor,
+                  side: BorderSide(color: theme.primaryColor!),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -401,9 +479,31 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
 
     if (_searchResults.isEmpty) {
       return Center(
-        child: Text(
-          'No groups found',
-          style: TextStyle(color: theme.textColor),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 64,
+              color: theme.textSecondaryColor?.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No groups found',
+              style: TextStyle(
+                color: theme.textColor,
+                fontSize: 18,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try a different search term or create a new group',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: theme.textSecondaryColor,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -413,11 +513,77 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
       itemCount: _searchResults.length,
       itemBuilder: (context, index) {
         final group = _searchResults[index];
+        
+        // Check if the current user is already a member
+        final isMember = ref.read(groupProvider.notifier).isCurrentUserMember(group.groupId);
+        
         return GroupTile(
           group: group,
           onTap: () {
-            // Open group
-            ref.read(groupProvider.notifier).openGroupChat(group, context);
+            if (isMember) {
+              // Open group directly if already a member
+              ref.read(groupProvider.notifier).openGroupChat(group, context);
+            } else {
+              // Show join dialog if not a member
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text('Join ${group.groupName}'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('You need to join this group before viewing or sending messages.'),
+                      const SizedBox(height: 8),
+                      if (group.hasReachedMemberLimit())
+                        Text(
+                          'This group has reached its member limit of ${GroupModel.MAX_MEMBERS}.',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      else if (group.isPrivate && group.approveMembers)
+                        Text(
+                          'This is a private group. Your request will need admin approval.',
+                          style: TextStyle(
+                            color: theme.textSecondaryColor,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    if (!group.hasReachedMemberLimit())
+                      TextButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          try {
+                            await ref.read(groupProvider.notifier).joinGroup(group.groupId);
+                            if (mounted) {
+                              if (group.isPrivate && group.approveMembers) {
+                                showSnackBar(context, 'Join request sent. Waiting for admin approval.');
+                              } else {
+                                showSnackBar(context, 'Joined group successfully!');
+                                ref.read(groupProvider.notifier).openGroupChat(group, context);
+                              }
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              showSnackBar(context, 'Error joining group: $e');
+                            }
+                          }
+                        },
+                        child: const Text('Join Group'),
+                      ),
+                  ],
+                ),
+              );
+            }
           },
         );
       },

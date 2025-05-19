@@ -232,6 +232,7 @@ class ChatsTab extends ConsumerWidget {
           ],
         ),
         onTap: () => _openChatScreen(context, ref, chat),
+        onLongPress: () => _showChatOptions(context, ref, chat),
       ),
     );
   }
@@ -324,5 +325,142 @@ class ChatsTab extends ConsumerWidget {
         showSnackBar(context, 'Error opening chat: $e');
       }
     }
+  }
+  
+  void _showChatOptions(BuildContext context, WidgetRef ref, ChatModel chat) {
+    final modernTheme = context.modernTheme;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+                  backgroundImage: chat.contactImage.isNotEmpty
+                      ? NetworkImage(chat.contactImage)
+                      : null,
+                  child: chat.contactImage.isEmpty
+                      ? Text(
+                          chat.contactName.isNotEmpty
+                              ? chat.contactName.substring(0, 1)
+                              : '?',
+                          style: TextStyle(
+                            color: modernTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+                title: Text(
+                  chat.contactName,
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: Icon(
+                  Icons.block,
+                  color: modernTheme.textSecondaryColor,
+                ),
+                title: const Text('Block contact'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: Implement block contact functionality
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Block contact feature coming soon')),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.volume_off,
+                  color: modernTheme.textSecondaryColor,
+                ),
+                title: const Text('Mute notifications'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: Implement mute notifications functionality
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Mute notifications feature coming soon')),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                ),
+                title: const Text(
+                  'Delete chat',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteChatConfirmation(context, ref, chat);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteChatConfirmation(BuildContext context, WidgetRef ref, ChatModel chat) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Chat?'),
+        content: Text(
+          'Are you sure you want to delete your conversation with ${chat.contactName}? This action cannot be undone.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              // Show loading indicator
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Deleting chat...'))
+              );
+              
+              try {
+                // Delete the chat
+                await ref.read(chatProvider.notifier).deleteChat(chat.id);
+                
+                if (context.mounted) {
+                  // Show success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Chat deleted successfully'))
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  // Show error message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error deleting chat: $e'))
+                  );
+                }
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

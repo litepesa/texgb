@@ -652,6 +652,41 @@ class ChatRepository {
     final sortedIds = [userId, contactId]..sort();
     return '${sortedIds[0]}_${sortedIds[1]}';
   }
+
+  Future<void> deleteChat(String chatId) async {
+  try {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+    
+    // Get all messages in the chat
+    final messagesSnapshot = await _firestore
+        .collection(Constants.chats)
+        .doc(chatId)
+        .collection(Constants.messages)
+        .get();
+    
+    // If there are messages, delete them in a batch
+    if (messagesSnapshot.docs.isNotEmpty) {
+      WriteBatch batch = _firestore.batch();
+      
+      for (final doc in messagesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Commit the batch delete
+      await batch.commit();
+      debugPrint('Deleted all messages in chat: $chatId');
+    }
+    
+    // Delete the chat document itself
+    await _firestore.collection(Constants.chats).doc(chatId).delete();
+    debugPrint('Deleted chat: $chatId');
+
+  } catch (e) {
+    debugPrint('Error deleting chat: $e');
+    rethrow;
+  }
+}
   
   // Check for unread messages across all chats
   Future<int> getTotalUnreadCount() async {

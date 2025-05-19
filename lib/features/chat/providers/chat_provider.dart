@@ -88,6 +88,16 @@ class ChatNotifier extends _$ChatNotifier {
     });
   }
 
+  Future<void> deleteChat(String chatId) async {
+  try {
+    await _chatRepository.deleteChat(chatId);
+  } catch (e) {
+    state = AsyncValue.data(state.value!.copyWith(
+      error: 'Error deleting chat: $e',
+    ));
+  }
+}
+
   // Open a chat and load its messages
   Future<void> openChat(String chatId, UserModel contact) async {
     state = AsyncValue.data(state.value!.copyWith(
