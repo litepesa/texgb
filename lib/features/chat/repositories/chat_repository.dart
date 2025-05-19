@@ -147,7 +147,7 @@ class ChatRepository {
           Constants.lastMessage: message,
           Constants.messageType: messageType.name,
           Constants.timeSent: timeSent,
-          'lastMessageSender': currentUser.uid,
+          'lastMessageSender': currentUser.uid,  // IMPORTANT: Always track who sent the last message
           'unreadCount': 1, // For backward compatibility - receiver has 1 unread message
           'unreadCountByUser': unreadCountByUser,
           'isGroup': false,
@@ -168,14 +168,14 @@ class ChatRepository {
         }
         
         // Always set sender's unread count to 0 and increment receiver's count by 1
-        unreadCountByUser[currentUser.uid] = 0;
+        unreadCountByUser[currentUser.uid] = 0;  // Sender has no unread messages
         unreadCountByUser[receiverUID] = (unreadCountByUser[receiverUID] as int? ?? 0) + 1;
         
         await _firestore.collection(Constants.chats).doc(chatId).update({
           Constants.lastMessage: message,
           Constants.messageType: messageType.name,
           Constants.timeSent: timeSent,
-          'lastMessageSender': currentUser.uid,
+          'lastMessageSender': currentUser.uid,  // IMPORTANT: Always track who sent the last message
           'unreadCountByUser': unreadCountByUser,
           'unreadCount': unreadCountByUser[receiverUID], // For backward compatibility
         });
@@ -339,23 +339,21 @@ class ChatRepository {
         // Reset unread count for current user only
         unreadCountByUser[currentUser.uid] = 0;
         
-        // For backward compatibility, only update unreadCount field if current user is receiver
-        final lastMessageSender = chatDoc.data()?['lastMessageSender'] as String?;
-        final isReceiver = lastMessageSender != null && lastMessageSender != currentUser.uid;
+        // ALWAYS update the unreadCountByUser field
+        await _firestore.collection(Constants.chats).doc(chatId).update({
+          'unreadCountByUser': unreadCountByUser,
+        });
         
-        // Update the chat document
-        if (isReceiver) {
-          // Current user is receiver, so reset the traditional unreadCount
+        // For backward compatibility, update the main unreadCount field if needed
+        final lastMessageSender = chatDoc.data()?['lastMessageSender'] as String?;
+        if (lastMessageSender != null && lastMessageSender != currentUser.uid) {
           await _firestore.collection(Constants.chats).doc(chatId).update({
-            'unreadCountByUser': unreadCountByUser,
-            'unreadCount': 0, // Reset for backward compatibility
-          });
-        } else {
-          // Current user is sender, don't change traditional unreadCount
-          await _firestore.collection(Constants.chats).doc(chatId).update({
-            'unreadCountByUser': unreadCountByUser,
+            'unreadCount': 0,
           });
         }
+        
+        // Debug log to help troubleshoot
+        debugPrint('Reset unread counter for ${currentUser.uid} in chat ${chatId}');
       }
     } catch (e) {
       debugPrint('Error resetting unread counter: $e');
@@ -378,6 +376,66 @@ class ChatRepository {
           });
     } catch (e) {
       debugPrint('Error marking message as delivered: $e');
+    }
+  }
+
+  // Mark all messages in a chat as delivered
+  Future<void> markChatAsDelivered(String chatId) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      // Get all undelivered messages in this chat
+      final querySnapshot = await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .where('messageStatus', isEqualTo: MessageStatus.sent.name)
+          .where('senderUID', isNotEqualTo: currentUser.uid) // Only mark others' messages
+          .get();
+          
+      if (querySnapshot.docs.isEmpty) return;
+      
+      // Get message IDs
+      final messageIds = querySnapshot.docs.map((doc) => doc.id).toList();
+      
+      // Update status in batch
+      await updateMessageStatuses(chatId, messageIds, MessageStatus.delivered);
+    } catch (e) {
+      debugPrint('Error marking chat as delivered: $e');
+    }
+  }
+
+  // Mark messages as delivered
+  Future<void> updateMessageStatuses(String chatId, List<String> messageIds, MessageStatus status) async {
+    if (messageIds.isEmpty) return;
+    
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      // Use a batch write for efficiency
+      WriteBatch batch = _firestore.batch();
+      
+      // Add each message update to the batch
+      for (final messageId in messageIds) {
+        final messageRef = _firestore
+            .collection(Constants.chats)
+            .doc(chatId)
+            .collection(Constants.messages)
+            .doc(messageId);
+            
+        batch.update(messageRef, {
+          'messageStatus': status.name,
+        });
+      }
+      
+      // Commit the batch
+      await batch.commit();
+      
+      debugPrint("Repository: Successfully updated status to ${status.name} for ${messageIds.length} messages");
+    } catch (e) {
+      debugPrint("Repository: Error updating message statuses: $e");
     }
   }
 
@@ -610,6 +668,12 @@ class ChatRepository {
       int totalUnread = 0;
       
       for (final doc in querySnapshot.docs) {
+        // Check if current user is the last message sender - if so, they have no unread messages
+        final lastMessageSender = doc.data()['lastMessageSender'] as String?;
+        if (lastMessageSender == currentUser.uid) {
+          continue; // Skip this chat as the user sent the last message
+        }
+        
         // Check for unread count in unreadCountByUser first
         Map<String, dynamic>? unreadCountByUser = doc.data()['unreadCountByUser'] as Map<String, dynamic>?;
         if (unreadCountByUser != null && unreadCountByUser.containsKey(currentUser.uid)) {
@@ -624,66 +688,6 @@ class ChatRepository {
     } catch (e) {
       debugPrint('Error getting total unread count: $e');
       return 0;
-    }
-  }
-  
-  // Mark all messages in a chat as delivered
-  Future<void> markChatAsDelivered(String chatId) async {
-    try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return;
-      
-      // Get all undelivered messages in this chat
-      final querySnapshot = await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .where('messageStatus', isEqualTo: MessageStatus.sent.name)
-          .where('senderUID', isNotEqualTo: currentUser.uid) // Only mark others' messages
-          .get();
-          
-      if (querySnapshot.docs.isEmpty) return;
-      
-      // Get message IDs
-      final messageIds = querySnapshot.docs.map((doc) => doc.id).toList();
-      
-      // Update status in batch
-      await updateMessageStatuses(chatId, messageIds, MessageStatus.delivered);
-    } catch (e) {
-      debugPrint('Error marking chat as delivered: $e');
-    }
-  }
-
-  // Mark messages as delivered
-  Future<void> updateMessageStatuses(String chatId, List<String> messageIds, MessageStatus status) async {
-    if (messageIds.isEmpty) return;
-    
-    try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return;
-      
-      // Use a batch write for efficiency
-      WriteBatch batch = _firestore.batch();
-      
-      // Add each message update to the batch
-      for (final messageId in messageIds) {
-        final messageRef = _firestore
-            .collection(Constants.chats)
-            .doc(chatId)
-            .collection(Constants.messages)
-            .doc(messageId);
-            
-        batch.update(messageRef, {
-          'messageStatus': status.name,
-        });
-      }
-      
-      // Commit the batch
-      await batch.commit();
-      
-      debugPrint("Repository: Successfully updated status to ${status.name} for ${messageIds.length} messages");
-    } catch (e) {
-      debugPrint("Repository: Error updating message statuses: $e");
     }
   }
 }

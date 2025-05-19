@@ -279,7 +279,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
-                                        color: Colors.red,
+                                        color: modernTheme.primaryColor, // Use theme color instead of hardcoded red
                                         shape: totalUnreadCount > 99 
                                             ? BoxShape.rectangle 
                                             : BoxShape.circle,
@@ -368,7 +368,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
-                                        color: Colors.red,
+                                        color: modernTheme.primaryColor, // Use theme color instead of hardcoded red
                                         shape: badgeCount > 99 
                                             ? BoxShape.rectangle 
                                             : BoxShape.circle,

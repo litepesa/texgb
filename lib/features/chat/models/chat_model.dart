@@ -193,35 +193,47 @@ class ChatModel {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return false;
     
+    // If the current user is the last message sender, they have no unread messages
+    if (lastMessageSender == currentUser.uid) {
+      return false;
+    }
+    
     // Check if we have an unread count for the current user
     if (unreadCountByUser.containsKey(currentUser.uid)) {
       return unreadCountByUser[currentUser.uid]! > 0;
     }
     
     // Fall back to the traditional unreadCount if the last message is from someone else
-    if (lastMessageSender != currentUser.uid) {
+    if (lastMessageSender.isNotEmpty && lastMessageSender != currentUser.uid) {
       return unreadCount > 0;
     }
     
     return false;
   }
   
-  // Helper method to get the correct unread count for display
+  // IMPROVED: getDisplayUnreadCount only counts received messages, not sent ones
   int getDisplayUnreadCount() {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return 0;
     
-    // If the last message was sent by the current user, they should have 0 unread messages
+    // First priority: Check the lastMessageSender field
+    // If the current user sent the last message, they have no unread messages
     if (lastMessageSender == currentUser.uid) {
       return 0;
     }
     
-    // Try to get the unread count from unreadCountByUser first
+    // Second priority: Look in unreadCountByUser map if available
     if (unreadCountByUser.containsKey(currentUser.uid)) {
       return unreadCountByUser[currentUser.uid] ?? 0;
     }
     
-    // Fall back to the traditional unreadCount
-    return unreadCount;
+    // Check if lastMessageSender is set and is not the current user
+    if (lastMessageSender.isNotEmpty && lastMessageSender != currentUser.uid) {
+      // If last message is from someone else, use the unreadCount field
+      return unreadCount;
+    }
+    
+    // Default case - no unread messages
+    return 0;
   }
 }

@@ -131,15 +131,15 @@ class ChatsTab extends ConsumerWidget {
       timeText = DateFormat('dd/MM/yyyy').format(dateTime);
     }
     
-    // Get the correct unread count for display
+    // Get the correct unread count for display - only counts received messages
     final unreadCount = chat.getDisplayUnreadCount();
     
     // Check if this is the sender of the last message
     final bool isLastMessageSender = currentUser != null && 
                                     chat.lastMessageSender == currentUser.uid;
                                     
-    // If current user is the sender of the last message, unread count should be 0
-    final bool hasUnread = unreadCount > 0 && !isLastMessageSender;
+    // Determine if there are unread messages
+    final bool hasUnread = unreadCount > 0;
     
     return AnimatedContainer(
       duration: animationTheme.shortDuration,
@@ -236,14 +236,14 @@ class ChatsTab extends ConsumerWidget {
     );
   }
   
-  // New method to get the appropriate message status icon
+  // Helper method to get the appropriate message status icon
   IconData _getMessageStatusIcon() {
     // We don't have access to the actual message status from the chat list
     // So we'll just use a simple sent icon
     return Icons.done;
   }
   
-  // New method to get the appropriate message status color
+  // Helper method to get the appropriate message status color
   Color _getMessageStatusColor(BuildContext context) {
     return context.modernTheme.textSecondaryColor ?? Colors.grey;
   }
