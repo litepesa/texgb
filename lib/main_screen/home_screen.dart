@@ -252,6 +252,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         data: (chats) {
                           // Calculate total unread count from direct chats only
                           final directChats = chats.where((chat) => !chat.isGroup).toList();
+                          
+                          // Use the correct getDisplayUnreadCount method to get accurate counts
                           final totalUnreadCount = directChats.fold<int>(
                             0, 
                             (sum, chat) => sum + chat.getDisplayUnreadCount()

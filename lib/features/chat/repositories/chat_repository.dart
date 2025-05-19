@@ -344,7 +344,7 @@ class ChatRepository {
           'unreadCountByUser': unreadCountByUser,
         });
         
-        // For backward compatibility, update the main unreadCount field if needed
+        // For backward compatibility, also update the main unreadCount field if needed
         final lastMessageSender = chatDoc.data()?['lastMessageSender'] as String?;
         if (lastMessageSender != null && lastMessageSender != currentUser.uid) {
           await _firestore.collection(Constants.chats).doc(chatId).update({
