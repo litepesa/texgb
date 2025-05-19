@@ -19,17 +19,10 @@ class GroupTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.modernTheme;
     final isAdmin = ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId);
-    final isMember = ref.read(groupProvider.notifier).isCurrentUserMember(group.groupId);
-    final isCreator = ref.read(groupProvider.notifier).isCurrentUserCreator(group.groupId);
     
     // Calculate unread messages for this group
     final unreadCount = group.getUnreadCountForUser(ref.read(groupProvider.notifier).getCurrentUserUid() ?? '');
     final hasUnread = unreadCount > 0;
-    
-    // Check if the group is near capacity
-    final memberPercentage = group.getMemberCapacityPercentage();
-    final isNearCapacity = memberPercentage > 0.9; // 90% full
-    final isAtCapacity = group.hasReachedMemberLimit();
     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -38,12 +31,8 @@ class GroupTile extends ConsumerWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isAtCapacity 
-              ? Colors.red.withOpacity(0.5)
-              : (isNearCapacity 
-                  ? Colors.orange.withOpacity(0.5) 
-                  : theme.borderColor!.withOpacity(0.2)),
-          width: isAtCapacity || isNearCapacity ? 2 : 1,
+          color: theme.borderColor!.withOpacity(0.2),
+          width: 1,
         ),
       ),
       child: InkWell(
@@ -53,42 +42,20 @@ class GroupTile extends ConsumerWidget {
           padding: const EdgeInsets.all(12.0),
           child: Row(
             children: [
-              // Group image with membership indicator
-              Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: theme.primaryColor!.withOpacity(0.2),
-                    backgroundImage: group.groupImage.isNotEmpty
-                        ? NetworkImage(group.groupImage)
-                        : null,
-                    child: group.groupImage.isEmpty
-                        ? Icon(
-                            Icons.group,
-                            color: theme.primaryColor,
-                            size: 24,
-                          )
-                        : null,
-                  ),
-                  if (isMember)
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: theme.backgroundColor!, width: 1.5),
-                        ),
-                        child: Icon(
-                          Icons.check_circle,
-                          color: theme.primaryColor,
-                          size: 14,
-                        ),
-                      ),
-                    ),
-                ],
+              // Group image
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: theme.primaryColor!.withOpacity(0.2),
+                backgroundImage: group.groupImage.isNotEmpty
+                    ? NetworkImage(group.groupImage)
+                    : null,
+                child: group.groupImage.isEmpty
+                    ? Icon(
+                        Icons.group,
+                        color: theme.primaryColor,
+                        size: 24,
+                      )
+                    : null,
               ),
               const SizedBox(width: 16),
               // Group info
@@ -110,7 +77,6 @@ class GroupTile extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        // Admin badge
                         if (isAdmin)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -122,7 +88,7 @@ class GroupTile extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              isCreator ? 'Creator' : 'Admin',
+                              'Admin',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: theme.primaryColor,
@@ -150,35 +116,16 @@ class GroupTile extends ConsumerWidget {
                         Icon(
                           Icons.people,
                           size: 14,
-                          color: isAtCapacity 
-                              ? Colors.red
-                              : (isNearCapacity 
-                                  ? Colors.orange 
-                                  : theme.textTertiaryColor),
+                          color: theme.textTertiaryColor,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${group.membersUIDs.length}/${GroupModel.MAX_MEMBERS}',
+                          '${group.membersUIDs.length} members',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isAtCapacity 
-                                ? Colors.red
-                                : (isNearCapacity 
-                                    ? Colors.orange 
-                                    : theme.textTertiaryColor),
-                            fontWeight: isNearCapacity ? FontWeight.bold : FontWeight.normal,
+                            color: theme.textTertiaryColor,
                           ),
                         ),
-                        // Show capacity indicator if near limit
-                        if (isNearCapacity)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4.0),
-                            child: Icon(
-                              isAtCapacity ? Icons.error_outline : Icons.warning_amber_rounded,
-                              size: 14,
-                              color: isAtCapacity ? Colors.red : Colors.orange,
-                            ),
-                          ),
                         const Spacer(),
                         // Last message time or creation date
                         Text(
@@ -224,30 +171,6 @@ class GroupTile extends ConsumerWidget {
                         ],
                       ],
                     ),
-                    
-                    // Group capacity progress bar for groups near capacity
-                    if (memberPercentage > 0.7) // Show progress bar when over 70% full
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6.0),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 4,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: LinearProgressIndicator(
-                              value: memberPercentage,
-                              backgroundColor: theme.surfaceVariantColor?.withOpacity(0.5),
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                isAtCapacity 
-                                    ? Colors.red 
-                                    : (isNearCapacity 
-                                        ? Colors.orange 
-                                        : theme.primaryColor!),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),

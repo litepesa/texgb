@@ -99,11 +99,6 @@ class GroupNotifier extends _$GroupNotifier {
     ));
 
     try {
-      // Check member limit
-      if (membersUIDs.length > GroupModel.MAX_MEMBERS) {
-        throw Exception('Group cannot have more than ${GroupModel.MAX_MEMBERS} members');
-      }
-      
       await _groupRepository.createGroup(
         groupName: groupName,
         groupDescription: groupDescription,
@@ -168,11 +163,6 @@ class GroupNotifier extends _$GroupNotifier {
     ));
 
     try {
-      // Enforce member limit
-      if (updatedGroup.membersUIDs.length > GroupModel.MAX_MEMBERS) {
-        throw Exception('Group cannot have more than ${GroupModel.MAX_MEMBERS} members');
-      }
-      
       await _groupRepository.updateGroup(updatedGroup, newGroupImage);
       
       state = AsyncValue.data(state.value!.copyWith(
@@ -198,53 +188,10 @@ class GroupNotifier extends _$GroupNotifier {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
     
-    // Check if user is a member
-    if (!group.isMember(currentUser.uid)) {
-      // Show dialog to ask user to join the group
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Join Group'),
-          content: const Text('You need to be a member to view and send messages in this group. Would you like to join?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context); // Close dialog
-                try {
-                  await joinGroup(group.groupId);
-                  if (context.mounted) {
-                    // Now navigate to the chat since we've joined
-                    _navigateToGroupChat(context, group);
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: ${e.toString()}')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Join Group'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-    
     // Reset unread counter in the store when opening the chat
     _groupRepository.resetGroupUnreadCounter(group.groupId, currentUser.uid);
     
     // Navigate to the dedicated group chat screen
-    _navigateToGroupChat(context, group);
-  }
-  
-  // Helper to navigate to the group chat screen
-  void _navigateToGroupChat(BuildContext context, GroupModel group) {
     Navigator.pushNamed(
       context,
       Constants.groupChatScreen,
@@ -273,73 +220,6 @@ class GroupNotifier extends _$GroupNotifier {
         isLoading: false,
         error: e.toString(),
       ));
-    }
-  }
-  
-  // Join a group by code
-  Future<GroupModel> joinGroupByCode(String joinCode) async {
-    state = AsyncValue.data(state.value!.copyWith(
-      isLoading: true,
-      error: null,
-    ));
-
-    try {
-      final currentUser = ref.read(currentUserProvider);
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
-      }
-      
-      // Find the group with this code
-      final querySnapshot = await ref.read(groupRepositoryProvider)._firestore
-          .collection(Constants.groups)
-          .get();
-      
-      // Filter groups that start with this code (first 8 chars of groupId)
-      final matchingGroups = querySnapshot.docs.where((doc) {
-        final groupId = doc.id;
-        if (groupId.length < 8) return false;
-        final codePrefix = groupId.substring(0, 8);
-        return codePrefix == joinCode;
-      }).toList();
-      
-      if (matchingGroups.isEmpty) {
-        throw Exception('Invalid group code or group does not exist');
-      }
-      
-      // Get the first matching group
-      final groupDoc = matchingGroups.first;
-      final groupId = groupDoc.id;
-      
-      // Get group model
-      final group = GroupModel.fromMap(groupDoc.data());
-      
-      // Check if user is already a member
-      if (group.isMember(currentUser.uid)) {
-        state = AsyncValue.data(state.value!.copyWith(
-          isLoading: false,
-        ));
-        return group; // Return the group even if they're already a member
-      }
-      
-      // Check if the group has reached member limit
-      if (group.hasReachedMemberLimit()) {
-        throw Exception('This group has reached its maximum member limit of ${GroupModel.MAX_MEMBERS}');
-      }
-      
-      // Join the group
-      await _groupRepository.joinGroup(groupId);
-      
-      state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-      ));
-      
-      return group;
-    } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      ));
-      rethrow;
     }
   }
 
@@ -382,14 +262,6 @@ class GroupNotifier extends _$GroupNotifier {
     ));
 
     try {
-      // First check if approving would exceed the member limit
-      final group = state.value!.currentGroup;
-      if (group != null && 
-          group.groupId == groupId && 
-          group.membersUIDs.length >= GroupModel.MAX_MEMBERS) {
-        throw Exception('Group has reached the maximum limit of ${GroupModel.MAX_MEMBERS} members');
-      }
-      
       await _groupRepository.approveJoinRequest(groupId, userId);
       
       // Refresh group details if we're viewing this group
@@ -530,62 +402,6 @@ class GroupNotifier extends _$GroupNotifier {
       return [];
     }
   }
-  
-  // Generate a shareable group link
-  String getGroupShareableLink(String groupId) {
-    // Get the group
-    final group = state.value?.userGroups.firstWhere(
-      (g) => g.groupId == groupId, 
-      orElse: () => state.value?.currentGroup ?? GroupModel(
-        groupId: groupId,
-        groupName: '',
-        groupDescription: '',
-        groupImage: '',
-        creatorUID: '',
-        isPrivate: false,
-        editSettings: false,
-        approveMembers: false,
-        lockMessages: false,
-        requestToJoin: false,
-        membersUIDs: [],
-        adminsUIDs: [],
-        awaitingApprovalUIDs: [],
-        createdAt: '',
-      )
-    );
-    
-    if (group == null) return '';
-    
-    return group.getShareableLink();
-  }
-  
-  // Get a joining code for a group
-  String getGroupJoiningCode(String groupId) {
-    // Get the group
-    final group = state.value?.userGroups.firstWhere(
-      (g) => g.groupId == groupId, 
-      orElse: () => state.value?.currentGroup ?? GroupModel(
-        groupId: groupId,
-        groupName: '',
-        groupDescription: '',
-        groupImage: '',
-        creatorUID: '',
-        isPrivate: false,
-        editSettings: false,
-        approveMembers: false,
-        lockMessages: false,
-        requestToJoin: false,
-        membersUIDs: [],
-        adminsUIDs: [],
-        awaitingApprovalUIDs: [],
-        createdAt: '',
-      )
-    );
-    
-    if (group == null) return '';
-    
-    return group.getJoiningCode();
-  }
 
   // Check if current user is admin of given group
   bool isCurrentUserAdmin(String groupId) {
@@ -645,66 +461,6 @@ class GroupNotifier extends _$GroupNotifier {
     if (group == null) return false;
     
     return group.isCreator(currentUser.uid);
-  }
-  
-  // Check if current user is a member of the given group
-  bool isCurrentUserMember(String groupId) {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return false;
-    
-    final group = state.value?.userGroups.firstWhere(
-      (group) => group.groupId == groupId,
-      orElse: () => state.value?.currentGroup ?? GroupModel(
-        groupId: '',
-        groupName: '',
-        groupDescription: '',
-        groupImage: '',
-        creatorUID: '',
-        isPrivate: false,
-        editSettings: false,
-        approveMembers: false,
-        lockMessages: false,
-        requestToJoin: false,
-        membersUIDs: [],
-        adminsUIDs: [],
-        awaitingApprovalUIDs: [],
-        createdAt: '',
-      ),
-    );
-    
-    if (group == null) return false;
-    
-    return group.isMember(currentUser.uid);
-  }
-  
-  // Check if current user can send messages to the group
-  bool canCurrentUserSendMessages(String groupId) {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return false;
-    
-    final group = state.value?.userGroups.firstWhere(
-      (group) => group.groupId == groupId,
-      orElse: () => state.value?.currentGroup ?? GroupModel(
-        groupId: '',
-        groupName: '',
-        groupDescription: '',
-        groupImage: '',
-        creatorUID: '',
-        isPrivate: false,
-        editSettings: false,
-        approveMembers: false,
-        lockMessages: false,
-        requestToJoin: false,
-        membersUIDs: [],
-        adminsUIDs: [],
-        awaitingApprovalUIDs: [],
-        createdAt: '',
-      ),
-    );
-    
-    if (group == null) return false;
-    
-    return group.canSendMessages(currentUser.uid);
   }
 
   // Calculate total unread messages for groups

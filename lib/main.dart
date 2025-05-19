@@ -26,7 +26,7 @@ import 'package:textgb/features/groups/screens/group_information_screen.dart';
 import 'package:textgb/features/groups/screens/group_settings_screen.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/groups/screens/pending_requests_screen.dart';
-import 'package:textgb/features/groups/screens/join_group_by_code_screen.dart'; // NEW: Import the JoinGroupByCodeScreen
+//import 'package:textgb/features/groups/screens/join_group_by_code_screen.dart'; // NEW: Import the JoinGroupByCodeScreen
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
@@ -154,33 +154,33 @@ class AppRoot extends ConsumerWidget {
           
           // Group routes
           Constants.groupsScreen: (context) => const GroupsTab(),
-          Constants.createGroupScreen: (context) => const CreateGroupScreen(),
-          Constants.groupInformationScreen: (context) {
-            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
-            return GroupInformationScreen(group: group);
-          },
-          Constants.groupSettingsScreen: (context) {
-            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
-            return GroupSettingsScreen(group: group);
-          },
-          Constants.pendingRequestsScreen: (context) {
-            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
-            return PendingRequestsScreen(group: group);
-          },
-          Constants.groupChatScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-            return GroupChatScreen(
-              groupId: args['groupId'] as String,
-              group: args['group'] as GroupModel,
-            );
-          },
+Constants.createGroupScreen: (context) => const CreateGroupScreen(),
+Constants.groupInformationScreen: (context) {
+  final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
+  return GroupInformationScreen(group: group);
+},
+Constants.groupSettingsScreen: (context) {
+  final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
+  return GroupSettingsScreen(group: group);
+},
+Constants.pendingRequestsScreen: (context) {
+  final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
+  return PendingRequestsScreen(group: group);
+},
+Constants.groupChatScreen: (context) {
+  final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+  return GroupChatScreen(
+    groupId: args['groupId'] as String,
+    group: args['group'] as GroupModel,
+  );
+},
           // NEW: Join Group by Code Screen route
-          Constants.joinGroupByCodeScreen: (context) {
+          /*Constants.joinGroupByCodeScreen: (context) {
             // Check if we have arguments to pre-fill the code
             final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
             final code = args?['code'] as String?;
             return JoinGroupByCodeScreen(initialCode: code);
-          },
+          },*/
           
           // Status routes
           Constants.statusOverviewScreen: (context) => const StatusOverviewScreen(),

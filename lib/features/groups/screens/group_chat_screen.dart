@@ -1,7 +1,6 @@
 // lib/features/groups/screens/group_chat_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -38,9 +37,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isAttachmentVisible = false;
-  bool _isLoading = true;
-  bool _isNonMember = false;
-  bool _canSendMessages = true;
 
   @override
   void initState() {
@@ -51,7 +47,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     
     // Initialize group chat when the screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _verifyMembership();
+      ref.read(groupProvider.notifier).getGroupDetails(widget.groupId);
+      ref.read(chatProvider.notifier).openGroupChat(widget.groupId, []);
     });
   }
 
@@ -81,115 +78,34 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     // Handle app lifecycle changes
     if (state == AppLifecycleState.resumed) {
       // When app is resumed, reset unread counter for current chat
-      if (_isNonMember) return; // Skip if not a member
       ref.read(chatProvider.notifier).openGroupChat(widget.groupId, []);
-    }
-  }
-
-  // Verify user's membership before showing chat
-  Future<void> _verifyMembership() async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) {
-      if (mounted) {
-        showSnackBar(context, 'Authentication required');
-        Navigator.pop(context);
-      }
-      return;
-    }
-    
-    try {
-      // Fetch latest group data
-      await ref.read(groupProvider.notifier).getGroupDetails(widget.groupId);
-      
-      // Check if user is a member
-      final groupState = ref.read(groupProvider);
-      final group = groupState.valueOrNull?.currentGroup ?? widget.group;
-      
-      final isMember = group.isMember(currentUser.uid);
-      final canSend = group.canSendMessages(currentUser.uid);
-      
-      if (!isMember) {
-        if (mounted) {
-          setState(() {
-            _isNonMember = true;
-            _canSendMessages = false;
-            _isLoading = false;
-          });
-        }
-        return;
-      }
-      
-      setState(() {
-        _canSendMessages = canSend;
-      });
-      
-      // If membership verified, proceed with chat initialization
-      ref.read(chatProvider.notifier).openGroupChat(widget.groupId, []);
-      
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Error: $e');
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
   void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
-    
-    if (!_canSendMessages) {
-      showSnackBar(context, 'You do not have permission to send messages in this group');
-      return;
-    }
-    
-    // Use sendGroupMessage instead of sendTextMessage for group chats
-    ref.read(chatProvider.notifier).sendGroupMessage(
-      message: _messageController.text,
-      messageType: MessageEnum.text,
-    ).then((_) {
+    if (_messageController.text.trim().isNotEmpty) {
+      ref.read(chatProvider.notifier).sendTextMessage(_messageController.text);
       _messageController.clear();
-    }).catchError((e) {
-      showSnackBar(context, 'Error sending message: $e');
-    });
+    }
   }
 
   void _toggleAttachmentMenu() {
-    if (!_canSendMessages) {
-      showSnackBar(context, 'You do not have permission to send messages in this group');
-      return;
-    }
-    
     setState(() {
       _isAttachmentVisible = !_isAttachmentVisible;
     });
   }
 
   Future<void> _pickImage({required bool fromCamera}) async {
-    if (!_canSendMessages) {
-      showSnackBar(context, 'You do not have permission to send messages in this group');
-      return;
-    }
-    
     final image = await pickImage(
       fromCamera: fromCamera,
       onFail: (error) => showSnackBar(context, error),
     );
 
     if (image != null) {
-      // Use sendGroupMediaMessage for group chats
-      ref.read(chatProvider.notifier).sendGroupMediaMessage(
+      ref.read(chatProvider.notifier).sendMediaMessage(
         file: image,
         messageType: MessageEnum.image,
-      ).catchError((e) {
-        showSnackBar(context, 'Error sending image: $e');
-      });
+      );
     }
     
     setState(() {
@@ -198,23 +114,15 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
   }
 
   Future<void> _pickVideo({required bool fromCamera}) async {
-    if (!_canSendMessages) {
-      showSnackBar(context, 'You do not have permission to send messages in this group');
-      return;
-    }
-    
     final video = fromCamera 
         ? await pickVideoFromCamera(onFail: (error) => showSnackBar(context, error))
         : await pickVideo(onFail: (error) => showSnackBar(context, error));
 
     if (video != null) {
-      // Use sendGroupMediaMessage for group chats
-      ref.read(chatProvider.notifier).sendGroupMediaMessage(
+      ref.read(chatProvider.notifier).sendMediaMessage(
         file: video,
         messageType: MessageEnum.video,
-      ).catchError((e) {
-        showSnackBar(context, 'Error sending video: $e');
-      });
+      );
     }
     
     setState(() {
@@ -255,8 +163,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
   
   // Handle message long press to show options
   void _showMessageOptions(MessageModel message) {
-    if (_isNonMember) return; // Non-members can't interact with messages
-    
     final chatNotifier = ref.read(chatProvider.notifier);
     final currentUser = ref.read(currentUserProvider);
     
@@ -400,49 +306,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
   
   // Handle swipe to reply
   void _handleSwipeToReply(MessageModel message) {
-    if (_isNonMember) return; // Non-members can't reply
     ref.read(chatProvider.notifier).setReplyingTo(message);
-  }
-  
-  // Handle joining the group
-  void _handleJoinGroup() async {
-    try {
-      if (_isLoading) return;
-      
-      setState(() {
-        _isLoading = true;
-      });
-      
-      await ref.read(groupProvider.notifier).joinGroup(widget.groupId);
-      
-      if (mounted) {
-        final group = ref.read(groupProvider).valueOrNull?.currentGroup ?? widget.group;
-        
-        if (group.isPrivate && group.approveMembers) {
-          setState(() {
-            _isLoading = false;
-          });
-          showSnackBar(context, 'Join request sent. Waiting for admin approval.');
-        } else {
-          // Successfully joined, refresh membership status
-          await _verifyMembership();
-          
-          if (mounted) {
-            showSnackBar(context, 'You have joined the group successfully!');
-            setState(() {
-              _isNonMember = false;
-            });
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        showSnackBar(context, 'Error joining group: $e');
-      }
-    }
   }
 
   @override
@@ -455,293 +319,117 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     final group = groupState.valueOrNull?.currentGroup ?? widget.group;
     final groupMembers = groupState.valueOrNull?.currentGroupMembers ?? [];
     
-    // Check current user status in the group
-    final currentUser = ref.read(currentUserProvider);
-    final isMember = currentUser != null && group.isMember(currentUser.uid);
-    final canSend = currentUser != null && 
-                  group.isMember(currentUser.uid) &&
-                  (!group.lockMessages || group.isAdmin(currentUser.uid));
-    
-    // Update state variables if group status has changed
-    if (isMember != !_isNonMember || canSend != _canSendMessages) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _isNonMember = !isMember;
-            _canSendMessages = canSend;
-          });
-        }
-      });
-    }
-    
     // Watch messages stream for current group
-    final messagesStream = _isNonMember 
-        ? const AsyncValue<List<MessageModel>>.data([]) // Empty if not a member
-        : ref.watch(messageStreamProvider(widget.groupId));
+    final messagesStream = ref.watch(messageStreamProvider(widget.groupId));
     final chatState = ref.watch(chatProvider);
     
     // Check if we're editing a message
     final bool isEditing = chatState.valueOrNull?.editingMessage != null;
-    
-    // Check if the group is at capacity
-    final isAtCapacity = group.hasReachedMemberLimit();
 
     return Scaffold(
       backgroundColor: chatTheme.chatBackgroundColor,
       appBar: _buildGroupAppBar(context, group),
-      body: _isLoading 
-          ? Center(child: CircularProgressIndicator(color: modernTheme.primaryColor))
-          : Column(
+      body: Column(
         children: [
-          // Non-member warning banner
-          if (_isNonMember)
-            Container(
-              color: Colors.red.shade100,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning, color: Colors.red),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isAtCapacity
-                          ? 'This group has reached its maximum member limit of ${GroupModel.MAX_MEMBERS}.'
-                          : 'You are not a member of this group. Join the group to send messages.',
-                      style: TextStyle(color: Colors.red.shade900),
-                    ),
-                  ),
-                  if (!isAtCapacity)
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _handleJoinGroup,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade800,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text('Join'),
-                    ),
-                ],
-              ),
-            ),
-            
-          // Admin-only messaging warning
-          if (isMember && !canSend && group.lockMessages)
-            Container(
-              color: Colors.amber.shade100,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.lock, color: Colors.amber),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Only admins can send messages in this group.',
-                      style: TextStyle(color: Colors.amber.shade900),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          
           // Editing indicator
-          if (isEditing && isMember)
+          if (isEditing)
             _buildEditingContainer(chatState.valueOrNull!.editingMessage!),
           
           // Reply UI if replying to a message
-          if (!isEditing && chatState.valueOrNull?.replyingTo != null && isMember)
+          if (!isEditing && chatState.valueOrNull?.replyingTo != null)
             _buildReplyContainer(chatState.valueOrNull!.replyingTo!),
 
           // Messages list
           Expanded(
-            child: _isNonMember
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+            child: messagesStream.when(
+              data: (messages) {
+                if (messages.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Send a message to start the group chat',
+                      style: TextStyle(
+                        color: modernTheme.textSecondaryColor,
+                      ),
+                    ),
+                  );
+                }
+                
+                return ListView.builder(
+                  controller: _scrollController,
+                  reverse: true,
+                  itemCount: messages.length,
+                  padding: const EdgeInsets.only(bottom: 8),
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    
+                    // Get sender info for display
+                    final messageSender = groupMembers.firstWhere(
+                      (member) => member.uid == message.senderUID,
+                      orElse: () => UserModel(
+                        uid: message.senderUID,
+                        name: message.senderName,
+                        phoneNumber: '',
+                        image: message.senderImage,
+                        aboutMe: '',
+                        lastSeen: '',
+                        token: '',
+                        createdAt: '',
+                        contactsUIDs: [],
+                        blockedUIDs: [],
+                      ),
+                    );
+                    
+                    // Mark message as delivered if it's received and not already delivered
+                    final currentUser = ref.read(currentUserProvider);
+                    if (currentUser != null && 
+                        message.senderUID != currentUser.uid && 
+                        message.messageStatus == MessageStatus.sent) {
+                      ref.read(chatProvider.notifier).markMessageAsDelivered(message.messageId);
+                    }
+                    
+                    // Add date header if needed
+                    final showDateHeader = _shouldShowDateHeader(messages, index);
+                    
+                    return Column(
                       children: [
-                        Icon(
-                          Icons.lock,
-                          size: 64,
-                          color: modernTheme.textSecondaryColor,
+                        if (showDateHeader) _buildDateHeader(message),
+                        MessageBubble(
+                          message: message,
+                          contact: messageSender,
+                          onTap: () => _handleMessageTap(message),
+                          onLongPress: () => _showMessageOptions(message),
+                          onSwipe: _handleSwipeToReply,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'This group is private',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: modernTheme.textColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                          child: Text(
-                            isAtCapacity
-                                ? 'This group has reached its maximum member limit of ${GroupModel.MAX_MEMBERS}.'
-                                : 'You need to join this group to view messages',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        if (!isAtCapacity)
-                          ElevatedButton.icon(
-                            onPressed: _isLoading ? null : _handleJoinGroup,
-                            icon: const Icon(Icons.group_add),
-                            label: Text(_isLoading ? 'Joining...' : 'Join Group'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: modernTheme.primaryColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                            ),
-                          ),
                       ],
-                    ),
-                  )
-                : messagesStream.when(
-                    data: (messages) {
-                      if (messages.isEmpty) {
-                        return Center(
-                          child: Text(
-                            'Send a message to start the group chat',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                            ),
-                          ),
-                        );
-                      }
-                      
-                      return ListView.builder(
-                        controller: _scrollController,
-                        reverse: true,
-                        itemCount: messages.length,
-                        padding: const EdgeInsets.only(bottom: 8),
-                        itemBuilder: (context, index) {
-                          final message = messages[index];
-                          
-                          // Get sender info for display
-                          final messageSender = groupMembers.firstWhere(
-                            (member) => member.uid == message.senderUID,
-                            orElse: () => UserModel(
-                              uid: message.senderUID,
-                              name: message.senderName,
-                              phoneNumber: '',
-                              image: message.senderImage,
-                              aboutMe: '',
-                              lastSeen: '',
-                              token: '',
-                              createdAt: '',
-                              contactsUIDs: [],
-                              blockedUIDs: [],
-                            ),
-                          );
-                          
-                          // Mark message as delivered if it's received and not already delivered
-                          final currentUser = ref.read(currentUserProvider);
-                          if (currentUser != null && 
-                              message.senderUID != currentUser.uid && 
-                              message.messageStatus == MessageStatus.sent) {
-                            ref.read(chatProvider.notifier).markMessageAsDelivered(message.messageId);
-                          }
-                          
-                          // Add date header if needed
-                          final showDateHeader = _shouldShowDateHeader(messages, index);
-                          
-                          return Column(
-                            children: [
-                              if (showDateHeader) _buildDateHeader(message),
-                              MessageBubble(
-                                message: message,
-                                contact: messageSender,
-                                onTap: () => _handleMessageTap(message),
-                                onLongPress: () => _showMessageOptions(message),
-                                onSwipe: _handleSwipeToReply,
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                    loading: () => const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                    error: (error, stack) => Center(
-                      child: Text('Error loading messages: $error'),
-                    ),
-                  ),
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              error: (error, stack) => Center(
+                child: Text('Error loading messages: $error'),
+              ),
+            ),
           ),
 
           // Attachment menu
-          if (_isAttachmentVisible && !_isNonMember && canSend) _buildAttachmentMenu(),
+          if (_isAttachmentVisible) _buildAttachmentMenu(),
 
           // Chat input
-          if (_isNonMember)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton.icon(
-                onPressed: isAtCapacity ? null : _handleJoinGroup,
-                icon: Icon(isAtCapacity ? Icons.error_outline : Icons.group_add),
-                label: Text(isAtCapacity 
-                    ? 'Group Full (${GroupModel.MAX_MEMBERS} Members)' 
-                    : 'Join Group to Send Messages'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isAtCapacity ? Colors.grey : modernTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
-                  disabledBackgroundColor: Colors.grey,
-                  disabledForegroundColor: Colors.white,
-                ),
-              ),
-            )
-          else if (!canSend)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.lock, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Only admins can send messages in this group',
-                        style: TextStyle(color: Colors.grey.shade700),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            ChatInput(
-              controller: _messageController,
-              onSend: _sendMessage,
-              onAttachmentTap: _toggleAttachmentMenu,
-              isEditing: isEditing,
-              onCancelEditing: isEditing 
-                  ? () {
-                      ref.read(chatProvider.notifier).cancelEditing();
-                      _messageController.clear();
-                    }
-                  : null,
-            ),
+          ChatInput(
+            controller: _messageController,
+            onSend: _sendMessage,
+            onAttachmentTap: _toggleAttachmentMenu,
+            isEditing: isEditing,
+            onCancelEditing: isEditing 
+                ? () {
+                    ref.read(chatProvider.notifier).cancelEditing();
+                    _messageController.clear();
+                  }
+                : null,
+          ),
         ],
       ),
     );
@@ -750,7 +438,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
   PreferredSizeWidget _buildGroupAppBar(BuildContext context, GroupModel group) {
     final modernTheme = context.modernTheme;
     final isAdmin = ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId);
-    final isMember = !_isNonMember;
     
     return AppBar(
       elevation: 0,
@@ -767,52 +454,19 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
         },
         child: Row(
           children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  backgroundImage: group.groupImage.isNotEmpty
-                      ? NetworkImage(group.groupImage)
-                      : null,
-                  backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
-                  radius: 18,
-                  child: group.groupImage.isEmpty
-                      ? Icon(
-                          Icons.group,
-                          color: modernTheme.primaryColor,
-                          size: 18,
-                        )
-                      : null,
-                ),
-                // Member count indicator for large groups
-                if (group.membersUIDs.length > 50)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: group.hasReachedMemberLimit()
-                            ? Colors.red
-                            : (group.isApproachingMemberLimit()
-                                ? Colors.orange
-                                : Colors.green),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: modernTheme.backgroundColor!,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Text(
-                        '${group.membersUIDs.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            CircleAvatar(
+              backgroundImage: group.groupImage.isNotEmpty
+                  ? NetworkImage(group.groupImage)
+                  : null,
+              backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
+              radius: 18,
+              child: group.groupImage.isEmpty
+                  ? Icon(
+                      Icons.group,
+                      color: modernTheme.primaryColor,
+                      size: 18,
+                    )
+                  : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -824,14 +478,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    '${group.membersUIDs.length}/${GroupModel.MAX_MEMBERS} members',
+                    '${group.membersUIDs.length} members',
                     style: TextStyle(
                       fontSize: 12,
-                      color: group.hasReachedMemberLimit()
-                          ? Colors.red
-                          : (group.isApproachingMemberLimit()
-                              ? Colors.orange
-                              : modernTheme.textSecondaryColor),
+                      color: modernTheme.textSecondaryColor,
                     ),
                   ),
                 ],
@@ -841,24 +491,21 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
         ),
       ),
       actions: [
-        // Only show these actions for members
-        if (isMember) ...[
-          // Video call button
-          IconButton(
-            icon: const Icon(Icons.videocam),
-            onPressed: () {
-              showSnackBar(context, 'Group video call feature coming soon');
-            },
-          ),
-          // Audio call button
-          IconButton(
-            icon: const Icon(Icons.call),
-            onPressed: () {
-              showSnackBar(context, 'Group audio call feature coming soon');
-            },
-          ),
-        ],
-        // Group settings button (always available)
+        // Video call button
+        IconButton(
+          icon: const Icon(Icons.videocam),
+          onPressed: () {
+            showSnackBar(context, 'Group video call feature coming soon');
+          },
+        ),
+        // Audio call button
+        IconButton(
+          icon: const Icon(Icons.call),
+          onPressed: () {
+            showSnackBar(context, 'Group audio call feature coming soon');
+          },
+        ),
+        // Group settings button
         IconButton(
           icon: const Icon(Icons.more_vert),
           onPressed: () {
@@ -895,31 +542,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
                       ),
                     if (group.awaitingApprovalUIDs.isNotEmpty && isAdmin)
                       ListTile(
-                        leading: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            const Icon(Icons.person_add),
-                            Positioned(
-                              right: -8,
-                              top: -8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '${group.awaitingApprovalUIDs.length}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        leading: const Icon(Icons.person_add),
                         title: Text(
                           'Pending Requests (${group.awaitingApprovalUIDs.length})',
                         ),
@@ -932,34 +555,23 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
                           );
                         },
                       ),
-                    if (isMember)
-                      ListTile(
-                        leading: const Icon(Icons.search),
-                        title: const Text('Search Messages'),
-                        onTap: () {
-                          Navigator.pop(context);
-                          // TODO: Implement search
-                          showSnackBar(context, 'Message search coming soon');
-                        },
-                      ),
-                    if (isMember)
-                      ListTile(
-                        leading: const Icon(Icons.share),
-                        title: const Text('Share Group'),
-                        onTap: () {
-                          Navigator.pop(context);
-                          _shareGroup(group);
-                        },
-                      ),
-                    if (isMember)
-                      ListTile(
-                        leading: const Icon(Icons.exit_to_app, color: Colors.red),
-                        title: const Text('Leave Group', style: TextStyle(color: Colors.red)),
-                        onTap: () {
-                          Navigator.pop(context);
-                          _showLeaveGroupDialog();
-                        },
-                      ),
+                    ListTile(
+                      leading: const Icon(Icons.search),
+                      title: const Text('Search Messages'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        // TODO: Implement search
+                        showSnackBar(context, 'Message search coming soon');
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.exit_to_app, color: Colors.red),
+                      title: const Text('Leave Group', style: TextStyle(color: Colors.red)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showLeaveGroupDialog();
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -967,113 +579,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
           },
         ),
       ],
-    );
-  }
-  
-  void _shareGroup(GroupModel group) {
-    try {
-      final joinCode = group.getJoiningCode();
-      
-      // Check if group is near member limit before sharing
-      final remainingSlots = GroupModel.MAX_MEMBERS - group.membersUIDs.length;
-      if (remainingSlots <= 10) {
-        // Show warning dialog first
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Group Nearly Full'),
-            content: Text(
-              'This group has only $remainingSlots ${remainingSlots == 1 ? 'slot' : 'slots'} '
-              'remaining out of ${GroupModel.MAX_MEMBERS}. Do you still want to share the invite link?'
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showShareDialog(group, joinCode);
-                },
-                child: Text('Continue Sharing'),
-              ),
-            ],
-          ),
-        );
-      } else {
-        _showShareDialog(group, joinCode);
-      }
-    } catch (e) {
-      showSnackBar(context, 'Error sharing group: $e');
-    }
-  }
-  
-  void _showShareDialog(GroupModel group, String joinCode) {
-    final shareText = 'Join my group "${group.groupName}" on TextGB! Use this code: $joinCode';
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Share Group'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Share this group code with friends:'),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-              decoration: BoxDecoration(
-                color: context.modernTheme.surfaceVariantColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    joinCode,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.copy),
-                    onPressed: () async {
-                      // Copy to clipboard
-                      await Clipboard.setData(ClipboardData(text: joinCode));
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        showSnackBar(context, 'Group code copied to clipboard');
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          TextButton(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: shareText));
-              if (context.mounted) {
-                Navigator.pop(context);
-                showSnackBar(context, 'Share message copied to clipboard');
-              }
-            },
-            child: const Text('Copy Message'),
-          ),
-        ],
-      ),
     );
   }
   
