@@ -11,6 +11,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
+import 'package:textgb/services/api_service.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 part 'authentication_provider.g.dart';
@@ -613,6 +614,50 @@ Future<UserModel?> getUserDataById(String userId) async {
   } catch (e) {
     debugPrint('Error getting user by ID: $e');
     return null;
+  }
+}
+
+  Future<void> verifyAndRegisterUser({
+  required UserModel userModel,
+  required File? fileImage,
+  required Function onSuccess,
+  required Function onFail,
+}) async {
+  try {
+    // First check if user exists in our backend
+    final result = await ApiService.verifyToken();
+    
+    if (result['exists'] == true) {
+      // User already exists, get data
+      final userData = result['data'];
+      final user = UserModel.fromMap(userData);
+      
+      state = AsyncValue.data(AuthenticationState(
+        isSuccessful: true,
+        userModel: user,
+        uid: user.uid,
+      ));
+      
+      onSuccess();
+    } else {
+      // User does not exist, register
+      final user = await ApiService.registerUser(
+        name: userModel.name,
+        aboutMe: userModel.aboutMe,
+        imageFile: fileImage,
+      );
+      
+      state = AsyncValue.data(AuthenticationState(
+        isSuccessful: true,
+        userModel: user,
+        uid: user.uid,
+      ));
+      
+      onSuccess();
+    }
+  } catch (e) {
+    state = AsyncValue.error(e, StackTrace.current);
+    onFail(e.toString());
   }
 }
   
