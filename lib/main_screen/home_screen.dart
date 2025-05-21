@@ -452,6 +452,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     
     // Get current user for profile image
     final user = ref.watch(currentUserProvider);
+    // Get user's channel data
+    final userChannel = ref.watch(channelsProvider).userChannel;
     
     // AppBar with app name on left and profile icon on right
     return AppBar(
@@ -481,6 +483,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       actions: [
+        // Camera icon - only shown if user has a channel
+        if (userChannel != null)
+          IconButton(
+            icon: Icon(
+              CupertinoIcons.camera,
+              color: modernTheme.textColor,
+            ),
+            onPressed: () {
+              // Navigate to MyChannelScreen
+              Navigator.pushNamed(context, Constants.myChannelScreen);
+            },
+          ),
+        
         // WiFi icon for all tabs
         IconButton(
           icon: Icon(

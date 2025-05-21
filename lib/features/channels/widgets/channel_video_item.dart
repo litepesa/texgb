@@ -1,3 +1,6 @@
+// lib/features/channels/widgets/channel_video_item.dart
+// Updated with preloaded controller support and removed profile button
+
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -10,11 +13,16 @@ import 'package:carousel_slider/carousel_slider.dart';
 class ChannelVideoItem extends ConsumerStatefulWidget {
   final ChannelVideoModel video;
   final bool isActive;
+  final Function(VideoPlayerController)? onVideoControllerReady;
+  // Add support for preloaded controller
+  final VideoPlayerController? preloadedController;
   
   const ChannelVideoItem({
     Key? key,
     required this.video,
     required this.isActive,
+    this.onVideoControllerReady,
+    this.preloadedController,
   }) : super(key: key);
 
   @override
@@ -50,6 +58,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem> {
         setState(() {
           _isPlaying = true;
         });
+        
+        // Notify parent that controller is ready if it wasn't already
+        if (widget.onVideoControllerReady != null && _videoPlayerController != null) {
+          widget.onVideoControllerReady!(_videoPlayerController!);
+        }
       } else if (!widget.isActive && _isInitialized && _isPlaying) {
         _videoPlayerController?.pause();
         setState(() {
@@ -60,9 +73,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem> {
     
     // Handle video URL changes
     if (widget.video.videoUrl != oldWidget.video.videoUrl ||
-        widget.video.isMultipleImages != oldWidget.video.isMultipleImages) {
-      // Dispose old controller
-      if (_isInitialized && _videoPlayerController != null) {
+        widget.video.isMultipleImages != oldWidget.video.isMultipleImages ||
+        widget.preloadedController != oldWidget.preloadedController) {
+      // Dispose old controller if we created it (not if it was preloaded)
+      if (_isInitialized && _videoPlayerController != null && oldWidget.preloadedController == null) {
         _videoPlayerController!.dispose();
         _videoPlayerController = null;
         _isInitialized = false;
@@ -73,6 +87,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem> {
     }
   }
 
+  // Update the _initializeMedia method to use preloaded controller if available
   void _initializeMedia() async {
     if (widget.video.isMultipleImages) {
       // For carousel posts, no video initialization needed
@@ -87,22 +102,81 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem> {
     debugPrint('Initializing video: ${widget.video.id} (${widget.video.videoUrl})');
     
     try {
-      _videoPlayerController = VideoPlayerController.network(widget.video.videoUrl);
-      await _videoPlayerController!.initialize();
-      _videoPlayerController!.setLooping(true);
-      
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-          _hasError = false;
-        });
+      // Use preloaded controller if available
+      if (widget.preloadedController != null) {
+        debugPrint('Using preloaded controller for ${widget.video.id}');
+        _videoPlayerController = widget.preloadedController;
         
-        // Auto-play if this item is active
-        if (widget.isActive) {
-          _videoPlayerController!.play();
+        if (_videoPlayerController!.value.isInitialized) {
+          // Controller is already initialized
+          if (mounted) {
+            setState(() {
+              _isInitialized = true;
+              _hasError = false;
+            });
+            
+            // Auto-play if this item is active
+            if (widget.isActive) {
+              _videoPlayerController!.play();
+              setState(() {
+                _isPlaying = true;
+              });
+              
+              // Notify parent about ready controller
+              if (widget.onVideoControllerReady != null) {
+                widget.onVideoControllerReady!(_videoPlayerController!);
+              }
+            }
+          }
+        } else {
+          // Wait for initialization to complete
+          await _videoPlayerController!.initialize();
+          _videoPlayerController!.setLooping(true);
+          
+          if (mounted) {
+            setState(() {
+              _isInitialized = true;
+              _hasError = false;
+            });
+            
+            // Auto-play if this item is active
+            if (widget.isActive) {
+              _videoPlayerController!.play();
+              setState(() {
+                _isPlaying = true;
+              });
+              
+              // Notify parent about ready controller
+              if (widget.onVideoControllerReady != null) {
+                widget.onVideoControllerReady!(_videoPlayerController!);
+              }
+            }
+          }
+        }
+      } else {
+        // Create a new controller
+        _videoPlayerController = VideoPlayerController.network(widget.video.videoUrl);
+        await _videoPlayerController!.initialize();
+        _videoPlayerController!.setLooping(true);
+        
+        if (mounted) {
           setState(() {
-            _isPlaying = true;
+            _isInitialized = true;
+            _hasError = false;
           });
+          
+          // Auto-play if this item is active
+          if (widget.isActive) {
+            _videoPlayerController!.play();
+            setState(() {
+              _isPlaying = true;
+            });
+            
+            // Notify parent about ready controller
+            if (widget.onVideoControllerReady != null) {
+              widget.onVideoControllerReady!(_videoPlayerController!);
+            }
+          }
         }
       }
     } catch (e) {
@@ -117,9 +191,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem> {
 
   @override
   void dispose() {
-    if (_isInitialized && _videoPlayerController != null) {
+    // Only dispose the controller if we created it (not if it was preloaded)
+    if (_isInitialized && _videoPlayerController != null && widget.preloadedController == null) {
       _videoPlayerController!.dispose();
     }
+    _videoPlayerController = null;
     super.dispose();
   }
 
@@ -270,7 +346,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem> {
           ),
         ),
         
-        // Right side action buttons
+        // Right side action buttons - REMOVED PROFILE BUTTON
         Positioned(
           bottom: 20,
           right: 16,
@@ -314,19 +390,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem> {
                   // Show share options
                 },
               ),
-              
-              const SizedBox(height: 20),
-              
-              // Profile/Channel button
-              _buildActionButton(
-                Icons.person,
-                "Profile",
-                Colors.white,
-                () {
-                  _navigateToChannelProfile();
-                },
-              ),
-              
+                
               if (!widget.video.isMultipleImages && !_isInitialized)
                 const SizedBox(height: 20),
                 

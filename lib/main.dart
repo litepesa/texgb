@@ -7,6 +7,8 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
+import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/screens/channel_comments_screen.dart';
@@ -190,6 +192,7 @@ class AppRoot extends ConsumerWidget {
           // Channels routes (replacing Marketplace routes)
           Constants.channelsFeedScreen: (context) => const ChannelsFeedScreen(),
           Constants.createChannelScreen: (context) => const CreateChannelScreen(),
+          Constants.myChannelScreen: (context) => const MyChannelScreen(),
           Constants.createChannelPostScreen: (context) => const CreateChannelPostScreen(),
           Constants.channelVideoDetailScreen: (context) {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
@@ -205,17 +208,8 @@ class AppRoot extends ConsumerWidget {
           },
           Constants.editChannelScreen: (context) {
             final channel = ModalRoute.of(context)!.settings.arguments as ChannelModel;
-            return const Scaffold(
-              body: Center(
-                child: Text('Edit Channel Screen - To be implemented'),
-              ),
-            ); // Placeholder for EditChannelScreen
+            return EditChannelScreen(channel: channel);
           },
-          Constants.myChannelScreen: (context) => const Scaffold(
-              body: Center(
-                child: Text('My Channel Screen - To be implemented'),
-              ),
-            ), // Placeholder for MyChannelScreen
           Constants.exploreChannelsScreen: (context) => const Scaffold(
               body: Center(
                 child: Text('Explore Channels Screen - To be implemented'),
