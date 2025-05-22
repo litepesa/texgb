@@ -63,6 +63,18 @@ class Constants {
   static const String momentsDetailScreen = '/momentsDetailScreen'; // Alias for statusDetailScreen
   static const String createMomentScreen = '/createMomentScreen'; // Alias for createStatusScreen
   
+  // Payment screen routes
+  static const String paymentScreen = '/paymentScreen';
+  static const String paymentSuccessScreen = '/paymentSuccessScreen';
+
+  // Payment collections
+  static const String payments = 'payments';
+  static const String paymentStatus = 'paymentStatus';
+
+  // Payment constants
+  static const double activationFee = 99.0;
+  static const String currency = 'KES';
+
   // Collection names for Channel feature
   static const String channels = 'channels';
   static const String channelVideos = 'channelVideos';
@@ -80,6 +92,12 @@ class Constants {
   static const String statusId = 'statusId';
   static const String statusType = 'statusType';
   static const String statusViewCount = 'viewCount';
+
+  // Payment-related constants
+  static const String isAccountActivated = 'isAccountActivated';
+  static const String paymentTransactionId = 'paymentTransactionId';
+  static const String paymentDate = 'paymentDate';
+  static const String amountPaid = 'amountPaid';
   
   // New constants for status replies
   static const String statusReplies = 'status_replies';

@@ -211,7 +211,7 @@ class _MessageStreamProviderElement
   String get chatId => (origin as MessageStreamProvider).chatId;
 }
 
-String _$chatNotifierHash() => r'11c80afb13c432cd344f5ae2f8f23db12ef8a44e';
+String _$chatNotifierHash() => r'515fbf97f35b7fb0556724369890beb9d85fbbe7';
 
 /// See also [ChatNotifier].
 @ProviderFor(ChatNotifier)
