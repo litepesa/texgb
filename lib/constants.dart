@@ -47,6 +47,7 @@ class Constants {
   static const String channelVideoDetailScreen = '/channelVideoDetailScreen';
   static const String channelCommentsScreen = '/channelCommentsScreen';
   static const String exploreChannelsScreen = '/exploreChannelsScreen';
+  static const String myPostScreen = '/myPostScreen'; // New route for My Post Screen
   
   // Status feature routes - Updated for WeChat Moments-like implementation
   static const String statusOverviewScreen = '/statusOverviewScreen';

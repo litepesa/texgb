@@ -222,6 +222,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final mediaQuery = MediaQuery.of(context);
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     
     return AnimatedBuilder(
       animation: _sheetAnimation,
@@ -248,17 +249,12 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
               if (_replyingToCommentId != null)
                 _buildReplyIndicator(modernTheme),
               Expanded(
-                child: _buildCommentsList(modernTheme),
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: keyboardHeight > 0 ? 8 : 0),
+                  child: _buildCommentsList(modernTheme),
+                ),
               ),
-              AnimatedBuilder(
-                animation: _keyboardAnimation,
-                builder: (context, child) {
-                  return Transform.translate(
-                    offset: Offset(0, -_keyboardAnimation.value * 20),
-                    child: _buildCommentInput(modernTheme),
-                  );
-                },
-              ),
+              _buildCommentInput(modernTheme),
             ],
           ),
         );
@@ -466,12 +462,14 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   }
 
   Widget _buildRepliesIndicator(String commentId, int replyCount, bool isExpanded, ModernThemeExtension modernTheme) {
-    return GestureDetector(
+    return InkWell(
       onTap: () => _toggleReplies(commentId),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         margin: const EdgeInsets.only(left: 48, right: 16, bottom: 8),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 20,
@@ -723,10 +721,10 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
         left: 16,
         right: 16,
         top: 12,
-        bottom: 12 + MediaQuery.of(context).padding.bottom,
+        bottom: 12 + MediaQuery.of(context).viewPadding.bottom,
       ),
       decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
+        color: modernTheme.surfaceColor ?? modernTheme.backgroundColor,
         border: Border(
           top: BorderSide(
             color: modernTheme.dividerColor!.withOpacity(0.3),
@@ -734,102 +732,107 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
           ),
         ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            // User avatar
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-              backgroundImage: _auth.currentUser?.photoURL != null
-                  ? NetworkImage(_auth.currentUser!.photoURL!)
-                  : null,
-              child: _auth.currentUser?.photoURL == null
-                  ? Icon(
-                      Icons.person,
-                      color: modernTheme.primaryColor,
-                      size: 16,
-                    )
-                  : null,
-            ),
-            
-            const SizedBox(width: 12),
-            
-            // Comment input field
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: modernTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _replyingToCommentId != null 
-                        ? modernTheme.primaryColor!.withOpacity(0.5)
-                        : modernTheme.dividerColor!.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: TextField(
-                  controller: _commentController,
-                  focusNode: _commentFocusNode,
-                  decoration: InputDecoration(
-                    hintText: _replyingToCommentId != null 
-                        ? 'Reply to @$_replyingToUserName...'
-                        : 'Add a comment...',
-                    hintStyle: TextStyle(
-                      color: modernTheme.textSecondaryColor,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                  ),
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                  ),
-                  maxLines: 4,
-                  minLines: 1,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _addComment(),
-                ),
-              ),
-            ),
-            
-            const SizedBox(width: 8),
-            
-            // Send button
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: _isLoading ? null : _addComment,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // User avatar
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+            backgroundImage: _auth.currentUser?.photoURL != null
+                ? NetworkImage(_auth.currentUser!.photoURL!)
+                : null,
+            child: _auth.currentUser?.photoURL == null
+                ? Icon(
+                    Icons.person,
                     color: modernTheme.primaryColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: _isLoading
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Icon(
-                          Icons.send,
-                          color: Colors.white,
-                          size: 18,
-                        ),
+                    size: 16,
+                  )
+                : null,
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Comment input field
+          Expanded(
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: 40,
+                maxHeight: 120,
+              ),
+              decoration: BoxDecoration(
+                color: modernTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _replyingToCommentId != null 
+                      ? modernTheme.primaryColor!.withOpacity(0.5)
+                      : modernTheme.dividerColor!.withOpacity(0.3),
+                  width: 1,
                 ),
               ),
+              child: TextField(
+                controller: _commentController,
+                focusNode: _commentFocusNode,
+                decoration: InputDecoration(
+                  hintText: _replyingToCommentId != null 
+                      ? 'Reply to @$_replyingToUserName...'
+                      : 'Add a comment...',
+                  hintStyle: TextStyle(
+                    color: modernTheme.textSecondaryColor,
+                    fontSize: 14,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                ),
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 14,
+                ),
+                maxLines: null,
+                textInputAction: TextInputAction.newline,
+                onSubmitted: (_) {
+                  // Only submit on explicit send button press
+                },
+              ),
             ),
-          ],
-        ),
+          ),
+          
+          const SizedBox(width: 8),
+          
+          // Send button
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _isLoading ? null : _addComment,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: _isLoading
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.send,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -843,6 +846,12 @@ void showCommentsBottomSheet(BuildContext context, String videoId) {
     isScrollControlled: true,
     isDismissible: true,
     enableDrag: true,
-    builder: (context) => CommentsBottomSheet(videoId: videoId),
+    useSafeArea: true,
+    builder: (context) => Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: CommentsBottomSheet(videoId: videoId),
+    ),
   );
 }

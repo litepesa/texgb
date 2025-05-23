@@ -567,6 +567,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           ),
           const SizedBox(height: 16),
           _buildSettingsItem(
+            icon: Icons.video_library,
+            title: 'My Posts',
+            onTap: () {
+              Navigator.pushNamed(context, Constants.myChannelScreen);
+            },
+            modernTheme: modernTheme,
+          ),
+          _buildSettingsItem(
             icon: Icons.privacy_tip,
             title: 'Privacy',
             onTap: () {
