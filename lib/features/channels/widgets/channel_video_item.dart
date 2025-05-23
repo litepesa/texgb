@@ -1,8 +1,7 @@
 // lib/features/channels/widgets/channel_video_item.dart
-// Enhanced with better error handling, performance, and UI
+// Refined TikTok-like video item with compact side actions and seamless loading
 
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -37,14 +36,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   VideoPlayerController? _videoPlayerController;
   bool _isInitialized = false;
   bool _isPlaying = false;
-  bool _hasError = false;
-  String _errorMessage = '';
   int _currentImageIndex = 0;
-  int _retryCount = 0;
-  bool _isRetrying = false;
-  
-  static const int _maxRetries = 3;
-  static const Duration _retryDelay = Duration(seconds: 2);
+  bool _isInitializing = false;
 
   @override
   bool get wantKeepAlive => widget.isActive;
@@ -86,14 +79,13 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     
     _videoPlayerController = null;
     _isInitialized = false;
-    _hasError = false;
-    _retryCount = 0;
   }
 
   void _handleActiveStateChange() {
     if (widget.video.isMultipleImages) return;
     
-    if (widget.isActive && _isInitialized && !_isPlaying && !_hasError) {
+    if (widget.isActive && _isInitialized && !_isPlaying) {
+      // Just play from current position, don't restart
       _playVideo();
     } else if (!widget.isActive && _isInitialized && _isPlaying) {
       _pauseVideo();
@@ -104,28 +96,23 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     if (widget.video.isMultipleImages) {
       setState(() {
         _isInitialized = true;
-        _hasError = false;
       });
       return;
     }
     
     if (widget.video.videoUrl.isEmpty) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = 'No video URL provided';
-      });
-      return;
+      return; // Silently skip - no error UI
     }
     
     await _initializeVideo();
   }
 
   Future<void> _initializeVideo() async {
+    if (_isInitializing) return;
+    
     try {
       setState(() {
-        _hasError = false;
-        _errorMessage = '';
-        _isRetrying = _retryCount > 0;
+        _isInitializing = true;
       });
 
       if (widget.preloadedController != null) {
@@ -138,12 +125,18 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         await _setupVideoController();
       }
     } catch (e) {
-      await _handleVideoError('Failed to initialize video: $e');
+      debugPrint('Video initialization failed: $e');
+      // Silently fail - no error UI clutter
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
     }
   }
 
   Future<void> _usePreloadedController() async {
-    debugPrint('Using preloaded controller for ${widget.video.id}');
     _videoPlayerController = widget.preloadedController;
     
     if (!_videoPlayerController!.value.isInitialized) {
@@ -152,7 +145,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   Future<void> _createNewController() async {
-    debugPrint('Creating new controller for ${widget.video.id}');
     _videoPlayerController = VideoPlayerController.network(
       widget.video.videoUrl,
       videoPlayerOptions: VideoPlayerOptions(
@@ -161,12 +153,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       ),
     );
     
-    // Add timeout for initialization
     await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 15),
-      onTimeout: () {
-        throw TimeoutException('Video initialization timeout');
-      },
+      const Duration(seconds: 8),
     );
   }
 
@@ -175,13 +163,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     
     setState(() {
       _isInitialized = true;
-      _hasError = false;
-      _retryCount = 0;
-      _isRetrying = false;
     });
     
-    // Auto-play if active
+    // Always start fresh - TikTok style
     if (widget.isActive) {
+      _videoPlayerController!.seekTo(Duration.zero);
       _playVideo();
     }
     
@@ -191,34 +177,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     }
   }
 
-  Future<void> _handleVideoError(String error) async {
-    debugPrint('Video error for ${widget.video.id}: $error');
-    
-    if (_retryCount < _maxRetries) {
-      _retryCount++;
-      debugPrint('Retrying video initialization (attempt $_retryCount/$_maxRetries)');
-      
-      setState(() {
-        _isRetrying = true;
-      });
-      
-      // Wait before retrying
-      await Future.delayed(_retryDelay);
-      
-      if (mounted) {
-        await _initializeVideo();
-      }
-    } else {
-      setState(() {
-        _hasError = true;
-        _errorMessage = 'Failed to load video after $_maxRetries attempts';
-        _isRetrying = false;
-      });
-    }
-  }
-
   void _playVideo() {
-    if (_isInitialized && _videoPlayerController != null && !_hasError) {
+    if (_isInitialized && _videoPlayerController != null) {
       _videoPlayerController!.play();
       setState(() {
         _isPlaying = true;
@@ -236,18 +196,15 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   void _togglePlayPause() {
-    if (widget.video.isMultipleImages || !_isInitialized || _hasError) return;
+    if (widget.video.isMultipleImages || !_isInitialized) return;
     
     if (_isPlaying) {
       _pauseVideo();
     } else {
+      // Always restart from beginning when user taps - fresh experience
+      _videoPlayerController!.seekTo(Duration.zero);
       _playVideo();
     }
-  }
-
-  void _retryVideoLoad() {
-    _retryCount = 0;
-    _initializeVideo();
   }
 
   @override
@@ -279,12 +236,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         // Content overlay
         _buildContentOverlay(modernTheme),
         
-        // Action buttons
-        _buildActionButtons(modernTheme),
+        // Compact action buttons (TikTok-style)
+        _buildCompactActionButtons(modernTheme),
         
-        // Play/pause indicator
-        if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying && !_hasError)
-          _buildPlayPauseIndicator(),
+        // Minimal play indicator
+        if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying)
+          _buildMinimalPlayIndicator(),
         
         // Image carousel indicators
         if (widget.video.isMultipleImages && widget.video.imageUrls.length > 1)
@@ -303,7 +260,16 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
 
   Widget _buildImageCarousel(ModernThemeExtension modernTheme) {
     if (widget.video.imageUrls.isEmpty) {
-      return _buildImageError('No images available');
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Icon(
+            Icons.broken_image,
+            color: Colors.white.withOpacity(0.3),
+            size: 64,
+          ),
+        ),
+      );
     }
     
     return CarouselSlider(
@@ -331,18 +297,35 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             fit: BoxFit.cover,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return Center(
-                child: CircularProgressIndicator(
-                  color: modernTheme.primaryColor,
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded / 
-                          loadingProgress.expectedTotalBytes!
-                      : null,
+              return Container(
+                color: Colors.black,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: modernTheme.primaryColor,
+                      strokeWidth: 2,
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded / 
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                    ),
+                  ),
                 ),
               );
             },
             errorBuilder: (context, error, stackTrace) {
-              return _buildImageError('Failed to load image');
+              return Container(
+                color: Colors.black,
+                child: Center(
+                  child: Icon(
+                    Icons.broken_image,
+                    color: Colors.white.withOpacity(0.3),
+                    size: 64,
+                  ),
+                ),
+              );
             },
           ),
         );
@@ -351,140 +334,23 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   Widget _buildVideoPlayer(ModernThemeExtension modernTheme) {
-    if (_hasError) {
-      return _buildVideoError(modernTheme);
-    }
-    
-    if (_isRetrying) {
-      return _buildRetryingIndicator(modernTheme);
-    }
-    
+    // Show black screen while initializing - no loading indicators
     if (!_isInitialized) {
-      return _buildVideoLoading(modernTheme);
+      return Container(color: Colors.black);
     }
     
     return GestureDetector(
       onTap: _togglePlayPause,
-      child: VideoPlayer(_videoPlayerController!),
-    );
-  }
-
-  Widget _buildVideoError(ModernThemeExtension modernTheme) {
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              color: Colors.red,
-              size: 48,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Video Error',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                _errorMessage,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _retryVideoLoad,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRetryingIndicator(ModernThemeExtension modernTheme) {
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              color: modernTheme.primaryColor,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Retrying... ($_retryCount/$_maxRetries)',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVideoLoading(ModernThemeExtension modernTheme) {
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              color: modernTheme.primaryColor,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Loading video...',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImageError(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.broken_image,
-            color: Colors.white.withOpacity(0.7),
-            size: 64,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.black,
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: _videoPlayerController!.value.aspectRatio,
+            child: VideoPlayer(_videoPlayerController!),
           ),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 14,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -515,7 +381,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     return Positioned(
       bottom: 20,
       left: 16,
-      right: 80,
+      right: 70, // More space for compact action buttons
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -525,7 +391,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 18,
+                  radius: 16,
                   backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
                   backgroundImage: widget.video.channelImage.isNotEmpty
                       ? NetworkImage(widget.video.channelImage)
@@ -538,6 +404,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                           style: TextStyle(
                             color: modernTheme.primaryColor,
                             fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
                         )
                       : null,
@@ -552,16 +419,16 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: 15,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 4),
                       const Icon(
                         Icons.verified,
                         color: Colors.blue,
-                        size: 16,
+                        size: 14,
                       ),
                     ],
                   ),
@@ -570,46 +437,42 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             ),
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
           // Caption
           Text(
             widget.video.caption,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 15,
               height: 1.3,
             ),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
           
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           
           // Tags
           if (widget.video.tags.isNotEmpty)
             SizedBox(
-              height: 24,
+              height: 20,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: widget.video.tags.length,
                 itemBuilder: (context, index) {
                   return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1,
-                      ),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '#${widget.video.tags[index]}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -622,97 +485,244 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  Widget _buildActionButtons(ModernThemeExtension modernTheme) {
+  Widget _buildCompactActionButtons(ModernThemeExtension modernTheme) {
     return Positioned(
-      bottom: 20,
-      right: 16,
+      bottom: 80,
+      right: 12,
       child: Column(
         children: [
-          // Like button
-          _buildActionButton(
-            Icons.favorite,
-            _formatCount(widget.video.likes),
-            widget.video.isLiked ? Colors.red : Colors.white,
+          // Profile picture with follow button
+          _buildProfileAction(modernTheme),
+          
+          const SizedBox(height: 16), // Reduced from 24
+          
+          // Like button with heart animation
+          _buildCompactActionButton(
+            widget.video.isLiked ? Icons.favorite : Icons.favorite_border,
+            widget.video.likes,
+            widget.video.isLiked ? const Color(0xFFFF3040) : Colors.white,
             () {
               ref.read(channelVideosProvider.notifier).likeVideo(widget.video.id);
             },
             isActive: widget.video.isLiked,
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 12), // Reduced from 20
           
-          // Comment button
-          _buildActionButton(
-            Icons.comment,
-            _formatCount(widget.video.comments),
+          // Comment button with better icon
+          _buildCompactActionButton(
+            Icons.chat_bubble_outline,
+            widget.video.comments,
             Colors.white,
             () {
               showCommentsBottomSheet(context, widget.video.id);
             },
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 12), // Reduced from 20
+          
+          // Bookmark/Save button (better than share)
+          _buildCompactActionButton(
+            Icons.bookmark_border,
+            0,
+            Colors.white,
+            () {
+              _toggleBookmark();
+            },
+            showCount: false,
+          ),
+          
+          const SizedBox(height: 12), // Reduced from 20
           
           // Share button
-          _buildActionButton(
-            Icons.share,
-            "Share",
+          _buildCompactActionButton(
+            Icons.share_outlined,
+            0,
             Colors.white,
             () {
               _showShareOptions();
             },
+            showCount: false,
           ),
-          
-          const SizedBox(height: 20),
-          
-          // Views indicator
-          _buildViewsIndicator(modernTheme),
         ],
       ),
     );
   }
 
-  Widget _buildActionButton(
+  Widget _buildProfileAction(ModernThemeExtension modernTheme) {
+    return GestureDetector(
+      onTap: () => _navigateToChannelProfile(),
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          Container(
+            width: 48, // Reduced from 52
+            height: 48, // Reduced from 52
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 22, // Reduced from 24
+              backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+              backgroundImage: widget.video.channelImage.isNotEmpty
+                  ? NetworkImage(widget.video.channelImage)
+                  : null,
+              child: widget.video.channelImage.isEmpty
+                  ? Text(
+                      widget.video.channelName.isNotEmpty
+                          ? widget.video.channelName[0].toUpperCase()
+                          : "C",
+                      style: TextStyle(
+                        color: modernTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16, // Reduced from 18
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          Positioned(
+            bottom: -2,
+            child: Container(
+              width: 20, // Reduced from 22
+              height: 20, // Reduced from 22
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF3040), // TikTok red
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.add,
+                color: Colors.white,
+                size: 12, // Reduced from 14
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactActionButton(
     IconData icon,
-    String label,
+    int count,
     Color color,
     VoidCallback onTap, {
     bool isActive = false,
+    bool showCount = true,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(vertical: 4), // Reduced from 8
         child: Column(
           children: [
+            // Enhanced button with subtle background and better shadows
             Container(
-              width: 48,
-              height: 48,
+              width: 44, // Reduced from 48
+              height: 44, // Reduced from 48
               decoration: BoxDecoration(
                 color: isActive 
-                    ? color.withOpacity(0.2)
-                    : Colors.black.withOpacity(0.5),
+                    ? color.withOpacity(0.15)
+                    : Colors.black.withOpacity(0.3),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1,
+                  color: Colors.white.withOpacity(0.2),
+                  width: 0.5,
                 ),
               ),
               child: Icon(
                 icon,
                 color: color,
-                size: 24,
+                size: 24, // Reduced from 26
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 4,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+            if (showCount && count > 0) ...[
+              const SizedBox(height: 2), // Reduced from 4
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _formatCount(count),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10, // Reduced from 11
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.8),
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              textAlign: TextAlign.center,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMinimalPlayIndicator() {
+    return Center(
+      child: Container(
+        width: 70,
+        height: 70,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.6),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.play_arrow_rounded,
+          color: Colors.white,
+          size: 36,
+          shadows: [
+            Shadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 4,
             ),
           ],
         ),
@@ -720,59 +730,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  Widget _buildViewsIndicator(ModernThemeExtension modernTheme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.visibility,
-            color: Colors.white.withOpacity(0.8),
-            size: 14,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            _formatCount(widget.video.views),
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlayPauseIndicator() {
-    return Center(
-      child: Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.6),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 2,
-          ),
-        ),
-        child: const Icon(
-          Icons.play_arrow,
-          color: Colors.white,
-          size: 40,
-        ),
-      ),
-    );
+  void _toggleBookmark() {
+    // Implement bookmark functionality
+    // This could save the video to user's favorites
+    debugPrint('Bookmarking video: ${widget.video.id}');
   }
 
   Widget _buildCarouselIndicators() {
@@ -785,11 +746,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         children: List.generate(widget.video.imageUrls.length, (index) {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            width: _currentImageIndex == index ? 12 : 8,
-            height: 8,
-            margin: const EdgeInsets.symmetric(horizontal: 2),
+            width: _currentImageIndex == index ? 8 : 6,
+            height: 6,
+            margin: const EdgeInsets.symmetric(horizontal: 1),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(3),
               color: _currentImageIndex == index
                   ? Colors.white
                   : Colors.white.withOpacity(0.5),
@@ -839,15 +800,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               children: [
                 _buildShareOption(Icons.copy, 'Copy Link', () {
                   Navigator.pop(context);
-                  // Copy link functionality
                 }),
                 _buildShareOption(Icons.message, 'Message', () {
                   Navigator.pop(context);
-                  // Share via message
                 }),
                 _buildShareOption(Icons.more_horiz, 'More', () {
                   Navigator.pop(context);
-                  // More share options
                 }),
               ],
             ),
