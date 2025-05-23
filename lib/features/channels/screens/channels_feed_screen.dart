@@ -1,8 +1,4 @@
-// lib/features/channels/screens/channels_feed_screen.dart
-// Ultra-clean TikTok-like feed with no search bar and minimal UI
-
 import 'dart:async';
-import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,18 +39,14 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   VideoPlayerController? _currentVideoController;
   Timer? _progressUpdateTimer;
   
-  // Aggressive preloading system for seamless scrolling
+  // Simplified preloading system
   final Map<int, VideoPlayerController> _preloadedControllers = {};
-  final Map<int, bool> _preloadingInProgress = {};
-  final Set<int> _readyControllers = {};
-  final Queue<int> _videoPreloadQueue = Queue<int>();
-  bool _isProcessingQueue = false;
+  final Set<int> _preloadingInProgress = {};
   
-  // Enhanced configuration for TikTok-like experience
-  static const int _maxPreloadedVideos = 5;
-  static const int _maxConcurrentPreloads = 4;
-  static const Duration _progressUpdateInterval = Duration(milliseconds: 100);
-  static const Duration _preloadDelay = Duration(milliseconds: 200);
+  // Conservative configuration for real device performance
+  static const int _maxPreloadedVideos = 3;
+  static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
+  static const Duration _preloadDelay = Duration(milliseconds: 500);
 
   @override
   bool get wantKeepAlive => true;
@@ -91,7 +83,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     }
   }
 
-  // Screen lifecycle management
   void onScreenBecameActive() {
     if (!_hasInitialized) return;
     
@@ -116,18 +107,16 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   void _resumePlayback() {
     if (!mounted || !_isScreenActive || !_isAppInForeground) return;
     
-    debugPrint('ChannelsFeedScreen: Resuming playback - fresh start');
+    debugPrint('ChannelsFeedScreen: Resuming playback');
     
-    // Always start fresh when resuming - like TikTok
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.seekTo(Duration.zero);
       _currentVideoController!.play();
     }
     
     _setupVideoProgressTracking();
-    _startPreloadingSystem();
+    _startPreloadingNearbyVideos();
     
-    // Keep screen awake during video playback
     WakelockPlus.enable();
   }
 
@@ -145,8 +134,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     }
     
     _progressUpdateTimer?.cancel();
-    _isProcessingQueue = false;
-    _videoPreloadQueue.clear();
   }
 
   void _initializeControllers() {
@@ -159,12 +146,13 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _onProgressControllerUpdate() {
+    if (!mounted) return;
+    
+    // Update progress for images or fallback
     if (_currentVideoController == null || !_currentVideoController!.value.isInitialized) {
-      if (mounted) {
-        setState(() {
-          _videoProgress = _progressController.value;
-        });
-      }
+      setState(() {
+        _videoProgress = _progressController.value;
+      });
     }
   }
 
@@ -189,11 +177,10 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         
         _progressController.forward();
         
-        // Start aggressive preloading immediately
         if (_isScreenActive && _isAppInForeground) {
           Timer(_preloadDelay, () {
             if (mounted && _isScreenActive && _isAppInForeground) {
-              _startPreloadingSystem();
+              _startPreloadingNearbyVideos();
             }
           });
         }
@@ -228,94 +215,41 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             });
           }
           
-          // Preload next videos aggressively
-          if (progress > 0.6 && _isScreenActive && _isAppInForeground) {
-            _preloadNextVideos();
+          // Preload when halfway through
+          if (progress > 0.5 && _isScreenActive && _isAppInForeground) {
+            _startPreloadingNearbyVideos();
           }
         }
       }
     });
   }
 
-  // Aggressive preloading system for seamless experience
-  void _startPreloadingSystem() {
-    if (!_isScreenActive || !_isAppInForeground) return;
-    _preloadNextVideos();
-  }
-
-  void _preloadNextVideos() {
+  void _startPreloadingNearbyVideos() {
     if (!_isScreenActive || !_isAppInForeground) return;
     
     final videos = ref.read(channelVideosProvider).videos;
     if (videos.isEmpty) return;
     
-    // Preload both forward and backward for smooth scrolling
+    // Preload next few videos only
     for (int i = 1; i <= _maxPreloadedVideos; i++) {
       final nextIndex = _currentVideoIndex + i;
-      final prevIndex = _currentVideoIndex - i;
       
-      // Preload next videos
       if (nextIndex < videos.length && 
           !_preloadedControllers.containsKey(nextIndex) && 
-          !_preloadingInProgress.containsKey(nextIndex) &&
+          !_preloadingInProgress.contains(nextIndex) &&
           !videos[nextIndex].isMultipleImages &&
           videos[nextIndex].videoUrl.isNotEmpty) {
-        _videoPreloadQueue.add(nextIndex);
-      }
-      
-      // Preload previous videos for backward scrolling
-      if (prevIndex >= 0 && 
-          !_preloadedControllers.containsKey(prevIndex) && 
-          !_preloadingInProgress.containsKey(prevIndex) &&
-          !videos[prevIndex].isMultipleImages &&
-          videos[prevIndex].videoUrl.isNotEmpty) {
-        _videoPreloadQueue.add(prevIndex);
+        _preloadVideo(nextIndex, videos[nextIndex]);
       }
     }
-    
-    _processPreloadQueue();
-  }
-
-  void _processPreloadQueue() async {
-    if (_isProcessingQueue || 
-        _videoPreloadQueue.isEmpty || 
-        !_isScreenActive || 
-        !_isAppInForeground) return;
-    
-    _isProcessingQueue = true;
-    final videos = ref.read(channelVideosProvider).videos;
-    
-    final List<Future<void>> preloadTasks = [];
-    int processed = 0;
-    
-    while (_videoPreloadQueue.isNotEmpty && 
-           processed < _maxConcurrentPreloads &&
-           _isScreenActive &&
-           _isAppInForeground) {
-      
-      final index = _videoPreloadQueue.removeFirst();
-      
-      if (index >= videos.length || 
-          _preloadedControllers.containsKey(index) || 
-          _preloadingInProgress.containsKey(index)) {
-        continue;
-      }
-      
-      _preloadingInProgress[index] = true;
-      processed++;
-      
-      preloadTasks.add(_preloadVideo(index, videos[index]));
-    }
-    
-    await Future.wait(preloadTasks);
-    _isProcessingQueue = false;
   }
 
   Future<void> _preloadVideo(int index, ChannelVideoModel video) async {
-    if (!_isScreenActive || !_isAppInForeground) {
-      _preloadingInProgress.remove(index);
+    if (!_isScreenActive || !_isAppInForeground || _preloadingInProgress.contains(index)) {
       return;
     }
+    
+    _preloadingInProgress.add(index);
     
     try {
       final controller = VideoPlayerController.network(
@@ -327,24 +261,20 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       );
 
       await controller.initialize().timeout(
-        const Duration(seconds: 8),
+        const Duration(seconds: 10),
       );
       
       controller.setLooping(true);
       controller.setVolume(0); // Preloaded videos muted
       
-      if (mounted && 
-          _isScreenActive &&
-          _isAppInForeground) {
+      if (mounted && _isScreenActive && _isAppInForeground) {
         _preloadedControllers[index] = controller;
-        _readyControllers.add(index);
         debugPrint('Successfully preloaded video: $index');
       } else {
         controller.dispose();
       }
     } catch (e) {
       debugPrint('Failed to preload video $index: $e');
-      // Silently fail - no error UI clutter
     } finally {
       _preloadingInProgress.remove(index);
     }
@@ -358,7 +288,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     for (final index in keysToRemove) {
       final controller = _preloadedControllers.remove(index);
       controller?.dispose();
-      _readyControllers.remove(index);
       debugPrint('Cleaned up preloaded video: $index');
     }
   }
@@ -368,7 +297,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     if (controller != null) {
       debugPrint('Using preloaded controller for video: $index');
       controller.setVolume(1.0);
-      _readyControllers.remove(index);
     }
     return controller;
   }
@@ -380,7 +308,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _currentVideoController = controller;
     });
     
-    // Always start fresh - TikTok style
     controller.seekTo(Duration.zero);
     _setupVideoProgressTracking();
     
@@ -388,11 +315,10 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _progressController.stop();
     }
     
-    // Keep screen awake during video playback
     WakelockPlus.enable();
     
     if (_isScreenActive && _isAppInForeground) {
-      _preloadNextVideos();
+      _startPreloadingNearbyVideos();
     }
   }
 
@@ -403,7 +329,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     setState(() {
       _currentVideoIndex = index;
       _currentVideoController = null;
-      // Reset progress for new video
       _videoProgress = 0.0;
       _videoPosition = Duration.zero;
       _videoDuration = Duration.zero;
@@ -418,8 +343,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
 
     _cleanupOldPreloadedVideos();
     if (_isScreenActive && _isAppInForeground) {
-      _preloadNextVideos();
-      // Maintain wakelock during video transitions
+      _startPreloadingNearbyVideos();
       WakelockPlus.enable();
     }
     
@@ -443,9 +367,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     }
     _preloadedControllers.clear();
     
-    _videoPreloadQueue.clear();
     _preloadingInProgress.clear();
-    _readyControllers.clear();;
     
     WakelockPlus.disable();
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
@@ -463,11 +385,10 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     final bottomNavHeight = 100.0;
     
-    // Minimal loading screen - no loading indicators during normal use
     if (_isFirstLoad && channelVideosState.isLoading) {
       return const Scaffold(
         backgroundColor: Colors.black,
-        body: SizedBox.shrink(), // Minimal loading
+        body: SizedBox.shrink(),
       );
     }
     
@@ -479,12 +400,12 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         children: [
           _buildBody(channelVideosState, channelsState, modernTheme, bottomNavHeight),
           
-          // Clean progress bar only
+          // Enhanced progress bar
           Positioned(
-            bottom: bottomNavHeight + 8,
-            left: 0,
-            right: 0,
-            child: _buildMinimalProgressBar(modernTheme),
+            bottom: bottomNavHeight + 12,
+            left: 16,
+            right: 16,
+            child: _buildEnhancedProgressBar(modernTheme),
           ),
           
           if (!_isScreenActive)
@@ -529,30 +450,51 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  Widget _buildMinimalProgressBar(ModernThemeExtension modernTheme) {
+  Widget _buildEnhancedProgressBar(ModernThemeExtension modernTheme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        height: 3,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(1.5),
-          color: Colors.white.withOpacity(0.4),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
+      height: 4,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(2),
+        color: Colors.white.withOpacity(0.3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: Stack(
+          children: [
+            Container(
+              width: double.infinity,
+              height: 4,
+              color: Colors.transparent,
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              width: MediaQuery.of(context).size.width * _videoProgress,
+              height: 4,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    modernTheme.primaryColor ?? Colors.blue,
+                    (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(2),
+                boxShadow: [
+                  BoxShadow(
+                    color: (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.5),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
             ),
           ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(1.5),
-          child: LinearProgressIndicator(
-            value: _videoProgress,
-            backgroundColor: Colors.transparent,
-            valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
-            minHeight: 3,
-          ),
         ),
       ),
     );
@@ -688,8 +630,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       }
       _preloadedControllers.clear();
       _preloadingInProgress.clear();
-      _videoPreloadQueue.clear();
-      _readyControllers.clear();
       
       ref.read(channelVideosProvider.notifier).loadVideos(forceRefresh: true);
       

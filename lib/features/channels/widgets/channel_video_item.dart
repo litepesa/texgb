@@ -1,6 +1,3 @@
-// lib/features/channels/widgets/channel_video_item.dart
-// Refined TikTok-like video item with compact side actions and seamless loading
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
@@ -17,6 +14,8 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
   final bool isActive;
   final Function(VideoPlayerController)? onVideoControllerReady;
   final VideoPlayerController? preloadedController;
+  final bool isLoading;
+  final bool hasFailed;
   
   const ChannelVideoItem({
     Key? key,
@@ -24,6 +23,8 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
     required this.isActive,
     this.onVideoControllerReady,
     this.preloadedController,
+    this.isLoading = false,
+    this.hasFailed = false,
   }) : super(key: key);
 
   @override
@@ -52,12 +53,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   void didUpdateWidget(ChannelVideoItem oldWidget) {
     super.didUpdateWidget(oldWidget);
     
-    // Handle active state changes
     if (widget.isActive != oldWidget.isActive) {
       _handleActiveStateChange();
     }
     
-    // Handle media changes
     if (_shouldReinitializeMedia(oldWidget)) {
       _cleanupCurrentController(oldWidget);
       _initializeMedia();
@@ -85,7 +84,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     if (widget.video.isMultipleImages) return;
     
     if (widget.isActive && _isInitialized && !_isPlaying) {
-      // Just play from current position, don't restart
       _playVideo();
     } else if (!widget.isActive && _isInitialized && _isPlaying) {
       _pauseVideo();
@@ -101,7 +99,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     }
     
     if (widget.video.videoUrl.isEmpty) {
-      return; // Silently skip - no error UI
+      return;
     }
     
     await _initializeVideo();
@@ -126,7 +124,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       }
     } catch (e) {
       debugPrint('Video initialization failed: $e');
-      // Silently fail - no error UI clutter
     } finally {
       if (mounted) {
         setState(() {
@@ -145,8 +142,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   Future<void> _createNewController() async {
-    _videoPlayerController = VideoPlayerController.network(
-      widget.video.videoUrl,
+    _videoPlayerController = VideoPlayerController.networkUrl(
+      Uri.parse(widget.video.videoUrl),
       videoPlayerOptions: VideoPlayerOptions(
         allowBackgroundPlayback: false,
         mixWithOthers: false,
@@ -154,7 +151,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
     
     await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 8),
+      const Duration(seconds: 10),
     );
   }
 
@@ -165,13 +162,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       _isInitialized = true;
     });
     
-    // Always start fresh - TikTok style
     if (widget.isActive) {
       _videoPlayerController!.seekTo(Duration.zero);
       _playVideo();
     }
     
-    // Notify parent
     if (widget.onVideoControllerReady != null) {
       widget.onVideoControllerReady!(_videoPlayerController!);
     }
@@ -201,7 +196,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     if (_isPlaying) {
       _pauseVideo();
     } else {
-      // Always restart from beginning when user taps - fresh experience
       _videoPlayerController!.seekTo(Duration.zero);
       _playVideo();
     }
@@ -209,7 +203,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
 
   @override
   void dispose() {
-    // Only dispose if we created the controller (not preloaded)
     if (_isInitialized && 
         _videoPlayerController != null && 
         widget.preloadedController == null) {
@@ -224,29 +217,42 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     super.build(context);
     final modernTheme = context.modernTheme;
     
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Media content
-        _buildMediaContent(modernTheme),
-        
-        // Gradient overlay
-        _buildGradientOverlay(),
-        
-        // Content overlay
-        _buildContentOverlay(modernTheme),
-        
-        // Compact action buttons (TikTok-style)
-        _buildCompactActionButtons(modernTheme),
-        
-        // Minimal play indicator
-        if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying)
-          _buildMinimalPlayIndicator(),
-        
-        // Image carousel indicators
-        if (widget.video.isMultipleImages && widget.video.imageUrls.length > 1)
-          _buildCarouselIndicators(),
-      ],
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Media content with proper full-screen coverage
+          _buildMediaContent(modernTheme),
+          
+          // Loading indicator
+          if (widget.isLoading || _isInitializing)
+            _buildLoadingIndicator(modernTheme),
+          
+          // Error state
+          if (widget.hasFailed)
+            _buildErrorState(modernTheme),
+          
+          // Gradient overlay for better text readability
+          _buildGradientOverlay(),
+          
+          // Content overlay
+          _buildContentOverlay(modernTheme),
+          
+          // Compact action buttons
+          _buildCompactActionButtons(modernTheme),
+          
+          // Play indicator for paused videos
+          if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying)
+            _buildMinimalPlayIndicator(),
+          
+          // Image carousel indicators
+          if (widget.video.isMultipleImages && widget.video.imageUrls.length > 1)
+            _buildCarouselIndicators(),
+        ],
+      ),
     );
   }
   
@@ -260,16 +266,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
 
   Widget _buildImageCarousel(ModernThemeExtension modernTheme) {
     if (widget.video.imageUrls.isEmpty) {
-      return Container(
-        color: Colors.black,
-        child: Center(
-          child: Icon(
-            Icons.broken_image,
-            color: Colors.white.withOpacity(0.3),
-            size: 64,
-          ),
-        ),
-      );
+      return _buildPlaceholder(modernTheme, Icons.broken_image);
     }
     
     return CarouselSlider(
@@ -288,68 +285,146 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         },
       ),
       items: widget.video.imageUrls.map((imageUrl) {
-        return Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: Colors.black,
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                color: Colors.black,
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: modernTheme.primaryColor,
-                      strokeWidth: 2,
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded / 
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                    ),
-                  ),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.black,
-                child: Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    color: Colors.white.withOpacity(0.3),
-                    size: 64,
-                  ),
-                ),
-              );
-            },
-          ),
-        );
+        return _buildFullScreenImage(imageUrl, modernTheme);
       }).toList(),
     );
   }
 
+  Widget _buildFullScreenImage(String imageUrl, ModernThemeExtension modernTheme) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.black,
+      child: Image.network(
+        imageUrl,
+        fit: BoxFit.cover, // This ensures the image covers the entire screen
+        width: double.infinity,
+        height: double.infinity,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return _buildLoadingIndicator(modernTheme);
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return _buildPlaceholder(modernTheme, Icons.broken_image);
+        },
+      ),
+    );
+  }
+
   Widget _buildVideoPlayer(ModernThemeExtension modernTheme) {
-    // Show black screen while initializing - no loading indicators
     if (!_isInitialized) {
-      return Container(color: Colors.black);
+      return Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.black,
+        child: widget.isLoading || _isInitializing 
+            ? _buildLoadingIndicator(modernTheme)
+            : null,
+      );
     }
     
     return GestureDetector(
       onTap: _togglePlayPause,
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: Colors.black,
-        child: Center(
-          child: AspectRatio(
-            aspectRatio: _videoPlayerController!.value.aspectRatio,
-            child: VideoPlayer(_videoPlayerController!),
-          ),
+      child: SizedBox.expand(
+        child: _buildFullScreenVideo(),
+      ),
+    );
+  }
+
+  Widget _buildFullScreenVideo() {
+    final controller = _videoPlayerController!;
+    
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: controller.value.size.width,
+          height: controller.value.size.height,
+          child: VideoPlayer(controller),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator(ModernThemeExtension modernTheme) {
+    return Container(
+      color: Colors.black.withOpacity(0.3),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(
+                color: modernTheme.primaryColor,
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Loading...',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(ModernThemeExtension modernTheme) {
+    return Container(
+      color: Colors.black.withOpacity(0.8),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: Colors.white.withOpacity(0.7),
+              size: 48,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Failed to load video',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isInitialized = false;
+                });
+                _initializeMedia();
+              },
+              child: Text(
+                'Retry',
+                style: TextStyle(
+                  color: modernTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder(ModernThemeExtension modernTheme, IconData icon) {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Icon(
+          icon,
+          color: Colors.white.withOpacity(0.3),
+          size: 64,
         ),
       ),
     );
@@ -361,16 +436,18 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       left: 0,
       right: 0,
       child: Container(
-        height: 200,
+        height: 250, // Increased for better readability
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
             colors: [
-              Colors.black.withOpacity(0.8),
-              Colors.black.withOpacity(0.4),
+              Colors.black.withOpacity(0.9),
+              Colors.black.withOpacity(0.6),
+              Colors.black.withOpacity(0.3),
               Colors.transparent,
             ],
+            stops: const [0.0, 0.3, 0.7, 1.0],
           ),
         ),
       ),
@@ -381,7 +458,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     return Positioned(
       bottom: 20,
       left: 16,
-      right: 70, // More space for compact action buttons
+      right: 70,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -420,6 +497,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 2,
+                              ),
+                            ],
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -439,13 +522,19 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 12),
           
-          // Caption
+          // Caption with better shadows for readability
           Text(
             widget.video.caption,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 15,
               height: 1.3,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 2,
+                ),
+              ],
             ),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -474,6 +563,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                         color: Colors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 1,
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -491,12 +586,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       right: 12,
       child: Column(
         children: [
-          // Profile picture with follow button
           _buildProfileAction(modernTheme),
+          const SizedBox(height: 16),
           
-          const SizedBox(height: 16), // Reduced from 24
-          
-          // Like button with heart animation
           _buildCompactActionButton(
             widget.video.isLiked ? Icons.favorite : Icons.favorite_border,
             widget.video.likes,
@@ -507,9 +599,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             isActive: widget.video.isLiked,
           ),
           
-          const SizedBox(height: 12), // Reduced from 20
+          const SizedBox(height: 12),
           
-          // Comment button with better icon
           _buildCompactActionButton(
             Icons.chat_bubble_outline,
             widget.video.comments,
@@ -519,9 +610,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             },
           ),
           
-          const SizedBox(height: 12), // Reduced from 20
+          const SizedBox(height: 12),
           
-          // Bookmark/Save button (better than share)
           _buildCompactActionButton(
             Icons.bookmark_border,
             0,
@@ -532,9 +622,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             showCount: false,
           ),
           
-          const SizedBox(height: 12), // Reduced from 20
+          const SizedBox(height: 12),
           
-          // Share button
           _buildCompactActionButton(
             Icons.share_outlined,
             0,
@@ -556,8 +645,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         alignment: Alignment.bottomCenter,
         children: [
           Container(
-            width: 48, // Reduced from 52
-            height: 48, // Reduced from 52
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 2),
@@ -570,7 +659,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               ],
             ),
             child: CircleAvatar(
-              radius: 22, // Reduced from 24
+              radius: 22,
               backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
               backgroundImage: widget.video.channelImage.isNotEmpty
                   ? NetworkImage(widget.video.channelImage)
@@ -583,7 +672,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                       style: TextStyle(
                         color: modernTheme.primaryColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: 16, // Reduced from 18
+                        fontSize: 16,
                       ),
                     )
                   : null,
@@ -592,10 +681,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           Positioned(
             bottom: -2,
             child: Container(
-              width: 20, // Reduced from 22
-              height: 20, // Reduced from 22
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
-                color: const Color(0xFFFF3040), // TikTok red
+                color: const Color(0xFFFF3040),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
                 boxShadow: [
@@ -609,7 +698,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               child: const Icon(
                 Icons.add,
                 color: Colors.white,
-                size: 12, // Reduced from 14
+                size: 12,
               ),
             ),
           ),
@@ -629,63 +718,35 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4), // Reduced from 8
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
           children: [
-            // Enhanced button with subtle background and better shadows
-            Container(
-              width: 44, // Reduced from 48
-              height: 44, // Reduced from 48
-              decoration: BoxDecoration(
-                color: isActive 
-                    ? color.withOpacity(0.15)
-                    : Colors.black.withOpacity(0.3),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
-                  width: 0.5,
+            // Clean icon without background styling
+            Icon(
+              icon,
+              color: color,
+              size: 28,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.8),
+                  blurRadius: 6,
                 ),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24, // Reduced from 26
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
+              ],
             ),
             if (showCount && count > 0) ...[
-              const SizedBox(height: 2), // Reduced from 4
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _formatCount(count),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10, // Reduced from 11
-                    fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.8),
-                        blurRadius: 2,
-                      ),
-                    ],
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                _formatCount(count),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.8),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -730,12 +791,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  void _toggleBookmark() {
-    // Implement bookmark functionality
-    // This could save the video to user's favorites
-    debugPrint('Bookmarking video: ${widget.video.id}');
-  }
-
   Widget _buildCarouselIndicators() {
     return Positioned(
       top: 100,
@@ -754,11 +809,21 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               color: _currentImageIndex == index
                   ? Colors.white
                   : Colors.white.withOpacity(0.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 2,
+                ),
+              ],
             ),
           );
         }),
       ),
     );
+  }
+
+  void _toggleBookmark() {
+    debugPrint('Bookmarking video: ${widget.video.id}');
   }
 
   void _navigateToChannelProfile() {
