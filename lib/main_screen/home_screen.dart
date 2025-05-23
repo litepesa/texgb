@@ -24,19 +24,50 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
+  int _previousIndex = 0;
   final PageController _pageController = PageController();
+  final GlobalKey _channelsFeedKey = GlobalKey();
+  
+  // Simple controller for channels feed
+  bool _isChannelsFeedActive = false;
+  
+  // Helper method to pause channels feed
+  void _pauseChannelsFeed() {
+    if (_isChannelsFeedActive) {
+      _isChannelsFeedActive = false;
+      try {
+        final dynamic state = _channelsFeedKey.currentState;
+        state?.onScreenBecameInactive?.call();
+      } catch (e) {
+        debugPrint('Error pausing channels feed: $e');
+      }
+    }
+  }
+  
+  // Helper method to resume channels feed
+  void _resumeChannelsFeed() {
+    if (!_isChannelsFeedActive) {
+      _isChannelsFeedActive = true;
+      try {
+        final dynamic state = _channelsFeedKey.currentState;
+        state?.onScreenBecameActive?.call();
+      } catch (e) {
+        debugPrint('Error resuming channels feed: $e');
+      }
+    }
+  }
   
   final List<String> _tabNames = [
-    'Home',
     'Chats',
+    'Channels',
     '',  // Empty for center button
     'Wallet',
     'Profile'
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.home,
-    CupertinoIcons.chat_bubble_text,
+    CupertinoIcons.bubble_left,
+    CupertinoIcons.tv,
     Icons.add,
     CupertinoIcons.creditcard,
     CupertinoIcons.person
@@ -48,11 +79,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(channelsProvider.notifier).loadUserChannel();
       _updateSystemUI();
+      
+      // Since we start on Chats tab (index 0), channels feed is inactive initially
+      // No need to activate it here
     });
   }
 
   @override
   void dispose() {
+    // Ensure channels feed is properly cleaned up
+    _pauseChannelsFeed();
     _pageController.dispose();
     super.dispose();
   }
@@ -69,10 +105,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     
+    // Store previous index for video lifecycle management
+    _previousIndex = _currentIndex;
+    
     setState(() {
       _currentIndex = index;
       _updateSystemUI(); // Force immediate update
     });
+
+    // Handle channels feed video lifecycle based on tab changes
+    _handleChannelsFeedLifecycle(index);
 
     int pageIndex = index > 2 ? index - 1 : index;
     _pageController.animateToPage(
@@ -82,11 +124,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
   
+  void _handleChannelsFeedLifecycle(int newIndex) {
+    const channelsFeedIndex = 1; // Channels tab (ChannelsFeedScreen)
+    
+    // Debug logging
+    debugPrint('Tab changed from $_previousIndex to $newIndex');
+    
+    if (_previousIndex == channelsFeedIndex && newIndex != channelsFeedIndex) {
+      // User left channels feed tab - pause all videos
+      debugPrint('Pausing channels feed videos');
+      _pauseChannelsFeed();
+    } else if (_previousIndex != channelsFeedIndex && newIndex == channelsFeedIndex) {
+      // User entered channels feed tab - resume videos
+      debugPrint('Resuming channels feed videos');
+      _resumeChannelsFeed();
+    }
+  }
+  
   void _updateSystemUI() {
-    final isHomeTab = _currentIndex == 0;
+    final isChannelsTab = _currentIndex == 1; // Channels tab now at index 1
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      systemNavigationBarColor: isHomeTab ? Colors.black : Colors.transparent,
+      systemNavigationBarColor: isChannelsTab ? Colors.black : Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
     ));
@@ -94,10 +153,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   
   void _onPageChanged(int index) {
     int tabIndex = index >= 2 ? index + 1 : index;
+    
+    // Store previous index before updating
+    _previousIndex = _currentIndex;
+    
     setState(() {
       _currentIndex = tabIndex;
       _updateSystemUI();
     });
+    
+    // Handle video lifecycle for page changes too
+    _handleChannelsFeedLifecycle(tabIndex);
   }
 
   @override
@@ -105,32 +171,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
-    final isHomeTab = _currentIndex == 0;
+    final isChannelsTab = _currentIndex == 1; // Channels tab at index 1
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isHomeTab,
-      backgroundColor: isHomeTab ? Colors.black : modernTheme.backgroundColor,
+      extendBodyBehindAppBar: isChannelsTab,
+      backgroundColor: isChannelsTab ? Colors.black : modernTheme.backgroundColor,
       
-      appBar: isHomeTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      appBar: isChannelsTab ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          const ChannelsFeedScreen(),
+          // Chats tab first (index 0)
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const ChatsTab(),
           ),
+          // Channels feed second (index 1) - Pass the GlobalKey for lifecycle management
+          ChannelsFeedScreen(key: _channelsFeedKey),
+          // Wallet tab (index 2 -> page index 2)
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: _buildWalletTab(),
           ),
+          // Profile tab (index 3 -> page index 3)
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
@@ -141,7 +211,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: isHomeTab ? Colors.black : modernTheme.surfaceColor,
+          color: isChannelsTab ? Colors.black : modernTheme.surfaceColor,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -149,7 +219,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Divider(
               height: 1,
               thickness: 0.5,
-              color: isHomeTab ? Colors.grey[900] : modernTheme.dividerColor,
+              color: isChannelsTab ? Colors.grey[900] : modernTheme.dividerColor,
             ),
             SafeArea(
               top: false,
@@ -195,7 +265,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
     
-    if (index == 1) {
+    // Chats tab is now at index 0
+    if (index == 0) {
       return chatsAsyncValue.when(
         data: (chats) {
           final directChats = chats.where((chat) => !chat.isGroup).toList();
@@ -282,7 +353,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
   
-  bool _shouldShowFab() => _currentIndex == 1;
+  bool _shouldShowFab() => _currentIndex == 0; // FAB shows on Chats tab (index 0)
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     return AppBar(
@@ -328,7 +399,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       foregroundColor: Colors.white,
       elevation: 4,
       onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
-      child: const Icon(CupertinoIcons.chat_bubble_text),
+      child: const Icon(CupertinoIcons.bubble_left),
     );
   }
   
