@@ -1,5 +1,5 @@
 // lib/features/channels/widgets/comments_bottom_sheet.dart
-// Better comments experience that doesn't take full screen
+// Enhanced comments experience with threaded replies and better UI
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,7 +36,9 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
   
   bool _isLoading = false;
   bool _isKeyboardVisible = false;
-  double _keyboardHeight = 0;
+  String? _replyingToCommentId;
+  String? _replyingToUserName;
+  Map<String, bool> _expandedReplies = {};
 
   @override
   void initState() {
@@ -129,7 +131,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
       final userImage = userData[Constants.image] ?? '';
       
       // Add comment to Firestore
-      await _firestore.collection(Constants.channelComments).add({
+      final commentData = {
         'videoId': widget.videoId,
         'userId': uid,
         'userName': userName,
@@ -137,16 +139,32 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
         'comment': _commentController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'likes': 0,
-      });
+        'replyCount': 0,
+      };
+      
+      // Only add parentCommentId if we're replying
+      if (_replyingToCommentId != null) {
+        commentData['parentCommentId'] = _replyingToCommentId;
+      }
+      
+      await _firestore.collection(Constants.channelComments).add(commentData);
+      
+      // If replying to a comment, increment reply count
+      if (_replyingToCommentId != null) {
+        await _firestore.collection(Constants.channelComments).doc(_replyingToCommentId).update({
+          'replyCount': FieldValue.increment(1),
+        });
+      }
       
       // Increment comment count on video
       await _firestore.collection(Constants.channelVideos).doc(widget.videoId).update({
         'comments': FieldValue.increment(1),
       });
       
-      // Clear input
+      // Clear input and reset reply state
       _commentController.clear();
       _commentFocusNode.unfocus();
+      _cancelReply();
       
       // Scroll to top to show new comment
       _scrollController.animateTo(
@@ -162,6 +180,28 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
         _isLoading = false;
       });
     }
+  }
+
+  void _startReply(String commentId, String userName) {
+    setState(() {
+      _replyingToCommentId = commentId;
+      _replyingToUserName = userName;
+    });
+    _commentController.text = '@$userName ';
+    _commentFocusNode.requestFocus();
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingToCommentId = null;
+      _replyingToUserName = null;
+    });
+  }
+
+  void _toggleReplies(String commentId) {
+    setState(() {
+      _expandedReplies[commentId] = !(_expandedReplies[commentId] ?? false);
+    });
   }
 
   void _showSnackBar(String message) {
@@ -205,6 +245,8 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
             children: [
               _buildHandle(),
               _buildHeader(modernTheme),
+              if (_replyingToCommentId != null)
+                _buildReplyIndicator(modernTheme),
               Expanded(
                 child: _buildCommentsList(modernTheme),
               ),
@@ -266,6 +308,48 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
             onPressed: () => Navigator.of(context).pop(),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyIndicator(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: modernTheme.primaryColor!.withOpacity(0.1),
+        border: Border(
+          bottom: BorderSide(
+            color: modernTheme.dividerColor!.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.reply,
+            color: modernTheme.primaryColor,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Replying to @$_replyingToUserName',
+            style: TextStyle(
+              color: modernTheme.primaryColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: _cancelReply,
+            child: Icon(
+              Icons.close,
+              color: modernTheme.textSecondaryColor,
+              size: 16,
+            ),
           ),
         ],
       ),
@@ -342,20 +426,129 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
         
         final comments = snapshot.data!.docs;
         
+        // Filter main comments (those without parentCommentId or with null parentCommentId)
+        final mainComments = comments.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['parentCommentId'] == null || !data.containsKey('parentCommentId');
+        }).toList();
+        
         return ListView.builder(
           controller: _scrollController,
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: comments.length,
+          itemCount: mainComments.length,
           itemBuilder: (context, index) {
-            final comment = comments[index].data() as Map<String, dynamic>;
-            return _buildCommentItem(comment, modernTheme);
+            final commentDoc = mainComments[index];
+            final comment = commentDoc.data() as Map<String, dynamic>;
+            return _buildCommentThread(commentDoc.id, comment, modernTheme);
           },
         );
       },
     );
   }
 
-  Widget _buildCommentItem(Map<String, dynamic> comment, ModernThemeExtension modernTheme) {
+  Widget _buildCommentThread(String commentId, Map<String, dynamic> comment, ModernThemeExtension modernTheme) {
+    final replyCount = comment['replyCount'] ?? 0;
+    final isExpanded = _expandedReplies[commentId] ?? false;
+
+    return Column(
+      children: [
+        _buildCommentItem(commentId, comment, modernTheme, isMainComment: true),
+        
+        // Show replies indicator
+        if (replyCount > 0)
+          _buildRepliesIndicator(commentId, replyCount, isExpanded, modernTheme),
+        
+        // Show replies if expanded
+        if (isExpanded)
+          _buildRepliesList(commentId, modernTheme),
+      ],
+    );
+  }
+
+  Widget _buildRepliesIndicator(String commentId, int replyCount, bool isExpanded, ModernThemeExtension modernTheme) {
+    return GestureDetector(
+      onTap: () => _toggleReplies(commentId),
+      child: Container(
+        margin: const EdgeInsets.only(left: 48, right: 16, bottom: 8),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 20,
+              height: 1,
+              color: modernTheme.dividerColor!.withOpacity(0.5),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              color: modernTheme.primaryColor,
+              size: 16,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isExpanded ? 'Hide replies' : 'View $replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
+              style: TextStyle(
+                color: modernTheme.primaryColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRepliesList(String parentCommentId, ModernThemeExtension modernTheme) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection(Constants.channelComments)
+          .where('videoId', isEqualTo: widget.videoId)
+          .where('parentCommentId', isEqualTo: parentCommentId)
+          .orderBy('createdAt')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            margin: const EdgeInsets.only(left: 48),
+            child: const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          );
+        }
+        
+        if (snapshot.hasError) {
+          debugPrint('Error loading replies: ${snapshot.error}');
+          return const SizedBox.shrink();
+        }
+        
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        
+        final replies = snapshot.data!.docs;
+        
+        return Container(
+          margin: const EdgeInsets.only(left: 48),
+          child: Column(
+            children: replies.map((replyDoc) {
+              final reply = replyDoc.data() as Map<String, dynamic>;
+              return _buildCommentItem(replyDoc.id, reply, modernTheme, isMainComment: false);
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCommentItem(String commentId, Map<String, dynamic> comment, ModernThemeExtension modernTheme, {required bool isMainComment}) {
     final userName = comment['userName'] ?? '';
     final userImage = comment['userImage'] ?? '';
     final commentText = comment['comment'] ?? '';
@@ -371,22 +564,42 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
       if (difference.inMinutes < 1) {
         timeAgo = 'Just now';
       } else if (difference.inMinutes < 60) {
-        timeAgo = '${difference.inMinutes}m ago';
+        timeAgo = '${difference.inMinutes}m';
       } else if (difference.inHours < 24) {
-        timeAgo = '${difference.inHours}h ago';
+        timeAgo = '${difference.inHours}h';
       } else {
-        timeAgo = '${difference.inDays}d ago';
+        timeAgo = '${difference.inDays}d';
       }
     }
     
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.only(
+        left: isMainComment ? 16 : 8,
+        right: 16,
+        top: 12,
+        bottom: 12,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Connection line for replies
+          if (!isMainComment)
+            Container(
+              margin: const EdgeInsets.only(right: 8, top: 18),
+              child: Column(
+                children: [
+                  Container(
+                    width: 16,
+                    height: 1,
+                    color: modernTheme.dividerColor!.withOpacity(0.5),
+                  ),
+                ],
+              ),
+            ),
+          
           // User avatar
           CircleAvatar(
-            radius: 18,
+            radius: isMainComment ? 18 : 14,
             backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
             backgroundImage: userImage.isNotEmpty
                 ? NetworkImage(userImage)
@@ -397,7 +610,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                     style: TextStyle(
                       color: modernTheme.primaryColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: isMainComment ? 14 : 10,
                     ),
                   )
                 : null,
@@ -413,12 +626,15 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                 // User name and timestamp
                 Row(
                   children: [
-                    Text(
-                      userName,
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    Flexible(
+                      child: Text(
+                        userName,
+                        style: TextStyle(
+                          color: modernTheme.textColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: isMainComment ? 14 : 12,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -426,7 +642,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                       timeAgo,
                       style: TextStyle(
                         color: modernTheme.textSecondaryColor,
-                        fontSize: 12,
+                        fontSize: isMainComment ? 12 : 10,
                       ),
                     ),
                   ],
@@ -439,7 +655,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                   commentText,
                   style: TextStyle(
                     color: modernTheme.textColor,
-                    fontSize: 14,
+                    fontSize: isMainComment ? 14 : 12,
                     height: 1.4,
                   ),
                 ),
@@ -449,16 +665,18 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                 // Action buttons
                 Row(
                   children: [
+                    // Like button
                     GestureDetector(
                       onTap: () {
                         // Like comment functionality
                       },
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.favorite_border,
                             color: modernTheme.textSecondaryColor,
-                            size: 16,
+                            size: isMainComment ? 16 : 14,
                           ),
                           if (likes > 0) ...[
                             const SizedBox(width: 4),
@@ -466,29 +684,29 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                               likes.toString(),
                               style: TextStyle(
                                 color: modernTheme.textSecondaryColor,
-                                fontSize: 12,
+                                fontSize: isMainComment ? 12 : 10,
                               ),
                             ),
                           ],
                         ],
                       ),
                     ),
+                    
                     const SizedBox(width: 16),
-                    GestureDetector(
-                      onTap: () {
-                        // Reply functionality
-                        _commentController.text = '@$userName ';
-                        _commentFocusNode.requestFocus();
-                      },
-                      child: Text(
-                        'Reply',
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                    
+                    // Reply button (only for main comments)
+                    if (isMainComment)
+                      GestureDetector(
+                        onTap: () => _startReply(commentId, userName),
+                        child: Text(
+                          'Reply',
+                          style: TextStyle(
+                            color: modernTheme.textSecondaryColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ],
@@ -545,7 +763,9 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                   color: modernTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: modernTheme.dividerColor!.withOpacity(0.3),
+                    color: _replyingToCommentId != null 
+                        ? modernTheme.primaryColor!.withOpacity(0.5)
+                        : modernTheme.dividerColor!.withOpacity(0.3),
                     width: 1,
                   ),
                 ),
@@ -553,7 +773,9 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                   controller: _commentController,
                   focusNode: _commentFocusNode,
                   decoration: InputDecoration(
-                    hintText: 'Add a comment...',
+                    hintText: _replyingToCommentId != null 
+                        ? 'Reply to @$_replyingToUserName...'
+                        : 'Add a comment...',
                     hintStyle: TextStyle(
                       color: modernTheme.textSecondaryColor,
                     ),
@@ -566,7 +788,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                   style: TextStyle(
                     color: modernTheme.textColor,
                   ),
-                  maxLines: 3,
+                  maxLines: 4,
                   minLines: 1,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _addComment(),
