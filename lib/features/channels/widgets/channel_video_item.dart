@@ -1,6 +1,9 @@
+// lib/features/channels/widgets/channel_video_item.dart
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
+import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +42,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   bool _isPlaying = false;
   int _currentImageIndex = 0;
   bool _isInitializing = false;
+
+  
+  final VideoCacheService _cacheService = VideoCacheService();
 
   @override
   bool get wantKeepAlive => widget.isActive;
@@ -102,10 +108,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       return;
     }
     
-    await _initializeVideo();
+    await _initializeVideoWithCache();
   }
 
-  Future<void> _initializeVideo() async {
+  Future<void> _initializeVideoWithCache() async {
     if (_isInitializing) return;
     
     try {
@@ -113,10 +119,33 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         _isInitializing = true;
       });
 
+      debugPrint('Initializing video with cache: ${widget.video.videoUrl}');
+
+      // Use preloaded controller if available
       if (widget.preloadedController != null) {
         await _usePreloadedController();
       } else {
-        await _createNewController();
+        // Try to get cached video first
+        File? cachedFile;
+        try {
+          if (await _cacheService.isVideoCached(widget.video.videoUrl)) {
+            cachedFile = await _cacheService.getCachedVideo(widget.video.videoUrl);
+            debugPrint('Using cached video: ${cachedFile.path}');
+          } else {
+            debugPrint('Video not cached, downloading: ${widget.video.videoUrl}');
+            cachedFile = await _cacheService.preloadVideo(widget.video.videoUrl);
+          }
+        } catch (e) {
+          debugPrint('Cache error, falling back to network: $e');
+        }
+
+        // Initialize video player with cached file or network URL
+        if (cachedFile != null && await cachedFile.exists()) {
+          await _createControllerFromFile(cachedFile);
+        } else {
+          debugPrint('Fallback to network video');
+          await _createControllerFromNetwork();
+        }
       }
       
       if (_videoPlayerController != null && mounted) {
@@ -141,7 +170,21 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     }
   }
 
-  Future<void> _createNewController() async {
+  Future<void> _createControllerFromFile(File videoFile) async {
+    _videoPlayerController = VideoPlayerController.file(
+      videoFile,
+      videoPlayerOptions: VideoPlayerOptions(
+        allowBackgroundPlayback: false,
+        mixWithOthers: false,
+      ),
+    );
+    
+    await _videoPlayerController!.initialize().timeout(
+      const Duration(seconds: 10),
+    );
+  }
+
+  Future<void> _createControllerFromNetwork() async {
     _videoPlayerController = VideoPlayerController.networkUrl(
       Uri.parse(widget.video.videoUrl),
       videoPlayerOptions: VideoPlayerOptions(
@@ -297,7 +340,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       color: Colors.black,
       child: Image.network(
         imageUrl,
-        fit: BoxFit.cover, // This ensures the image covers the entire screen
+        fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
         loadingBuilder: (context, child, loadingProgress) {

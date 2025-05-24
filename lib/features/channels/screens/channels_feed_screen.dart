@@ -1,3 +1,6 @@
+// Enhanced version of lib/features/channels/screens/channels_feed_screen.dart
+// Replace the existing file with this enhanced version that includes caching
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +11,7 @@ import 'package:textgb/features/channels/providers/channel_videos_provider.dart'
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/widgets/channel_video_item.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
+import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -26,6 +30,9 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   final PageController _pageController = PageController();
   late AnimationController _progressController;
   
+  // Cache service
+  final VideoCacheService _cacheService = VideoCacheService();
+  
   // State management
   bool _isFirstLoad = true;
   int _currentVideoIndex = 0;
@@ -40,15 +47,10 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   Duration _videoPosition = Duration.zero;
   VideoPlayerController? _currentVideoController;
   Timer? _progressUpdateTimer;
+  Timer? _cacheCleanupTimer;
   
-  // Simplified preloading system
-  final Map<int, VideoPlayerController> _preloadedControllers = {};
-  final Set<int> _preloadingInProgress = {};
-  
-  // Conservative configuration for real device performance
-  static const int _maxPreloadedVideos = 3;
   static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
-  static const Duration _preloadDelay = Duration(milliseconds: 500);
+  static const Duration _cacheCleanupInterval = Duration(minutes: 10);
 
   @override
   bool get wantKeepAlive => true;
@@ -60,6 +62,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _initializeControllers();
     _setupSystemUI();
     _loadVideos();
+    _setupCacheCleanup();
     _hasInitialized = true;
   }
 
@@ -99,6 +102,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     if (_isAppInForeground) {
       _resumePlayback();
+      _startIntelligentPreloading();
       WakelockPlus.enable();
     }
   }
@@ -123,7 +127,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     }
     
     _setupVideoProgressTracking();
-    _startPreloadingNearbyVideos();
+    _startIntelligentPreloading();
     
     WakelockPlus.enable();
   }
@@ -133,12 +137,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
-    }
-    
-    for (final controller in _preloadedControllers.values) {
-      if (controller.value.isInitialized) {
-        controller.pause();
-      }
     }
     
     _progressUpdateTimer?.cancel();
@@ -173,6 +171,12 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     ));
   }
 
+  void _setupCacheCleanup() {
+    _cacheCleanupTimer = Timer.periodic(_cacheCleanupInterval, (timer) {
+      _cacheService.cleanupOldCache();
+    });
+  }
+
   Future<void> _loadVideos() async {
     if (_isFirstLoad) {
       debugPrint('ChannelsFeedScreen: Loading initial videos');
@@ -187,9 +191,9 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         _progressController.forward();
         
         if (_isScreenActive && _isAppInForeground) {
-          Timer(_preloadDelay, () {
+          Timer(const Duration(milliseconds: 500), () {
             if (mounted && _isScreenActive && _isAppInForeground) {
-              _startPreloadingNearbyVideos();
+              _startIntelligentPreloading();
             }
           });
         }
@@ -233,9 +237,9 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             debugPrint('Video Progress: ${(progress * 100).toStringAsFixed(1)}%');
           }
           
-          // Preload when halfway through
+          // Trigger next batch preloading when halfway through
           if (progress > 0.5 && _isScreenActive && _isAppInForeground) {
-            _startPreloadingNearbyVideos();
+            _preloadNextBatch();
           }
         }
       } else {
@@ -249,81 +253,21 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     });
   }
 
-  void _startPreloadingNearbyVideos() {
+  void _startIntelligentPreloading() {
     if (!_isScreenActive || !_isAppInForeground) return;
     
     final videos = ref.read(channelVideosProvider).videos;
     if (videos.isEmpty) return;
     
-    // Preload next few videos only
-    for (int i = 1; i <= _maxPreloadedVideos; i++) {
-      final nextIndex = _currentVideoIndex + i;
-      
-      if (nextIndex < videos.length && 
-          !_preloadedControllers.containsKey(nextIndex) && 
-          !_preloadingInProgress.contains(nextIndex) &&
-          !videos[nextIndex].isMultipleImages &&
-          videos[nextIndex].videoUrl.isNotEmpty) {
-        _preloadVideo(nextIndex, videos[nextIndex]);
-      }
-    }
+    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
+    _cacheService.preloadVideosIntelligently(videos, _currentVideoIndex);
   }
 
-  Future<void> _preloadVideo(int index, ChannelVideoModel video) async {
-    if (!_isScreenActive || !_isAppInForeground || _preloadingInProgress.contains(index)) {
-      return;
-    }
+  void _preloadNextBatch() {
+    final videos = ref.read(channelVideosProvider).videos;
+    if (videos.isEmpty) return;
     
-    _preloadingInProgress.add(index);
-    
-    try {
-      final controller = VideoPlayerController.network(
-        video.videoUrl,
-        videoPlayerOptions: VideoPlayerOptions(
-          allowBackgroundPlayback: false,
-          mixWithOthers: false,
-        ),
-      );
-
-      await controller.initialize().timeout(
-        const Duration(seconds: 10),
-      );
-      
-      controller.setLooping(true);
-      controller.setVolume(0); // Preloaded videos muted
-      
-      if (mounted && _isScreenActive && _isAppInForeground) {
-        _preloadedControllers[index] = controller;
-        debugPrint('Successfully preloaded video: $index');
-      } else {
-        controller.dispose();
-      }
-    } catch (e) {
-      debugPrint('Failed to preload video $index: $e');
-    } finally {
-      _preloadingInProgress.remove(index);
-    }
-  }
-
-  void _cleanupOldPreloadedVideos() {
-    final keysToRemove = _preloadedControllers.keys.where(
-      (index) => (index - _currentVideoIndex).abs() > _maxPreloadedVideos
-    ).toList();
-    
-    for (final index in keysToRemove) {
-      final controller = _preloadedControllers.remove(index);
-      controller?.dispose();
-      debugPrint('Cleaned up preloaded video: $index');
-    }
-  }
-
-  VideoPlayerController? _getPreloadedController(int index) {
-    final controller = _preloadedControllers.remove(index);
-    if (controller != null) {
-      debugPrint('Using preloaded controller for video: $index');
-      controller.setVolume(1.0);
-    }
-    return controller;
+    _cacheService.preloadNextBatch(videos, _currentVideoIndex);
   }
 
   void _onVideoControllerReady(VideoPlayerController controller) {
@@ -333,7 +277,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     setState(() {
       _currentVideoController = controller;
-      _videoProgress = 0.0; // Reset progress for new video
+      _videoProgress = 0.0;
       _showProgressBar = true;
     });
     
@@ -348,7 +292,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     WakelockPlus.enable();
     
     if (_isScreenActive && _isAppInForeground) {
-      _startPreloadingNearbyVideos();
+      _startIntelligentPreloading();
     }
   }
 
@@ -364,26 +308,22 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _videoProgress = 0.0;
       _videoPosition = Duration.zero;
       _videoDuration = Duration.zero;
-      _showProgressBar = true; // Ensure progress bar shows for new video
+      _showProgressBar = true;
     });
 
     _progressUpdateTimer?.cancel();
-    
     _progressController.reset();
     
     // Handle different content types
     if (videos[index].isMultipleImages || videos[index].videoUrl.isEmpty) {
-      // For images, start the animation immediately
       _progressController.forward();
       debugPrint('Starting image progress animation');
     } else {
-      // For videos, progress will be handled by video controller
       debugPrint('Waiting for video to initialize for progress tracking');
     }
 
-    _cleanupOldPreloadedVideos();
     if (_isScreenActive && _isAppInForeground) {
-      _startPreloadingNearbyVideos();
+      _startIntelligentPreloading();
       WakelockPlus.enable();
     }
     
@@ -397,17 +337,13 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     WidgetsBinding.instance.removeObserver(this);
     
     _progressUpdateTimer?.cancel();
+    _cacheCleanupTimer?.cancel();
     
     _progressController.dispose();
     _pageController.dispose();
     
     _pauseAllPlayback();
-    for (final controller in _preloadedControllers.values) {
-      controller.dispose();
-    }
-    _preloadedControllers.clear();
-    
-    _preloadingInProgress.clear();
+    _cacheService.dispose();
     
     WakelockPlus.disable();
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
@@ -440,35 +376,20 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         children: [
           _buildBody(channelVideosState, channelsState, modernTheme, bottomNavHeight),
           
-          // Enhanced progress bar with better positioning
+          // Enhanced progress bar with cache indicators
           Positioned(
-            bottom: bottomNavHeight + 16, // Increased spacing from bottom nav
+            bottom: bottomNavHeight + 16,
             left: 16,
             right: 16,
             child: _buildEnhancedProgressBar(modernTheme),
           ),
           
-          // Debug info (remove in production)
+          // Cache performance indicator (debug mode only)
           if (kDebugMode)
             Positioned(
               top: MediaQuery.of(context).padding.top + 10,
               left: 16,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'Progress: ${(_videoProgress * 100).toStringAsFixed(1)}%\n'
-                  'Active: $_isScreenActive\n'
-                  'Controller: ${_currentVideoController != null}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
+              child: _buildCacheDebugInfo(modernTheme),
             ),
           
           if (!_isScreenActive)
@@ -500,13 +421,11 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         physics: _isScreenActive ? null : const NeverScrollableScrollPhysics(),
         itemBuilder: (context, index) {
           final video = videosState.videos[index];
-          final preloadedController = _getPreloadedController(index);
           
           return ChannelVideoItem(
             video: video,
             isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground,
             onVideoControllerReady: _onVideoControllerReady,
-            preloadedController: preloadedController,
           );
         },
       ),
@@ -514,7 +433,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   Widget _buildEnhancedProgressBar(ModernThemeExtension modernTheme) {
-    // Debug: Always show progress bar during development
     final shouldShow = _showProgressBar && (_videoProgress > 0.0 || _isFirstLoad);
     
     debugPrint('Progress Bar - Show: $shouldShow, Progress: $_videoProgress, FirstLoad: $_isFirstLoad');
@@ -545,7 +463,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               height: 4,
               color: Colors.transparent,
             ),
-            // Progress fill
+            // Progress fill with enhanced styling for cached content
             AnimatedContainer(
               duration: const Duration(milliseconds: 100),
               width: (MediaQuery.of(context).size.width - 32) * _videoProgress.clamp(0.0, 1.0),
@@ -570,6 +488,50 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCacheDebugInfo(ModernThemeExtension modernTheme) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _cacheService.getCacheStats(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+        
+        final stats = snapshot.data!;
+        return Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Cache: ${stats['fileCount']} files (${stats['totalSizeMB']}MB)',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                ),
+              ),
+              Text(
+                'Queue: ${stats['queueLength']} | Loading: ${stats['preloadingCount']}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                ),
+              ),
+              Text(
+                'Progress: ${(_videoProgress * 100).toStringAsFixed(1)}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -698,11 +660,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     final result = await Navigator.pushNamed(context, Constants.createChannelPostScreen);
     if (result == true) {
       _pauseAllPlayback();
-      for (final controller in _preloadedControllers.values) {
-        controller.dispose();
-      }
-      _preloadedControllers.clear();
-      _preloadingInProgress.clear();
       
       ref.read(channelVideosProvider.notifier).loadVideos(forceRefresh: true);
       

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
@@ -26,6 +28,15 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   bool _isDeleting = false;
   late TabController _tabController;
   Map<String, String> _videoThumbnails = {};
+  
+  // Cache manager for video thumbnails
+  static final _thumbnailCacheManager = CacheManager(
+    Config(
+      'channelVideoThumbnails',
+      stalePeriod: const Duration(days: 7),
+      maxNrOfCacheObjects: 200,
+    ),
+  );
 
   @override
   void initState() {
@@ -37,6 +48,8 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    // Clear thumbnail cache on dispose if needed
+    // _thumbnailCacheManager.emptyCache();
     super.dispose();
   }
 
@@ -81,18 +94,41 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     for (final video in _channelVideos) {
       if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
         try {
-          final thumbnailPath = await VideoThumbnail.thumbnailFile(
-            video: video.videoUrl,
-            thumbnailPath: (await getTemporaryDirectory()).path,
-            imageFormat: ImageFormat.JPEG,
-            maxHeight: 200,
-            quality: 75,
-          );
+          // Check if thumbnail is already cached
+          final cacheKey = 'thumb_${video.id}';
+          final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
           
-          if (thumbnailPath != null && mounted) {
-            setState(() {
-              _videoThumbnails[video.id] = thumbnailPath;
-            });
+          if (fileInfo != null && fileInfo.file.existsSync()) {
+            // Use cached thumbnail
+            if (mounted) {
+              setState(() {
+                _videoThumbnails[video.id] = fileInfo.file.path;
+              });
+            }
+          } else {
+            // Generate new thumbnail
+            final thumbnailPath = await VideoThumbnail.thumbnailFile(
+              video: video.videoUrl,
+              thumbnailPath: (await getTemporaryDirectory()).path,
+              imageFormat: ImageFormat.JPEG,
+              maxHeight: 400, // Higher quality for better display
+              quality: 85,
+            );
+            
+            if (thumbnailPath != null && mounted) {
+              // Cache the thumbnail
+              final thumbnailFile = File(thumbnailPath);
+              if (thumbnailFile.existsSync()) {
+                await _thumbnailCacheManager.putFile(
+                  cacheKey,
+                  thumbnailFile.readAsBytesSync(),
+                );
+              }
+              
+              setState(() {
+                _videoThumbnails[video.id] = thumbnailPath;
+              });
+            }
           }
         } catch (e) {
           print('Error generating thumbnail for video ${video.id}: $e');
@@ -445,9 +481,38 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
           // Cover Image
           if (_channel!.coverImage.isNotEmpty)
             Positioned.fill(
-              child: Image.network(
-                _channel!.coverImage,
+              child: CachedNetworkImage(
+                imageUrl: _channel!.coverImage,
                 fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        modernTheme.primaryColor!,
+                        modernTheme.primaryColor!.withOpacity(0.8),
+                      ],
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        modernTheme.primaryColor!,
+                        modernTheme.primaryColor!.withOpacity(0.8),
+                      ],
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.image_not_supported,
+                    color: Colors.white30,
+                    size: 48,
+                  ),
+                ),
               ),
             ),
           
@@ -491,9 +556,35 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                   ),
                   child: ClipOval(
                     child: _channel!.profileImage.isNotEmpty
-                        ? Image.network(
-                            _channel!.profileImage,
+                        ? CachedNetworkImage(
+                            imageUrl: _channel!.profileImage,
                             fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: modernTheme.primaryColor!.withOpacity(0.1),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    modernTheme.primaryColor!,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: modernTheme.primaryColor,
+                              child: Center(
+                                child: Text(
+                                  _channel!.name.isNotEmpty
+                                      ? _channel!.name[0].toUpperCase()
+                                      : "C",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 28,
+                                  ),
+                                ),
+                              ),
+                            ),
                           )
                         : Container(
                             color: modernTheme.primaryColor,
@@ -695,12 +786,12 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     return RefreshIndicator(
       onRefresh: _loadChannelData,
       child: GridView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(4),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 0.8,
+          crossAxisCount: 3,
+          crossAxisSpacing: 2,
+          mainAxisSpacing: 2,
+          childAspectRatio: 9 / 16, // TikTok-style aspect ratio
         ),
         itemCount: _channelVideos.length,
         itemBuilder: (context, index) {
@@ -714,187 +805,171 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   Widget _buildVideoCard(ChannelVideoModel video, ModernThemeExtension modernTheme) {
     return GestureDetector(
       onTap: () => _openVideoDetails(video),
-      child: Container(
-        decoration: BoxDecoration(
-          color: modernTheme.surfaceColor,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Thumbnail
-            Expanded(
-              flex: 3,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
+      onLongPress: () => _confirmDeleteVideo(video),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Thumbnail covering the entire tile
+          if (video.isMultipleImages && video.imageUrls.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: video.imageUrls.first,
+              fit: BoxFit.cover,
+              memCacheHeight: 600, // Optimize memory usage
+              placeholder: (context, url) => Container(
+                color: modernTheme.surfaceColor,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      modernTheme.primaryColor!,
+                    ),
                   ),
-                  color: Colors.grey.shade200,
                 ),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: modernTheme.primaryColor!.withOpacity(0.1),
+                child: Icon(
+                  Icons.photo_library,
+                  color: modernTheme.primaryColor,
+                  size: 48,
+                ),
+              ),
+            )
+          else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id))
+            Image.file(
+              File(_videoThumbnails[video.id]!),
+              fit: BoxFit.cover,
+            )
+          else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: video.thumbnailUrl,
+              fit: BoxFit.cover,
+              memCacheHeight: 600, // Optimize memory usage
+              placeholder: (context, url) => Container(
+                color: modernTheme.surfaceColor,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      modernTheme.primaryColor!,
+                    ),
                   ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Thumbnail Image
-                      if (video.isMultipleImages && video.imageUrls.isNotEmpty)
-                        Image.network(
-                          video.imageUrls.first,
-                          fit: BoxFit.cover,
-                        )
-                      else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id))
-                        Image.file(
-                          File(_videoThumbnails[video.id]!),
-                          fit: BoxFit.cover,
-                        )
-                      else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
-                        Image.network(
-                          video.thumbnailUrl,
-                          fit: BoxFit.cover,
-                        )
-                      else
-                        Container(
-                          color: modernTheme.primaryColor!.withOpacity(0.1),
-                          child: Icon(
-                            video.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
-                            color: modernTheme.primaryColor,
-                            size: 32,
-                          ),
-                        ),
-                      
-                      // Overlay Icons
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (video.isMultipleImages && video.imageUrls.length > 1)
-                              Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.7),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.photo_library,
-                                      color: Colors.white,
-                                      size: 12,
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      '${video.imageUrls.length}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () => _confirmDeleteVideo(video),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.8),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Icon(
-                                  Icons.delete,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                ),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: modernTheme.primaryColor!.withOpacity(0.1),
+                child: Icon(
+                  Icons.play_circle_fill,
+                  color: modernTheme.primaryColor,
+                  size: 48,
+                ),
+              ),
+            )
+          else
+            Container(
+              color: modernTheme.primaryColor!.withOpacity(0.1),
+              child: Icon(
+                video.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
+                color: modernTheme.primaryColor,
+                size: 48,
+              ),
+            ),
+          
+          // Gradient overlay at bottom
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.7),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          
+          // View count at bottom left (TikTok style)
+          Positioned(
+            bottom: 8,
+            left: 8,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _formatViewCount(video.views),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        offset: Offset(0, 1),
+                        blurRadius: 3,
                       ),
                     ],
                   ),
                 ),
-              ),
+              ],
             ),
-            
-            // Content Info
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          
+          // Multiple images indicator
+          if (video.isMultipleImages && video.imageUrls.length > 1)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Caption
-                    Text(
-                      video.caption,
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    const Icon(
+                      Icons.photo_library,
+                      color: Colors.white,
+                      size: 14,
                     ),
-                    
-                    const SizedBox(height: 8),
-                    
-                    // Stats
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.favorite,
-                          color: modernTheme.textSecondaryColor,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${video.likes}',
-                          style: TextStyle(
-                            color: modernTheme.textSecondaryColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                        
-                        const SizedBox(width: 12),
-                        
-                        Icon(
-                          Icons.visibility,
-                          color: modernTheme.textSecondaryColor,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${video.views}',
-                          style: TextStyle(
-                            color: modernTheme.textSecondaryColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 4),
+                    Text(
+                      '${video.imageUrls.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
+  }
+
+  String _formatViewCount(int views) {
+    if (views >= 1000000) {
+      return '${(views / 1000000).toStringAsFixed(1)}M';
+    } else if (views >= 1000) {
+      return '${(views / 1000).toStringAsFixed(1)}K';
+    }
+    return views.toString();
   }
 
   Widget _buildEmptyState(ModernThemeExtension modernTheme) {

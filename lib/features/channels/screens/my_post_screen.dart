@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:intl/intl.dart';
 
 class MyPostScreen extends ConsumerStatefulWidget {
   final String videoId;
@@ -30,6 +33,15 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   late AnimationController _rocketAnimationController;
   late Animation<double> _rocketAnimation;
   late TabController _tabController;
+  
+  // Cache manager for video thumbnails
+  static final _thumbnailCacheManager = CacheManager(
+    Config(
+      'postVideoThumbnails',
+      stalePeriod: const Duration(days: 7),
+      maxNrOfCacheObjects: 100,
+    ),
+  );
 
   @override
   void initState() {
@@ -66,19 +78,23 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     });
 
     try {
-      // TODO: Implement actual video loading logic
-      // For now, we'll simulate loading
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Load the specific video from the provider
+      final video = await ref.read(channelVideosProvider.notifier).getVideoById(widget.videoId);
       
-      // Generate thumbnail if it's a video
-      if (_video != null && !_video!.isMultipleImages && _video!.videoUrl.isNotEmpty) {
-        _generateVideoThumbnail();
+      if (video == null) {
+        throw Exception('Video not found');
       }
       
       if (mounted) {
         setState(() {
+          _video = video;
           _isLoading = false;
         });
+        
+        // Generate thumbnail if it's a video
+        if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
+          _generateVideoThumbnail();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -94,18 +110,41 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     if (_video == null || _video!.videoUrl.isEmpty) return;
     
     try {
-      final thumbnailPath = await VideoThumbnail.thumbnailFile(
-        video: _video!.videoUrl,
-        thumbnailPath: (await getTemporaryDirectory()).path,
-        imageFormat: ImageFormat.JPEG,
-        maxHeight: 300,
-        quality: 85,
-      );
+      // Check if thumbnail is already cached
+      final cacheKey = 'post_thumb_${_video!.id}';
+      final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
       
-      if (thumbnailPath != null && mounted) {
-        setState(() {
-          _videoThumbnail = thumbnailPath;
-        });
+      if (fileInfo != null && fileInfo.file.existsSync()) {
+        // Use cached thumbnail
+        if (mounted) {
+          setState(() {
+            _videoThumbnail = fileInfo.file.path;
+          });
+        }
+      } else {
+        // Generate new thumbnail
+        final thumbnailPath = await VideoThumbnail.thumbnailFile(
+          video: _video!.videoUrl,
+          thumbnailPath: (await getTemporaryDirectory()).path,
+          imageFormat: ImageFormat.JPEG,
+          maxHeight: 400,
+          quality: 85,
+        );
+        
+        if (thumbnailPath != null && mounted) {
+          // Cache the thumbnail
+          final thumbnailFile = File(thumbnailPath);
+          if (thumbnailFile.existsSync()) {
+            await _thumbnailCacheManager.putFile(
+              cacheKey,
+              thumbnailFile.readAsBytesSync(),
+            );
+          }
+          
+          setState(() {
+            _videoThumbnail = thumbnailPath;
+          });
+        }
       }
     } catch (e) {
       print('Error generating thumbnail: $e');
@@ -117,7 +156,6 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
       _rocketAnimationController.reset();
     });
     
-    // TODO: Implement boost logic
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('🚀 Post boost feature coming soon!'),
@@ -128,10 +166,9 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   }
 
   void _editPost() {
-    // TODO: Navigate to edit post screen
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Edit post feature coming soon!'),
+        content: const Text('Edit feature coming soon!'),
         backgroundColor: context.modernTheme.primaryColor,
         behavior: SnackBarBehavior.floating,
       ),
@@ -139,7 +176,6 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   }
 
   void _addBannerText() {
-    // TODO: Implement banner text editor
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Banner text editor coming soon!'),
@@ -149,7 +185,9 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     );
   }
 
-  void _deletePost() {
+  Future<void> _deletePost() async {
+    if (_video == null) return;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -181,10 +219,34 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              Navigator.of(context).pop(); // Go back to channel screen
-              // TODO: Implement delete logic
+              
+              try {
+                await ref.read(channelVideosProvider.notifier).deleteVideo(
+                  _video!.id,
+                  (error) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(error),
+                        backgroundColor: Colors.red.shade600,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                );
+                
+                // Go back to channel screen after successful deletion
+                Navigator.of(context).pop();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error deleting post: ${e.toString()}'),
+                    backgroundColor: Colors.red.shade600,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade600,
@@ -200,6 +262,30 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     );
   }
 
+  String _formatTimeAgo(Timestamp timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp.toDate());
+    
+    if (difference.inDays > 0) {
+      return DateFormat('MMM d, y').format(timestamp.toDate());
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  String _formatViewCount(int views) {
+    if (views >= 1000000) {
+      return '${(views / 1000000).toStringAsFixed(1)}M';
+    } else if (views >= 1000) {
+      return '${(views / 1000).toStringAsFixed(1)}K';
+    }
+    return views.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
@@ -210,7 +296,9 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
           ? _buildLoadingView(modernTheme)
           : _error != null
               ? _buildErrorView(modernTheme)
-              : _buildPostView(modernTheme),
+              : _video != null
+                  ? _buildPostView(modernTheme)
+                  : _buildErrorView(modernTheme),
     );
   }
 
@@ -317,12 +405,28 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _error!,
+                      _error ?? 'The post you\'re looking for doesn\'t exist.',
                       style: TextStyle(
                         color: modernTheme.textSecondaryColor,
                         fontSize: 16,
                       ),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: modernTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Go Back'),
                     ),
                   ],
                 ),
@@ -335,29 +439,6 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   }
 
   Widget _buildPostView(ModernThemeExtension modernTheme) {
-    // TODO: Replace with actual video data from provider
-    final dummyVideo = ChannelVideoModel(
-      id: widget.videoId,
-      channelId: 'channel_123',
-      channelName: 'My Channel',
-      channelImage: 'https://picsum.photos/100/100',
-      userId: 'user_123',
-      videoUrl: 'https://example.com/video.mp4',
-      thumbnailUrl: 'https://picsum.photos/400/600',
-      caption: 'Amazing sunset view from my balcony! 🌅',
-      likes: 142,
-      comments: 23,
-      views: 1250,
-      shares: 8,
-      isLiked: false,
-      tags: ['sunset', 'nature', 'photography'],
-      createdAt: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 2))),
-      isActive: true,
-      isFeatured: false,
-      isMultipleImages: false,
-      imageUrls: [],
-    );
-
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) => [
         // Custom App Bar
@@ -412,7 +493,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
       body: Column(
         children: [
           // Post Preview Card
-          _buildPostPreviewCard(dummyVideo, modernTheme),
+          _buildPostPreviewCard(_video!, modernTheme),
           
           // Action Buttons Row
           _buildActionButtons(modernTheme),
@@ -447,7 +528,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildAnalyticsTab(dummyVideo, modernTheme),
+                _buildAnalyticsTab(_video!, modernTheme),
                 _buildEditTab(modernTheme),
                 _buildBoostTab(modernTheme),
               ],
@@ -487,9 +568,31 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   children: [
                     // Media Content
                     if (video.isMultipleImages && video.imageUrls.isNotEmpty)
-                      Image.network(
-                        video.imageUrls.first,
-                        fit: BoxFit.cover,
+                      PageView.builder(
+                        itemCount: video.imageUrls.length,
+                        itemBuilder: (context, index) => CachedNetworkImage(
+                          imageUrl: video.imageUrls[index],
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: modernTheme.surfaceColor,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  modernTheme.primaryColor!,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: modernTheme.primaryColor!.withOpacity(0.1),
+                            child: Icon(
+                              Icons.image_not_supported,
+                              color: modernTheme.primaryColor,
+                              size: 48,
+                            ),
+                          ),
+                        ),
                       )
                     else if (!video.isMultipleImages && _videoThumbnail != null)
                       Image.file(
@@ -497,9 +600,28 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                         fit: BoxFit.cover,
                       )
                     else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
-                      Image.network(
-                        video.thumbnailUrl,
+                      CachedNetworkImage(
+                        imageUrl: video.thumbnailUrl,
                         fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: modernTheme.surfaceColor,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                modernTheme.primaryColor!,
+                              ),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: modernTheme.primaryColor!.withOpacity(0.1),
+                          child: Icon(
+                            Icons.video_library,
+                            color: modernTheme.primaryColor,
+                            size: 48,
+                          ),
+                        ),
                       )
                     else
                       Container(
@@ -527,6 +649,27 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                           ),
                         ),
                       ),
+                    
+                    // Page indicator for multiple images
+                    if (video.isMultipleImages && video.imageUrls.length > 1)
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${video.imageUrls.length} photos',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -539,12 +682,61 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Channel info
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundImage: video.channelImage.isNotEmpty
+                          ? CachedNetworkImageProvider(video.channelImage)
+                          : null,
+                      child: video.channelImage.isEmpty
+                          ? Text(
+                              video.channelName.isNotEmpty
+                                  ? video.channelName[0].toUpperCase()
+                                  : 'C',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            video.channelName,
+                            style: TextStyle(
+                              color: modernTheme.textColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            _formatTimeAgo(video.createdAt),
+                            style: TextStyle(
+                              color: modernTheme.textSecondaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Caption
                 Text(
                   video.caption,
                   style: TextStyle(
                     color: modernTheme.textColor,
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 
@@ -582,11 +774,29 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                 // Stats
                 Row(
                   children: [
-                    _buildStatChip(Icons.favorite, '${video.likes}', modernTheme),
+                    _buildStatChip(
+                      Icons.favorite,
+                      _formatViewCount(video.likes),
+                      modernTheme,
+                    ),
                     const SizedBox(width: 12),
-                    _buildStatChip(Icons.comment, '${video.comments}', modernTheme),
+                    _buildStatChip(
+                      Icons.comment,
+                      _formatViewCount(video.comments),
+                      modernTheme,
+                    ),
                     const SizedBox(width: 12),
-                    _buildStatChip(Icons.visibility, '${video.views}', modernTheme),
+                    _buildStatChip(
+                      Icons.visibility,
+                      _formatViewCount(video.views),
+                      modernTheme,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildStatChip(
+                      Icons.share,
+                      _formatViewCount(video.shares),
+                      modernTheme,
+                    ),
                   ],
                 ),
               ],
@@ -678,6 +888,10 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   }
 
   Widget _buildAnalyticsTab(ChannelVideoModel video, ModernThemeExtension modernTheme) {
+    final engagementRate = video.views > 0
+        ? ((video.likes + video.comments + video.shares) / video.views * 100)
+        : 0.0;
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -705,33 +919,33 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
             children: [
               _buildAnalyticsCard(
                 'Total Views',
-                '${video.views}',
+                _formatViewCount(video.views),
                 Icons.visibility,
-                '↗ 12% vs last post',
+                video.isFeatured ? '⭐ Featured' : '↗ Growing',
                 Colors.green,
                 modernTheme,
               ),
               _buildAnalyticsCard(
                 'Likes',
-                '${video.likes}',
+                _formatViewCount(video.likes),
                 Icons.favorite,
-                '↗ 8% vs last post',
+                '${(video.likes / (video.views > 0 ? video.views : 1) * 100).toStringAsFixed(1)}% rate',
                 Colors.red,
                 modernTheme,
               ),
               _buildAnalyticsCard(
                 'Comments',
-                '${video.comments}',
+                _formatViewCount(video.comments),
                 Icons.comment,
-                '↗ 15% vs last post',
+                '${(video.comments / (video.views > 0 ? video.views : 1) * 100).toStringAsFixed(1)}% rate',
                 Colors.blue,
                 modernTheme,
               ),
               _buildAnalyticsCard(
                 'Engagement',
-                '${((video.likes + video.comments) / video.views * 100).toStringAsFixed(1)}%',
+                '${engagementRate.toStringAsFixed(1)}%',
                 Icons.trending_up,
-                'Above average',
+                engagementRate > 10 ? 'Excellent' : 'Good',
                 Colors.orange,
                 modernTheme,
               ),
@@ -740,37 +954,111 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
           
           const SizedBox(height: 24),
           
-          // Recent Activity
-          Text(
-            'Recent Activity',
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+          // Post Status
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: video.isActive
+                    ? Colors.green.withOpacity(0.3)
+                    : Colors.orange.withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  video.isActive ? Icons.check_circle : Icons.pause_circle,
+                  color: video.isActive ? Colors.green : Colors.orange,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Post Status',
+                        style: TextStyle(
+                          color: modernTheme.textSecondaryColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        video.isActive ? 'Active' : 'Paused',
+                        style: TextStyle(
+                          color: modernTheme.textColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (video.isFeatured)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.star,
+                          color: Colors.amber,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Featured',
+                          style: TextStyle(
+                            color: Colors.amber.shade700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
           
-          _buildActivityItem(
-            'New like from @user123',
-            '2 minutes ago',
-            Icons.favorite,
-            Colors.red,
-            modernTheme,
-          ),
-          _buildActivityItem(
-            'Comment from @johndoe',
-            '5 minutes ago',
-            Icons.comment,
-            Colors.blue,
-            modernTheme,
-          ),
-          _buildActivityItem(
-            'Shared by @sarah_m',
-            '1 hour ago',
-            Icons.share,
-            Colors.green,
-            modernTheme,
+          const SizedBox(height: 24),
+          
+          // Performance Graph Placeholder
+          Container(
+            height: 200,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.show_chart,
+                    color: modernTheme.primaryColor,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Performance graph coming soon',
+                    style: TextStyle(
+                      color: modernTheme.textSecondaryColor,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -829,59 +1117,10 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
           Text(
             trend,
             style: TextStyle(
-              color: Colors.green,
+              color: trend.contains('↗') || trend.contains('Excellent') || trend.contains('Featured')
+                  ? Colors.green
+                  : modernTheme.textSecondaryColor,
               fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityItem(
-    String title,
-    String time,
-    IconData icon,
-    Color iconColor,
-    ModernThemeExtension modernTheme,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 16),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  time,
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -931,15 +1170,94 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
             'Privacy Settings',
             'Control who can see this post',
             Icons.privacy_tip,
-            _editPost,
+            () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Privacy settings coming soon!'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
             modernTheme,
           ),
           _buildEditOption(
             'Advanced Settings',
             'Comments, downloads, and more',
             Icons.settings,
-            _editPost,
+            () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Advanced settings coming soon!'),
+                  backgroundColor: modernTheme.primaryColor,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
             modernTheme,
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Post Activity Status
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: modernTheme.primaryColor!.withOpacity(0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.toggle_on,
+                      color: modernTheme.primaryColor,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Post Activity',
+                      style: TextStyle(
+                        color: modernTheme.textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const Spacer(),
+                    Switch(
+                      value: _video?.isActive ?? true,
+                      onChanged: (value) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              value ? 'Post activated' : 'Post paused',
+                            ),
+                            backgroundColor: modernTheme.primaryColor,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      activeColor: modernTheme.primaryColor,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _video?.isActive ?? true
+                      ? 'Your post is visible to viewers'
+                      : 'Your post is hidden from viewers',
+                  style: TextStyle(
+                    color: modernTheme.textSecondaryColor,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1129,6 +1447,15 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   style: TextStyle(
                     color: modernTheme.textSecondaryColor,
                     fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Boost your post to reach up to 10x more viewers and get more engagement.',
+                  style: TextStyle(
+                    color: modernTheme.textSecondaryColor,
+                    fontSize: 12,
+                    height: 1.4,
                   ),
                 ),
               ],
