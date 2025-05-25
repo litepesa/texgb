@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/features/channels/widgets/media_editor_screen.dart';
+import 'package:textgb/features/channels/widgets/media_selector_widget.dart';
+import 'package:textgb/features/channels/widgets/post_details_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
-import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/features/channels/models/edited_media_model.dart';
 import 'package:video_player/video_player.dart';
-import 'package:image_picker/image_picker.dart';
 
 class CreateChannelPostScreen extends ConsumerStatefulWidget {
   const CreateChannelPostScreen({Key? key}) : super(key: key);
@@ -16,23 +18,17 @@ class CreateChannelPostScreen extends ConsumerStatefulWidget {
 }
 
 class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScreen> {
-  final _formKey = GlobalKey<FormState>();
-  
   // Media selection
-  bool _isVideoMode = true; // Toggle between video and images
-  File? _videoFile;
-  List<File> _imageFiles = [];
-  VideoPlayerController? _videoPlayerController;
-  bool _isVideoPlaying = false;
+  EditedMediaModel? _editedMedia;
+  bool _isVideoMode = true;
   
+  // Post details
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
   
-  @override
-  void initState() {
-    super.initState();
-  }
-
+  // Video player for preview
+  VideoPlayerController? _videoPlayerController;
+  
   @override
   void dispose() {
     _videoPlayerController?.dispose();
@@ -41,163 +37,111 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
     super.dispose();
   }
 
-  // Initialize video player
-  Future<void> _initializeVideoPlayer() async {
-    if (_videoFile == null) return;
-    
-    _videoPlayerController = VideoPlayerController.file(_videoFile!);
-    await _videoPlayerController!.initialize();
-    _videoPlayerController!.setLooping(true);
-    
-    setState(() {});
-  }
-
-  // Pick video from gallery
-  Future<void> _pickVideo() async {
-    final video = await pickVideo(
-      onFail: (error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error)),
-        );
-      },
-      maxDuration: const Duration(minutes: 1), // Limit to 1 minute
+  // Handle media selection
+  void _onMediaSelected(File file, bool isVideo) async {
+    // Navigate to editor
+    final result = await Navigator.push<EditedMediaModel>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MediaEditorScreen(
+          mediaFile: file,
+          isVideo: isVideo,
+        ),
+      ),
     );
     
-    if (video != null) {
+    if (result != null) {
       setState(() {
-        _videoFile = video;
-        _isVideoMode = true; // Switch to video mode
-        _imageFiles = []; // Clear selected images
+        _editedMedia = result;
+        _isVideoMode = isVideo;
       });
-      await _initializeVideoPlayer();
+      
+      // Initialize video player if it's a video
+      if (isVideo && result.processedFile != null) {
+        _initializeVideoPlayer(result.processedFile!);
+      }
     }
   }
 
-  // Pick multiple images from gallery
-  Future<void> _pickImages() async {
-    final picker = ImagePicker();
-    final images = await picker.pickMultiImage();
-    
-    if (images.isNotEmpty) {
-      List<File> imageFiles = images.map((xFile) => File(xFile.path)).toList();
-      
-      // Limit to 10 images
-      if (imageFiles.length > 10) {
-        imageFiles = imageFiles.sublist(0, 10);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Maximum 10 images allowed. Only the first 10 images were selected.')),
-        );
-      }
-      
-      setState(() {
-        _imageFiles = imageFiles;
-        _isVideoMode = false; // Switch to images mode
-        
-        // Clear video if any
-        if (_videoPlayerController != null) {
-          _videoPlayerController!.dispose();
-          _videoPlayerController = null;
-        }
-        _videoFile = null;
-      });
-    }
-  }
-
-  // Toggle video play/pause
-  void _togglePlayPause() {
-    if (_videoPlayerController == null) return;
-    
-    setState(() {
-      if (_isVideoPlaying) {
-        _videoPlayerController!.pause();
-      } else {
-        _videoPlayerController!.play();
-      }
-      _isVideoPlaying = !_isVideoPlaying;
-    });
+  // Initialize video player
+  Future<void> _initializeVideoPlayer(File videoFile) async {
+    _videoPlayerController?.dispose();
+    _videoPlayerController = VideoPlayerController.file(videoFile);
+    await _videoPlayerController!.initialize();
+    _videoPlayerController!.setLooping(true);
+    setState(() {});
   }
 
   // Submit the form to create post
   void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
-      final userChannel = ref.read(channelsProvider).userChannel;
-      
-      if (userChannel == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('You need to create a channel first')),
-        );
-        return;
-      }
-      
-      // Check if media is selected
-      if (_isVideoMode && _videoFile == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a video')),
-        );
-        return;
-      }
-      
-      if (!_isVideoMode && _imageFiles.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select at least one image')),
-        );
-        return;
-      }
-      
-      // Parse tags from comma-separated string
-      List<String> tags = [];
-      if (_tagsController.text.isNotEmpty) {
-        tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
-      }
-      
-      if (_isVideoMode) {
-        // Upload video
-        channelVideosNotifier.uploadVideo(
-          channel: userChannel,
-          videoFile: _videoFile!,
-          caption: _captionController.text,
-          tags: tags,
-          onSuccess: (message) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-            
-            // Wait a moment before navigating back
-            Future.delayed(const Duration(milliseconds: 300), () {
-              Navigator.of(context).pop(true); // Return true to indicate success
-            });
-          },
-          onError: (error) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(error)),
-            );
-          },
-        );
-      } else {
-        // Upload images
-        channelVideosNotifier.uploadImages(
-          channel: userChannel,
-          imageFiles: _imageFiles,
-          caption: _captionController.text,
-          tags: tags,
-          onSuccess: (message) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-            
-            // Wait a moment before navigating back
-            Future.delayed(const Duration(milliseconds: 300), () {
-              Navigator.of(context).pop(true); // Return true to indicate success
-            });
-          },
-          onError: (error) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(error)),
-            );
-          },
-        );
-      }
+    if (_editedMedia == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select and edit media first')),
+      );
+      return;
+    }
+    
+    if (_captionController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a caption')),
+      );
+      return;
+    }
+    
+    final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
+    final userChannel = ref.read(channelsProvider).userChannel;
+    
+    if (userChannel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You need to create a channel first')),
+      );
+      return;
+    }
+    
+    // Parse tags from comma-separated string
+    List<String> tags = [];
+    if (_tagsController.text.isNotEmpty) {
+      tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
+    }
+    
+    if (_isVideoMode) {
+      // Upload video
+      channelVideosNotifier.uploadVideo(
+        channel: userChannel,
+        videoFile: _editedMedia!.processedFile!,
+        caption: _captionController.text,
+        tags: tags,
+        onSuccess: (message) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+          Navigator.of(context).pop(true);
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error)),
+          );
+        },
+      );
+    } else {
+      // Upload images
+      channelVideosNotifier.uploadImages(
+        channel: userChannel,
+        imageFiles: [_editedMedia!.processedFile!],
+        caption: _captionController.text,
+        tags: tags,
+        onSuccess: (message) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+          Navigator.of(context).pop(true);
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error)),
+          );
+        },
+      );
     }
   }
 
@@ -226,7 +170,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          if (_isVideoMode && _videoFile != null || !_isVideoMode && _imageFiles.isNotEmpty)
+          if (_editedMedia != null)
             TextButton(
               onPressed: channelVideosState.isUploading ? null : _submitForm,
               child: Text(
@@ -242,459 +186,254 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Media type selection
-              Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Media selector or preview
+            if (_editedMedia == null)
+              MediaSelectorWidget(
+                onMediaSelected: _onMediaSelected,
+              )
+            else
+              _buildMediaPreview(),
+            
+            const SizedBox(height: 24),
+            
+            // Upload progress indicator
+            if (channelVideosState.isUploading)
+              Column(
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isVideoMode = true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _isVideoMode 
-                              ? modernTheme.primaryColor 
-                              : modernTheme.primaryColor!.withOpacity(0.2),
-                          borderRadius: const BorderRadius.horizontal(
-                            left: Radius.circular(20),
-                          ),
-                        ),
-                        child: Text(
-                          'Video',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _isVideoMode 
-                                ? Colors.white 
-                                : modernTheme.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                  LinearProgressIndicator(
+                    value: channelVideosState.uploadProgress,
+                    backgroundColor: Colors.grey.shade300,
+                    valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Uploading: ${(channelVideosState.uploadProgress * 100).toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      color: modernTheme.textSecondaryColor,
+                      fontSize: 14,
                     ),
                   ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isVideoMode = false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: !_isVideoMode 
-                              ? modernTheme.primaryColor 
-                              : modernTheme.primaryColor!.withOpacity(0.2),
-                          borderRadius: const BorderRadius.horizontal(
-                            right: Radius.circular(20),
-                          ),
-                        ),
-                        child: Text(
-                          'Images',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: !_isVideoMode 
-                                ? Colors.white 
-                                : modernTheme.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
-              
-              const SizedBox(height: 24),
-              
-              // Media preview or picker
-              _isVideoMode
-                  ? (_videoFile == null
-                      ? _buildVideoPickerPlaceholder(modernTheme)
-                      : _buildVideoPreview(modernTheme))
-                  : _buildImagePickerArea(modernTheme),
-                
-              const SizedBox(height: 24),
-              
-              // Upload progress indicator
-              if (channelVideosState.isUploading)
-                Column(
-                  children: [
-                    LinearProgressIndicator(
-                      value: channelVideosState.uploadProgress,
-                      backgroundColor: Colors.grey.shade300,
-                      valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Uploading: ${(channelVideosState.uploadProgress * 100).toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        color: modernTheme.textSecondaryColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              
-              // Caption
-              TextFormField(
-                controller: _captionController,
-                decoration: InputDecoration(
-                  labelText: 'Caption *',
-                  labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.primaryColor!),
-                  ),
-                  errorBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.red),
-                  ),
-                ),
-                maxLines: 3,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a caption';
-                  }
-                  return null;
-                },
-                enabled: !channelVideosState.isUploading,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Tags (Optional)
-              TextFormField(
-                controller: _tagsController,
-                decoration: InputDecoration(
-                  labelText: 'Tags (Comma separated, Optional)',
-                  labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.primaryColor!),
-                  ),
-                  hintText: 'e.g. sports, travel, music',
-                ),
-                enabled: !channelVideosState.isUploading,
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Submit Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: channelVideosState.isUploading ? null : _submitForm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: modernTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
-                  ),
-                  child: channelVideosState.isUploading
-                      ? const Text('Uploading...')
-                      : const Text('Post Content'),
-                ),
-              ),
-              
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Video picker placeholder widget
-  Widget _buildVideoPickerPlaceholder(ModernThemeExtension modernTheme) {
-    return AspectRatio(
-      aspectRatio: 9 / 16,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.grey.shade800,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.videocam,
-              color: modernTheme.primaryColor,
-              size: 64,
+            
+            // Post details form
+            PostDetailsWidget(
+              captionController: _captionController,
+              tagsController: _tagsController,
+              isEnabled: !channelVideosState.isUploading,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Add a video',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Share your content with your audience',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 14,
-              ),
-            ),
+            
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _pickVideo,
-              icon: const Icon(Icons.photo_library),
-              label: const Text('Select from Gallery'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            
+            // Submit Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: channelVideosState.isUploading ? null : _submitForm,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+                ),
+                child: channelVideosState.isUploading
+                    ? const Text('Uploading...')
+                    : const Text('Post Content'),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Max video length: 1 minute',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 12,
-              ),
-            ),
+            
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
 
-  // Video preview widget
-  Widget _buildVideoPreview(ModernThemeExtension modernTheme) {
-    if (_videoPlayerController != null &&
-        _videoPlayerController!.value.isInitialized) {
-      return Stack(
-        alignment: Alignment.center,
-        children: [
-          // Video preview
-          AspectRatio(
-            aspectRatio: _videoPlayerController!.value.aspectRatio,
-            child: VideoPlayer(_videoPlayerController!),
-          ),
-          
-          // Play/pause button
-          GestureDetector(
-            onTap: _togglePlayPause,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _isVideoPlaying ? Icons.pause : Icons.play_arrow,
-                color: Colors.white,
-                size: 32,
+  // Build media preview widget
+  Widget _buildMediaPreview() {
+    final modernTheme = context.modernTheme;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Preview header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _isVideoMode ? 'Video Preview' : 'Image Preview',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
             ),
+            TextButton.icon(
+              onPressed: () async {
+                // Re-edit the media
+                final result = await Navigator.push<EditedMediaModel>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MediaEditorScreen(
+                      mediaFile: _editedMedia!.originalFile,
+                      isVideo: _isVideoMode,
+                      existingEdits: _editedMedia,
+                    ),
+                  ),
+                );
+                
+                if (result != null) {
+                  setState(() {
+                    _editedMedia = result;
+                  });
+                  
+                  if (_isVideoMode && result.processedFile != null) {
+                    _initializeVideoPlayer(result.processedFile!);
+                  }
+                }
+              },
+              icon: const Icon(Icons.edit),
+              label: const Text('Re-edit'),
+              style: TextButton.styleFrom(
+                foregroundColor: modernTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        // Media preview
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: _isVideoMode
+              ? _buildVideoPreview()
+              : _buildImagePreview(),
+        ),
+        
+        // Applied effects summary
+        if (_editedMedia!.hasEdits)
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: modernTheme.primaryColor!.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Applied Effects:',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    if (_editedMedia!.textOverlays.isNotEmpty)
+                      _buildEffectChip('${_editedMedia!.textOverlays.length} Text${_editedMedia!.textOverlays.length > 1 ? 's' : ''}'),
+                    if (_editedMedia!.stickerOverlays.isNotEmpty)
+                      _buildEffectChip('${_editedMedia!.stickerOverlays.length} Sticker${_editedMedia!.stickerOverlays.length > 1 ? 's' : ''}'),
+                    if (_editedMedia!.audioTrack != null)
+                      _buildEffectChip('Background Music'),
+                    if (_editedMedia!.filterType != null)
+                      _buildEffectChip(_editedMedia!.filterType!),
+                    if (_editedMedia!.beautyLevel > 0)
+                      _buildEffectChip('Beauty: ${(_editedMedia!.beautyLevel * 100).toInt()}%'),
+                  ],
+                ),
+              ],
+            ),
           ),
-          
-          // Change video button
-          Positioned(
-            bottom: 16,
-            right: 16,
-            child: IconButton(
-              onPressed: _pickVideo,
+      ],
+    );
+  }
+
+  Widget _buildEffectChip(String label) {
+    final modernTheme = context.modernTheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: modernTheme.primaryColor!.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: modernTheme.primaryColor,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoPreview() {
+    if (_videoPlayerController != null &&
+        _videoPlayerController!.value.isInitialized) {
+      return AspectRatio(
+        aspectRatio: _videoPlayerController!.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(_videoPlayerController!),
+            // Play button overlay
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  if (_videoPlayerController!.value.isPlaying) {
+                    _videoPlayerController!.pause();
+                  } else {
+                    _videoPlayerController!.play();
+                  }
+                });
+              },
               icon: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.5),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.edit,
+                child: Icon(
+                  _videoPlayerController!.value.isPlaying
+                      ? Icons.pause
+                      : Icons.play_arrow,
                   color: Colors.white,
-                  size: 20,
+                  size: 32,
                 ),
-              ),
-            ),
-          ),
-        ],
-      );
-    } else {
-      return AspectRatio(
-        aspectRatio: 9 / 16,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade800,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Center(
-            child: CircularProgressIndicator(
-              color: modernTheme.primaryColor,
-            ),
-          ),
-        ),
-      );
-    }
-  }
-
-  // Image picker area widget
-  Widget _buildImagePickerArea(ModernThemeExtension modernTheme) {
-    if (_imageFiles.isEmpty) {
-      // Image picker placeholder
-      return Container(
-        height: 300,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade800,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.photo_library,
-              color: modernTheme.primaryColor,
-              size: 64,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Add images',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Share multiple photos with your audience',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _pickImages,
-              icon: const Icon(Icons.add_photo_alternate),
-              label: const Text('Select from Gallery'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Up to 10 images',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 12,
               ),
             ),
           ],
         ),
       );
     } else {
-      // Image preview grid
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Images count and add more button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${_imageFiles.length} images selected',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: _pickImages,
-                icon: const Icon(Icons.add_photo_alternate),
-                label: const Text('Change'),
-                style: TextButton.styleFrom(
-                  foregroundColor: modernTheme.primaryColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Image grid
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: _imageFiles.length,
-            itemBuilder: (context, index) {
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Image
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      _imageFiles[index],
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  // Image number indicator
-                  Positioned(
-                    top: 4,
-                    left: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '${index + 1}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Remove button
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _imageFiles.removeAt(index);
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
+      return const AspectRatio(
+        aspectRatio: 9 / 16,
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
       );
     }
+  }
+
+  Widget _buildImagePreview() {
+    return AspectRatio(
+      aspectRatio: 9 / 16,
+      child: Image.file(
+        _editedMedia!.processedFile!,
+        fit: BoxFit.cover,
+      ),
+    );
   }
 }

@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:video_player/video_player.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
@@ -33,6 +34,8 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   late AnimationController _rocketAnimationController;
   late Animation<double> _rocketAnimation;
   late TabController _tabController;
+  VideoPlayerController? _videoPlayerController;
+  bool _isPlaying = false;
   
   // Cache manager for video thumbnails
   static final _thumbnailCacheManager = CacheManager(
@@ -46,7 +49,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     
     // Initialize rocket animation
     _rocketAnimationController = AnimationController(
@@ -68,6 +71,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   void dispose() {
     _rocketAnimationController.dispose();
     _tabController.dispose();
+    _videoPlayerController?.dispose();
     super.dispose();
   }
 
@@ -148,6 +152,45 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
       }
     } catch (e) {
       print('Error generating thumbnail: $e');
+    }
+  }
+
+  Future<void> _initializeVideoPlayer() async {
+    if (_video == null || _video!.isMultipleImages || _video!.videoUrl.isEmpty) return;
+    
+    try {
+      _videoPlayerController = VideoPlayerController.network(_video!.videoUrl);
+      await _videoPlayerController!.initialize();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('Error initializing video player: $e');
+    }
+  }
+
+  void _toggleVideoPlayback() {
+    if (_videoPlayerController == null || !_videoPlayerController!.value.isInitialized) {
+      _initializeVideoPlayer().then((_) {
+        if (_videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
+          _videoPlayerController!.play();
+          setState(() {
+            _isPlaying = true;
+          });
+        }
+      });
+    } else {
+      if (_videoPlayerController!.value.isPlaying) {
+        _videoPlayerController!.pause();
+        setState(() {
+          _isPlaying = false;
+        });
+      } else {
+        _videoPlayerController!.play();
+        setState(() {
+          _isPlaying = true;
+        });
+      }
     }
   }
 
@@ -292,6 +335,54 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
+      appBar: _isLoading || _error != null || _video == null
+          ? null
+          : AppBar(
+              backgroundColor: modernTheme.backgroundColor,
+              foregroundColor: modernTheme.textColor,
+              elevation: 0,
+              title: const Text('My Post'),
+              actions: [
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: modernTheme.textColor,
+                  ),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        _editPost();
+                        break;
+                      case 'delete':
+                        _deletePost();
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit),
+                          SizedBox(width: 8),
+                          Text('Edit Post'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete Post', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
       body: _isLoading
           ? _buildLoadingView(modernTheme)
           : _error != null
@@ -439,103 +530,63 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
   }
 
   Widget _buildPostView(ModernThemeExtension modernTheme) {
-    return NestedScrollView(
-      headerSliverBuilder: (context, innerBoxIsScrolled) => [
-        // Custom App Bar
-        SliverAppBar(
-          backgroundColor: modernTheme.backgroundColor,
-          foregroundColor: modernTheme.textColor,
-          elevation: 0,
-          pinned: true,
-          title: const Text('My Post'),
-          actions: [
-            PopupMenuButton<String>(
-              icon: Icon(
-                Icons.more_vert,
-                color: modernTheme.textColor,
+    return Column(
+      children: [
+        // Tab Bar at the top
+        Container(
+          color: modernTheme.backgroundColor,
+          child: TabBar(
+            controller: _tabController,
+            labelColor: modernTheme.primaryColor,
+            unselectedLabelColor: modernTheme.textSecondaryColor,
+            indicatorColor: modernTheme.primaryColor,
+            isScrollable: true,
+            tabs: const [
+              Tab(
+                icon: Icon(Icons.rocket_launch),
+                text: 'Boost',
               ),
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    _editPost();
-                    break;
-                  case 'delete':
-                    _deletePost();
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit),
-                      SizedBox(width: 8),
-                      Text('Edit Post'),
-                    ],
-                  ),
+              Tab(
+                icon: Icon(Icons.image),
+                text: 'Preview',
+              ),
+              Tab(
+                icon: Icon(Icons.analytics),
+                text: 'Analytics',
+              ),
+              Tab(
+                icon: Icon(Icons.edit),
+                text: 'Edit',
+              ),
+            ],
+          ),
+        ),
+        
+        // Tab Views
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              // Boost Tab
+              _buildBoostTab(modernTheme),
+              // Preview Tab
+              SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildPostPreviewCard(_video!, modernTheme),
+                    _buildActionButtons(modernTheme),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Delete Post', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+              // Analytics Tab
+              _buildAnalyticsTab(_video!, modernTheme),
+              // Edit Tab
+              _buildEditTab(modernTheme),
+            ],
+          ),
         ),
       ],
-      body: Column(
-        children: [
-          // Post Preview Card
-          _buildPostPreviewCard(_video!, modernTheme),
-          
-          // Action Buttons Row
-          _buildActionButtons(modernTheme),
-          
-          // Tab Bar
-          Container(
-            color: modernTheme.backgroundColor,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: modernTheme.primaryColor,
-              unselectedLabelColor: modernTheme.textSecondaryColor,
-              indicatorColor: modernTheme.primaryColor,
-              tabs: const [
-                Tab(
-                  icon: Icon(Icons.analytics),
-                  text: 'Analytics',
-                ),
-                Tab(
-                  icon: Icon(Icons.edit),
-                  text: 'Edit',
-                ),
-                Tab(
-                  icon: Icon(Icons.rocket_launch),
-                  text: 'Boost',
-                ),
-              ],
-            ),
-          ),
-          
-          // Tab Views
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildAnalyticsTab(_video!, modernTheme),
-                _buildEditTab(modernTheme),
-                _buildBoostTab(modernTheme),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -553,281 +604,347 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Media Preview
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Container(
-                color: Colors.grey.shade200,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Media Content
-                    if (video.isMultipleImages && video.imageUrls.isNotEmpty)
-                      PageView.builder(
-                        itemCount: video.imageUrls.length,
-                        itemBuilder: (context, index) => CachedNetworkImage(
-                          imageUrl: video.imageUrls[index],
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: modernTheme.surfaceColor,
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  modernTheme.primaryColor!,
-                                ),
-                              ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: modernTheme.primaryColor!.withOpacity(0.1),
-                            child: Icon(
-                              Icons.image_not_supported,
-                              color: modernTheme.primaryColor,
-                              size: 48,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (!video.isMultipleImages && _videoThumbnail != null)
-                      Image.file(
-                        File(_videoThumbnail!),
-                        fit: BoxFit.cover,
-                      )
-                    else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
-                      CachedNetworkImage(
-                        imageUrl: video.thumbnailUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: modernTheme.surfaceColor,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                modernTheme.primaryColor!,
-                              ),
-                            ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: modernTheme.primaryColor!.withOpacity(0.1),
-                          child: Icon(
-                            Icons.video_library,
-                            color: modernTheme.primaryColor,
-                            size: 48,
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        color: modernTheme.primaryColor!.withOpacity(0.1),
-                        child: Icon(
-                          video.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
-                          color: modernTheme.primaryColor,
-                          size: 64,
-                        ),
-                      ),
-                    
-                    // Play button for videos
-                    if (!video.isMultipleImages)
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow,
-                            color: Colors.white,
-                            size: 32,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: AspectRatio(
+          aspectRatio: 9 / 16, // TikTok-style aspect ratio
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Media Content - Full coverage
+              if (video.isMultipleImages && video.imageUrls.isNotEmpty)
+                PageView.builder(
+                  itemCount: video.imageUrls.length,
+                  itemBuilder: (context, index) => CachedNetworkImage(
+                    imageUrl: video.imageUrls[index],
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: modernTheme.surfaceColor,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            modernTheme.primaryColor!,
                           ),
                         ),
                       ),
-                    
-                    // Page indicator for multiple images
-                    if (video.isMultipleImages && video.imageUrls.length > 1)
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '${video.imageUrls.length} photos',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: modernTheme.primaryColor!.withOpacity(0.1),
+                      child: Icon(
+                        Icons.image_not_supported,
+                        color: modernTheme.primaryColor,
+                        size: 48,
+                      ),
+                    ),
+                  ),
+                )
+              else if (!video.isMultipleImages && _videoPlayerController != null && _videoPlayerController!.value.isInitialized)
+                AspectRatio(
+                  aspectRatio: _videoPlayerController!.value.aspectRatio,
+                  child: VideoPlayer(_videoPlayerController!),
+                )
+              else if (!video.isMultipleImages && _videoThumbnail != null)
+                Image.file(
+                  File(_videoThumbnail!),
+                  fit: BoxFit.cover,
+                )
+              else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: video.thumbnailUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: modernTheme.surfaceColor,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          modernTheme.primaryColor!,
                         ),
                       ),
-                  ],
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: modernTheme.primaryColor!.withOpacity(0.1),
+                    child: Icon(
+                      Icons.video_library,
+                      color: modernTheme.primaryColor,
+                      size: 48,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  color: modernTheme.primaryColor!.withOpacity(0.1),
+                  child: Icon(
+                    video.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
+                    color: modernTheme.primaryColor,
+                    size: 64,
+                  ),
+                ),
+              
+              // Gradient overlay
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.7),
+                      ],
+                      stops: const [0.0, 0.6, 1.0],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          
-          // Post Info
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Channel info
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundImage: video.channelImage.isNotEmpty
-                          ? CachedNetworkImageProvider(video.channelImage)
-                          : null,
-                      child: video.channelImage.isEmpty
-                          ? Text(
-                              video.channelName.isNotEmpty
-                                  ? video.channelName[0].toUpperCase()
-                                  : 'C',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
+              
+              // Play/Pause button for videos
+              if (!video.isMultipleImages)
+                Center(
+                  child: GestureDetector(
+                    onTap: _toggleVideoPlayback,
+                    child: AnimatedOpacity(
+                      opacity: _isPlaying ? 0.0 : 1.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                ),
+              
+              // Post Info Overlay
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Channel info
+                      Row(
                         children: [
-                          Text(
-                            video.channelName,
-                            style: TextStyle(
-                              color: modernTheme.textColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Colors.white,
+                            child: CircleAvatar(
+                              radius: 15,
+                              backgroundImage: video.channelImage.isNotEmpty
+                                  ? CachedNetworkImageProvider(video.channelImage)
+                                  : null,
+                              child: video.channelImage.isEmpty
+                                  ? Text(
+                                      video.channelName.isNotEmpty
+                                          ? video.channelName[0].toUpperCase()
+                                          : 'C',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : null,
                             ),
                           ),
-                          Text(
-                            _formatTimeAgo(video.createdAt),
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 12,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  video.channelName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black,
+                                        offset: Offset(0, 1),
+                                        blurRadius: 3,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  _formatTimeAgo(video.createdAt),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black,
+                                        offset: Offset(0, 1),
+                                        blurRadius: 3,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Caption
-                Text(
-                  video.caption,
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Tags
-                if (video.tags.isNotEmpty)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: video.tags.map((tag) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Caption
+                      Text(
+                        video.caption,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              offset: Offset(0, 1),
+                              blurRadius: 3,
+                            ),
+                          ],
                         ),
-                        decoration: BoxDecoration(
-                          color: modernTheme.primaryColor!.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(16),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Tags
+                      if (video.tags.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: video.tags.take(3).map((tag) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Text(
+                                '#$tag',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
-                        child: Text(
-                          '#$tag',
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Stats
+                      Row(
+                        children: [
+                          _buildStatChip(
+                            Icons.favorite,
+                            _formatViewCount(video.likes),
+                            modernTheme,
+                            isOverlay: true,
                           ),
-                        ),
-                      );
-                    }).toList(),
+                          const SizedBox(width: 12),
+                          _buildStatChip(
+                            Icons.comment,
+                            _formatViewCount(video.comments),
+                            modernTheme,
+                            isOverlay: true,
+                          ),
+                          const SizedBox(width: 12),
+                          _buildStatChip(
+                            Icons.visibility,
+                            _formatViewCount(video.views),
+                            modernTheme,
+                            isOverlay: true,
+                          ),
+                          const SizedBox(width: 12),
+                          _buildStatChip(
+                            Icons.share,
+                            _formatViewCount(video.shares),
+                            modernTheme,
+                            isOverlay: true,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                
-                const SizedBox(height: 12),
-                
-                // Stats
-                Row(
-                  children: [
-                    _buildStatChip(
-                      Icons.favorite,
-                      _formatViewCount(video.likes),
-                      modernTheme,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildStatChip(
-                      Icons.comment,
-                      _formatViewCount(video.comments),
-                      modernTheme,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildStatChip(
-                      Icons.visibility,
-                      _formatViewCount(video.views),
-                      modernTheme,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildStatChip(
-                      Icons.share,
-                      _formatViewCount(video.shares),
-                      modernTheme,
-                    ),
-                  ],
                 ),
-              ],
-            ),
+              ),
+              
+              // Page indicator for multiple images
+              if (video.isMultipleImages && video.imageUrls.length > 1)
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${video.imageUrls.length} photos',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatChip(IconData icon, String value, ModernThemeExtension modernTheme) {
+  Widget _buildStatChip(IconData icon, String value, ModernThemeExtension modernTheme, {bool isOverlay = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: modernTheme.backgroundColor,
+        color: isOverlay 
+            ? Colors.white.withOpacity(0.2)
+            : modernTheme.backgroundColor,
         borderRadius: BorderRadius.circular(12),
+        border: isOverlay 
+            ? Border.all(color: Colors.white.withOpacity(0.3))
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             icon,
-            color: modernTheme.textSecondaryColor,
+            color: isOverlay ? Colors.white : modernTheme.textSecondaryColor,
             size: 16,
           ),
           const SizedBox(width: 4),
           Text(
             value,
             style: TextStyle(
-              color: modernTheme.textSecondaryColor,
+              color: isOverlay ? Colors.white : modernTheme.textSecondaryColor,
               fontSize: 14,
+              fontWeight: isOverlay ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ],
@@ -1317,17 +1434,27 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Boost Header
+          // Enhanced Boost Header
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
                 colors: [
                   modernTheme.primaryColor!,
-                  modernTheme.primaryColor!.withOpacity(0.8),
+                  modernTheme.primaryColor!.withOpacity(0.7),
+                  modernTheme.primaryColor!.withOpacity(0.9),
                 ],
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: modernTheme.primaryColor!.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               children: [
@@ -1335,34 +1462,120 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   animation: _rocketAnimation,
                   builder: (context, child) {
                     return Transform.translate(
-                      offset: Offset(0, -_rocketAnimation.value * 20),
+                      offset: Offset(0, -_rocketAnimation.value * 30),
                       child: Transform.rotate(
                         angle: _rocketAnimation.value * 0.8,
-                        child: Icon(
-                          Icons.rocket_launch,
-                          color: Colors.white,
-                          size: 48,
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.rocket_launch,
+                            color: Colors.white,
+                            size: 64,
+                          ),
                         ),
                       ),
                     );
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 const Text(
-                  'Boost Your Post',
+                  '🚀 BOOST POST',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
                   ),
                 ),
+                const SizedBox(height: 12),
                 const Text(
                   'Increase visibility and reach more audience',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w300,
                   ),
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.trending_up,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Up to 10x more views',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Special Offer Banner
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.orange.shade400,
+                  Colors.orange.shade600,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.local_offer,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'LIMITED TIME OFFER',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      Text(
+                        'Get 20% off on all boost packages',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1371,42 +1584,103 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
           const SizedBox(height: 24),
           
           Text(
-            'Boost Options',
+            'Choose Your Boost Package',
             style: TextStyle(
               color: modernTheme.textColor,
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
           
-          // Boost Options
+          // Boost Options with enhanced styling
           _buildBoostOption(
             'Quick Boost',
             '24 hours',
-            '\$5.99',
+            'KES 599',
             'Get 2x more views for 24 hours',
             Icons.flash_on,
             Colors.orange,
             modernTheme,
+            isPopular: false,
           ),
           _buildBoostOption(
             'Power Boost',
             '7 days',
-            '\$19.99',
+            'KES 1,999',
             'Get 5x more views for a week',
             Icons.rocket_launch,
             Colors.red,
             modernTheme,
+            isPopular: true,
           ),
           _buildBoostOption(
             'Mega Boost',
             '30 days',
-            '\$49.99',
+            'KES 4,999',
             'Get 10x more views for a month',
             Icons.star,
             Colors.purple,
             modernTheme,
+            isPopular: false,
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Benefits Section
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: modernTheme.primaryColor!.withOpacity(0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.auto_awesome,
+                      color: modernTheme.primaryColor,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Why Boost Your Post?',
+                      style: TextStyle(
+                        color: modernTheme.textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildBenefitItem(
+                  'Reach more viewers instantly',
+                  Icons.visibility,
+                  modernTheme,
+                ),
+                _buildBenefitItem(
+                  'Get featured on explore page',
+                  Icons.explore,
+                  modernTheme,
+                ),
+                _buildBenefitItem(
+                  'Increase engagement & followers',
+                  Icons.people,
+                  modernTheme,
+                ),
+                _buildBenefitItem(
+                  'Priority in search results',
+                  Icons.search,
+                  modernTheme,
+                ),
+              ],
+            ),
           ),
           
           const SizedBox(height: 24),
@@ -1451,7 +1725,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Boost your post to reach up to 10x more viewers and get more engagement.',
+                  'Start boosting now to maximize your post\'s potential!',
                   style: TextStyle(
                     color: modernTheme.textSecondaryColor,
                     fontSize: 12,
@@ -1459,6 +1733,40 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenefitItem(
+    String text,
+    IconData icon,
+    ModernThemeExtension modernTheme,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: modernTheme.primaryColor!.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: modernTheme.primaryColor,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: TextStyle(
+              color: modernTheme.textColor,
+              fontSize: 14,
             ),
           ),
         ],
@@ -1474,87 +1782,145 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     IconData icon,
     Color color,
     ModernThemeExtension modernTheme,
+    {bool isPopular = false}
   ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+      child: Stack(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isPopular ? color.withOpacity(0.5) : Colors.transparent,
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isPopular 
+                      ? color.withOpacity(0.2)
+                      : Colors.black.withOpacity(0.05),
+                  blurRadius: isPopular ? 15 : 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Icon
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: color, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    
+                    // Text content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title and Price
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: TextStyle(
+                                    color: modernTheme.textColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                price,
+                                style: TextStyle(
+                                  color: modernTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          // Description
+                          Text(
+                            description,
+                            style: TextStyle(
+                              color: modernTheme.textColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          // Duration
+                          Text(
+                            'Duration: $duration',
+                            style: TextStyle(
+                              color: modernTheme.textSecondaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Select button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _boostPost,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text('Select'),
+                  ),
+                ),
+              ],
+            ),
           ),
+          
+          // Popular badge
+          if (isPopular)
+            Positioned(
+              top: -5,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'MOST POPULAR',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
         ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        title: Row(
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              price,
-              style: TextStyle(
-                color: modernTheme.primaryColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              description,
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Duration: $duration',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        trailing: ElevatedButton(
-          onPressed: _boostPost,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: color,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-          ),
-          child: const Text('Select'),
-        ),
       ),
     );
   }

@@ -35,14 +35,19 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
 }
 
 class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
 
   VideoPlayerController? _videoPlayerController;
   bool _isInitialized = false;
   bool _isPlaying = false;
   int _currentImageIndex = 0;
   bool _isInitializing = false;
-
+  
+  // Animation controllers for like effect
+  late AnimationController _likeAnimationController;
+  late AnimationController _heartScaleController;
+  late Animation<double> _heartScaleAnimation;
+  bool _showLikeAnimation = false;
   
   final VideoCacheService _cacheService = VideoCacheService();
 
@@ -52,7 +57,30 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
     _initializeMedia();
+  }
+
+  void _initializeAnimations() {
+    // Animation for the floating hearts
+    _likeAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    // Animation for the heart scale effect
+    _heartScaleController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    
+    _heartScaleAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.2,
+    ).animate(CurvedAnimation(
+      parent: _heartScaleController,
+      curve: Curves.elasticOut,
+    ));
   }
 
   @override
@@ -234,18 +262,50 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   void _togglePlayPause() {
-    if (widget.video.isMultipleImages || !_isInitialized) return;
+    if (widget.video.isMultipleImages) return;
+    
+    if (!_isInitialized) return;
     
     if (_isPlaying) {
       _pauseVideo();
     } else {
-      _videoPlayerController!.seekTo(Duration.zero);
+      if (_videoPlayerController != null) {
+        _videoPlayerController!.seekTo(Duration.zero);
+      }
       _playVideo();
+    }
+  }
+
+  void _handleDoubleTap() {
+    // Trigger like animation
+    _showLikeAnimation = true;
+    _heartScaleController.forward().then((_) {
+      _heartScaleController.reverse();
+    });
+    
+    _likeAnimationController.forward().then((_) {
+      _likeAnimationController.reset();
+      if (mounted) {
+        setState(() {
+          _showLikeAnimation = false;
+        });
+      }
+    });
+    
+    // Like the video
+    ref.read(channelVideosProvider.notifier).likeVideo(widget.video.id);
+    
+    // Haptic feedback
+    if (mounted) {
+      setState(() {});
     }
   }
 
   @override
   void dispose() {
+    _likeAnimationController.dispose();
+    _heartScaleController.dispose();
+    
     if (_isInitialized && 
         _videoPlayerController != null && 
         widget.preloadedController == null) {
@@ -264,39 +324,129 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       width: double.infinity,
       height: double.infinity,
       color: Colors.black,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Media content with proper full-screen coverage
-          _buildMediaContent(modernTheme),
-          
-          // Loading indicator
-          if (widget.isLoading || _isInitializing)
-            _buildLoadingIndicator(modernTheme),
-          
-          // Error state
-          if (widget.hasFailed)
-            _buildErrorState(modernTheme),
-          
-          // Gradient overlay for better text readability
-          _buildGradientOverlay(),
-          
-          // Content overlay
-          _buildContentOverlay(modernTheme),
-          
-          // Compact action buttons
-          _buildCompactActionButtons(modernTheme),
-          
-          // Play indicator for paused videos
-          if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying)
-            _buildMinimalPlayIndicator(),
-          
-          // Image carousel indicators
-          if (widget.video.isMultipleImages && widget.video.imageUrls.length > 1)
-            _buildCarouselIndicators(),
-        ],
+      child: GestureDetector(
+        onTap: _togglePlayPause,
+        onDoubleTap: _handleDoubleTap,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Media content with proper full-screen coverage
+            _buildMediaContent(modernTheme),
+            
+            // Loading indicator
+            if (widget.isLoading || _isInitializing)
+              _buildLoadingIndicator(modernTheme),
+            
+            // Error state
+            if (widget.hasFailed)
+              _buildErrorState(modernTheme),
+            
+            // Play indicator for paused videos
+            if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying)
+              _buildTikTokPlayIndicator(),
+            
+            // Like animation overlay
+            if (_showLikeAnimation)
+              _buildLikeAnimation(),
+            
+            // Gradient overlay for better text readability
+            _buildGradientOverlay(),
+            
+            // Content overlay
+            _buildContentOverlay(modernTheme),
+            
+            // Compact action buttons
+            _buildCompactActionButtons(modernTheme),
+            
+            // Image carousel indicators
+            if (widget.video.isMultipleImages && widget.video.imageUrls.length > 1)
+              _buildCarouselIndicators(),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildLikeAnimation() {
+    return Positioned.fill(
+      child: AnimatedBuilder(
+        animation: _likeAnimationController,
+        builder: (context, child) {
+          return Stack(
+            children: [
+              // Center heart that scales
+              Center(
+                child: AnimatedBuilder(
+                  animation: _heartScaleAnimation,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: _heartScaleAnimation.value,
+                      child: Icon(
+                        Icons.favorite,
+                        color: const Color(0xFFFF3040),
+                        size: 80,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              
+              // Floating hearts
+              ..._buildFloatingHearts(),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  List<Widget> _buildFloatingHearts() {
+    const heartCount = 6;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    return List.generate(heartCount, (index) {
+      final offsetX = (index * 0.15 - 0.4) * screenWidth;
+      final startY = screenHeight * 0.6;
+      final endY = screenHeight * 0.2;
+      
+      return AnimatedBuilder(
+        animation: _likeAnimationController,
+        builder: (context, child) {
+          final progress = _likeAnimationController.value;
+          final opacity = (1.0 - progress).clamp(0.0, 1.0);
+          final y = startY + (endY - startY) * progress;
+          
+          return Positioned(
+            left: screenWidth / 2 + offsetX,
+            top: y,
+            child: Transform.rotate(
+              angle: (index - 2) * 0.3,
+              child: Opacity(
+                opacity: opacity,
+                child: Icon(
+                  Icons.favorite,
+                  color: const Color(0xFFFF3040),
+                  size: 20 + (index % 3) * 10.0,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    });
   }
   
   Widget _buildMediaContent(ModernThemeExtension modernTheme) {
@@ -366,11 +516,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       );
     }
     
-    return GestureDetector(
-      onTap: _togglePlayPause,
-      child: SizedBox.expand(
-        child: _buildFullScreenVideo(),
-      ),
+    return SizedBox.expand(
+      child: _buildFullScreenVideo(),
     );
   }
 
@@ -469,6 +616,22 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           color: Colors.white.withOpacity(0.3),
           size: 64,
         ),
+      ),
+    );
+  }
+
+  Widget _buildTikTokPlayIndicator() {
+    return Center(
+      child: Icon(
+        Icons.play_arrow_rounded,
+        color: Colors.white,
+        size: 100,
+        shadows: [
+          Shadow(
+            color: Colors.black.withOpacity(0.8),
+            blurRadius: 8,
+          ),
+        ],
       ),
     );
   }
@@ -793,41 +956,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                 ),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMinimalPlayIndicator() {
-    return Center(
-      child: Container(
-        width: 70,
-        height: 70,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.6),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Icon(
-          Icons.play_arrow_rounded,
-          color: Colors.white,
-          size: 36,
-          shadows: [
-            Shadow(
-              color: Colors.black.withOpacity(0.5),
-              blurRadius: 4,
-            ),
           ],
         ),
       ),
