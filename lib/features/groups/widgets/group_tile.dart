@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
-class GroupTile extends ConsumerWidget {
+class GroupTile extends ConsumerStatefulWidget {
   final GroupModel group;
   final VoidCallback? onTap;
 
@@ -16,12 +17,86 @@ class GroupTile extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GroupTile> createState() => _GroupTileState();
+}
+
+class _GroupTileState extends ConsumerState<GroupTile> {
+  bool _isAdmin = false;
+  bool _isCheckingAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminStatus();
+  }
+
+  @override
+  void didUpdateWidget(GroupTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-check admin status if group changed
+    if (oldWidget.group.groupId != widget.group.groupId) {
+      _checkAdminStatus();
+    }
+  }
+
+  Future<void> _checkAdminStatus() async {
+    if (_isCheckingAdmin) return;
+    
+    setState(() {
+      _isCheckingAdmin = true;
+    });
+
+    try {
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser != null) {
+        // First check local group data for quick response
+        final isLocalAdmin = widget.group.isAdmin(currentUser.uid);
+        
+        if (isLocalAdmin != _isAdmin) {
+          setState(() {
+            _isAdmin = isLocalAdmin;
+          });
+        }
+
+        // Then verify with security service for accuracy
+        final isActualAdmin = await ref.read(groupProvider.notifier)
+            .isCurrentUserAdmin(widget.group.groupId);
+        
+        if (isActualAdmin != _isAdmin && mounted) {
+          setState(() {
+            _isAdmin = isActualAdmin;
+          });
+        }
+      }
+    } catch (e) {
+      // If there's an error, fall back to local group data
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser != null) {
+        final localAdmin = widget.group.isAdmin(currentUser.uid);
+        if (localAdmin != _isAdmin && mounted) {
+          setState(() {
+            _isAdmin = localAdmin;
+          });
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCheckingAdmin = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = context.modernTheme;
-    final isAdmin = ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId);
+    final currentUser = ref.watch(currentUserProvider);
     
     // Calculate unread messages for this group
-    final unreadCount = group.getUnreadCountForUser(ref.read(groupProvider.notifier).getCurrentUserUid() ?? '');
+    final unreadCount = currentUser != null 
+        ? widget.group.getUnreadCountForUser(currentUser.uid)
+        : 0;
     final hasUnread = unreadCount > 0;
     
     return Card(
@@ -36,7 +111,7 @@ class GroupTile extends ConsumerWidget {
         ),
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
@@ -46,10 +121,10 @@ class GroupTile extends ConsumerWidget {
               CircleAvatar(
                 radius: 28,
                 backgroundColor: theme.primaryColor!.withOpacity(0.2),
-                backgroundImage: group.groupImage.isNotEmpty
-                    ? NetworkImage(group.groupImage)
+                backgroundImage: widget.group.groupImage.isNotEmpty
+                    ? NetworkImage(widget.group.groupImage)
                     : null,
-                child: group.groupImage.isEmpty
+                child: widget.group.groupImage.isEmpty
                     ? Icon(
                         Icons.group,
                         color: theme.primaryColor,
@@ -67,7 +142,7 @@ class GroupTile extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            group.groupName,
+                            widget.group.groupName,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
@@ -77,7 +152,17 @@ class GroupTile extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (isAdmin)
+                        // Admin badge with loading state
+                        if (_isCheckingAdmin)
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.primaryColor,
+                            ),
+                          )
+                        else if (_isAdmin)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -99,9 +184,9 @@ class GroupTile extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      group.lastMessage.isNotEmpty
-                          ? group.getLastMessagePreview()
-                          : group.groupDescription,
+                      widget.group.lastMessage.isNotEmpty
+                          ? widget.group.getLastMessagePreview()
+                          : widget.group.groupDescription,
                       style: TextStyle(
                         fontSize: 14,
                         color: hasUnread ? theme.textColor : theme.textSecondaryColor,
@@ -120,7 +205,7 @@ class GroupTile extends ConsumerWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${group.membersUIDs.length} members',
+                          '${widget.group.membersUIDs.length} members',
                           style: TextStyle(
                             fontSize: 12,
                             color: theme.textTertiaryColor,
@@ -129,9 +214,9 @@ class GroupTile extends ConsumerWidget {
                         const Spacer(),
                         // Last message time or creation date
                         Text(
-                          _formatTime(group.lastMessageTime.isNotEmpty
-                              ? group.lastMessageTime
-                              : group.createdAt),
+                          _formatTime(widget.group.lastMessageTime.isNotEmpty
+                              ? widget.group.lastMessageTime
+                              : widget.group.createdAt),
                           style: TextStyle(
                             fontSize: 12,
                             color: hasUnread ? theme.primaryColor : theme.textTertiaryColor,

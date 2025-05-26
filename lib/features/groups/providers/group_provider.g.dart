@@ -6,7 +6,7 @@ part of 'group_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$userGroupsStreamHash() => r'd0132aa420aaba9adfec1362957f102ef2cf5f18';
+String _$userGroupsStreamHash() => r'577c535732aafd7d38d5295a463af1846ed7862c';
 
 /// See also [userGroupsStream].
 @ProviderFor(userGroupsStream)
@@ -25,7 +25,7 @@ final userGroupsStreamProvider =
 // ignore: unused_element
 typedef UserGroupsStreamRef = AutoDisposeStreamProviderRef<List<GroupModel>>;
 String _$publicGroupsStreamHash() =>
-    r'fedaab3e2b68904227e1b68f5ba9dc5153bc749d';
+    r'f9d7a300a1f31f2e6bed99655c840b88f8f1546a';
 
 /// See also [publicGroupsStream].
 @ProviderFor(publicGroupsStream)
@@ -43,7 +43,7 @@ final publicGroupsStreamProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef PublicGroupsStreamRef = AutoDisposeStreamProviderRef<List<GroupModel>>;
-String _$groupNotifierHash() => r'14789da9d30e4a0930125da0d8c2e19c8268516c';
+String _$groupNotifierHash() => r'd7aad1850057ddc635eac6f78a9bd8fb907ae071';
 
 /// See also [GroupNotifier].
 @ProviderFor(GroupNotifier)

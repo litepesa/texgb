@@ -2,7 +2,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
@@ -14,6 +13,8 @@ import 'package:textgb/features/chat/widgets/message_bubble.dart';
 import 'package:textgb/features/chat/widgets/reaction_picker.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
+import 'package:textgb/features/groups/repositories/group_repository.dart';
+import 'package:textgb/features/groups/services/group_security_service.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -33,28 +34,42 @@ class GroupChatScreen extends ConsumerStatefulWidget {
   ConsumerState<GroupChatScreen> createState() => _GroupChatScreenState();
 }
 
-class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsBindingObserver {
+class _GroupChatScreenState extends ConsumerState<GroupChatScreen> 
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isAttachmentVisible = false;
+  bool _canSendMessages = false;
+  bool _canViewMessages = false;
+  bool _isLoading = true;
+  String? _permissionError;
+  late GroupSecurityService _securityService;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     
+    // Initialize security service
+    _securityService = GroupSecurityService(
+      firestore: ref.read(groupRepositoryProvider)._firestore,
+      auth: ref.read(groupRepositoryProvider)._auth,
+    );
+    
     // Add observer for app lifecycle changes
     WidgetsBinding.instance.addObserver(this);
     
-    // Initialize group chat when the screen loads
+    // Initialize chat permissions and load data
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(groupProvider.notifier).getGroupDetails(widget.groupId);
-      ref.read(chatProvider.notifier).openGroupChat(widget.groupId, []);
+      _initializeChatPermissions();
     });
   }
 
   @override
   void dispose() {
-    // This ensures we reset the unread counter when leaving the chat
     WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
     _scrollController.dispose();
@@ -76,41 +91,126 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Handle app lifecycle changes
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed && _canViewMessages) {
       // When app is resumed, reset unread counter for current chat
-      ref.read(chatProvider.notifier).openGroupChat(widget.groupId, []);
+      _resetUnreadCounter();
     }
   }
 
-  void _sendMessage() {
+  /// Initialize chat permissions and validate access
+  Future<void> _initializeChatPermissions() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _permissionError = null;
+      });
+
+      // Check if user can view messages
+      final canView = await _securityService.canUserViewGroup(widget.groupId);
+      if (!canView) {
+        setState(() {
+          _permissionError = 'You do not have permission to view this group';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Check if user can send messages
+      final canSend = await _securityService.canUserSendMessages(widget.groupId);
+      
+      setState(() {
+        _canViewMessages = canView;
+        _canSendMessages = canSend;
+        _isLoading = false;
+      });
+
+      if (_canViewMessages) {
+        // Load group details and reset unread counter
+        await ref.read(groupProvider.notifier).getGroupDetails(widget.groupId);
+        await _resetUnreadCounter();
+        
+        // Open the chat in the chat provider
+        await ref.read(chatProvider.notifier).openGroupChat(widget.groupId, []);
+      }
+    } catch (e) {
+      setState(() {
+        _permissionError = 'Error loading group: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Reset unread counter for current user
+  Future<void> _resetUnreadCounter() async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser != null && _canViewMessages) {
+      try {
+        await ref.read(groupRepositoryProvider)
+            .resetGroupUnreadCounter(widget.groupId, currentUser.uid);
+      } catch (e) {
+        debugPrint('Error resetting unread counter: $e');
+      }
+    }
+  }
+
+  /// Send message with permission validation
+  void _sendMessage() async {
+    if (!_canSendMessages) {
+      showSnackBar(context, 'You do not have permission to send messages in this group');
+      return;
+    }
+
     if (_messageController.text.trim().isNotEmpty) {
-      // Use sendGroupMessage instead of sendTextMessage for group chats
-      ref.read(chatProvider.notifier).sendGroupMessage(
-        message: _messageController.text,
-        messageType: MessageEnum.text,
-      );
-      _messageController.clear();
+      try {
+        // Use sendGroupMessage for group chats
+        await ref.read(chatProvider.notifier).sendGroupMessage(
+          message: _messageController.text,
+          messageType: MessageEnum.text,
+        );
+        _messageController.clear();
+      } catch (e) {
+        if (mounted) {
+          showSnackBar(context, 'Failed to send message: $e');
+        }
+      }
     }
   }
 
+  /// Toggle attachment menu
   void _toggleAttachmentMenu() {
+    if (!_canSendMessages) {
+      showSnackBar(context, 'You do not have permission to send media in this group');
+      return;
+    }
+    
     setState(() {
       _isAttachmentVisible = !_isAttachmentVisible;
     });
   }
 
+  /// Pick and send image
   Future<void> _pickImage({required bool fromCamera}) async {
-    final image = await pickImage(
-      fromCamera: fromCamera,
-      onFail: (error) => showSnackBar(context, error),
-    );
+    if (!_canSendMessages) {
+      showSnackBar(context, 'You do not have permission to send images in this group');
+      return;
+    }
 
-    if (image != null) {
-      // Use sendGroupMediaMessage for group chats
-      ref.read(chatProvider.notifier).sendGroupMediaMessage(
-        file: image,
-        messageType: MessageEnum.image,
+    try {
+      final image = await pickImage(
+        fromCamera: fromCamera,
+        onFail: (error) => showSnackBar(context, error),
       );
+
+      if (image != null) {
+        await ref.read(chatProvider.notifier).sendGroupMediaMessage(
+          file: image,
+          messageType: MessageEnum.image,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Failed to send image: $e');
+      }
     }
     
     setState(() {
@@ -118,17 +218,28 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     });
   }
 
+  /// Pick and send video
   Future<void> _pickVideo({required bool fromCamera}) async {
-    final video = fromCamera 
-        ? await pickVideoFromCamera(onFail: (error) => showSnackBar(context, error))
-        : await pickVideo(onFail: (error) => showSnackBar(context, error));
+    if (!_canSendMessages) {
+      showSnackBar(context, 'You do not have permission to send videos in this group');
+      return;
+    }
 
-    if (video != null) {
-      // Use sendGroupMediaMessage for group chats
-      ref.read(chatProvider.notifier).sendGroupMediaMessage(
-        file: video,
-        messageType: MessageEnum.video,
-      );
+    try {
+      final video = fromCamera 
+          ? await pickVideoFromCamera(onFail: (error) => showSnackBar(context, error))
+          : await pickVideo(onFail: (error) => showSnackBar(context, error));
+
+      if (video != null) {
+        await ref.read(chatProvider.notifier).sendGroupMediaMessage(
+          file: video,
+          messageType: MessageEnum.video,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Failed to send video: $e');
+      }
     }
     
     setState(() {
@@ -136,8 +247,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     });
   }
 
-  // Handle message tap
+  /// Handle message tap
   void _handleMessageTap(MessageModel message) {
+    if (!_canViewMessages) return;
+    
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
     
@@ -167,8 +280,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     }
   }
   
-  // Handle message long press to show options
+  /// Show message options with permission checks
   void _showMessageOptions(MessageModel message) {
+    if (!_canViewMessages) return;
+    
     final chatNotifier = ref.read(chatProvider.notifier);
     final currentUser = ref.read(currentUserProvider);
     
@@ -182,28 +297,30 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Reply option
-              ListTile(
-                leading: const Icon(Icons.reply),
-                title: const Text('Reply'),
-                onTap: () {
-                  Navigator.pop(context);
-                  chatNotifier.setReplyingTo(message);
-                },
-              ),
+              // Reply option (only if user can send messages)
+              if (_canSendMessages)
+                ListTile(
+                  leading: const Icon(Icons.reply),
+                  title: const Text('Reply'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    chatNotifier.setReplyingTo(message);
+                  },
+                ),
               
-              // React option
-              ListTile(
-                leading: const Icon(Icons.emoji_emotions),
-                title: const Text('React'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showReactionPicker(message);
-                },
-              ),
+              // React option (only if user can send messages)
+              if (_canSendMessages)
+                ListTile(
+                  leading: const Icon(Icons.emoji_emotions),
+                  title: const Text('React'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showReactionPicker(message);
+                  },
+                ),
               
               // Edit option (only for text messages from current user)
-              if (isFromMe && message.messageType == MessageEnum.text)
+              if (isFromMe && message.messageType == MessageEnum.text && _canSendMessages)
                 ListTile(
                   leading: const Icon(Icons.edit),
                   title: const Text('Edit'),
@@ -225,7 +342,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
                   title: const Text('Copy'),
                   onTap: () {
                     Navigator.pop(context);
-                    // Copy to clipboard
+                    // Copy to clipboard implementation
                   },
                 ),
               
@@ -256,7 +373,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     );
   }
   
-  // Show confirmation dialog for delete for everyone
+  /// Show confirmation dialog for delete for everyone
   void _showDeleteForEveryoneConfirmation(MessageModel message) {
     showDialog(
       context: context,
@@ -282,8 +399,13 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     );
   }
   
-  // Show reaction picker
+  /// Show reaction picker
   void _showReactionPicker(MessageModel message) {
+    if (!_canSendMessages) {
+      showSnackBar(context, 'You do not have permission to react in this group');
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       builder: (context) => ReactionPicker(
@@ -310,16 +432,95 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
     );
   }
   
-  // Handle swipe to reply
+  /// Handle swipe to reply
   void _handleSwipeToReply(MessageModel message) {
+    if (!_canSendMessages) {
+      showSnackBar(context, 'You do not have permission to reply in this group');
+      return;
+    }
+    
     ref.read(chatProvider.notifier).setReplyingTo(message);
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    
     final modernTheme = context.modernTheme;
     final chatTheme = context.chatTheme;
     
+    // Show loading screen
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: chatTheme.chatBackgroundColor,
+        appBar: _buildGroupAppBar(context, widget.group),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: modernTheme.primaryColor),
+              const SizedBox(height: 16),
+              Text(
+                'Loading group...',
+                style: TextStyle(color: modernTheme.textSecondaryColor),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Show permission error
+    if (_permissionError != null) {
+      return Scaffold(
+        backgroundColor: chatTheme.chatBackgroundColor,
+        appBar: _buildGroupAppBar(context, widget.group),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.lock_outline,
+                  size: 64,
+                  color: modernTheme.textSecondaryColor,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Access Denied',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: modernTheme.textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _permissionError!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: modernTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Go Back'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     // Watch group details
     final groupState = ref.watch(groupProvider);
     final group = groupState.valueOrNull?.currentGroup ?? widget.group;
@@ -337,12 +538,39 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
       appBar: _buildGroupAppBar(context, group),
       body: Column(
         children: [
+          // Permission warning banner
+          if (_canViewMessages && !_canSendMessages)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.amber.withOpacity(0.2),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.amber[700],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You can view messages but cannot send messages in this group',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.amber[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Editing indicator
-          if (isEditing)
+          if (isEditing && _canSendMessages)
             _buildEditingContainer(chatState.valueOrNull!.editingMessage!),
           
           // Reply UI if replying to a message
-          if (!isEditing && chatState.valueOrNull?.replyingTo != null)
+          if (!isEditing && chatState.valueOrNull?.replyingTo != null && _canSendMessages)
             _buildReplyContainer(chatState.valueOrNull!.replyingTo!),
 
           // Messages list
@@ -352,7 +580,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
                 if (messages.isEmpty) {
                   return Center(
                     child: Text(
-                      'Send a message to start the group chat',
+                      _canSendMessages 
+                          ? 'Send a message to start the group chat'
+                          : 'No messages in this group yet',
                       style: TextStyle(
                         color: modernTheme.textSecondaryColor,
                       ),
@@ -404,7 +634,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
                           contact: messageSender,
                           onTap: () => _handleMessageTap(message),
                           onLongPress: () => _showMessageOptions(message),
-                          onSwipe: _handleSwipeToReply,
+                          onSwipe: _canSendMessages ? _handleSwipeToReply : null,
                         ),
                       ],
                     );
@@ -415,27 +645,62 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
                 child: CircularProgressIndicator(),
               ),
               error: (error, stack) => Center(
-                child: Text('Error loading messages: $error'),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: modernTheme.textSecondaryColor,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error loading messages',
+                      style: TextStyle(
+                        color: modernTheme.textColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      error.toString(),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: modernTheme.textSecondaryColor,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        _initializeChatPermissions();
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
 
           // Attachment menu
-          if (_isAttachmentVisible) _buildAttachmentMenu(),
+          if (_isAttachmentVisible && _canSendMessages) 
+            _buildAttachmentMenu(),
 
-          // Chat input
-          ChatInput(
-            controller: _messageController,
-            onSend: _sendMessage,
-            onAttachmentTap: _toggleAttachmentMenu,
-            isEditing: isEditing,
-            onCancelEditing: isEditing 
-                ? () {
-                    ref.read(chatProvider.notifier).cancelEditing();
-                    _messageController.clear();
-                  }
-                : null,
-          ),
+          // Chat input (only show if user can send messages)
+          if (_canSendMessages)
+            ChatInput(
+              controller: _messageController,
+              onSend: _sendMessage,
+              onAttachmentTap: _toggleAttachmentMenu,
+              isEditing: isEditing,
+              onCancelEditing: isEditing 
+                  ? () {
+                      ref.read(chatProvider.notifier).cancelEditing();
+                      _messageController.clear();
+                    }
+                  : null,
+            ),
         ],
       ),
     );
@@ -443,7 +708,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
 
   PreferredSizeWidget _buildGroupAppBar(BuildContext context, GroupModel group) {
     final modernTheme = context.modernTheme;
-    final isAdmin = ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId);
     
     return AppBar(
       elevation: 0,
@@ -497,92 +761,86 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
         ),
       ),
       actions: [
-        // Video call button
-        IconButton(
-          icon: const Icon(Icons.videocam),
-          onPressed: () {
-            showSnackBar(context, 'Group video call feature coming soon');
-          },
-        ),
-        // Audio call button
-        IconButton(
-          icon: const Icon(Icons.call),
-          onPressed: () {
-            showSnackBar(context, 'Group audio call feature coming soon');
-          },
-        ),
-        // Group settings button
-        IconButton(
+        // Group settings menu
+        PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
-          onPressed: () {
-            showModalBottomSheet(
-              context: context,
-              builder: (context) => SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.info_outline),
-                      title: const Text('Group Info'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(
-                          context,
-                          Constants.groupInformationScreen,
-                          arguments: group,
-                        );
-                      },
-                    ),
-                    if (isAdmin)
-                      ListTile(
-                        leading: const Icon(Icons.settings),
-                        title: const Text('Group Settings'),
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.pushNamed(
-                            context,
-                            Constants.groupSettingsScreen,
-                            arguments: group,
-                          );
-                        },
-                      ),
-                    if (group.awaitingApprovalUIDs.isNotEmpty && isAdmin)
-                      ListTile(
-                        leading: const Icon(Icons.person_add),
-                        title: Text(
-                          'Pending Requests (${group.awaitingApprovalUIDs.length})',
-                        ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.pushNamed(
-                            context,
-                            Constants.pendingRequestsScreen,
-                            arguments: group,
-                          );
-                        },
-                      ),
-                    ListTile(
-                      leading: const Icon(Icons.search),
-                      title: const Text('Search Messages'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        // TODO: Implement search
-                        showSnackBar(context, 'Message search coming soon');
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.exit_to_app, color: Colors.red),
-                      title: const Text('Leave Group', style: TextStyle(color: Colors.red)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _showLeaveGroupDialog();
-                      },
-                    ),
-                  ],
+          onSelected: (value) async {
+            switch (value) {
+              case 'info':
+                Navigator.pushNamed(
+                  context,
+                  Constants.groupInformationScreen,
+                  arguments: group,
+                );
+                break;
+              case 'settings':
+                final isAdmin = await ref.read(groupProvider.notifier)
+                    .isCurrentUserAdmin(group.groupId);
+                if (isAdmin) {
+                  Navigator.pushNamed(
+                    context,
+                    Constants.groupSettingsScreen,
+                    arguments: group,
+                  );
+                } else {
+                  showSnackBar(context, 'Only admins can access group settings');
+                }
+                break;
+              case 'requests':
+                final isAdmin = await ref.read(groupProvider.notifier)
+                    .isCurrentUserAdmin(group.groupId);
+                if (isAdmin && group.awaitingApprovalUIDs.isNotEmpty) {
+                  Navigator.pushNamed(
+                    context,
+                    Constants.pendingRequestsScreen,
+                    arguments: group,
+                  );
+                } else if (!isAdmin) {
+                  showSnackBar(context, 'Only admins can view pending requests');
+                } else {
+                  showSnackBar(context, 'No pending requests');
+                }
+                break;
+              case 'leave':
+                _showLeaveGroupDialog();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'info',
+              child: ListTile(
+                leading: Icon(Icons.info_outline),
+                title: Text('Group Info'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'settings',
+              child: ListTile(
+                leading: Icon(Icons.settings),
+                title: Text('Group Settings'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            if (group.awaitingApprovalUIDs.isNotEmpty)
+              PopupMenuItem(
+                value: 'requests',
+                child: ListTile(
+                  leading: const Icon(Icons.person_add),
+                  title: Text('Pending Requests (${group.awaitingApprovalUIDs.length})'),
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
-            );
-          },
+            const PopupMenuItem(
+              value: 'leave',
+              child: ListTile(
+                leading: Icon(Icons.exit_to_app, color: Colors.red),
+                title: Text('Leave Group', style: TextStyle(color: Colors.red)),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -602,9 +860,15 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await ref.read(groupProvider.notifier).leaveGroup(widget.groupId);
-              if (mounted) {
-                Navigator.pop(context); // Return to groups list
+              try {
+                await ref.read(groupProvider.notifier).leaveGroup(widget.groupId);
+                if (mounted) {
+                  Navigator.pop(context); // Return to groups list
+                }
+              } catch (e) {
+                if (mounted) {
+                  showSnackBar(context, 'Error leaving group: $e');
+                }
               }
             },
             child: const Text('Leave', style: TextStyle(color: Colors.red)),
@@ -789,7 +1053,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> with WidgetsB
             icon: Icons.insert_drive_file,
             label: 'Document',
             onTap: () {
-              // TODO: Implement document picking
               showSnackBar(context, 'Document sharing coming soon');
               setState(() {
                 _isAttachmentVisible = false;

@@ -26,23 +26,29 @@ class GroupInformationScreen extends ConsumerStatefulWidget {
 
 class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen> {
   bool _isLoading = false;
+  bool _isAdmin = false;
+  bool _isCreator = false;
   
   @override
   void initState() {
     super.initState();
-    // Load group details when screen initializes
+    // Load group details and check permissions when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadGroupDetails();
+      _loadGroupDetailsAndPermissions();
     });
   }
 
-  Future<void> _loadGroupDetails() async {
+  Future<void> _loadGroupDetailsAndPermissions() async {
     setState(() {
       _isLoading = true;
     });
     
     try {
+      // Load group details
       await ref.read(groupProvider.notifier).getGroupDetails(widget.group.groupId);
+      
+      // Check permissions
+      await _checkUserPermissions();
     } catch (e) {
       if (mounted) {
         showSnackBar(context, 'Error loading group details: $e');
@@ -53,6 +59,28 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _checkUserPermissions() async {
+    try {
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) return;
+
+      // Check if user is admin
+      final isAdmin = await ref.read(groupProvider.notifier)
+          .isCurrentUserAdmin(widget.group.groupId);
+      
+      // Check if user is creator
+      final isCreator = ref.read(groupProvider.notifier)
+          .isCurrentUserCreator(widget.group.groupId);
+
+      setState(() {
+        _isAdmin = isAdmin;
+        _isCreator = isCreator;
+      });
+    } catch (e) {
+      debugPrint('Error checking permissions: $e');
     }
   }
 
@@ -107,9 +135,6 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
     final group = groupAsync.value?.currentGroup ?? widget.group;
     final members = groupAsync.value?.currentGroupMembers ?? [];
     
-    final isAdmin = ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId);
-    final isCreator = ref.read(groupProvider.notifier).isCurrentUserCreator(group.groupId);
-    
     return Scaffold(
       backgroundColor: theme.backgroundColor,
       appBar: AppBar(
@@ -122,7 +147,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (isAdmin)
+          if (_isAdmin)
             IconButton(
               icon: Icon(
                 Icons.edit,
@@ -187,7 +212,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  if (isCreator)
+                                  if (_isCreator)
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
@@ -205,13 +230,12 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                                         ),
                                       ),
                                     )
-                                  else if (isAdmin)
+                                  else if (_isAdmin)
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
                                         vertical: 4,
                                       ),
-                                      // lib/features/groups/screens/group_information_screen.dart (continued)
                                       decoration: BoxDecoration(
                                         color: theme.primaryColor!.withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(12),
@@ -345,7 +369,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                                 color: theme.textColor,
                               ),
                             ),
-                            if (isAdmin)
+                            if (_isAdmin)
                               TextButton.icon(
                                 icon: const Icon(Icons.add),
                                 label: const Text('Add'),
@@ -355,7 +379,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                               ),
                           ],
                         ),
-                        if (group.awaitingApprovalUIDs.isNotEmpty && isAdmin)
+                        if (group.awaitingApprovalUIDs.isNotEmpty && _isAdmin)
                           _buildAwaitingApprovalSection(group),
                         const SizedBox(height: 8),
                         if (members.isEmpty)
@@ -368,13 +392,13 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                             ),
                           )
                         else
-                          _buildMembersList(members, group, isAdmin, isCreator),
+                          _buildMembersList(members, group),
                       ],
                     ),
                   ),
                   
                   // Group Settings section
-                  if (isAdmin)
+                  if (_isAdmin)
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Card(
@@ -471,7 +495,11 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
             const SizedBox(height: 8),
             ElevatedButton(
               onPressed: () {
-                // TODO: Navigate to pending requests screen
+                Navigator.pushNamed(
+                  context,
+                  Constants.pendingRequestsScreen,
+                  arguments: group,
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primaryColor,
@@ -490,12 +518,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
   }
 
   // Build members list
-  Widget _buildMembersList(
-    List<UserModel> members,
-    GroupModel group,
-    bool isAdmin,
-    bool isCreator,
-  ) {
+  Widget _buildMembersList(List<UserModel> members, GroupModel group) {
     final theme = context.modernTheme;
     final currentUser = ref.read(currentUserProvider);
     
@@ -605,7 +628,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
               ),
             ],
           ),
-          trailing: (isAdmin && !isSelf && !isCreatorUser)
+          trailing: (_isAdmin && !isSelf && !isCreatorUser)
               ? PopupMenuButton<String>(
                   icon: Icon(
                     Icons.more_vert,
@@ -620,7 +643,7 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
                         value: 'make_admin',
                         child: Text('Make Admin'),
                       )
-                    else if (isCreator)
+                    else if (_isCreator)
                       const PopupMenuItem(
                         value: 'remove_admin',
                         child: Text('Remove Admin'),
@@ -688,12 +711,14 @@ class _GroupInformationScreenState extends ConsumerState<GroupInformationScreen>
           await ref.read(groupProvider.notifier).addAdmin(group.groupId, member.uid);
           if (mounted) {
             showSnackBar(context, '${member.name} is now an admin');
+            await _checkUserPermissions(); // Refresh permissions
           }
           break;
         case 'remove_admin':
           await ref.read(groupProvider.notifier).removeAdmin(group.groupId, member.uid);
           if (mounted) {
             showSnackBar(context, '${member.name} is no longer an admin');
+            await _checkUserPermissions(); // Refresh permissions
           }
           break;
         case 'remove':
