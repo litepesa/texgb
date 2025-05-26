@@ -1,4 +1,5 @@
 // lib/main_screen/home_screen.dart
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,10 +8,12 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
+import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
+import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
@@ -22,11 +25,17 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with TickerProviderStateMixin {
   int _currentIndex = 0;
   int _previousIndex = 0;
   final PageController _pageController = PageController();
   final GlobalKey _channelsFeedKey = GlobalKey();
+  
+  // Tab switcher for Chats tab (between Chats and Status)
+  int _chatsTabIndex = 0; // 0 = Chats, 1 = Status
+  late AnimationController _tabSwitchController;
+  late Animation<double> _tabSwitchAnimation;
   
   // Simple controller for channels feed
   bool _isChannelsFeedActive = false;
@@ -59,29 +68,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   
   final List<String> _tabNames = [
     'Chats',
-    'Channels',
+    'Groups',
     '',  // Empty for center button
-    'Wallet',
+    'Channels',
     'Profile'
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.bubble_left,
-    CupertinoIcons.tv,
+    CupertinoIcons.group,
     Icons.add,
-    CupertinoIcons.creditcard,
+    CupertinoIcons.tv,
     CupertinoIcons.person
   ];
 
   @override
   void initState() {
     super.initState();
+    
+    // Initialize tab switch animation
+    _tabSwitchController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _tabSwitchAnimation = CurvedAnimation(
+      parent: _tabSwitchController,
+      curve: Curves.easeInOut,
+    );
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(channelsProvider.notifier).loadUserChannel();
       _updateSystemUI();
-      
-      // Since we start on Chats tab (index 0), channels feed is inactive initially
-      // No need to activate it here
     });
   }
 
@@ -89,6 +106,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     // Ensure channels feed is properly cleaned up
     _pauseChannelsFeed();
+    _tabSwitchController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -125,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
   
   void _handleChannelsFeedLifecycle(int newIndex) {
-    const channelsFeedIndex = 1; // Channels tab (ChannelsFeedScreen)
+    const channelsFeedIndex = 3; // Channels tab moved to index 3
     
     // Debug logging
     debugPrint('Tab changed from $_previousIndex to $newIndex');
@@ -142,7 +160,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
   
   void _updateSystemUI() {
-    final isChannelsTab = _currentIndex == 1; // Channels tab now at index 1
+    final isChannelsTab = _currentIndex == 3; // Channels tab now at index 3
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: isChannelsTab ? Colors.black : Colors.transparent,
@@ -166,12 +184,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _handleChannelsFeedLifecycle(tabIndex);
   }
 
+  void _onChatTabSwitched(int index) {
+    setState(() {
+      _chatsTabIndex = index;
+    });
+    
+    if (index == 1) {
+      // Animate to status tab
+      _tabSwitchController.forward();
+    } else {
+      // Animate to chats tab
+      _tabSwitchController.reverse();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
-    final isChannelsTab = _currentIndex == 1; // Channels tab at index 1
+    final isChannelsTab = _currentIndex == 3; // Channels tab at index 3
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -186,20 +218,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Chats tab first (index 0)
+          // Chats tab with status switcher (index 0)
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const ChatsTab(),
+            child: _buildChatsTabContent(),
           ),
-          // Channels feed second (index 1) - Pass the GlobalKey for lifecycle management
+          // Groups tab (index 1)
+          Container(
+            color: modernTheme.surfaceColor,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: const GroupsTab(),
+          ),
+          // Channels feed (index 2 -> page index 2)
           ChannelsFeedScreen(key: _channelsFeedKey),
-          // Wallet tab (index 2 -> page index 2)
-          Container(
-            color: modernTheme.surfaceColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: _buildWalletTab(),
-          ),
           // Profile tab (index 3 -> page index 3)
           Container(
             color: modernTheme.surfaceColor,
@@ -247,6 +279,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
     );
   }
+
+  Widget _buildChatsTabContent() {
+    return AnimatedBuilder(
+      animation: _tabSwitchAnimation,
+      builder: (context, child) {
+        return IndexedStack(
+          index: _chatsTabIndex,
+          children: const [
+            ChatsTab(),
+            StatusOverviewScreen(),
+          ],
+        );
+      },
+    );
+  }
   
   BottomNavigationBarItem _buildBottomNavItem(
     int index, 
@@ -265,7 +312,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
     
-    // Chats tab is now at index 0
+    // Chats tab is at index 0
     if (index == 0) {
       return chatsAsyncValue.when(
         data: (chats) {
@@ -353,35 +400,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
   
-  bool _shouldShowFab() => _currentIndex == 0; // FAB shows on Chats tab (index 0)
+  bool _shouldShowFab() => _currentIndex == 0 || _currentIndex == 1; // FAB shows on Chats and Groups tabs
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
+    final isChatsTab = _currentIndex == 0;
+    final isGroupsTab = _currentIndex == 1;
+    
     return AppBar(
       elevation: 0,
       backgroundColor: modernTheme.backgroundColor,
-      centerTitle: true,
-      title: RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(
-              text: "Wei",
-              style: TextStyle(
-                color: modernTheme.textColor,          
-                fontWeight: FontWeight.w500,
-                fontSize: 22,
-              ),
-            ),
-            TextSpan(
-              text: "Bao",
-              style: TextStyle(
-                color: modernTheme.primaryColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 24,
-              ),
-            ),
-          ],
-        ),
-      ),
+      centerTitle: !isChatsTab, // Only Chats tab has custom layout
+      title: isChatsTab 
+          ? _buildChatsAppBarTitle(modernTheme)
+          : _buildDefaultAppBarTitle(modernTheme),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1.0),
         child: Divider(
@@ -392,48 +423,235 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-  
-  Widget _buildFab(ModernThemeExtension modernTheme) {
-    return FloatingActionButton(
-      backgroundColor: modernTheme.primaryColor,
-      foregroundColor: Colors.white,
-      elevation: 4,
-      onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
-      child: const Icon(CupertinoIcons.bubble_left),
+
+  Widget _buildDefaultAppBarTitle(ModernThemeExtension modernTheme) {
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: "Wei",
+            style: TextStyle(
+              color: modernTheme.textColor,          
+              fontWeight: FontWeight.w500,
+              fontSize: 22,
+            ),
+          ),
+          TextSpan(
+            text: "Bao",
+            style: TextStyle(
+              color: modernTheme.primaryColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 24,
+            ),
+          ),
+        ],
+      ),
     );
   }
-  
-  Widget _buildWalletTab() {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+
+  Widget _buildChatsAppBarTitle(ModernThemeExtension modernTheme) {
+    return Container(
+      height: 50,
+      child: Row(
+        children: [
+          // App title with enhanced styling
+          Expanded(
+            child: Container(
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: "Wei",
+                      style: TextStyle(
+                        color: modernTheme.textColor,          
+                        fontWeight: FontWeight.w500,
+                        fontSize: 22,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    TextSpan(
+                      text: "Bao",
+                      style: TextStyle(
+                        color: modernTheme.primaryColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 24,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Enhanced tab switcher with glassmorphism effect
+          Container(
+            height: 36,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  modernTheme.surfaceColor!.withOpacity(0.9),
+                  modernTheme.surfaceColor!.withOpacity(0.7),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: modernTheme.primaryColor!.withOpacity(0.2),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: modernTheme.primaryColor!.withOpacity(0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildTabSwitchButton(
+                        'Chats',
+                        CupertinoIcons.bubble_left_fill,
+                        0,
+                        modernTheme,
+                      ),
+                      _buildTabSwitchButton(
+                        'Status',
+                        CupertinoIcons.camera_circle_fill,
+                        1,
+                        modernTheme,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabSwitchButton(
+    String label,
+    IconData icon,
+    int index,
+    ModernThemeExtension modernTheme,
+  ) {
+    final isSelected = _chatsTabIndex == index;
+    
+    return GestureDetector(
+      onTap: () => _onChatTabSwitched(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOutCubic,
+        margin: const EdgeInsets.all(2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: isSelected 
+              ? LinearGradient(
+                  colors: [
+                    modernTheme.primaryColor!,
+                    modernTheme.primaryColor!.withOpacity(0.8),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: modernTheme.primaryColor!.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                    spreadRadius: 1,
+                  ),
+                  BoxShadow(
+                    color: modernTheme.primaryColor!.withOpacity(0.2),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              CupertinoIcons.creditcard,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Wallet',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[600],
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                icon,
+                size: 16,
+                color: isSelected 
+                    ? Colors.white 
+                    : modernTheme.textSecondaryColor!.withOpacity(0.8),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Coming Soon',
+            const SizedBox(width: 6),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
               style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[500],
+                color: isSelected 
+                    ? Colors.white 
+                    : modernTheme.textSecondaryColor!.withOpacity(0.8),
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 13,
+                letterSpacing: 0.8,
+                shadows: isSelected
+                    ? [
+                        Shadow(
+                          color: Colors.black.withOpacity(0.2),
+                          offset: const Offset(0, 1),
+                          blurRadius: 2,
+                        ),
+                      ]
+                    : null,
               ),
+              child: Text(label),
             ),
           ],
         ),
       ),
+    );
+  }
+  
+  Widget _buildFab(ModernThemeExtension modernTheme) {
+    final fabIcon = _currentIndex == 0 
+        ? CupertinoIcons.bubble_left 
+        : CupertinoIcons.group_solid;
+    
+    final fabAction = _currentIndex == 0 
+        ? () => Navigator.pushNamed(context, Constants.contactsScreen)
+        : () => Navigator.pushNamed(context, Constants.createGroupScreen);
+    
+    return FloatingActionButton(
+      backgroundColor: modernTheme.primaryColor,
+      foregroundColor: Colors.white,
+      elevation: 4,
+      onPressed: fabAction,
+      child: Icon(fabIcon),
     );
   }
 }
