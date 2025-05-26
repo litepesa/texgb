@@ -9,6 +9,8 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
+import 'package:textgb/features/groups/models/group_model.dart';
+import 'package:textgb/features/groups/providers/group_provider.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
@@ -205,6 +207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
+    final groupsAsyncValue = ref.watch(userGroupsStreamProvider);
     final isChannelsTab = _currentIndex == 3; // Channels tab at index 3
     final isProfileTab = _currentIndex == 4; // Profile tab at index 4
     final bottomPadding = MediaQuery.of(context).padding.bottom;
@@ -272,7 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
                 items: List.generate(
                   _tabNames.length,
-                  (index) => _buildBottomNavItem(index, modernTheme, chatsAsyncValue),
+                  (index) => _buildBottomNavItem(index, modernTheme, chatsAsyncValue, groupsAsyncValue),
                 ),
               ),
             ),
@@ -303,6 +306,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int index, 
     ModernThemeExtension modernTheme,
     AsyncValue<List<ChatModel>> chatsAsyncValue,
+    AsyncValue<List<GroupModel>> groupsAsyncValue,
   ) {
     final isSelected = _currentIndex == index;
     
@@ -326,54 +330,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             (sum, chat) => sum + chat.getDisplayUnreadCount()
           );
           
-          return BottomNavigationBarItem(
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                      ? modernTheme.primaryColor!.withOpacity(0.2) 
-                      : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(_tabIcons[index]),
-                ),
-                if (totalUnreadCount > 0)
-                  Positioned(
-                    top: -5,
-                    right: -5,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor,
-                        shape: totalUnreadCount > 99 
-                            ? BoxShape.rectangle 
-                            : BoxShape.circle,
-                        borderRadius: totalUnreadCount > 99 
-                            ? BorderRadius.circular(10) 
-                            : null,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      child: Center(
-                        child: Text(
-                          totalUnreadCount > 99 ? '99+' : totalUnreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            label: _tabNames[index],
+          return _buildNavItemWithBadge(
+            index, 
+            isSelected, 
+            modernTheme, 
+            totalUnreadCount
+          );
+        },
+        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+      );
+    }
+    
+    // Groups tab is at index 1
+    if (index == 1) {
+      return groupsAsyncValue.when(
+        data: (groups) {
+          final currentUser = ref.watch(currentUserProvider);
+          if (currentUser == null) {
+            return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
+          }
+          
+          final totalUnreadCount = groups.fold<int>(
+            0, 
+            (sum, group) => sum + group.getUnreadCountForUser(currentUser.uid)
+          );
+          
+          return _buildNavItemWithBadge(
+            index, 
+            isSelected, 
+            modernTheme, 
+            totalUnreadCount
           );
         },
         loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
@@ -382,6 +369,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
     
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
+  }
+  
+  BottomNavigationBarItem _buildNavItemWithBadge(
+    int index,
+    bool isSelected,
+    ModernThemeExtension modernTheme,
+    int unreadCount,
+  ) {
+    return BottomNavigationBarItem(
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isSelected 
+                ? modernTheme.primaryColor!.withOpacity(0.2) 
+                : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_tabIcons[index]),
+          ),
+          if (unreadCount > 0)
+            Positioned(
+              top: -5,
+              right: -5,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor,
+                  shape: unreadCount > 99 
+                      ? BoxShape.rectangle 
+                      : BoxShape.circle,
+                  borderRadius: unreadCount > 99 
+                      ? BorderRadius.circular(10) 
+                      : null,
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
+                child: Center(
+                  child: Text(
+                    unreadCount > 99 ? '99+' : unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      label: _tabNames[index],
+    );
   }
   
   BottomNavigationBarItem _buildDefaultBottomNavItem(

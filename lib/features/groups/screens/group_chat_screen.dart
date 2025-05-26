@@ -53,10 +53,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   void initState() {
     super.initState();
     
-    // Initialize security service
+    // Initialize security service using the public getters
+    final repository = ref.read(groupRepositoryProvider);
     _securityService = GroupSecurityService(
-      firestore: ref.read(groupRepositoryProvider)._firestore,
-      auth: ref.read(groupRepositoryProvider)._auth,
+      firestore: repository.firestore,
+      auth: repository.auth,
     );
     
     // Add observer for app lifecycle changes
