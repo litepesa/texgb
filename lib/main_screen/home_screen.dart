@@ -545,7 +545,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                       _buildTabSwitchButton(
                         'Status',
-                        CupertinoIcons.camera_circle_fill,
+                        CupertinoIcons.camera_fill,
                         1,
                         modernTheme,
                       ),
@@ -665,7 +665,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           foregroundColor: Colors.white,
           elevation: 4,
           onPressed: () => Navigator.pushNamed(context, Constants.createStatusScreen),
-          child: const Icon(CupertinoIcons.camera_fill),
+          child: const Icon(CupertinoIcons.camera),
         );
       }
     } else if (_currentIndex == 1) {
