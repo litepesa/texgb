@@ -76,7 +76,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.bubble_left,
-    CupertinoIcons.group,
+    CupertinoIcons.bubble_left_bubble_right,
     Icons.add,
     CupertinoIcons.tv,
     CupertinoIcons.person
@@ -161,6 +161,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   void _updateSystemUI() {
     final isChannelsTab = _currentIndex == 3; // Channels tab now at index 3
+    final isProfileTab = _currentIndex == 4; // Profile tab at index 4
+    
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: isChannelsTab ? Colors.black : Colors.transparent,
@@ -204,14 +206,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
     final isChannelsTab = _currentIndex == 3; // Channels tab at index 3
+    final isProfileTab = _currentIndex == 4; // Profile tab at index 4
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isChannelsTab,
+      extendBodyBehindAppBar: isChannelsTab || isProfileTab,
       backgroundColor: isChannelsTab ? Colors.black : modernTheme.backgroundColor,
       
-      appBar: isChannelsTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      // Hide AppBar for channels and profile tabs
+      appBar: (isChannelsTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -400,7 +404,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  bool _shouldShowFab() => _currentIndex == 0 || _currentIndex == 1; // FAB shows on Chats and Groups tabs
+  // Updated to show different FABs based on current tab and status tab selection
+  bool _shouldShowFab() {
+    // Show FAB on Chats tab (including status sub-tab) and Groups tab
+    return _currentIndex == 0 || _currentIndex == 1;
+  }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     final isChatsTab = _currentIndex == 0;
@@ -638,20 +646,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   Widget _buildFab(ModernThemeExtension modernTheme) {
-    final fabIcon = _currentIndex == 0 
-        ? CupertinoIcons.bubble_left 
-        : CupertinoIcons.group_solid;
+    // Different FAB based on current context
+    if (_currentIndex == 0) {
+      // Chats tab - different FAB for Chats vs Status
+      if (_chatsTabIndex == 0) {
+        // Chats sub-tab - New chat FAB
+        return FloatingActionButton(
+          backgroundColor: modernTheme.primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
+          child: const Icon(CupertinoIcons.bubble_left),
+        );
+      } else {
+        // Status sub-tab - Create status FAB
+        return FloatingActionButton(
+          backgroundColor: modernTheme.primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          onPressed: () => Navigator.pushNamed(context, Constants.createStatusScreen),
+          child: const Icon(CupertinoIcons.camera_fill),
+        );
+      }
+    } else if (_currentIndex == 1) {
+      // Groups tab - Create group FAB
+      return FloatingActionButton(
+        backgroundColor: modernTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
+        child: const Icon(CupertinoIcons.bubble_left_bubble_right),
+      );
+    }
     
-    final fabAction = _currentIndex == 0 
-        ? () => Navigator.pushNamed(context, Constants.contactsScreen)
-        : () => Navigator.pushNamed(context, Constants.createGroupScreen);
-    
-    return FloatingActionButton(
-      backgroundColor: modernTheme.primaryColor,
-      foregroundColor: Colors.white,
-      elevation: 4,
-      onPressed: fabAction,
-      child: Icon(fabIcon),
-    );
+    return const SizedBox.shrink();
   }
 }
