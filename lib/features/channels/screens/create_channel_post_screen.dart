@@ -128,9 +128,9 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  modernTheme.primaryColor!.withOpacity(0.05),
-                  modernTheme.backgroundColor,
-                  modernTheme.primaryColor!.withOpacity(0.03),
+                  (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.05),
+                  modernTheme.backgroundColor ?? Colors.white,
+                  (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.03),
                 ],
               ),
             ),
@@ -168,7 +168,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: modernTheme.backgroundColor.withOpacity(0.95),
+        color: (modernTheme.backgroundColor ?? Colors.white).withOpacity(0.95),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -256,7 +256,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: modernTheme.primaryColor!.withOpacity(0.1),
+            color: (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.1),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -375,8 +375,8 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           gradient: isPrimary
               ? LinearGradient(
                   colors: [
-                    modernTheme.primaryColor!,
-                    modernTheme.primaryColor!.withOpacity(0.8),
+                    modernTheme.primaryColor ?? Colors.blue,
+                    (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -387,12 +387,12 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           border: isPrimary
               ? null
               : Border.all(
-                  color: modernTheme.borderColor ?? modernTheme.primaryColor!.withOpacity(0.2),
+                  color: modernTheme.borderColor ?? (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.2),
                 ),
           boxShadow: [
             BoxShadow(
               color: isPrimary
-                  ? modernTheme.primaryColor!.withOpacity(0.3)
+                  ? (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.3)
                   : Colors.black.withOpacity(0.05),
               blurRadius: 20,
               offset: const Offset(0, 8),
@@ -406,7 +406,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
               decoration: BoxDecoration(
                 color: isPrimary
                     ? Colors.white.withOpacity(0.2)
-                    : modernTheme.primaryColor!.withOpacity(0.1),
+                    : (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -498,12 +498,12 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isActive
-              ? modernTheme.primaryColor!.withOpacity(0.1)
+              ? (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.1)
               : modernTheme.surfaceColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isActive
-                ? modernTheme.primaryColor!
+                ? modernTheme.primaryColor ?? Colors.blue
                 : modernTheme.borderColor ?? Colors.grey.withOpacity(0.3),
           ),
         ),
@@ -620,8 +620,8 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              overflow: 'hidden',
             ),
+            clipBehavior: Clip.hardEdge,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -800,7 +800,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Video will be trimmed to ${_formatDuration(end - start)}',
+                'Video will be trimmed to ${_formatDuration((end - start) as int)}',
               ),
             ),
           );
