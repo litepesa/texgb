@@ -38,6 +38,7 @@ import 'package:textgb/features/status/screens/my_statuses_screen.dart';
 import 'package:textgb/features/status/screens/status_detail_screen.dart';
 import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/features/status/screens/status_viewer_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/models/user_model.dart';
@@ -221,6 +222,9 @@ class AppRoot extends ConsumerWidget {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
             return MyPostScreen(videoId: videoId);
           },
+          
+          // Wallet routes
+          Constants.walletScreen: (context) => const WalletScreen(),
         },
         navigatorObservers: [routeObserver],
         onUnknownRoute: (settings) {

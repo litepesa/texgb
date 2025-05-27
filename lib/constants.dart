@@ -1,4 +1,4 @@
-// lib/constants.dart - Updated for Channels feature and Groups feature
+// lib/constants.dart - Updated for Channels feature and Wallet feature
 class Constants {
   // screens routes
   static const String landingScreen = '/landingScreen';
@@ -20,7 +20,7 @@ class Constants {
   static const String privacySettingsScreen = '/privacySettingsScreen';
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   
-  // Group routes
+  // Group routes (keeping for backward compatibility)
   static const String groupSettingsScreen = '/groupSettingsScreen';
   static const String groupInformationScreen = '/groupInformationScreen';
   static const String groupsScreen = '/groupsScreen';
@@ -49,7 +49,14 @@ class Constants {
   static const String exploreChannelsScreen = '/exploreChannelsScreen';
   static const String myPostScreen = '/myPostScreen'; // New route for My Post Screen
   
-  // Status feature routes - Updated for WeChat Moments-like implementation
+  // Wallet routes
+  static const String walletScreen = '/walletScreen';
+  static const String topUpScreen = '/topUpScreen';
+  static const String sendMoneyScreen = '/sendMoneyScreen';
+  static const String receiveMoneyScreen = '/receiveMoneyScreen';
+  static const String transactionHistoryScreen = '/transactionHistoryScreen';
+  
+  // Status feature routes - Updated for WeChat Moments-like implementation (keeping for backward compatibility)
   static const String statusOverviewScreen = '/statusOverviewScreen';
   static const String createStatusScreen = '/createStatusScreen';
   static const String myStatusesScreen = '/myStatusesScreen';
@@ -83,6 +90,17 @@ class Constants {
   static const String channelFiles = 'channelFiles';
   static const String channelLikes = 'channelLikes';
   static const String channelViews = 'channelViews';
+  
+  // Collection names for Wallet feature
+  static const String wallets = 'wallets';
+  static const String transactions = 'transactions';
+  static const String walletBalance = 'walletBalance';
+  static const String transactionId = 'transactionId';
+  static const String transactionType = 'transactionType';
+  static const String transactionAmount = 'transactionAmount';
+  static const String transactionDate = 'transactionDate';
+  static const String recipientUID = 'recipientUID';
+  static const String senderUID = 'senderUID';
   
   // Collection names for Status - Updated for new implementation
   static const String statuses = 'statuses'; // Keep for backward compatibility
@@ -166,7 +184,6 @@ class Constants {
   static const String contactImage = 'contactImage';
   static const String groupId = 'groupId';
 
-  static const String senderUID = 'senderUID';
   static const String senderName = 'senderName';
   static const String senderImage = 'senderImage';
   static const String contactUID = 'contactUID';
