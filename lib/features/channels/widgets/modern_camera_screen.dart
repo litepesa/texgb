@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
+import 'package:textgb/features/channels/screens/create_post_screen.dart';
 
 class ModernCameraScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
