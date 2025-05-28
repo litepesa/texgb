@@ -1,26 +1,24 @@
 // lib/features/channels/screens/create_channel_post_screen.dart
 import 'dart:io';
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:photo_manager/photo_manager.dart';
 import 'package:camera/camera.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
-import 'package:textgb/features/channels/services/post_creation_service.dart';
-import 'package:textgb/features/channels/services/draft_service.dart';
-import 'package:textgb/features/channels/widgets/media_gallery_selector.dart';
-import 'package:textgb/features/channels/widgets/camera_screen.dart';
-import 'package:textgb/features/channels/widgets/enhanced_media_preview.dart';
-import 'package:textgb/features/channels/widgets/enhanced_post_form.dart';
-import 'package:textgb/features/channels/widgets/upload_progress_widget.dart';
-import 'package:textgb/features/channels/widgets/drafts_sheet_widget.dart';
-import 'package:textgb/features/channels/widgets/video_trimmer_widget.dart';
+import 'package:textgb/features/channels/services/video_processing_service.dart';
+import 'package:textgb/features/channels/widgets/modern_camera_screen.dart';
+import 'package:textgb/features/channels/widgets/video_editor_screen.dart';
+import 'package:textgb/features/channels/widgets/modern_media_gallery.dart';
+import 'package:textgb/features/channels/widgets/floating_media_preview.dart';
+import 'package:textgb/features/channels/widgets/animated_post_composer.dart';
+import 'package:textgb/features/channels/widgets/video_processing_overlay.dart';
 
 class CreateChannelPostScreen extends ConsumerStatefulWidget {
   const CreateChannelPostScreen({Key? key}) : super(key: key);
@@ -34,784 +32,443 @@ class _CreateChannelPostScreenState
     extends ConsumerState<CreateChannelPostScreen>
     with TickerProviderStateMixin {
   
-  // Services
-  late PostCreationService _postService;
-  late DraftService _draftService;
+  // Animation Controllers
+  late AnimationController _mainAnimController;
+  late AnimationController _fabAnimController;
+  late AnimationController _composerAnimController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
   
   // Controllers
   final TextEditingController _captionController = TextEditingController();
-  final TextEditingController _tagsController = TextEditingController();
-  late AnimationController _pageAnimationController;
-  late Animation<double> _pageAnimation;
+  final ScrollController _scrollController = ScrollController();
   VideoPlayerController? _videoController;
+  final VideoProcessingService _videoProcessingService = VideoProcessingService();
   
   // State
   List<File> _selectedImages = [];
   File? _selectedVideo;
-  bool _isVideoMode = true;
-  PageController _pageController = PageController();
-  int _currentStep = 0; // 0: selection, 1: preview, 2: details
+  File? _processedVideo;
+  Uint8List? _videoThumbnail;
+  Duration? _videoDuration;
+  Duration _trimStart = Duration.zero;
+  Duration _trimEnd = Duration.zero;
+  bool _isComposerExpanded = false;
+  bool _isUploading = false;
+  bool _isProcessingVideo = false;
   
-  // Camera settings
-  bool _useTimer = false;
-  int _timerDuration = 3;
-  bool _showGrid = false;
-  bool _flashOn = false;
-  
-  // Auto-save timer
-  Timer? _autoSaveTimer;
+  // Media selection mode
+  MediaType _selectedMediaType = MediaType.none;
   
   @override
   void initState() {
     super.initState();
-    _initializeServices();
     _initializeAnimations();
-    _checkPermissions();
-    _loadDraftIfAvailable();
-    _setupAutoSave();
+    _videoProcessingService.initialize();
   }
-
-  void _initializeServices() {
-    _postService = PostCreationService();
-    _draftService = DraftService();
-    _draftService.initialize();
-  }
-
+  
   void _initializeAnimations() {
-    _pageAnimationController = AnimationController(
+    _mainAnimController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _fabAnimController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
     
-    _pageAnimation = Tween<double>(
+    _composerAnimController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    
+    _scaleAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
     ).animate(CurvedAnimation(
-      parent: _pageAnimationController,
+      parent: _mainAnimController,
+      curve: Curves.elasticOut,
+    ));
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _mainAnimController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _composerAnimController,
       curve: Curves.easeOutCubic,
     ));
     
-    _pageAnimationController.forward();
+    _mainAnimController.forward();
+    _fabAnimController.repeat(reverse: true);
   }
-
-  Future<void> _checkPermissions() async {
-    final statuses = await [
-      Permission.camera,
-      Permission.microphone,
-      Permission.photos,
-    ].request();
-    
-    if (statuses.values.any((status) => !status.isGranted)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please grant all permissions to use this feature'),
-            action: SnackBarAction(
-              label: 'Settings',
-              onPressed: openAppSettings,
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  void _loadDraftIfAvailable() {
-    if (_draftService.hasDrafts) {
-      // Show option to load recent draft
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showLoadDraftDialog();
-      });
-    } else {
-      // Create new draft
-      _draftService.createDraft();
-    }
-  }
-
-  void _setupAutoSave() {
-    _autoSaveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _autoSaveDraft();
-    });
-    
-    // Listen to text changes for immediate auto-save
-    _captionController.addListener(_onFormChanged);
-    _tagsController.addListener(_onFormChanged);
-  }
-
-  void _onFormChanged() {
-    // Debounce auto-save
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer(const Duration(seconds: 2), _autoSaveDraft);
-  }
-
-  Future<void> _autoSaveDraft() async {
-    if (_captionController.text.isNotEmpty || 
-        _tagsController.text.isNotEmpty ||
-        _selectedImages.isNotEmpty ||
-        _selectedVideo != null) {
-      
-      List<String> mediaPaths = [];
-      if (_selectedVideo != null) {
-        mediaPaths = [_selectedVideo!.path];
-      } else {
-        mediaPaths = _selectedImages.map((img) => img.path).toList();
-      }
-      
-      await _draftService.autoSaveDraft(
-        caption: _captionController.text,
-        tags: _tagsController.text.split(',').map((t) => t.trim()).toList(),
-        mediaPaths: mediaPaths,
-        isVideo: _selectedVideo != null,
-      );
-    }
-  }
-
+  
   @override
   void dispose() {
-    _pageAnimationController.dispose();
+    _mainAnimController.dispose();
+    _fabAnimController.dispose();
+    _composerAnimController.dispose();
     _captionController.dispose();
-    _tagsController.dispose();
-    _pageController.dispose();
+    _scrollController.dispose();
     _videoController?.dispose();
-    _autoSaveTimer?.cancel();
-    _postService.dispose();
-    _draftService.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
+    final size = MediaQuery.of(context).size;
     
-    return PopScope(
-      onPopInvoked: (didPop) {
-        if (didPop) {
-          _autoSaveDraft();
-        }
-      },
-      child: Scaffold(
-        backgroundColor: modernTheme.backgroundColor,
-        body: Stack(
+    return Scaffold(
+      backgroundColor: modernTheme.backgroundColor,
+      body: Stack(
+        children: [
+          // Animated gradient background
+          AnimatedContainer(
+            duration: const Duration(seconds: 3),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  modernTheme.primaryColor!.withOpacity(0.05),
+                  modernTheme.backgroundColor!,
+                  modernTheme.primaryColor!.withOpacity(0.02),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
+          
+          // Main content
+          SafeArea(
+            child: Column(
+              children: [
+                // Custom app bar
+                _buildModernAppBar(modernTheme),
+                
+                // Content area
+                Expanded(
+                  child: Stack(
+                    children: [
+                      // Media selection grid
+                      if (_selectedMediaType == MediaType.none)
+                        _buildMediaSelectionGrid(modernTheme, size)
+                      else
+                        _buildSelectedMediaView(modernTheme),
+                      
+                      // Floating composer
+                      if (_hasMedia())
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeOutCubic,
+                          bottom: _isComposerExpanded ? 0 : 20,
+                          left: _isComposerExpanded ? 0 : 20,
+                          right: _isComposerExpanded ? 0 : 20,
+                          height: _isComposerExpanded ? size.height * 0.6 : 80,
+                          child: AnimatedPostComposer(
+                            captionController: _captionController,
+                            isExpanded: _isComposerExpanded,
+                            onExpandToggle: () {
+                              setState(() {
+                                _isComposerExpanded = !_isComposerExpanded;
+                              });
+                              if (_isComposerExpanded) {
+                                _composerAnimController.forward();
+                              } else {
+                                _composerAnimController.reverse();
+                              }
+                            },
+                            onPost: _handlePost,
+                            mediaCount: _selectedImages.length + (_selectedVideo != null ? 1 : 0),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Upload overlay
+          if (_isUploading)
+            _buildUploadOverlay(modernTheme),
+          
+          // Video processing overlay
+          if (_isProcessingVideo)
+            VideoProcessingOverlay(
+              service: _videoProcessingService,
+              onCancel: () {
+                _videoProcessingService.cancelProcessing();
+                setState(() {
+                  _isProcessingVideo = false;
+                });
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernAppBar(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(
+        children: [
+          // Back button
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: modernTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                color: modernTheme.textColor,
+                size: 20,
+              ),
+            ),
+          ),
+          
+          // Title
+          Expanded(
+            child: Text(
+              'Create Post',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          
+          // Reset button
+          if (_hasMedia())
+            IconButton(
+              onPressed: _resetMedia,
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.refresh,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+            )
+          else
+            const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediaSelectionGrid(ModernThemeExtension modernTheme, Size size) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
           children: [
-            // Gradient background
-            Container(
+            // Header text
+            ScaleTransition(
+              scale: _scaleAnimation,
+              child: Column(
+                children: [
+                  Text(
+                    'What do you want to share?',
+                    style: TextStyle(
+                      color: modernTheme.textColor,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Choose your media type',
+                    style: TextStyle(
+                      color: modernTheme.textSecondaryColor,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 40),
+            
+            // Media options grid
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 1.0,
+                physics: const BouncingScrollPhysics(),
+                children: [
+                  _buildMediaOption(
+                    icon: Icons.camera_alt,
+                    title: 'Camera',
+                    subtitle: 'Record video or take photo',
+                    gradient: [
+                      const Color(0xFF667eea),
+                      const Color(0xFF764ba2),
+                    ],
+                    onTap: () => _openCamera(context),
+                    delay: 0,
+                  ),
+                  _buildMediaOption(
+                    icon: Icons.video_library,
+                    title: 'Video',
+                    subtitle: 'Select from gallery',
+                    gradient: [
+                      const Color(0xFFf093fb),
+                      const Color(0xFFf5576c),
+                    ],
+                    onTap: _selectVideo,
+                    delay: 100,
+                  ),
+                  _buildMediaOption(
+                    icon: Icons.photo_library,
+                    title: 'Photos',
+                    subtitle: 'Up to 10 images',
+                    gradient: [
+                      const Color(0xFF4facfe),
+                      const Color(0xFF00f2fe),
+                    ],
+                    onTap: _selectImages,
+                    delay: 200,
+                  ),
+                  _buildMediaOption(
+                    icon: Icons.collections,
+                    title: 'Gallery',
+                    subtitle: 'Browse all media',
+                    gradient: [
+                      const Color(0xFFfa709a),
+                      const Color(0xFFfee140),
+                    ],
+                    onTap: () => _openGallery(context),
+                    delay: 300,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required List<Color> gradient,
+    required VoidCallback onTap,
+    required int delay,
+  }) {
+    return TweenAnimationBuilder<double>(
+      duration: Duration(milliseconds: 600 + delay),
+      tween: Tween(begin: 0.0, end: 1.0),
+      curve: Curves.elasticOut,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: GestureDetector(
+            onTap: onTap,
+            child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    modernTheme.primaryColor!.withOpacity(0.05),
-                    modernTheme.backgroundColor!,
-                    modernTheme.primaryColor!.withOpacity(0.02),
-                  ],
+                  colors: gradient,
                 ),
-              ),
-            ),
-            
-            // Main content
-            SafeArea(
-              child: FadeTransition(
-                opacity: _pageAnimation,
-                child: Column(
-                  children: [
-                    _buildAppBar(modernTheme),
-                    Expanded(
-                      child: PageView(
-                        controller: _pageController,
-                        onPageChanged: (index) {
-                          setState(() {
-                            _currentStep = index;
-                          });
-                        },
-                        children: [
-                          _buildMediaSelectionStep(modernTheme),
-                          _buildPreviewStep(modernTheme),
-                          _buildDetailsStep(modernTheme),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            // Upload progress overlay
-            if (_postService.isUploading || _postService.isProcessing)
-              Container(
-                color: Colors.black.withOpacity(0.8),
-                child: Center(
-                  child: UploadProgressWidget(
-                    service: _postService,
-                    onCancel: _postService.canCancel ? _postService.cancelUpload : null,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: gradient.first.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
                   ),
-                ),
+                ],
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppBar(ModernThemeExtension modernTheme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: modernTheme.backgroundColor!.withOpacity(0.95),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Back/Close button
-          IconButton(
-            onPressed: _handleBackPress,
-            icon: Icon(
-              _currentStep > 0 ? Icons.arrow_back : Icons.close,
-              color: modernTheme.textColor,
-            ),
-          ),
-          
-          // Title and progress
-          Expanded(
-            child: Column(
-              children: [
-                Text(
-                  _getStepTitle(),
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                _buildProgressIndicator(modernTheme),
-              ],
-            ),
-          ),
-          
-          // Action buttons
-          Row(
-            children: [
-              // Drafts button
-              if (_currentStep == 0 && _draftService.hasDrafts)
-                IconButton(
-                  onPressed: _showDraftsSheet,
-                  icon: Icon(
-                    Icons.drafts_outlined,
-                    color: modernTheme.primaryColor,
-                  ),
-                ),
-              
-              // Next/Post button
-              if (_canProceed())
-                TextButton(
-                  onPressed: _handleNextStep,
-                  child: Text(
-                    _getActionButtonText(),
-                    style: TextStyle(
-                      color: modernTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressIndicator(ModernThemeExtension modernTheme) {
-    return Container(
-      width: 120,
-      height: 4,
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: (_currentStep + 1) / 3,
-        child: Container(
-          decoration: BoxDecoration(
-            color: modernTheme.primaryColor,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMediaSelectionStep(ModernThemeExtension modernTheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // Media type toggle
-          _buildMediaTypeToggle(modernTheme),
-          const SizedBox(height: 32),
-          
-          // Main action buttons
-          _buildMainActions(modernTheme),
-          const SizedBox(height: 24),
-          
-          // Camera settings (if video mode)
-          if (_isVideoMode)
-            _buildCameraSettings(modernTheme),
-          
-          const SizedBox(height: 32),
-          
-          // Recent media grid
-          _buildRecentMediaGrid(modernTheme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreviewStep(ModernThemeExtension modernTheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // Media preview
-          EnhancedMediaPreview(
-            images: _selectedImages,
-            video: _selectedVideo,
-            onImageRemove: (index) {
-              setState(() {
-                _selectedImages.removeAt(index);
-              });
-              if (_selectedImages.isEmpty) {
-                _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              }
-            },
-            onVideoRemove: () {
-              setState(() {
-                _selectedVideo = null;
-                _videoController?.dispose();
-                _videoController = null;
-              });
-              _pageController.previousPage(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-              );
-            },
-            onVideoTrim: _showVideoTrimmer,
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Quick actions
-          _buildPreviewActions(modernTheme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailsStep(ModernThemeExtension modernTheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: EnhancedPostForm(
-        captionController: _captionController,
-        tagsController: _tagsController,
-        isEnabled: !_postService.isUploading && !_postService.isProcessing,
-        onCaptionChanged: (caption) => _onFormChanged(),
-        onTagsChanged: (tags) => _onFormChanged(),
-      ),
-    );
-  }
-
-  Widget _buildMediaTypeToggle(ModernThemeExtension modernTheme) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: modernTheme.primaryColor!.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildToggleButton(
-              'Video',
-              Icons.videocam_rounded,
-              _isVideoMode,
-              () => setState(() => _isVideoMode = true),
-              modernTheme,
-            ),
-          ),
-          Expanded(
-            child: _buildToggleButton(
-              'Photos',
-              Icons.photo_library_rounded,
-              !_isVideoMode,
-              () => setState(() => _isVideoMode = false),
-              modernTheme,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToggleButton(
-    String label,
-    IconData icon,
-    bool isSelected,
-    VoidCallback onTap,
-    ModernThemeExtension modernTheme,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: isSelected ? modernTheme.primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : modernTheme.textSecondaryColor,
-              size: 22,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : modernTheme.textSecondaryColor,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 15,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMainActions(ModernThemeExtension modernTheme) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildActionCard(
-            icon: Icons.photo_library_outlined,
-            title: 'Gallery',
-            subtitle: _isVideoMode ? 'Up to 5 minutes' : 'Up to 10 photos',
-            onTap: _selectFromGallery,
-            modernTheme: modernTheme,
-            isPrimary: true,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildActionCard(
-            icon: Icons.camera_alt_outlined,
-            title: 'Camera',
-            subtitle: _isVideoMode ? 'Record video' : 'Take photo',
-            onTap: _openCamera,
-            modernTheme: modernTheme,
-            isPrimary: false,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    required ModernThemeExtension modernTheme,
-    required bool isPrimary,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: isPrimary
-              ? LinearGradient(
-                  colors: [
-                    modernTheme.primaryColor!,
-                    modernTheme.primaryColor!.withOpacity(0.8),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: isPrimary ? null : modernTheme.surfaceColor,
-          borderRadius: BorderRadius.circular(20),
-          border: isPrimary
-              ? null
-              : Border.all(
-                  color: modernTheme.borderColor ?? modernTheme.primaryColor!.withOpacity(0.2),
-                ),
-          boxShadow: [
-            BoxShadow(
-              color: isPrimary
-                  ? modernTheme.primaryColor!.withOpacity(0.3)
-                  : Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isPrimary
-                    ? Colors.white.withOpacity(0.2)
-                    : modernTheme.primaryColor!.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: isPrimary ? Colors.white : modernTheme.primaryColor,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                color: isPrimary ? Colors.white : modernTheme.textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: isPrimary
-                    ? Colors.white.withOpacity(0.9)
-                    : modernTheme.textSecondaryColor,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCameraSettings(ModernThemeExtension modernTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Camera Settings',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _buildSettingChip(
-              icon: Icons.timer,
-              label: 'Timer: ${_useTimer ? "${_timerDuration}s" : "Off"}',
-              isActive: _useTimer,
-              onTap: _toggleTimer,
-              modernTheme: modernTheme,
-            ),
-            _buildSettingChip(
-              icon: Icons.grid_on,
-              label: 'Grid',
-              isActive: _showGrid,
-              onTap: () => setState(() => _showGrid = !_showGrid),
-              modernTheme: modernTheme,
-            ),
-            _buildSettingChip(
-              icon: Icons.flash_on,
-              label: 'Flash',
-              isActive: _flashOn,
-              onTap: () => setState(() => _flashOn = !_flashOn),
-              modernTheme: modernTheme,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSettingChip({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    required ModernThemeExtension modernTheme,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive
-              ? modernTheme.primaryColor!.withOpacity(0.1)
-              : modernTheme.surfaceColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive
-                ? modernTheme.primaryColor!
-                : modernTheme.borderColor ?? Colors.grey.withOpacity(0.3),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? modernTheme.primaryColor : modernTheme.textSecondaryColor,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? modernTheme.primaryColor : modernTheme.textSecondaryColor,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentMediaGrid(ModernThemeExtension modernTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Recent Media',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            TextButton(
-              onPressed: _selectFromGallery,
-              child: Text(
-                'See all',
-                style: TextStyle(
-                  color: modernTheme.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 100,
-          child: FutureBuilder<List<AssetEntity>>(
-            future: _loadRecentMedia(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              
-              final assets = snapshot.data!;
-              if (assets.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No recent media',
-                    style: TextStyle(color: modernTheme.textSecondaryColor),
-                  ),
-                );
-              }
-              
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: assets.length,
-                itemBuilder: (context, index) {
-                  return _buildRecentMediaItem(assets[index], modernTheme);
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentMediaItem(AssetEntity asset, ModernThemeExtension modernTheme) {
-    return FutureBuilder<Uint8List?>(
-      future: asset.thumbnailDataWithSize(const ThumbnailSize(200, 200)),
-      builder: (context, snapshot) {
-        Widget content;
-        if (snapshot.hasData && snapshot.data != null) {
-          content = Image.memory(snapshot.data!, fit: BoxFit.cover);
-        } else {
-          content = Container(
-            color: modernTheme.surfaceColor,
-            child: const Center(child: CircularProgressIndicator()),
-          );
-        }
-        
-        return GestureDetector(
-          onTap: () => _handleAssetSelection(asset),
-          child: Container(
-            width: 100,
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-            clipBehavior: Clip.hardEdge,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                content,
-                if (asset.type == AssetType.video)
+              child: Stack(
+                children: [
+                  // Animated circles background
                   Positioned(
-                    bottom: 4,
-                    right: 4,
+                    top: -20,
+                    right: -20,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      width: 100,
+                      height: 100,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        _formatDuration(asset.duration),
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.1),
                       ),
                     ),
                   ),
-              ],
+                  Positioned(
+                    bottom: -30,
+                    left: -30,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.05),
+                      ),
+                    ),
+                  ),
+                  
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          icon,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -819,569 +476,701 @@ class _CreateChannelPostScreenState
     );
   }
 
-  Widget _buildPreviewActions(ModernThemeExtension modernTheme) {
-    return Row(
+  Widget _buildSelectedMediaView(ModernThemeExtension modernTheme) {
+    return Stack(
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {
-              _pageController.previousPage(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-              );
+        if (_selectedVideo != null)
+          FloatingMediaPreview(
+            video: _selectedVideo,
+            videoController: _videoController,
+            trimStart: _trimStart,
+            trimEnd: _trimEnd,
+            onEdit: () => _editVideo(context),
+            onRemove: _resetMedia,
+          )
+        else if (_selectedImages.isNotEmpty)
+          FloatingMediaPreview(
+            images: _selectedImages,
+            onAddMore: _selectedImages.length < 10 ? _addMoreImages : null,
+            onRemove: _resetMedia,
+            onImageRemove: (index) {
+              setState(() {
+                _selectedImages.removeAt(index);
+                if (_selectedImages.isEmpty) {
+                  _resetMedia();
+                }
+              });
             },
-            icon: const Icon(Icons.edit),
-            label: const Text('Edit Media'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: modernTheme.primaryColor,
-              side: BorderSide(color: modernTheme.primaryColor!),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _pageController.nextPage(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-              );
-            },
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Add Details'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              elevation: 0,
-            ),
-          ),
-        ),
       ],
+    );
+  }
+
+  Widget _buildUploadOverlay(ModernThemeExtension modernTheme) {
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 300),
+      tween: Tween(begin: 0.0, end: 1.0),
+      builder: (context, value, child) {
+        return Container(
+          color: Colors.black.withOpacity(0.8 * value),
+          child: Transform.scale(
+            scale: 0.8 + (0.2 * value),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                margin: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: modernTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: modernTheme.primaryColor!.withOpacity(0.3),
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Animated icon
+                    TweenAnimationBuilder<double>(
+                      duration: const Duration(seconds: 1),
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      builder: (context, value, child) {
+                        return Transform.rotate(
+                          angle: value * 2 * math.pi,
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  modernTheme.primaryColor!,
+                                  modernTheme.primaryColor!.withOpacity(0.6),
+                                ],
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.cloud_upload,
+                              color: Colors.white,
+                              size: 40,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    Text(
+                      'Creating your post...',
+                      style: TextStyle(
+                        color: modernTheme.textColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 8),
+                    
+                    Text(
+                      'This won\'t take long',
+                      style: TextStyle(
+                        color: modernTheme.textSecondaryColor,
+                        fontSize: 16,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Progress indicator
+                    LinearProgressIndicator(
+                      backgroundColor: modernTheme.surfaceColor,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        modernTheme.primaryColor!,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
   // Helper methods
   
-  String _getStepTitle() {
-    switch (_currentStep) {
-      case 0:
-        return 'Select Media';
-      case 1:
-        return 'Preview';
-      case 2:
-        return 'Add Details';
-      default:
-        return 'Create Post';
-    }
+  bool _hasMedia() {
+    return _selectedVideo != null || _selectedImages.isNotEmpty;
   }
-
-  String _getActionButtonText() {
-    switch (_currentStep) {
-      case 0:
-        return 'Next';
-      case 1:
-        return 'Next';
-      case 2:
-        return 'Post';
-      default:
-        return 'Post';
-    }
+  
+  void _resetMedia() {
+    setState(() {
+      _selectedImages.clear();
+      _selectedVideo = null;
+      _processedVideo = null;
+      _videoThumbnail = null;
+      _videoController?.dispose();
+      _videoController = null;
+      _selectedMediaType = MediaType.none;
+      _isComposerExpanded = false;
+      _trimStart = Duration.zero;
+      _trimEnd = Duration.zero;
+    });
   }
-
-  bool _canProceed() {
-    switch (_currentStep) {
-      case 0:
-        return _selectedImages.isNotEmpty || _selectedVideo != null;
-      case 1:
-        return true;
-      case 2:
-        return _captionController.text.trim().isNotEmpty && 
-               !_postService.isUploading && 
-               !_postService.isProcessing;
-      default:
-        return false;
-    }
-  }
-
-  void _handleBackPress() {
-    if (_currentStep > 0) {
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      _autoSaveDraft();
-      Navigator.of(context).pop();
-    }
-  }
-
-  void _handleNextStep() {
-    if (_currentStep < 2) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      _handlePost();
-    }
-  }
-
-  Future<void> _selectFromGallery() async {
-    final result = await Navigator.of(context).push(
+  
+  Future<void> _editVideo(BuildContext context) async {
+    if (_selectedVideo == null || _videoController == null) return;
+    
+    final result = await Navigator.of(context).push<VideoEditResult>(
       MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (context) => MediaGallerySelector(
-          isVideoMode: _isVideoMode,
-          onFilesSelected: (files) {
-            if (_isVideoMode && files.isNotEmpty) {
-              _processSelectedVideo(files.first);
-            } else {
-              setState(() {
-                _selectedImages = files;
-              });
-            }
-          },
+        builder: (context) => VideoEditorScreen(
+          videoFile: _selectedVideo!,
+          videoController: _videoController!,
+          initialStart: _trimStart,
+          initialEnd: _trimEnd,
         ),
+        fullscreenDialog: true,
       ),
     );
     
-    if (result != null && (_selectedImages.isNotEmpty || _selectedVideo != null)) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+    if (result != null) {
+      setState(() {
+        _trimStart = result.startTime;
+        _trimEnd = result.endTime;
+      });
+      
+      // Process the video with FFmpeg
+      await _processVideoWithFFmpeg();
     }
   }
-
-  Future<void> _openCamera() async {
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No camera available')),
+  
+  Future<void> _processVideoWithFFmpeg() async {
+    setState(() {
+      _isProcessingVideo = true;
+    });
+    
+    try {
+      // Process video with trimming and compression
+      final result = await _videoProcessingService.processVideo(
+        inputFile: _selectedVideo!,
+        trimStart: _trimStart,
+        trimEnd: _trimEnd,
+        quality: VideoQuality.high,
+        generateThumbnail: true,
       );
+      
+      // Dispose old controller
+      await _videoController?.dispose();
+      
+      // Update with processed video
+      _videoController = VideoPlayerController.file(result.videoFile);
+      await _videoController!.initialize();
+      
+      setState(() {
+        _processedVideo = result.videoFile;
+        _videoThumbnail = result.thumbnail;
+        _videoDuration = result.duration;
+        _isProcessingVideo = false;
+      });
+      
+      // Show success with stats
+      _showProcessingSuccess(result.stats);
+      
+    } catch (e) {
+      setState(() {
+        _isProcessingVideo = false;
+      });
+      _showError('Video processing failed: $e');
+    }
+  }
+  
+  void _showProcessingSuccess(ProcessingStats stats) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final modernTheme = context.modernTheme;
+        return AlertDialog(
+          backgroundColor: modernTheme.backgroundColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Video Optimized!',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: modernTheme.surfaceColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _buildStatRow('Original Size', stats.formattedOriginalSize, modernTheme),
+                    const SizedBox(height: 8),
+                    _buildStatRow('Optimized Size', stats.formattedProcessedSize, modernTheme),
+                    const SizedBox(height: 8),
+                    _buildStatRow('Compression', '${stats.compressionRatio}% smaller', modernTheme),
+                    const SizedBox(height: 8),
+                    _buildStatRow('Resolution', stats.resolution, modernTheme),
+                    const SizedBox(height: 8),
+                    _buildStatRow('Bitrate', stats.bitrate, modernTheme),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                ),
+                child: const Text(
+                  'Continue',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildStatRow(String label, String value, ModernThemeExtension modernTheme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: modernTheme.textSecondaryColor,
+            fontSize: 14,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: modernTheme.textColor,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }<void> _openCamera(BuildContext context) async {
+    final cameras = await availableCameras();
+    if (cameras.isEmpty) return;
+    
+    final result = await Navigator.of(context).push<MediaResult>(
+      MaterialPageRoute(
+        builder: (context) => ModernCameraScreen(cameras: cameras),
+        fullscreenDialog: true,
+      ),
+    );
+    
+    if (result != null) {
+      if (result.isVideo) {
+        await _processVideo(result.file);
+      } else {
+        setState(() {
+          _selectedImages = [result.file];
+          _selectedMediaType = MediaType.image;
+        });
+      }
+    }
+  }
+  
+  Future<void> _openGallery(BuildContext context) async {
+    final result = await Navigator.of(context).push<MediaResult>(
+      MaterialPageRoute(
+        builder: (context) => const ModernMediaGallery(),
+        fullscreenDialog: true,
+      ),
+    );
+    
+    if (result != null) {
+      if (result.isVideo) {
+        await _processVideo(result.file);
+      } else if (result.images != null) {
+        setState(() {
+          _selectedImages = result.images!;
+          _selectedMediaType = MediaType.image;
+        });
+      }
+    }
+  }
+  
+  Future<void> _selectVideo() async {
+    final picker = ImagePicker();
+    final video = await picker.pickVideo(source: ImageSource.gallery);
+    
+    if (video != null) {
+      await _processVideo(File(video.path));
+    }
+  }
+  
+  Future<void> _processVideo(File videoFile) async {
+    // Initialize video controller
+    _videoController = VideoPlayerController.file(videoFile);
+    await _videoController!.initialize();
+    
+    final duration = _videoController!.value.duration;
+    
+    setState(() {
+      _selectedVideo = videoFile;
+      _videoDuration = duration;
+      _trimEnd = duration > const Duration(minutes: 5) 
+          ? const Duration(minutes: 5) 
+          : duration;
+      _selectedMediaType = MediaType.video;
+    });
+    
+    // Open video editor if video is longer than 5 minutes
+    if (duration > const Duration(minutes: 5)) {
+      _editVideo(context);
+    }
+  }
+  
+  Future<void> _editVideo(BuildContext context) async {
+    if (_selectedVideo == null || _videoController == null) return;
+    
+    final result = await Navigator.of(context).push<VideoEditResult>(
+      MaterialPageRoute(
+        builder: (context) => VideoEditorScreen(
+          videoFile: _selectedVideo!,
+          videoController: _videoController!,
+          initialStart: _trimStart,
+          initialEnd: _trimEnd,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+    
+    if (result != null) {
+      setState(() {
+        _trimStart = result.startTime;
+        _trimEnd = result.endTime;
+      });
+      
+      // Process the video with FFmpeg
+      await _processVideoWithFFmpeg();
+    }
+  }
+  
+  Future<void> _processVideoWithFFmpeg() async {
+    setState(() {
+      _isProcessingVideo = true;
+    });
+    
+    try {
+      // Process video with trimming and compression
+      final result = await _videoProcessingService.processVideo(
+        inputFile: _selectedVideo!,
+        trimStart: _trimStart,
+        trimEnd: _trimEnd,
+        quality: VideoQuality.high,
+        generateThumbnail: true,
+      );
+      
+      // Dispose old controller
+      await _videoController?.dispose();
+      
+      // Update with processed video
+      _videoController = VideoPlayerController.file(result.videoFile);
+      await _videoController!.initialize();
+      
+      setState(() {
+        _processedVideo = result.videoFile;
+        _videoThumbnail = result.thumbnail;
+        _videoDuration = result.duration;
+        _isProcessingVideo = false;
+      });
+      
+      // Show success with stats
+      _showProcessingSuccess(result.stats);
+      
+    } catch (e) {
+      setState(() {
+        _isProcessingVideo = false;
+      });
+      _showError('Video processing failed: $e');
+    }
+  }
+  
+  void _showProcessingSuccess(ProcessingStats stats) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final modernTheme = context.modernTheme;
+        return AlertDialog(
+          backgroundColor: modernTheme.backgroundColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Video Optimized!',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: modernTheme.surfaceColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _buildStatRow('Original Size', stats.formattedOriginalSize, modernTheme),
+                    const SizedBox(height: 8),
+                    _buildStatRow('Optimized Size', stats.formattedProcessedSize, modernTheme),
+                    const SizedBox(height: 8),
+                    _buildStatRow('Compression', '${stats.compressionRatio}% smaller', modernTheme),
+                    const SizedBox(height: 8),
+                    _buildStatRow('Resolution', stats.resolution, modernTheme),
+                    const SizedBox(height: 8),
+                    _buildStatRow('Bitrate', stats.bitrate, modernTheme),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                ),
+                child: const Text(
+                  'Continue',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildStatRow(String label, String value, ModernThemeExtension modernTheme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: modernTheme.textSecondaryColor,
+            fontSize: 14,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: modernTheme.textColor,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Future<void> _selectImages() async {
+    final picker = ImagePicker();
+    final images = await picker.pickMultiImage();
+    
+    if (images.isNotEmpty) {
+      setState(() {
+        _selectedImages = images.take(10).map((x) => File(x.path)).toList();
+        _selectedMediaType = MediaType.image;
+      });
+    }
+  }
+  
+  Future<void> _addMoreImages() async {
+    final picker = ImagePicker();
+    final images = await picker.pickMultiImage();
+    
+    if (images.isNotEmpty) {
+      setState(() {
+        final newImages = images.map((x) => File(x.path)).toList();
+        _selectedImages.addAll(newImages);
+        if (_selectedImages.length > 10) {
+          _selectedImages = _selectedImages.take(10).toList();
+        }
+      });
+    }
+  }
+  
+  Future<void> _handlePost() async {
+    final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
+    final userChannel = ref.read(channelsProvider).userChannel;
+    
+    if (userChannel == null) {
+      _showError('You need to create a channel first');
       return;
     }
     
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (context) => CameraScreen(
-          cameras: cameras,
-          isVideoMode: _isVideoMode,
-          showGrid: _showGrid,
-          flashOn: _flashOn,
-          useTimer: _useTimer,
-          timerDuration: _timerDuration,
-          onMediaCaptured: (file) {
-            if (_isVideoMode) {
-              _processSelectedVideo(file);
-            } else {
-              setState(() {
-                _selectedImages = [file];
-              });
-            }
+    if (_captionController.text.trim().isEmpty) {
+      _showError('Please add a caption');
+      return;
+    }
+    
+    setState(() {
+      _isUploading = true;
+    });
+    
+    try {
+      final caption = _captionController.text.trim();
+      final tags = _extractTags(caption);
+      
+      if (_processedVideo != null || _selectedVideo != null) {
+        // Use processed video if available, otherwise original
+        final videoToUpload = _processedVideo ?? _selectedVideo!;
+        
+        await channelVideosNotifier.uploadVideo(
+          channel: userChannel,
+          videoFile: videoToUpload,
+          caption: caption,
+          tags: tags,
+          thumbnail: _videoThumbnail,
+          duration: _videoDuration,
+          onSuccess: (message) {
+            Navigator.of(context).pop(true);
+            _showSuccess(message);
           },
+          onError: (error) {
+            setState(() => _isUploading = false);
+            _showError(error);
+          },
+        );
+      } else if (_selectedImages.isNotEmpty) {
+        await channelVideosNotifier.uploadImages(
+          channel: userChannel,
+          imageFiles: _selectedImages,
+          caption: caption,
+          tags: tags,
+          onSuccess: (message) {
+            Navigator.of(context).pop(true);
+            _showSuccess(message);
+          },
+          onError: (error) {
+            setState(() => _isUploading = false);
+            _showError(error);
+          },
+        );
+      }
+    } catch (e) {
+      setState(() => _isUploading = false);
+      _showError('Upload failed: $e');
+    }
+  }
+  
+  List<String> _extractTags(String caption) {
+    final tagPattern = RegExp(r'#(\w+)');
+    final matches = tagPattern.allMatches(caption);
+    return matches.map((match) => match.group(1)!).toList();
+  }
+  
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );
-    
-    if (result != null && (_selectedImages.isNotEmpty || _selectedVideo != null)) {    
-     _pageController.nextPage(
-       duration: const Duration(milliseconds: 300),
-       curve: Curves.easeInOut,
-     );
-   }
- }
+  }
+  
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+}
 
- Future<void> _processSelectedVideo(File videoFile) async {
-   // Validate file
-   final validation = _postService.validateMediaFile(videoFile, true);
-   if (!validation.isValid) {
-     ScaffoldMessenger.of(context).showSnackBar(
-       SnackBar(content: Text(validation.message)),
-     );
-     return;
-   }
-   
-   try {
-     _videoController = VideoPlayerController.file(videoFile);
-     await _videoController!.initialize();
-     
-     setState(() {
-       _selectedVideo = videoFile;
-     });
-     
-     _videoController!.play();
-   } catch (e) {
-     ScaffoldMessenger.of(context).showSnackBar(
-       SnackBar(content: Text('Error loading video: $e')),
-     );
-   }
- }
+// Enums and classes
+enum MediaType { none, image, video }
 
- Future<List<AssetEntity>> _loadRecentMedia() async {
-   final albums = await PhotoManager.getAssetPathList(
-     type: _isVideoMode ? RequestType.video : RequestType.image,
-   );
-   
-   if (albums.isEmpty) return [];
-   
-   return albums.first.getAssetListRange(start: 0, end: 20);
- }
+class MediaResult {
+  final File file;
+  final bool isVideo;
+  final List<File>? images;
+  
+  MediaResult({
+    required this.file,
+    required this.isVideo,
+    this.images,
+  });
+}
 
- Future<void> _handleAssetSelection(AssetEntity asset) async {
-   final file = await asset.file;
-   if (file == null) return;
-   
-   if (asset.type == AssetType.video) {
-     if (asset.duration > 300) {
-       ScaffoldMessenger.of(context).showSnackBar(
-         const SnackBar(content: Text('Video must be less than 5 minutes')),
-       );
-       return;
-     }
-     await _processSelectedVideo(file);
-   } else {
-     setState(() {
-       if (_selectedImages.length < 10) {
-         _selectedImages.add(file);
-       } else {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('Maximum 10 images allowed')),
-         );
-       }
-     });
-   }
-   
-   if (_selectedImages.isNotEmpty || _selectedVideo != null) {
-     _pageController.nextPage(
-       duration: const Duration(milliseconds: 300),
-       curve: Curves.easeInOut,
-     );
-   }
- }
-
- void _toggleTimer() {
-   showModalBottomSheet(
-     context: context,
-     backgroundColor: Colors.transparent,
-     builder: (context) {
-       final modernTheme = context.modernTheme;
-       return Container(
-         padding: const EdgeInsets.all(20),
-         decoration: BoxDecoration(
-           color: modernTheme.backgroundColor,
-           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-         ),
-         child: Column(
-           mainAxisSize: MainAxisSize.min,
-           children: [
-             Text(
-               'Set Timer',
-               style: TextStyle(
-                 color: modernTheme.textColor,
-                 fontSize: 18,
-                 fontWeight: FontWeight.bold,
-               ),
-             ),
-             const SizedBox(height: 20),
-             Wrap(
-               spacing: 12,
-               children: [0, 3, 5, 10].map((seconds) {
-                 return ChoiceChip(
-                   label: Text(seconds == 0 ? 'Off' : '${seconds}s'),
-                   selected: (_useTimer && _timerDuration == seconds) || (!_useTimer && seconds == 0),
-                   onSelected: (selected) {
-                     setState(() {
-                       _useTimer = seconds > 0;
-                       _timerDuration = seconds;
-                     });
-                     Navigator.pop(context);
-                   },
-                 );
-               }).toList(),
-             ),
-             const SizedBox(height: 20),
-           ],
-         ),
-       );
-     },
-   );
- }
-
- void _showVideoTrimmer(Duration start, Duration end) {
-   if (_selectedVideo == null) return;
-   
-   showModalBottomSheet(
-     context: context,
-     isScrollControlled: true,
-     backgroundColor: Colors.transparent,
-     builder: (context) => VideoTrimmerWidget(
-       videoFile: _selectedVideo!,
-       videoDuration: _videoController?.value.duration ?? Duration.zero,
-       onTrimComplete: (startTime, endTime) async {
-         Navigator.pop(context);
-         
-         try {
-           final trimmedVideo = await _postService.trimVideo(
-             _selectedVideo!,
-             startTime,
-             endTime,
-           );
-           
-           setState(() {
-             _selectedVideo = trimmedVideo;
-           });
-           
-           // Reinitialize video controller with trimmed video
-           _videoController?.dispose();
-           _videoController = VideoPlayerController.file(trimmedVideo);
-           await _videoController!.initialize();
-           
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Video trimmed successfully')),
-           );
-         } catch (e) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text('Error trimming video: $e')),
-           );
-         }
-       },
-       onCancel: () => Navigator.pop(context),
-     ),
-   );
- }
-
- void _showDraftsSheet() {
-   showModalBottomSheet(
-     context: context,
-     isScrollControlled: true,
-     backgroundColor: Colors.transparent,
-     builder: (context) => DraftsSheetWidget(
-       draftService: _draftService,
-       onDraftSelected: _loadDraft,
-       onCreateNew: () {
-         Navigator.pop(context);
-         _draftService.createDraft();
-       },
-     ),
-   );
- }
-
- void _loadDraft(PostDraft draft) {
-   _draftService.loadDraft(draft);
-   
-   setState(() {
-     _captionController.text = draft.caption;
-     _tagsController.text = draft.tags.join(', ');
-     _isVideoMode = draft.isVideo;
-     
-     // Load media files
-     if (draft.isVideo && draft.mediaPaths.isNotEmpty) {
-       _processSelectedVideo(File(draft.mediaPaths.first));
-     } else {
-       _selectedImages = draft.mediaPaths.map((path) => File(path)).toList();
-     }
-   });
-   
-   // Navigate to appropriate step
-   if (draft.mediaPaths.isNotEmpty) {
-     if (draft.caption.isNotEmpty || draft.tags.isNotEmpty) {
-       _pageController.animateToPage(
-         2,
-         duration: const Duration(milliseconds: 300),
-         curve: Curves.easeInOut,
-       );
-     } else {
-       _pageController.animateToPage(
-         1,
-         duration: const Duration(milliseconds: 300),
-         curve: Curves.easeInOut,
-       );
-     }
-   }
- }
-
- void _showLoadDraftDialog() {
-   final recentDraft = _draftService.drafts.first;
-   
-   showDialog(
-     context: context,
-     builder: (context) {
-       final modernTheme = context.modernTheme;
-       return AlertDialog(
-         backgroundColor: modernTheme.backgroundColor,
-         shape: RoundedRectangleBorder(
-           borderRadius: BorderRadius.circular(16),
-         ),
-         title: Text(
-           'Continue Draft?',
-           style: TextStyle(color: modernTheme.textColor),
-         ),
-         content: Column(
-           mainAxisSize: MainAxisSize.min,
-           crossAxisAlignment: CrossAxisAlignment.start,
-           children: [
-             Text(
-               'You have an unsaved draft:',
-               style: TextStyle(color: modernTheme.textSecondaryColor),
-             ),
-             const SizedBox(height: 8),
-             Text(
-               recentDraft.previewText,
-               style: TextStyle(
-                 color: modernTheme.textColor,
-                 fontWeight: FontWeight.w500,
-               ),
-             ),
-             const SizedBox(height: 4),
-             Text(
-               recentDraft.timeAgo,
-               style: TextStyle(
-                 color: modernTheme.textSecondaryColor,
-                 fontSize: 12,
-               ),
-             ),
-           ],
-         ),
-         actions: [
-           TextButton(
-             onPressed: () {
-               Navigator.pop(context);
-               _draftService.createDraft();
-             },
-             child: Text(
-               'Start New',
-               style: TextStyle(color: modernTheme.textSecondaryColor),
-             ),
-           ),
-           TextButton(
-             onPressed: () {
-               Navigator.pop(context);
-               _loadDraft(recentDraft);
-             },
-             child: Text(
-               'Continue',
-               style: TextStyle(color: modernTheme.primaryColor),
-             ),
-           ),
-         ],
-       );
-     },
-   );
- }
-
- Future<void> _handlePost() async {
-   if (_captionController.text.trim().isEmpty) {
-     ScaffoldMessenger.of(context).showSnackBar(
-       const SnackBar(content: Text('Please add a caption')),
-     );
-     return;
-   }
-   
-   final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
-   final userChannel = ref.read(channelsProvider).userChannel;
-   
-   if (userChannel == null) {
-     ScaffoldMessenger.of(context).showSnackBar(
-       const SnackBar(content: Text('You need to create a channel first')),
-     );
-     return;
-   }
-   
-   try {
-     _postService.startUpload();
-     
-     // Parse tags
-     List<String> tags = [];
-     if (_tagsController.text.isNotEmpty) {
-       tags = _tagsController.text
-           .split(',')
-           .map((tag) => tag.trim())
-           .where((tag) => tag.isNotEmpty)
-           .toList();
-     }
-     
-     if (_selectedVideo != null) {
-       // Process video
-       File videoToUpload = _selectedVideo!;
-       
-       // Compress if needed
-       if (await _selectedVideo!.length() > 100 * 1024 * 1024) { // 100MB
-         videoToUpload = await _postService.compressVideo(_selectedVideo!);
-       }
-       
-       // Upload video
-       await channelVideosNotifier.uploadVideo(
-         channel: userChannel,
-         videoFile: videoToUpload,
-         caption: _captionController.text,
-         tags: tags,
-         onSuccess: (message) {
-           _postService.completeUpload();
-           _draftService.completeDraft();
-           Navigator.of(context).pop(true);
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text(message)),
-           );
-         },
-         onError: (error) {
-           _postService.resetUpload();
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text(error)),
-           );
-         },
-       );
-     } else if (_selectedImages.isNotEmpty) {
-       // Process images
-       List<File> imagesToUpload = [];
-       for (final image in _selectedImages) {
-         final optimized = await _postService.optimizeImage(image);
-         imagesToUpload.add(optimized);
-       }
-       
-       // Upload images
-       await channelVideosNotifier.uploadImages(
-         channel: userChannel,
-         imageFiles: imagesToUpload,
-         caption: _captionController.text,
-         tags: tags,
-         onSuccess: (message) {
-           _postService.completeUpload();
-           _draftService.completeDraft();
-           Navigator.of(context).pop(true);
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text(message)),
-           );
-         },
-         onError: (error) {
-           _postService.resetUpload();
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text(error)),
-           );
-         },
-       );
-     }
-   } catch (e) {
-     _postService.resetUpload();
-     ScaffoldMessenger.of(context).showSnackBar(
-       SnackBar(content: Text('Error: $e')),
-     );
-   }
- }
-
- String _formatDuration(int seconds) {
-   final duration = Duration(seconds: seconds);
-   final minutes = duration.inMinutes;
-   final remainingSeconds = duration.inSeconds % 60;
-   return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
- }
+class VideoEditResult {
+  final Duration startTime;
+  final Duration endTime;
+  
+  VideoEditResult({
+    required this.startTime,
+    required this.endTime,
+  });
 }

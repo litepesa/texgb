@@ -260,7 +260,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     required String caption,
     List<String>? tags,
     required Function(String) onSuccess,
-    required Function(String) onError,
+    required Function(String) onError, required Duration trimEnd, required Duration trimStart,
   }) async {
     if (_auth.currentUser == null) {
       onError('User not authenticated');
