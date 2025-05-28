@@ -61,6 +61,11 @@ class _CreateChannelPostScreenState
   // Media selection mode
   MediaType _selectedMediaType = MediaType.none;
   
+  // Enhanced keyboard and UI state management
+  bool _keyboardVisible = false;
+  double _keyboardHeight = 0.0;
+  final GlobalKey _composerKey = GlobalKey();
+  
   @override
   void initState() {
     super.initState();
@@ -112,6 +117,22 @@ class _CreateChannelPostScreenState
     _fabAnimController.repeat(reverse: true);
   }
   
+  // Enhanced keyboard listener setup
+  void _setupKeyboardListener() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final mediaQuery = MediaQuery.of(context);
+      final newKeyboardHeight = mediaQuery.viewInsets.bottom;
+      final newKeyboardVisible = newKeyboardHeight > 0;
+      
+      if (_keyboardVisible != newKeyboardVisible || _keyboardHeight != newKeyboardHeight) {
+        setState(() {
+          _keyboardVisible = newKeyboardVisible;
+          _keyboardHeight = newKeyboardHeight;
+        });
+      }
+    });
+  }
+  
   @override
   void dispose() {
     _mainAnimController.dispose();
@@ -127,9 +148,16 @@ class _CreateChannelPostScreenState
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final size = MediaQuery.of(context).size;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardVisible = keyboardHeight > 0;
+    
+    // Setup keyboard listener
+    WidgetsBinding.instance.addPostFrameCallback((_) => _setupKeyboardListener());
     
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
+      // Remove resizeToAvoidBottomInset to handle keyboard manually
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // Animated gradient background
@@ -149,53 +177,40 @@ class _CreateChannelPostScreenState
             ),
           ),
           
-          // Main content
-          SafeArea(
-            child: Column(
-              children: [
-                // Custom app bar
-                _buildModernAppBar(modernTheme),
-                
-                // Content area
-                Expanded(
-                  child: Stack(
-                    children: [
-                      // Media selection grid
-                      if (_selectedMediaType == MediaType.none)
-                        _buildMediaSelectionGrid(modernTheme, size)
-                      else
-                        _buildSelectedMediaView(modernTheme),
-                      
-                      // Floating composer
-                      if (_hasMedia())
-                        AnimatedPositioned(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeOutCubic,
-                          bottom: _isComposerExpanded ? 0 : 20,
-                          left: _isComposerExpanded ? 0 : 20,
-                          right: _isComposerExpanded ? 0 : 20,
-                          height: _isComposerExpanded ? size.height * 0.6 : 80,
-                          child: AnimatedPostComposer(
-                            captionController: _captionController,
-                            isExpanded: _isComposerExpanded,
-                            onExpandToggle: () {
-                              setState(() {
-                                _isComposerExpanded = !_isComposerExpanded;
-                              });
-                              if (_isComposerExpanded) {
-                                _composerAnimController.forward();
-                              } else {
-                                _composerAnimController.reverse();
-                              }
-                            },
-                            onPost: _handlePost,
-                            mediaCount: _selectedImages.length + (_selectedVideo != null ? 1 : 0),
-                          ),
+          // Main content with keyboard-aware positioning
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: isKeyboardVisible ? keyboardHeight : 0,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Custom app bar
+                  _buildModernAppBar(modernTheme),
+                  
+                  // Content area with proper spacing
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        // Media selection grid or selected media view
+                        Positioned.fill(
+                          bottom: _hasMedia() ? (_isComposerExpanded ? 120 : 100) : 0,
+                          child: _selectedMediaType == MediaType.none
+                              ? _buildMediaSelectionGrid(modernTheme, size)
+                              : _buildSelectedMediaView(modernTheme),
                         ),
-                    ],
+                        
+                        // Enhanced floating composer with better positioning
+                        if (_hasMedia())
+                          _buildEnhancedComposerPosition(modernTheme, size, isKeyboardVisible, keyboardHeight),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           
@@ -232,6 +247,13 @@ class _CreateChannelPostScreenState
               decoration: BoxDecoration(
                 color: modernTheme.surfaceColor,
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Icon(
                 Icons.arrow_back_ios_new,
@@ -263,6 +285,10 @@ class _CreateChannelPostScreenState
                 decoration: BoxDecoration(
                   color: Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.3),
+                    width: 1,
+                  ),
                 ),
                 child: const Icon(
                   Icons.refresh,
@@ -278,75 +304,153 @@ class _CreateChannelPostScreenState
     );
   }
 
+  // Enhanced composer positioning method
+  Widget _buildEnhancedComposerPosition(
+    ModernThemeExtension modernTheme, 
+    Size size, 
+    bool isKeyboardVisible, 
+    double keyboardHeight
+  ) {
+    // Calculate dynamic positioning based on keyboard state
+    double bottomPosition;
+    double leftPosition;
+    double rightPosition;
+    double height;
+    
+    if (_isComposerExpanded) {
+      // Expanded state positioning
+      bottomPosition = isKeyboardVisible ? 20 : 20;
+      leftPosition = 16;
+      rightPosition = 16;
+      height = isKeyboardVisible 
+          ? size.height * 0.4  // Smaller when keyboard is visible
+          : size.height * 0.6; // Larger when keyboard is hidden
+    } else {
+      // Collapsed state positioning
+      bottomPosition = isKeyboardVisible ? 30 : 20;
+      leftPosition = 20;
+      rightPosition = 20;
+      height = 80;
+    }
+    
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      bottom: bottomPosition,
+      left: leftPosition,
+      right: rightPosition,
+      height: height,
+      child: AnimatedPostComposer(
+        key: _composerKey,
+        captionController: _captionController,
+        isExpanded: _isComposerExpanded,
+        onExpandToggle: () {
+          setState(() {
+            _isComposerExpanded = !_isComposerExpanded;
+          });
+          if (_isComposerExpanded) {
+            _composerAnimController.forward();
+            // Small delay to ensure UI is ready before focusing
+            Future.delayed(const Duration(milliseconds: 100), () {
+              FocusScope.of(context).requestFocus();
+            });
+          } else {
+            _composerAnimController.reverse();
+            // Dismiss keyboard when collapsing
+            FocusScope.of(context).unfocus();
+          }
+        },
+        onPost: _handlePost,
+        mediaCount: _selectedImages.length + (_selectedVideo != null ? 1 : 0),
+      ),
+    );
+  }
+
+  // Enhanced media selection grid with keyboard awareness
   Widget _buildMediaSelectionGrid(ModernThemeExtension modernTheme, Size size) {
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // Header text
-            ScaleTransition(
-              scale: _scaleAnimation,
-              child: Column(
-                children: [
-                  Text(
-                    'What do you want to share?',
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+      child: SingleChildScrollView(
+        // Ensure content is scrollable when keyboard appears
+        physics: const BouncingScrollPhysics(),
+        child: Container(
+          constraints: BoxConstraints(
+            minHeight: size.height - MediaQuery.of(context).padding.top - 100,
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Header text with improved responsive sizing
+              ScaleTransition(
+                scale: _scaleAnimation,
+                child: Column(
+                  children: [
+                    Text(
+                      'What do you want to share?',
+                      style: TextStyle(
+                        color: modernTheme.textColor,
+                        fontSize: size.width > 400 ? 28 : 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Choose your media type',
-                    style: TextStyle(
-                      color: modernTheme.textSecondaryColor,
-                      fontSize: 16,
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose your media type',
+                      style: TextStyle(
+                        color: modernTheme.textSecondaryColor,
+                        fontSize: size.width > 400 ? 16 : 14,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            
-            const SizedBox(height: 40),
-            
-            // Media options grid - Only Gallery and Camera
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 20,
-                crossAxisSpacing: 20,
-                childAspectRatio: 0.9,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _buildMediaOption(
-                    icon: Icons.camera_alt,
-                    title: 'Camera',
-                    subtitle: 'Record video or take photo',
-                    gradient: [
-                      const Color(0xFF667eea),
-                      const Color(0xFF764ba2),
-                    ],
-                    onTap: () => _openCamera(context),
-                    delay: 0,
-                  ),
-                  _buildMediaOption(
-                    icon: Icons.collections,
-                    title: 'Gallery',
-                    subtitle: 'Browse photos and videos',
-                    gradient: [
-                      const Color(0xFFfa709a),
-                      const Color(0xFFfee140),
-                    ],
-                    onTap: () => _openGallery(context),
-                    delay: 100,
-                  ),
-                ],
+              
+              SizedBox(height: size.height > 600 ? 40 : 20),
+              
+              // Media options grid with responsive sizing
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: size.height * 0.5,
+                  maxWidth: size.width > 500 ? 400 : double.infinity,
+                ),
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 20,
+                  crossAxisSpacing: 20,
+                  childAspectRatio: 0.9,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildMediaOption(
+                      icon: Icons.camera_alt,
+                      title: 'Camera',
+                      subtitle: 'Record video or take photo',
+                      gradient: [
+                        const Color(0xFF667eea),
+                        const Color(0xFF764ba2),
+                      ],
+                      onTap: () => _openCamera(context),
+                      delay: 0,
+                    ),
+                    _buildMediaOption(
+                      icon: Icons.collections,
+                      title: 'Gallery',
+                      subtitle: 'Browse photos and videos',
+                      gradient: [
+                        const Color(0xFFfa709a),
+                        const Color(0xFFfee140),
+                      ],
+                      onTap: () => _openGallery(context),
+                      delay: 100,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -368,7 +472,10 @@ class _CreateChannelPostScreenState
         return Transform.scale(
           scale: value,
           child: GestureDetector(
-            onTap: onTap,
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              onTap();
+            },
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -454,32 +561,42 @@ class _CreateChannelPostScreenState
     );
   }
 
+  // Enhanced selected media view with better responsive behavior
   Widget _buildSelectedMediaView(ModernThemeExtension modernTheme) {
     return Stack(
       children: [
-        if (_selectedVideo != null)
-          FloatingMediaPreview(
-            video: _selectedVideo,
-            videoController: _videoController,
-            trimStart: _trimStart,
-            trimEnd: _trimEnd,
-            onEdit: () => _editVideo(context),
-            onRemove: _resetMedia,
-          )
-        else if (_selectedImages.isNotEmpty)
-          FloatingMediaPreview(
-            images: _selectedImages,
-            onAddMore: _selectedImages.length < 10 ? _addMoreImages : null,
-            onRemove: _resetMedia,
-            onImageRemove: (index) {
-              setState(() {
-                _selectedImages.removeAt(index);
-                if (_selectedImages.isEmpty) {
-                  _resetMedia();
-                }
-              });
-            },
+        // Media preview with padding to avoid composer overlap
+        Positioned.fill(
+          child: Container(
+            padding: EdgeInsets.only(
+              bottom: _isComposerExpanded ? 40 : 20,
+            ),
+            child: _selectedVideo != null
+                ? FloatingMediaPreview(
+                    video: _selectedVideo,
+                    videoController: _videoController,
+                    trimStart: _trimStart,
+                    trimEnd: _trimEnd,
+                    onEdit: () => _editVideo(context),
+                    onRemove: _resetMedia,
+                  )
+                : _selectedImages.isNotEmpty
+                    ? FloatingMediaPreview(
+                        images: _selectedImages,
+                        onAddMore: _selectedImages.length < 10 ? _addMoreImages : null,
+                        onRemove: _resetMedia,
+                        onImageRemove: (index) {
+                          setState(() {
+                            _selectedImages.removeAt(index);
+                            if (_selectedImages.isEmpty) {
+                              _resetMedia();
+                            }
+                          });
+                        },
+                      )
+                    : const SizedBox.shrink(),
           ),
+        ),
       ],
     );
   }
@@ -598,13 +715,17 @@ class _CreateChannelPostScreenState
       _trimStart = Duration.zero;
       _trimEnd = Duration.zero;
     });
+    
+    // Dismiss keyboard when resetting
+    FocusScope.of(context).unfocus();
+    HapticFeedback.lightImpact();
   }
   
   Future<void> _openCamera(BuildContext context) async {
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        _showError('No cameras available');
+        _showEnhancedError('No cameras available');
         return;
       }
       
@@ -626,7 +747,7 @@ class _CreateChannelPostScreenState
         }
       }
     } catch (e) {
-      _showError('Failed to open camera: $e');
+      _showEnhancedError('Failed to open camera: $e');
     }
   }
   
@@ -650,7 +771,7 @@ class _CreateChannelPostScreenState
         }
       }
     } catch (e) {
-      _showError('Failed to open gallery: $e');
+      _showEnhancedError('Failed to open gallery: $e');
     }
   }
   
@@ -676,7 +797,7 @@ class _CreateChannelPostScreenState
         await _editVideo(context);
       }
     } catch (e) {
-      _showError('Failed to process video: $e');
+      _showEnhancedError('Failed to process video: $e');
     }
   }
   
@@ -706,7 +827,7 @@ class _CreateChannelPostScreenState
         await _processVideoWithFFmpeg();
       }
     } catch (e) {
-      _showError('Failed to edit video: $e');
+      _showEnhancedError('Failed to edit video: $e');
     }
   }
   
@@ -748,7 +869,7 @@ class _CreateChannelPostScreenState
       setState(() {
         _isProcessingVideo = false;
       });
-      _showError('Video processing failed: $e');
+      _showEnhancedError('Video processing failed: $e');
     }
   }
   
@@ -865,9 +986,10 @@ class _CreateChannelPostScreenState
             _selectedImages = _selectedImages.take(10).toList();
           }
         });
+        HapticFeedback.lightImpact();
       }
     } catch (e) {
-      _showError('Failed to add more images: $e');
+      _showEnhancedError('Failed to add more images: $e');
     }
   }
   
@@ -877,12 +999,12 @@ class _CreateChannelPostScreenState
       final channelsState = ref.read(channelsProvider);
       
       if (channelsState.userChannel == null) {
-        _showError('You need to create a channel first');
+        _showEnhancedError('You need to create a channel first');
         return;
       }
       
       if (_captionController.text.trim().isEmpty) {
-        _showError('Please add a caption');
+        _showEnhancedError('Please add a caption');
         return;
       }
       
@@ -908,12 +1030,12 @@ class _CreateChannelPostScreenState
           onSuccess: (message) {
             if (mounted) {
               Navigator.of(context).pop(true);
-              _showSuccess(message);
+              _showEnhancedSuccess(message);
             }
           },
           onError: (error) {
             if (mounted) {
-              _showError('Upload failed: $error');
+              _showEnhancedError('Upload failed: $error');
             }
           },
         );
@@ -928,18 +1050,18 @@ class _CreateChannelPostScreenState
           onSuccess: (message) {
             if (mounted) {
               Navigator.of(context).pop(true);
-              _showSuccess(message);
+              _showEnhancedSuccess(message);
             }
           },
           onError: (error) {
             if (mounted) {
-              _showError('Upload failed: $error');
+              _showEnhancedError('Upload failed: $error');
             }
           },
         );
       }
     } catch (e) {
-      _showError('Upload failed: $e');
+      _showEnhancedError('Upload failed: $e');
     } finally {
       if (mounted) {
         setState(() => _isUploading = false);
@@ -953,31 +1075,100 @@ class _CreateChannelPostScreenState
     return matches.map((match) => match.group(1)!).toList();
   }
   
-  void _showError(String message) {
+  // Enhanced helper methods for better keyboard handling
+  void _handleComposerFocus() {
+    // Ensure the composer is visible when focused
+    if (_hasMedia() && !_isComposerExpanded) {
+      setState(() {
+        _isComposerExpanded = true;
+      });
+      _composerAnimController.forward();
+    }
+  }
+
+  void _dismissKeyboard() {
+    FocusScope.of(context).unfocus();
+  }
+
+  bool _isKeyboardVisible() {
+    return MediaQuery.of(context).viewInsets.bottom > 0;
+  }
+  
+  // Enhanced error handling for media operations
+  void _showEnhancedError(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
+          content: Row(
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          margin: EdgeInsets.only(
+            bottom: _isKeyboardVisible() ? MediaQuery.of(context).viewInsets.bottom + 20 : 20,
+            left: 16,
+            right: 16,
+          ),
+          duration: const Duration(seconds: 4),
         ),
       );
     }
   }
   
-  void _showSuccess(String message) {
+  // Enhanced success message
+  void _showEnhancedSuccess(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
+          content: Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green.shade600,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          margin: const EdgeInsets.only(
+            bottom: 20,
+            left: 16,
+            right: 16,
+          ),
+          duration: const Duration(seconds: 3),
         ),
       );
     }
