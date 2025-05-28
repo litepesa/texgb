@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -260,7 +261,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     required String caption,
     List<String>? tags,
     required Function(String) onSuccess,
-    required Function(String) onError, required Duration trimEnd, required Duration trimStart,
+    required Function(String) onError, required Duration trimEnd, required Duration trimStart, Uint8List? thumbnail, Duration? duration,
   }) async {
     if (_auth.currentUser == null) {
       onError('User not authenticated');

@@ -312,13 +312,13 @@ class _CreateChannelPostScreenState
             
             const SizedBox(height: 40),
             
-            // Media options grid
+            // Media options grid - Only Gallery and Camera
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 1.0,
+                mainAxisSpacing: 20,
+                crossAxisSpacing: 20,
+                childAspectRatio: 0.9,
                 physics: const BouncingScrollPhysics(),
                 children: [
                   _buildMediaOption(
@@ -333,37 +333,15 @@ class _CreateChannelPostScreenState
                     delay: 0,
                   ),
                   _buildMediaOption(
-                    icon: Icons.video_library,
-                    title: 'Video',
-                    subtitle: 'Select from gallery',
-                    gradient: [
-                      const Color(0xFFf093fb),
-                      const Color(0xFFf5576c),
-                    ],
-                    onTap: _selectVideo,
-                    delay: 100,
-                  ),
-                  _buildMediaOption(
-                    icon: Icons.photo_library,
-                    title: 'Photos',
-                    subtitle: 'Up to 10 images',
-                    gradient: [
-                      const Color(0xFF4facfe),
-                      const Color(0xFF00f2fe),
-                    ],
-                    onTap: _selectImages,
-                    delay: 200,
-                  ),
-                  _buildMediaOption(
                     icon: Icons.collections,
                     title: 'Gallery',
-                    subtitle: 'Browse all media',
+                    subtitle: 'Browse photos and videos',
                     gradient: [
                       const Color(0xFFfa709a),
                       const Color(0xFFfee140),
                     ],
                     onTap: () => _openGallery(context),
-                    delay: 300,
+                    delay: 100,
                   ),
                 ],
               ),
@@ -622,271 +600,119 @@ class _CreateChannelPostScreenState
     });
   }
   
-  Future<void> _editVideo(BuildContext context) async {
-    if (_selectedVideo == null || _videoController == null) return;
-    
-    final result = await Navigator.of(context).push<VideoEditResult>(
-      MaterialPageRoute(
-        builder: (context) => VideoEditorScreen(
-          videoFile: _selectedVideo!,
-          videoController: _videoController!,
-          initialStart: _trimStart,
-          initialEnd: _trimEnd,
-        ),
-        fullscreenDialog: true,
-      ),
-    );
-    
-    if (result != null) {
-      setState(() {
-        _trimStart = result.startTime;
-        _trimEnd = result.endTime;
-      });
-      
-      // Process the video with FFmpeg
-      await _processVideoWithFFmpeg();
-    }
-  }
-  
-  Future<void> _processVideoWithFFmpeg() async {
-    setState(() {
-      _isProcessingVideo = true;
-    });
-    
+  Future<void> _openCamera(BuildContext context) async {
     try {
-      // Process video with trimming and compression
-      final result = await _videoProcessingService.processVideo(
-        inputFile: _selectedVideo!,
-        trimStart: _trimStart,
-        trimEnd: _trimEnd,
-        quality: VideoQuality.high,
-        generateThumbnail: true,
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        _showError('No cameras available');
+        return;
+      }
+      
+      final result = await Navigator.of(context).push<MediaResult>(
+        MaterialPageRoute(
+          builder: (context) => ModernCameraScreen(cameras: cameras),
+          fullscreenDialog: true,
+        ),
       );
       
-      // Dispose old controller
-      await _videoController?.dispose();
-      
-      // Update with processed video
-      _videoController = VideoPlayerController.file(result.videoFile);
-      await _videoController!.initialize();
-      
-      setState(() {
-        _processedVideo = result.videoFile;
-        _videoThumbnail = result.thumbnail;
-        _videoDuration = result.duration;
-        _isProcessingVideo = false;
-      });
-      
-      // Show success with stats
-      _showProcessingSuccess(result.stats);
-      
-    } catch (e) {
-      setState(() {
-        _isProcessingVideo = false;
-      });
-      _showError('Video processing failed: $e');
-    }
-  }
-  
-  void _showProcessingSuccess(ProcessingStats stats) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final modernTheme = context.modernTheme;
-        return AlertDialog(
-          backgroundColor: modernTheme.backgroundColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Colors.green,
-                  size: 48,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Video Optimized!',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: modernTheme.surfaceColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    _buildStatRow('Original Size', stats.formattedOriginalSize, modernTheme),
-                    const SizedBox(height: 8),
-                    _buildStatRow('Optimized Size', stats.formattedProcessedSize, modernTheme),
-                    const SizedBox(height: 8),
-                    _buildStatRow('Compression', '${stats.compressionRatio}% smaller', modernTheme),
-                    const SizedBox(height: 8),
-                    _buildStatRow('Resolution', stats.resolution, modernTheme),
-                    const SizedBox(height: 8),
-                    _buildStatRow('Bitrate', stats.bitrate, modernTheme),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: modernTheme.primaryColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                ),
-                child: const Text(
-                  'Continue',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-  
-  Widget _buildStatRow(String label, String value, ModernThemeExtension modernTheme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: modernTheme.textSecondaryColor,
-            fontSize: 14,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }<void> _openCamera(BuildContext context) async {
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) return;
-    
-    final result = await Navigator.of(context).push<MediaResult>(
-      MaterialPageRoute(
-        builder: (context) => ModernCameraScreen(cameras: cameras),
-        fullscreenDialog: true,
-      ),
-    );
-    
-    if (result != null) {
-      if (result.isVideo) {
-        await _processVideo(result.file);
-      } else {
-        setState(() {
-          _selectedImages = [result.file];
-          _selectedMediaType = MediaType.image;
-        });
+      if (result != null) {
+        if (result.isVideo) {
+          await _processVideo(result.file);
+        } else {
+          setState(() {
+            _selectedImages = [result.file];
+            _selectedMediaType = MediaType.image;
+          });
+        }
       }
+    } catch (e) {
+      _showError('Failed to open camera: $e');
     }
   }
   
   Future<void> _openGallery(BuildContext context) async {
-    final result = await Navigator.of(context).push<MediaResult>(
-      MaterialPageRoute(
-        builder: (context) => const ModernMediaGallery(),
-        fullscreenDialog: true,
-      ),
-    );
-    
-    if (result != null) {
-      if (result.isVideo) {
-        await _processVideo(result.file);
-      } else if (result.images != null) {
-        setState(() {
-          _selectedImages = result.images!;
-          _selectedMediaType = MediaType.image;
-        });
+    try {
+      final result = await Navigator.of(context).push<MediaResult>(
+        MaterialPageRoute(
+          builder: (context) => const ModernMediaGallery(),
+          fullscreenDialog: true,
+        ),
+      );
+      
+      if (result != null) {
+        if (result.isVideo) {
+          await _processVideo(result.file);
+        } else if (result.images != null) {
+          setState(() {
+            _selectedImages = result.images!;
+            _selectedMediaType = MediaType.image;
+          });
+        }
       }
-    }
-  }
-  
-  Future<void> _selectVideo() async {
-    final picker = ImagePicker();
-    final video = await picker.pickVideo(source: ImageSource.gallery);
-    
-    if (video != null) {
-      await _processVideo(File(video.path));
+    } catch (e) {
+      _showError('Failed to open gallery: $e');
     }
   }
   
   Future<void> _processVideo(File videoFile) async {
-    // Initialize video controller
-    _videoController = VideoPlayerController.file(videoFile);
-    await _videoController!.initialize();
-    
-    final duration = _videoController!.value.duration;
-    
-    setState(() {
-      _selectedVideo = videoFile;
-      _videoDuration = duration;
-      _trimEnd = duration > const Duration(minutes: 5) 
-          ? const Duration(minutes: 5) 
-          : duration;
-      _selectedMediaType = MediaType.video;
-    });
-    
-    // Open video editor if video is longer than 5 minutes
-    if (duration > const Duration(minutes: 5)) {
-      _editVideo(context);
+    try {
+      // Initialize video controller
+      _videoController = VideoPlayerController.file(videoFile);
+      await _videoController!.initialize();
+      
+      final duration = _videoController!.value.duration;
+      
+      setState(() {
+        _selectedVideo = videoFile;
+        _videoDuration = duration;
+        _trimEnd = duration > const Duration(minutes: 5) 
+            ? const Duration(minutes: 5) 
+            : duration;
+        _selectedMediaType = MediaType.video;
+      });
+      
+      // Open video editor if video is longer than 5 minutes
+      if (duration > const Duration(minutes: 5)) {
+        await _editVideo(context);
+      }
+    } catch (e) {
+      _showError('Failed to process video: $e');
     }
   }
   
   Future<void> _editVideo(BuildContext context) async {
     if (_selectedVideo == null || _videoController == null) return;
     
-    final result = await Navigator.of(context).push<VideoEditResult>(
-      MaterialPageRoute(
-        builder: (context) => VideoEditorScreen(
-          videoFile: _selectedVideo!,
-          videoController: _videoController!,
-          initialStart: _trimStart,
-          initialEnd: _trimEnd,
+    try {
+      final result = await Navigator.of(context).push<VideoEditResult>(
+        MaterialPageRoute(
+          builder: (context) => VideoEditorScreen(
+            videoFile: _selectedVideo!,
+            videoController: _videoController!,
+            initialStart: _trimStart,
+            initialEnd: _trimEnd,
+          ),
+          fullscreenDialog: true,
         ),
-        fullscreenDialog: true,
-      ),
-    );
-    
-    if (result != null) {
-      setState(() {
-        _trimStart = result.startTime;
-        _trimEnd = result.endTime;
-      });
+      );
       
-      // Process the video with FFmpeg
-      await _processVideoWithFFmpeg();
+      if (result != null) {
+        setState(() {
+          _trimStart = result.startTime;
+          _trimEnd = result.endTime;
+        });
+        
+        // Process the video with FFmpeg
+        await _processVideoWithFFmpeg();
+      }
+    } catch (e) {
+      _showError('Failed to edit video: $e');
     }
   }
   
   Future<void> _processVideoWithFFmpeg() async {
+    if (_selectedVideo == null) return;
+    
     setState(() {
       _isProcessingVideo = true;
     });
@@ -1026,52 +852,44 @@ class _CreateChannelPostScreenState
     );
   }
   
-  Future<void> _selectImages() async {
-    final picker = ImagePicker();
-    final images = await picker.pickMultiImage();
-    
-    if (images.isNotEmpty) {
-      setState(() {
-        _selectedImages = images.take(10).map((x) => File(x.path)).toList();
-        _selectedMediaType = MediaType.image;
-      });
-    }
-  }
-  
   Future<void> _addMoreImages() async {
-    final picker = ImagePicker();
-    final images = await picker.pickMultiImage();
-    
-    if (images.isNotEmpty) {
-      setState(() {
-        final newImages = images.map((x) => File(x.path)).toList();
-        _selectedImages.addAll(newImages);
-        if (_selectedImages.length > 10) {
-          _selectedImages = _selectedImages.take(10).toList();
-        }
-      });
+    try {
+      final picker = ImagePicker();
+      final images = await picker.pickMultiImage();
+      
+      if (images.isNotEmpty) {
+        setState(() {
+          final newImages = images.map((x) => File(x.path)).toList();
+          _selectedImages.addAll(newImages);
+          if (_selectedImages.length > 10) {
+            _selectedImages = _selectedImages.take(10).toList();
+          }
+        });
+      }
+    } catch (e) {
+      _showError('Failed to add more images: $e');
     }
   }
   
   Future<void> _handlePost() async {
-    final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
-    final userChannel = ref.read(channelsProvider).userChannel;
-    
-    if (userChannel == null) {
-      _showError('You need to create a channel first');
-      return;
-    }
-    
-    if (_captionController.text.trim().isEmpty) {
-      _showError('Please add a caption');
-      return;
-    }
-    
-    setState(() {
-      _isUploading = true;
-    });
-    
     try {
+      final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
+      final channelsState = ref.read(channelsProvider);
+      
+      if (channelsState.userChannel == null) {
+        _showError('You need to create a channel first');
+        return;
+      }
+      
+      if (_captionController.text.trim().isEmpty) {
+        _showError('Please add a caption');
+        return;
+      }
+      
+      setState(() {
+        _isUploading = true;
+      });
+      
       final caption = _captionController.text.trim();
       final tags = _extractTags(caption);
       
@@ -1079,41 +897,53 @@ class _CreateChannelPostScreenState
         // Use processed video if available, otherwise original
         final videoToUpload = _processedVideo ?? _selectedVideo!;
         
+        // Call uploadVideo with all required parameters including callbacks
         await channelVideosNotifier.uploadVideo(
-          channel: userChannel,
+          channel: channelsState.userChannel!,
           videoFile: videoToUpload,
           caption: caption,
           tags: tags,
-          thumbnail: _videoThumbnail,
-          duration: _videoDuration,
+          trimStart: _trimStart,
+          trimEnd: _trimEnd,
           onSuccess: (message) {
-            Navigator.of(context).pop(true);
-            _showSuccess(message);
+            if (mounted) {
+              Navigator.of(context).pop(true);
+              _showSuccess(message);
+            }
           },
           onError: (error) {
-            setState(() => _isUploading = false);
-            _showError(error);
+            if (mounted) {
+              _showError('Upload failed: $error');
+            }
           },
         );
+        
       } else if (_selectedImages.isNotEmpty) {
+        // Call uploadImages with all required parameters including callbacks
         await channelVideosNotifier.uploadImages(
-          channel: userChannel,
+          channel: channelsState.userChannel!,
           imageFiles: _selectedImages,
           caption: caption,
           tags: tags,
           onSuccess: (message) {
-            Navigator.of(context).pop(true);
-            _showSuccess(message);
+            if (mounted) {
+              Navigator.of(context).pop(true);
+              _showSuccess(message);
+            }
           },
           onError: (error) {
-            setState(() => _isUploading = false);
-            _showError(error);
+            if (mounted) {
+              _showError('Upload failed: $error');
+            }
           },
         );
       }
     } catch (e) {
-      setState(() => _isUploading = false);
       _showError('Upload failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
   
@@ -1124,29 +954,33 @@ class _CreateChannelPostScreenState
   }
   
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
   
   void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 }
 

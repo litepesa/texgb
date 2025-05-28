@@ -263,12 +263,24 @@ class VideoProcessingService extends ChangeNotifier {
       
       final width = videoStream.getWidth() ?? 0;
       final height = videoStream.getHeight() ?? 0;
-      final bitrate = info.getBitrate() ?? 0;
+      final bitrateString = info.getBitrate();
       final duration = info.getDuration() ?? '0';
+      
+      // Parse bitrate safely
+      String formattedBitrate = 'Unknown';
+      if (bitrateString != null && bitrateString.isNotEmpty) {
+        try {
+          final bitrateValue = double.parse(bitrateString);
+          formattedBitrate = '${(bitrateValue / 1000).toStringAsFixed(0)} kbps';
+        } catch (e) {
+          debugPrint('Error parsing bitrate: $e');
+          formattedBitrate = 'Unknown';
+        }
+      }
       
       return VideoInfo(
         resolution: '${width}x$height',
-        bitrate: '${(bitrate / 1000).toStringAsFixed(0)} kbps',
+        bitrate: formattedBitrate,
         duration: Duration(milliseconds: (double.parse(duration) * 1000).toInt()),
       );
     }

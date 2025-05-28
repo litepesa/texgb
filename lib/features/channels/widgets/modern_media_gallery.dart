@@ -32,7 +32,7 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
   
   // UI state
   final ScrollController _scrollController = ScrollController();
-  MediaType _filterType = MediaType.none; // all, image, video
+  MediaType _filterType = MediaType.image; // Default to photos
   bool _isSelectionMode = false;
   
   @override
@@ -84,26 +84,32 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
       _currentPage = 0;
       _mediaAssets.clear();
       _hasMore = true;
+      _selectedAssets.clear();
+      _isSelectionMode = false;
     }
     
     setState(() => _isLoading = true);
     
-    RequestType requestType = RequestType.common;
-    if (_filterType == MediaType.image) {
-      requestType = RequestType.image;
-    } else if (_filterType == MediaType.video) {
-      requestType = RequestType.video;
-    }
-    
-    final assets = await _currentAlbum!.getAssetListPaged(
+    // Get all assets and filter them locally
+    final allAssets = await _currentAlbum!.getAssetListPaged(
       page: _currentPage,
       size: _pageSize,
     );
     
+    // Filter assets based on selected type
+    List<AssetEntity> filteredAssets = [];
+    if (_filterType == MediaType.image) {
+      filteredAssets = allAssets.where((asset) => asset.type == AssetType.image).toList();
+    } else if (_filterType == MediaType.video) {
+      filteredAssets = allAssets.where((asset) => asset.type == AssetType.video).toList();
+    } else {
+      filteredAssets = allAssets; // Show all
+    }
+    
     setState(() {
-      _mediaAssets.addAll(assets);
+      _mediaAssets.addAll(filteredAssets);
       _currentPage++;
-      _hasMore = assets.length == _pageSize;
+      _hasMore = allAssets.length == _pageSize;
       _isLoading = false;
     });
   }
@@ -211,7 +217,7 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
             ),
           ),
           
-          // Selection mode toggle
+          // Selection mode toggle - only for photos
           if (_filterType == MediaType.image)
             IconButton(
               onPressed: () {
@@ -227,7 +233,9 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
                 _isSelectionMode ? Icons.close : Icons.check_circle_outline,
                 color: modernTheme.primaryColor,
               ),
-            ),
+            )
+          else
+            const SizedBox(width: 48),
         ],
       ),
     );
@@ -238,8 +246,6 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          _buildFilterTab('All', MediaType.none, modernTheme),
-          const SizedBox(width: 12),
           _buildFilterTab('Photos', MediaType.image, modernTheme),
           const SizedBox(width: 12),
           _buildFilterTab('Videos', MediaType.video, modernTheme),
@@ -285,13 +291,15 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.photo_library_outlined,
+              _filterType == MediaType.image 
+                  ? Icons.photo_library_outlined 
+                  : Icons.video_library_outlined,
               size: 64,
               color: modernTheme.textSecondaryColor,
             ),
             const SizedBox(height: 16),
             Text(
-              'No media found',
+              _filterType == MediaType.image ? 'No photos found' : 'No videos found',
               style: TextStyle(
                 color: modernTheme.textSecondaryColor,
                 fontSize: 16,
@@ -368,7 +376,7 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
                   ),
                   
                   // Selection overlay
-                  if (isSelected)
+                  if (isSelected && _filterType == MediaType.image)
                     Container(
                       color: modernTheme.primaryColor!.withOpacity(0.3),
                       child: Center(
@@ -393,22 +401,23 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
                     ),
                   
                   // Media type indicator
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Icon(
-                        asset.type == AssetType.video ? Icons.videocam : Icons.photo,
-                        color: Colors.white,
-                        size: 16,
+                  if (asset.type == AssetType.video)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.videocam,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                       ),
                     ),
-                  ),
                   
                   // Duration for videos
                   if (asset.type == AssetType.video)
@@ -427,6 +436,22 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
                             color: Colors.white,
                             fontSize: 11,
                           ),
+                        ),
+                      ),
+                    ),
+                  
+                  // Multi-selection indicator for photos
+                  if (_isSelectionMode && _filterType == MediaType.image && !isSelected)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.white, width: 2),
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.3),
                         ),
                       ),
                     ),
@@ -527,7 +552,7 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              Expanded(
+              Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
                   itemCount: _albums.length,
@@ -584,27 +609,26 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
   }
   
   void _handleAssetTap(AssetEntity asset) async {
-    if (_isSelectionMode) {
+    if (_filterType == MediaType.image && _isSelectionMode) {
       // Multi-selection mode for images
-      if (asset.type == AssetType.image) {
-        setState(() {
-          if (_selectedAssets.contains(asset.id)) {
-            _selectedAssets.remove(asset.id);
-          } else if (_selectedAssets.length < 10) {
-            _selectedAssets.add(asset.id);
-          } else {
-            _showError('Maximum 10 images allowed');
-          }
-        });
-      }
+      setState(() {
+        if (_selectedAssets.contains(asset.id)) {
+          _selectedAssets.remove(asset.id);
+        } else if (_selectedAssets.length < 10) {
+          _selectedAssets.add(asset.id);
+        } else {
+          _showError('Maximum 10 images allowed');
+        }
+      });
+      HapticFeedback.lightImpact();
     } else {
       // Single selection
       final file = await asset.file;
       if (file == null) return;
       
       if (asset.type == AssetType.video) {
-        // Check video duration
-        if (asset.duration > 300) { // 5 minutes
+        // Check video duration (5 minutes = 300 seconds)
+        if (asset.duration > 300) {
           _showError('Please select a video less than 5 minutes');
           return;
         }
@@ -670,6 +694,10 @@ class _ModernMediaGalleryState extends State<ModernMediaGallery>
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
     );
   }
