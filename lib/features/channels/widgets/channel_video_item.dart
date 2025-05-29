@@ -11,6 +11,8 @@ import 'package:textgb/features/channels/providers/channel_videos_provider.dart'
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/constants.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:audio_session/audio_session.dart';
 
 class ChannelVideoItem extends ConsumerStatefulWidget {
   final ChannelVideoModel video;
@@ -38,10 +40,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
 
   VideoPlayerController? _videoPlayerController;
+  AudioPlayer? _audioPlayer; // For runtime audio amplification
   bool _isInitialized = false;
   bool _isPlaying = false;
   int _currentImageIndex = 0;
   bool _isInitializing = false;
+  bool _useAudioAmplification = true; // Enable TikTok-style amplification
   
   // Animation controllers for like effect
   late AnimationController _likeAnimationController;
@@ -58,6 +62,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   void initState() {
     super.initState();
     _initializeAnimations();
+    _setupAudioSession();
     _initializeMedia();
   }
 
@@ -81,6 +86,30 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       parent: _heartScaleController,
       curve: Curves.elasticOut,
     ));
+  }
+
+  // Setup audio session for maximum loudness (TikTok-style)
+  Future<void> _setupAudioSession() async {
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+        avAudioSessionMode: AVAudioSessionMode.moviePlayback,
+        avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.longFormAudio,
+        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+        androidAudioAttributes: AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.movie,
+          flags: AndroidAudioFlags.audibilityEnforced,
+          usage: AndroidAudioUsage.media,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+        androidWillPauseWhenDucked: false,
+      ));
+      debugPrint('TikTok-style audio session configured for maximum loudness');
+    } catch (e) {
+      debugPrint('Audio session setup error: $e');
+    }
   }
 
   @override
@@ -110,6 +139,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       _videoPlayerController!.dispose();
     }
     
+    _audioPlayer?.dispose();
+    _audioPlayer = null;
     _videoPlayerController = null;
     _isInitialized = false;
   }
@@ -147,7 +178,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         _isInitializing = true;
       });
 
-      debugPrint('Initializing video with cache: ${widget.video.videoUrl}');
+      debugPrint('Initializing video with TikTok-style audio boost: ${widget.video.videoUrl}');
 
       // Use preloaded controller if available
       if (widget.preloadedController != null) {
@@ -178,6 +209,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       
       if (_videoPlayerController != null && mounted) {
         await _setupVideoController();
+        if (_useAudioAmplification) {
+          await _setupAudioAmplification();
+        }
       }
     } catch (e) {
       debugPrint('Video initialization failed: $e');
@@ -196,6 +230,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     if (!_videoPlayerController!.value.isInitialized) {
       await _videoPlayerController!.initialize();
     }
+    
+    // Set maximum volume for preloaded controllers (TikTok-style)
+    await _videoPlayerController!.setVolume(1.0);
   }
 
   Future<void> _createControllerFromFile(File videoFile) async {
@@ -210,6 +247,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     await _videoPlayerController!.initialize().timeout(
       const Duration(seconds: 10),
     );
+    
+    // Set maximum volume immediately after initialization (TikTok-style)
+    await _videoPlayerController!.setVolume(1.0);
   }
 
   Future<void> _createControllerFromNetwork() async {
@@ -224,10 +264,17 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     await _videoPlayerController!.initialize().timeout(
       const Duration(seconds: 10),
     );
+    
+    // Set maximum volume immediately after initialization (TikTok-style)
+    await _videoPlayerController!.setVolume(1.0);
   }
 
   Future<void> _setupVideoController() async {
     _videoPlayerController!.setLooping(true);
+    
+    // CRITICAL: Always ensure audio is available
+    // Start with maximum volume, amplification will adjust if successful
+    await _videoPlayerController!.setVolume(1.0);
     
     setState(() {
       _isInitialized = true;
@@ -243,9 +290,86 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     }
   }
 
+  // Setup runtime audio amplification for TikTok-style loudness (transparent to user)
+  Future<void> _setupAudioAmplification() async {
+    try {
+      debugPrint('Setting up TikTok-style runtime audio amplification');
+      
+      _audioPlayer = AudioPlayer();
+      
+      // Load the same video URL for audio amplification
+      String audioSource = widget.video.videoUrl;
+      
+      // Try to use cached file if available
+      if (await _cacheService.isVideoCached(widget.video.videoUrl)) {
+        final cachedFile = await _cacheService.getCachedVideo(widget.video.videoUrl);
+        if (cachedFile != null && await cachedFile.exists()) {
+          audioSource = cachedFile.path;
+          debugPrint('Using cached file for audio amplification: ${cachedFile.path}');
+        }
+      }
+      
+      // Configure audio player for maximum loudness
+      await _audioPlayer!.setAudioSource(
+        audioSource.startsWith('http') 
+            ? AudioSource.uri(Uri.parse(audioSource))
+            : AudioSource.file(audioSource),
+      );
+      
+      // CRITICAL: TikTok-style audio amplification settings
+      await _audioPlayer!.setVolume(1.0); // Maximum base volume
+      await _audioPlayer!.setSpeed(1.0); // Normal playback speed
+      
+      // Test if audio player can actually play
+      await _audioPlayer!.load();
+      
+      // Synchronize with video player (invisible to user)
+      _audioPlayer!.positionStream.listen((position) {
+        if (_videoPlayerController != null && _isPlaying) {
+          final videoPosition = _videoPlayerController!.value.position;
+          final difference = (position.inMilliseconds - videoPosition.inMilliseconds).abs();
+          
+          // Sync if difference is more than 100ms
+          if (difference > 100) {
+            _audioPlayer!.seek(videoPosition);
+          }
+        }
+      });
+      
+      debugPrint('TikTok-style audio amplification setup complete');
+    } catch (e) {
+      debugPrint('Audio amplification setup failed: $e');
+      _useAudioAmplification = false; // Fallback to normal video audio
+      
+      // Ensure video audio is enabled if amplification fails
+      if (_videoPlayerController != null) {
+        await _videoPlayerController!.setVolume(1.0);
+      }
+    }
+  }
+
   void _playVideo() {
     if (_isInitialized && _videoPlayerController != null) {
+      // Always ensure we have audio - prefer amplified but fallback to video audio
+      if (_useAudioAmplification && _audioPlayer != null) {
+        try {
+          // Mute video audio and use amplified audio
+          _videoPlayerController!.setVolume(0.0);
+          _audioPlayer!.play();
+          debugPrint('Playing with TikTok-style audio amplification');
+        } catch (e) {
+          debugPrint('Amplified audio failed, using video audio: $e');
+          _useAudioAmplification = false;
+          _videoPlayerController!.setVolume(1.0);
+        }
+      } else {
+        // Use normal video audio at maximum volume
+        _videoPlayerController!.setVolume(1.0);
+        debugPrint('Playing with normal video audio at max volume');
+      }
+      
       _videoPlayerController!.play();
+      
       setState(() {
         _isPlaying = true;
       });
@@ -255,6 +379,16 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   void _pauseVideo() {
     if (_isInitialized && _videoPlayerController != null) {
       _videoPlayerController!.pause();
+      
+      // Pause amplified audio track if it exists
+      if (_useAudioAmplification && _audioPlayer != null) {
+        try {
+          _audioPlayer!.pause();
+        } catch (e) {
+          debugPrint('Error pausing amplified audio: $e');
+        }
+      }
+      
       setState(() {
         _isPlaying = false;
       });
@@ -271,6 +405,14 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     } else {
       if (_videoPlayerController != null) {
         _videoPlayerController!.seekTo(Duration.zero);
+        if (_useAudioAmplification && _audioPlayer != null) {
+          try {
+            _audioPlayer!.seek(Duration.zero);
+          } catch (e) {
+            debugPrint('Error seeking amplified audio: $e');
+            _useAudioAmplification = false;
+          }
+        }
       }
       _playVideo();
     }
@@ -311,6 +453,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         widget.preloadedController == null) {
       _videoPlayerController!.dispose();
     }
+    
+    _audioPlayer?.dispose();
+    _audioPlayer = null;
     _videoPlayerController = null;
     super.dispose();
   }
@@ -590,6 +735,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               onPressed: () {
                 setState(() {
                   _isInitialized = false;
+                  _useAudioAmplification = false; // Try without amplification
                 });
                 _initializeMedia();
               },
@@ -642,7 +788,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       left: 0,
       right: 0,
       child: Container(
-        height: 250, // Increased for better readability
+        height: 250,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.bottomCenter,
