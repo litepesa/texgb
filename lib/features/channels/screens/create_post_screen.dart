@@ -211,20 +211,27 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       print('DEBUG: Using optimization settings: $settings');
       
       // Build FFmpeg command for optimal quality-size ratio
-      final command = '-y -i "${inputFile.path}" '
-          
-          // Video encoding - optimal quality/size balance
-          '-c:v libx264 '                           // H.264 for best compatibility
+      String command = '-y -i "${inputFile.path}" ';
+      
+      // Video encoding - optimal quality/size balance
+      command += '-c:v libx264 '                           // H.264 for best compatibility
           '-preset ${settings.preset} '             // Better compression than fast
           '-crf ${settings.crf} '                   // Constant Rate Factor for quality
           '-maxrate ${settings.maxBitrate}k '       // Peak bitrate limit
-          '-bufsize ${settings.maxBitrate * 2}k '   // Buffer size (2x maxrate)
-          
-          // Video filters for quality optimization
-          '-vf "${settings.videoFilter}" '
-          
-          // Audio encoding - premium quality for content creation
-          '-c:a aac '                               // Best audio codec
+          '-bufsize ${settings.maxBitrate * 2}k ';  // Buffer size (2x maxrate)
+      
+      // Video filters for quality optimization
+      if (settings.videoFilter.isNotEmpty) {
+        command += '-vf "${settings.videoFilter}" ';
+      }
+      
+      // Audio filters for professional loudness normalization
+      if (settings.audioFilter.isNotEmpty) {
+        command += '-af "${settings.audioFilter}" ';
+      }
+      
+      // Audio encoding - premium quality for content creation
+      command += '-c:a aac '                               // Best audio codec
           '-b:a ${settings.audioBitrate}k '         // High-quality audio bitrate
           '-ar 48000 '                             // Professional 48kHz sample rate
           '-ac 2 '                                 // Stereo channels
@@ -282,6 +289,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     int maxBitrate = 2500;
     int audioBitrate = 192; // Start with high-quality audio (192kbps)
     String videoFilter = '';
+    String audioFilter = '';
+    
+    // Professional loudness normalization for content creation
+    audioFilter = 'loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json';
+    print('DEBUG: Applied professional loudness normalization');
     
     // Camera-specific optimizations
     bool isCameraVideo = _detectCameraVideo(info);
@@ -372,6 +384,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       maxBitrate: maxBitrate,
       audioBitrate: audioBitrate,
       videoFilter: videoFilter,
+      audioFilter: audioFilter,
     );
   }
 
@@ -833,81 +846,30 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.high_quality,
+              Icons.videocam,
               color: modernTheme.primaryColor,
               size: 64,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Add high-quality video',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _pickVideoFromGallery,
+              icon: const Icon(Icons.photo_library),
+              label: const Text('Select from Gallery'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Optimized for quality and file size',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _pickVideoFromGallery,
-                  icon: const Icon(Icons.photo_library),
-                  label: const Text('Select from Gallery'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: modernTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: _captureVideoFromCamera,
-                  icon: const Icon(Icons.videocam),
-                  label: const Text('Record Video'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: modernTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                ),
-              ],
             ),
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    '📱 Mobile Optimized',
-                    style: TextStyle(
-                      color: modernTheme.primaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Perfect quality for mobile • Ultra-fast uploads',
-                    style: TextStyle(
-                      color: modernTheme.textSecondaryColor,
-                      fontSize: 10,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+            ElevatedButton.icon(
+              onPressed: _captureVideoFromCamera,
+              icon: const Icon(Icons.videocam),
+              label: const Text('Record Video'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
           ],
@@ -1165,6 +1127,7 @@ class OptimizationSettings {
   final int maxBitrate;
   final int audioBitrate;
   final String videoFilter;
+  final String audioFilter;
   
   OptimizationSettings({
     required this.crf,
@@ -1172,10 +1135,11 @@ class OptimizationSettings {
     required this.maxBitrate,
     required this.audioBitrate,
     required this.videoFilter,
+    required this.audioFilter,
   });
   
   @override
   String toString() {
-    return 'CRF: $crf, Preset: $preset, MaxBitrate: ${maxBitrate}k, Audio: ${audioBitrate}k';
+    return 'CRF: $crf, Preset: $preset, MaxBitrate: ${maxBitrate}k, Audio: ${audioBitrate}k, AudioFilter: ${audioFilter.isNotEmpty ? "loudnorm" : "none"}';
   }
 }
