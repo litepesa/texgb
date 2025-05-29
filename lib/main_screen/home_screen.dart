@@ -9,7 +9,7 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
-import 'package:textgb/features/channels/screens/create_post_screen.dart';
+import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
