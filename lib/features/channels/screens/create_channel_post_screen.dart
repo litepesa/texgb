@@ -7,6 +7,9 @@ import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:video_player/video_player.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 
 class CreateChannelPostScreen extends ConsumerStatefulWidget {
   const CreateChannelPostScreen({Key? key}) : super(key: key);
@@ -17,9 +20,10 @@ class CreateChannelPostScreen extends ConsumerStatefulWidget {
 
 class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScreen> {
   final _formKey = GlobalKey<FormState>();
+  final ImagePicker _picker = ImagePicker();
   
   // Media selection
-  bool _isVideoMode = true; // Toggle between video and images
+  bool _isVideoMode = true;
   File? _videoFile;
   List<File> _imageFiles = [];
   VideoPlayerController? _videoPlayerController;
@@ -27,11 +31,6 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
   
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
-  
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   void dispose() {
@@ -41,7 +40,6 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
     super.dispose();
   }
 
-  // Initialize video player
   Future<void> _initializeVideoPlayer() async {
     if (_videoFile == null) return;
     
@@ -52,58 +50,165 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
     setState(() {});
   }
 
-  // Pick video from gallery
-  Future<void> _pickVideo() async {
-    final video = await pickVideo(
-      onFail: (error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error)),
-        );
-      },
-      maxDuration: const Duration(minutes: 1), // Limit to 1 minute
-    );
-    
-    if (video != null) {
-      setState(() {
-        _videoFile = video;
-        _isVideoMode = true; // Switch to video mode
-        _imageFiles = []; // Clear selected images
-      });
-      await _initializeVideoPlayer();
-    }
-  }
-
-  // Pick multiple images from gallery
-  Future<void> _pickImages() async {
-    final picker = ImagePicker();
-    final images = await picker.pickMultiImage();
-    
-    if (images.isNotEmpty) {
-      List<File> imageFiles = images.map((xFile) => File(xFile.path)).toList();
+  Future<void> _pickVideoFromGallery() async {
+    try {
+      final video = await _picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 5),
+      );
       
-      // Limit to 10 images
-      if (imageFiles.length > 10) {
-        imageFiles = imageFiles.sublist(0, 10);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Maximum 10 images allowed. Only the first 10 images were selected.')),
-        );
+      if (video != null) {
+        final videoFile = File(video.path);
+        await _processAndSetVideo(videoFile);
       }
-      
-      setState(() {
-        _imageFiles = imageFiles;
-        _isVideoMode = false; // Switch to images mode
-        
-        // Clear video if any
-        if (_videoPlayerController != null) {
-          _videoPlayerController!.dispose();
-          _videoPlayerController = null;
-        }
-        _videoFile = null;
-      });
+    } catch (e) {
+      _showError('Failed to pick video: ${e.toString()}');
     }
   }
 
-  // Toggle video play/pause
+  Future<void> _captureVideoFromCamera() async {
+    try {
+      final video = await _picker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(minutes: 5),
+      );
+      
+      if (video != null) {
+        final videoFile = File(video.path);
+        await _processAndSetVideo(videoFile);
+      }
+    } catch (e) {
+      _showError('Failed to capture video: ${e.toString()}');
+    }
+  }
+
+  Future<void> _processAndSetVideo(File videoFile) async {
+    // Check video duration first
+    final duration = await _getVideoDuration(videoFile);
+    if (duration.inMinutes > 5) {
+      _showError('Video exceeds 5 minute limit');
+      return;
+    }
+
+    // Process video with FFmpeg using lossless HEVC
+    final processedFile = await _processVideoWithFFmpeg(videoFile);
+    
+    setState(() {
+      _videoFile = processedFile ?? videoFile;
+      _isVideoMode = true;
+      _imageFiles = [];
+    });
+    
+    await _initializeVideoPlayer();
+  }
+
+  Future<Duration> _getVideoDuration(File file) async {
+    final controller = VideoPlayerController.file(file);
+    await controller.initialize();
+    final duration = controller.value.duration;
+    await controller.dispose();
+    return duration;
+  }
+
+  Future<File?> _processVideoWithFFmpeg(File inputFile) async {
+    try {
+      final tempDir = Directory.systemTemp;
+      final outputPath = '${tempDir.path}/processed_hevc_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      
+      // HEVC (H.265) Lossless encoding command with highest quality audio
+      // First attempt: Copy original audio stream (preserves original quality)
+      final command = '-y -i "${inputFile.path}" '
+          '-c:v libx265 '                    // Use HEVC/H.265 codec
+          '-preset ultrafast '               // Fastest encoding preset
+          '-x265-params lossless=1 '         // Enable lossless compression
+          '-crf 0 '                          // Constant Rate Factor 0 (lossless)
+          '-c:a copy '                       // Copy audio stream without re-encoding (preserves original quality)
+          '-movflags +faststart '            // Optimize for streaming
+          '-tag:v hvc1 '                     // Set video tag for better compatibility
+          '"$outputPath"';
+      
+      final session = await FFmpegKit.execute(command);
+      final returnCode = await session.getReturnCode();
+      
+      if (ReturnCode.isSuccess(returnCode)) {
+        return File(outputPath);
+      } else {
+        // Fallback 1: Try with lossless audio encoding if copy fails
+        final fallbackCommand1 = '-y -i "${inputFile.path}" '
+            '-c:v libx265 '
+            '-preset fast '
+            '-crf 0 '                        // Still lossless video
+            '-c:a flac '                     // FLAC lossless audio codec
+            '-compression_level 8 '          // Maximum FLAC compression
+            '-movflags +faststart '
+            '"$outputPath"';
+            
+        final fallbackSession1 = await FFmpegKit.execute(fallbackCommand1);
+        final fallbackReturnCode1 = await fallbackSession1.getReturnCode();
+        
+        if (ReturnCode.isSuccess(fallbackReturnCode1)) {
+          return File(outputPath);
+        } else {
+          // Fallback 2: High-quality AAC if FLAC is not supported
+          final fallbackCommand2 = '-y -i "${inputFile.path}" '
+              '-c:v libx265 '
+              '-preset fast '
+              '-crf 0 '                      // Still lossless video
+              '-c:a aac '                    // AAC audio codec
+              '-b:a 320k '                   // Maximum AAC bitrate (320kbps)
+              '-ar 48000 '                   // 48kHz sample rate
+              '-ac 2 '                       // Stereo channels
+              '-movflags +faststart '
+              '"$outputPath"';
+              
+          final fallbackSession2 = await FFmpegKit.execute(fallbackCommand2);
+          final fallbackReturnCode2 = await fallbackSession2.getReturnCode();
+          
+          if (ReturnCode.isSuccess(fallbackReturnCode2)) {
+            return File(outputPath);
+          } else {
+            _showError('HEVC video processing failed');
+            return null;
+          }
+        }
+      }
+    } catch (e) {
+      _showError('Video processing error: ${e.toString()}');
+      return null;
+    }
+  }
+
+  Future<void> _pickImages() async {
+    try {
+      final images = await _picker.pickMultiImage();
+      
+      if (images.isNotEmpty) {
+        List<File> imageFiles = images.map((xFile) => File(xFile.path)).toList();
+        
+        if (imageFiles.length > 10) {
+          imageFiles = imageFiles.sublist(0, 10);
+          _showMessage('Maximum 10 images allowed. Only the first 10 images were selected.');
+        }
+        
+        setState(() {
+          _imageFiles = imageFiles;
+          _isVideoMode = false;
+          _clearVideo();
+        });
+      }
+    } catch (e) {
+      _showError('Failed to pick images: ${e.toString()}');
+    }
+  }
+
+  void _clearVideo() {
+    if (_videoPlayerController != null) {
+      _videoPlayerController!.dispose();
+      _videoPlayerController = null;
+    }
+    _videoFile = null;
+  }
+
   void _togglePlayPause() {
     if (_videoPlayerController == null) return;
     
@@ -117,88 +222,85 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
     });
   }
 
-  // Submit the form to create post
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
       final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
       final userChannel = ref.read(channelsProvider).userChannel;
       
       if (userChannel == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('You need to create a channel first')),
-        );
+        _showError('You need to create a channel first');
         return;
       }
       
-      // Check if media is selected
       if (_isVideoMode && _videoFile == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a video')),
-        );
+        _showError('Please select a video');
         return;
       }
       
       if (!_isVideoMode && _imageFiles.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select at least one image')),
-        );
+        _showError('Please select at least one image');
         return;
       }
       
-      // Parse tags from comma-separated string
       List<String> tags = [];
       if (_tagsController.text.isNotEmpty) {
         tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
       }
       
       if (_isVideoMode) {
-        // Upload video
         channelVideosNotifier.uploadVideo(
           channel: userChannel,
           videoFile: _videoFile!,
           caption: _captionController.text,
           tags: tags,
           onSuccess: (message) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-            
-            // Wait a moment before navigating back
-            Future.delayed(const Duration(milliseconds: 300), () {
-              Navigator.of(context).pop(true); // Return true to indicate success
-            });
+            _showSuccess(message);
+            _navigateBack();
           },
           onError: (error) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(error)),
-            );
+            _showError(error);
           },
         );
       } else {
-        // Upload images
         channelVideosNotifier.uploadImages(
           channel: userChannel,
           imageFiles: _imageFiles,
           caption: _captionController.text,
           tags: tags,
           onSuccess: (message) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-            
-            // Wait a moment before navigating back
-            Future.delayed(const Duration(milliseconds: 300), () {
-              Navigator.of(context).pop(true); // Return true to indicate success
-            });
+            _showSuccess(message);
+            _navigateBack();
           },
           onError: (error) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(error)),
-            );
+            _showError(error);
           },
         );
       }
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _navigateBack() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      Navigator.of(context).pop(true);
+    });
   }
 
   @override
@@ -409,7 +511,6 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
     );
   }
 
-  // Video picker placeholder widget
   Widget _buildVideoPickerPlaceholder(ModernThemeExtension modernTheme) {
     return AspectRatio(
       aspectRatio: 9 / 16,
@@ -444,19 +545,35 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
               ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _pickVideo,
-              icon: const Icon(Icons.photo_library),
-              label: const Text('Select from Gallery'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _pickVideoFromGallery,
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text('Select from Gallery'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: modernTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: _captureVideoFromCamera,
+                  icon: const Icon(Icons.videocam),
+                  label: const Text('Record Video'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: modernTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
-              'Max video length: 1 minute',
+              'Max video length: 5 minutes | HEVC Lossless',
               style: TextStyle(
                 color: modernTheme.textSecondaryColor,
                 fontSize: 12,
@@ -468,20 +585,17 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
     );
   }
 
-  // Video preview widget
   Widget _buildVideoPreview(ModernThemeExtension modernTheme) {
     if (_videoPlayerController != null &&
         _videoPlayerController!.value.isInitialized) {
       return Stack(
         alignment: Alignment.center,
         children: [
-          // Video preview
           AspectRatio(
             aspectRatio: _videoPlayerController!.value.aspectRatio,
             child: VideoPlayer(_videoPlayerController!),
           ),
           
-          // Play/pause button
           GestureDetector(
             onTap: _togglePlayPause,
             child: Container(
@@ -498,12 +612,11 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
             ),
           ),
           
-          // Change video button
           Positioned(
             bottom: 16,
             right: 16,
             child: IconButton(
-              onPressed: _pickVideo,
+              onPressed: _pickVideoFromGallery,
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -538,10 +651,8 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
     }
   }
 
-  // Image picker area widget
   Widget _buildImagePickerArea(ModernThemeExtension modernTheme) {
     if (_imageFiles.isEmpty) {
-      // Image picker placeholder
       return Container(
         height: 300,
         decoration: BoxDecoration(
@@ -597,11 +708,9 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
         ),
       );
     } else {
-      // Image preview grid
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Images count and add more button
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -623,7 +732,6 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
             ],
           ),
           const SizedBox(height: 8),
-          // Image grid
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -637,7 +745,6 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Image
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.file(
@@ -645,7 +752,6 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                       fit: BoxFit.cover,
                     ),
                   ),
-                  // Image number indicator
                   Positioned(
                     top: 4,
                     left: 4,
@@ -665,7 +771,6 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                       ),
                     ),
                   ),
-                  // Remove button
                   Positioned(
                     top: 4,
                     right: 4,
