@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/features/channels/widgets/video_trim_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
@@ -11,6 +13,33 @@ import 'package:image_picker/image_picker.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:path/path.dart' as path;
+
+
+// Data classes for video processing - shared with VideoTrimScreen
+class VideoInfo {
+  final Duration duration;
+  final Size resolution;
+  final double fileSizeMB;
+  final int? currentBitrate;
+  final double frameRate;
+  
+  VideoInfo({
+    required this.duration,
+    required this.resolution,
+    required this.fileSizeMB,
+    this.currentBitrate,
+    required this.frameRate,
+  });
+  
+  @override
+  String toString() {
+    return 'Duration: ${duration.inSeconds}s, Resolution: ${resolution.width}x${resolution.height}, '
+           'Size: ${fileSizeMB.toStringAsFixed(1)}MB, Bitrate: ${currentBitrate ?? 'unknown'}kbps, '
+           'FPS: ${frameRate.toStringAsFixed(1)}';
+  }
+}
 
 class CreatePostScreen extends ConsumerStatefulWidget {
   const CreatePostScreen({Key? key}) : super(key: key);
@@ -22,6 +51,15 @@ class CreatePostScreen extends ConsumerStatefulWidget {
 class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
+  
+  // Cache manager for efficient file handling
+  static final CacheManager _cacheManager = CacheManager(
+    Config(
+      'video_cache',
+      stalePeriod: const Duration(days: 7),
+      maxNrOfCacheObjects: 20,
+    ),
+  );
   
   // Media selection
   bool _isVideoMode = true;
@@ -38,6 +76,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     _videoPlayerController?.dispose();
     _captionController.dispose();
     _tagsController.dispose();
+    // Clean up cache when disposing (optional)
+    _cacheManager.emptyCache();
     super.dispose();
   }
 
@@ -129,21 +169,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     print('DEBUG: Video analysis - ${videoInfo.toString()}');
     
     if (videoInfo.duration.inSeconds > 300) { // 5 minutes
-      _showError('Video exceeds 5 minute limit');
+      print('DEBUG: Video exceeds 5 minutes, offering trim option');
+      await _showVideoTrimDialog(videoFile, videoInfo, isRequired: true);
+      return;
+    } else {
+      print('DEBUG: Video under 5 minutes, offering optional trim');
+      await _showVideoTrimDialog(videoFile, videoInfo, isRequired: false);
       return;
     }
-    
-    // Always process for optimal quality-size ratio
-    final optimizedVideo = await _optimizeVideoQualitySize(videoFile, videoInfo);
-    
-    setState(() {
-      _videoFile = optimizedVideo ?? videoFile;
-      _isVideoMode = true;
-      _imageFiles = [];
-    });
-    
-    await _initializeVideoPlayer();
-    print('DEBUG: Optimal processing complete');
   }
 
   Future<Duration> _getVideoDuration(File file) async {
@@ -529,6 +562,227 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       }
       _isVideoPlaying = !_isVideoPlaying;
     });
+  }
+
+  Future<void> _showVideoTrimDialog(File videoFile, VideoInfo videoInfo, {required bool isRequired}) async {
+    final durationMinutes = (videoInfo.duration.inSeconds / 60).round();
+    final durationSeconds = videoInfo.duration.inSeconds;
+    
+    String title;
+    String content;
+    List<Widget> actions = [];
+    
+    if (isRequired) {
+      // Video is over 5 minutes - trimming is required
+      title = 'Video Too Long';
+      content = 'Your video is ${durationMinutes} minutes long. Videos must be 5 minutes or less.\n\n'
+          'Choose how you want to trim it:';
+      
+      actions = [
+        TextButton(
+          child: const Text('Cancel'),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+        TextButton(
+          child: const Text('First 5 Minutes'),
+          onPressed: () async {
+            Navigator.of(context).pop();
+            await _trimVideoTo5Minutes(videoFile, videoInfo);
+          },
+        ),
+        TextButton(
+          child: const Text('Manual Trim'),
+          onPressed: () {
+            Navigator.of(context).pop();
+            _showManualTrimScreen(videoFile, videoInfo);
+          },
+        ),
+      ];
+    } else {
+      // Video is under 5 minutes - trimming is optional
+      title = 'Trim Video?';
+      content = 'Your video is ${durationSeconds} seconds long.\n\n'
+          'Would you like to trim it to a shorter clip, or use the full video?';
+      
+      actions = [
+        TextButton(
+          child: const Text('Use Full Video'),
+          onPressed: () async {
+            Navigator.of(context).pop();
+            await _processVideoDirectly(videoFile, videoInfo);
+          },
+        ),
+        TextButton(
+          child: const Text('Trim Video'),
+          onPressed: () {
+            Navigator.of(context).pop();
+            _showManualTrimScreen(videoFile, videoInfo);
+          },
+        ),
+      ];
+    }
+    
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(content),
+          actions: actions,
+        );
+      },
+    );
+  }
+
+  // Process video directly without trimming (for videos under 5 minutes)
+  Future<void> _processVideoDirectly(File videoFile, VideoInfo videoInfo) async {
+    print('DEBUG: Processing video directly without trimming');
+    
+    // Always process for optimal quality-size ratio
+    final optimizedVideo = await _optimizeVideoQualitySize(videoFile, videoInfo);
+    
+    setState(() {
+      _videoFile = optimizedVideo ?? videoFile;
+      _isVideoMode = true;
+      _imageFiles = [];
+    });
+    
+    await _initializeVideoPlayer();
+    print('DEBUG: Direct processing complete');
+  }
+
+  void _showManualTrimScreen(File videoFile, VideoInfo videoInfo) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => VideoTrimScreen(
+          videoFile: videoFile,
+          videoInfo: videoInfo,
+          onTrimComplete: (File trimmedFile) async {
+            Navigator.of(context).pop(); // Close trim screen
+            await _setTrimmedVideoDirectly(trimmedFile);
+          },
+        ),
+      ),
+    );
+  }
+
+  // Set trimmed video directly without re-processing
+  Future<void> _setTrimmedVideoDirectly(File trimmedFile) async {
+    try {
+      print('DEBUG: Setting trimmed video directly');
+      
+      // Cache the trimmed file for efficient access
+      final cachedFile = await _cacheVideoFile(trimmedFile);
+      
+      setState(() {
+        _videoFile = cachedFile;
+        _isVideoMode = true;
+        _imageFiles = [];
+      });
+      
+      await _initializeVideoPlayer();
+      print('DEBUG: Trimmed video set successfully');
+      
+      // Show success message
+      _showSuccess('Video trimmed successfully!');
+    } catch (e) {
+      print('DEBUG: Error setting trimmed video: $e');
+      _showError('Failed to set trimmed video: ${e.toString()}');
+    }
+  }
+
+  // Cache video file using Flutter Cache Manager
+  Future<File> _cacheVideoFile(File videoFile) async {
+    try {
+      print('DEBUG: Caching video file');
+      
+      // Generate a unique key for the video
+      final fileKey = 'video_${DateTime.now().millisecondsSinceEpoch}_${path.basename(videoFile.path)}';
+      
+      // Read the video file bytes
+      final videoBytes = await videoFile.readAsBytes();
+      
+      // Store in cache
+      final cachedFile = await _cacheManager.putFile(
+        fileKey,
+        videoBytes,
+        fileExtension: path.extension(videoFile.path),
+      );
+      
+      print('DEBUG: Video cached successfully: ${cachedFile.path}');
+      return cachedFile;
+    } catch (e) {
+      print('DEBUG: Caching failed, using original file: $e');
+      return videoFile; // Fallback to original file
+    }
+  }
+
+  // Enhanced trim to 5 minutes with caching
+  Future<void> _trimVideoTo5Minutes(File videoFile, VideoInfo videoInfo) async {
+    try {
+      print('DEBUG: Starting video trim to 5 minutes');
+      
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Trimming video to 5 minutes...'),
+            duration: Duration(seconds: 30),
+          ),
+        );
+      }
+      
+      // Create unique filename with timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileExtension = path.extension(videoFile.path);
+      final trimmedFileName = 'trimmed_5min_${timestamp}${fileExtension}';
+      
+      // Use cache directory for trimmed file
+      final tempDir = Directory.systemTemp;
+      final trimmedPath = path.join(tempDir.path, trimmedFileName);
+      
+      // FFmpeg command to trim video to first 5 minutes (300 seconds)
+      final command = '-y -i "${videoFile.path}" '
+          '-t 300 '                               // Trim to 300 seconds (5 minutes)
+          '-c:v libx264 '                         // Re-encode video for consistency
+          '-c:a aac '                             // Re-encode audio for consistency
+          '-avoid_negative_ts make_zero '         // Ensure timestamps start at 0
+          '-movflags +faststart '                 // Web streaming optimization
+          '"${trimmedPath}"';
+      
+      print('DEBUG: Trimming command: $command');
+      
+      final session = await FFmpegKit.execute(command);
+      final returnCode = await session.getReturnCode();
+      final logs = await session.getLogsAsString();
+      
+      if (ReturnCode.isSuccess(returnCode)) {
+        final trimmedFile = File(trimmedPath);
+        if (await trimmedFile.exists()) {
+          print('DEBUG: Video trimmed successfully');
+          
+          // Hide loading indicator
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          }
+          
+          // Set trimmed video directly without re-processing
+          await _setTrimmedVideoDirectly(trimmedFile);
+        } else {
+          print('DEBUG: Trimmed file not found');
+          _showError('Failed to trim video - file not created');
+        }
+      } else {
+        print('DEBUG: Video trim failed - $logs');
+        _showError('Failed to trim video. Please try a different video.');
+      }
+    } catch (e) {
+      print('DEBUG: Video trim error: $e');
+      _showError('Failed to trim video: ${e.toString()}');
+    }
   }
 
   void _submitForm() {
@@ -1094,30 +1348,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         ],
       );
     }
-  }
-}
-
-// Data classes for video processing
-class VideoInfo {
-  final Duration duration;
-  final Size resolution;
-  final double fileSizeMB;
-  final int? currentBitrate;
-  final double frameRate;
-  
-  VideoInfo({
-    required this.duration,
-    required this.resolution,
-    required this.fileSizeMB,
-    this.currentBitrate,
-    required this.frameRate,
-  });
-  
-  @override
-  String toString() {
-    return 'Duration: ${duration.inSeconds}s, Resolution: ${resolution.width}x${resolution.height}, '
-           'Size: ${fileSizeMB.toStringAsFixed(1)}MB, Bitrate: ${currentBitrate ?? 'unknown'}kbps, '
-           'FPS: ${frameRate.toStringAsFixed(1)}';
   }
 }
 

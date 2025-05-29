@@ -5,9 +5,8 @@ import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:video_player/video_player.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
-
-// Import VideoInfo from create_post_screen.dart
-//import 'create_post_screen.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:path/path.dart' as path;
 
 // Manual Video Trimming Screen
 class VideoTrimScreen extends StatefulWidget {
@@ -32,6 +31,15 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
   bool _isPlaying = false;
   bool _isTrimming = false;
   
+  // Cache manager for trimmed files
+  static final CacheManager _cacheManager = CacheManager(
+    Config(
+      'trim_cache',
+      stalePeriod: const Duration(days: 3),
+      maxNrOfCacheObjects: 10,
+    ),
+  );
+  
   // Trim controls
   final TextEditingController _startMinController = TextEditingController(text: '0');
   final TextEditingController _startSecController = TextEditingController(text: '00');
@@ -54,12 +62,17 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
     final maxDuration = widget.videoInfo.duration;
     final fiveMinutes = const Duration(minutes: 5);
     
+    // For videos under 5 minutes, default to full duration
+    // For videos over 5 minutes, default to 5 minutes
     if (maxDuration <= fiveMinutes) {
       _endTime = maxDuration;
       final endMinutes = maxDuration.inMinutes;
       final endSeconds = maxDuration.inSeconds % 60;
       _endMinController.text = endMinutes.toString();
       _endSecController.text = endSeconds.toString().padLeft(2, '0');
+    } else {
+      // Keep the 5-minute default for longer videos
+      _endTime = fiveMinutes;
     }
   }
 
@@ -190,16 +203,24 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
     setState(() => _isTrimming = true);
     
     try {
-      final tempDir = Directory.systemTemp;
-      final trimmedPath = '${tempDir.path}/manual_trimmed_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      // Create unique filename with timestamp and trim info
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileExtension = path.extension(widget.videoFile.path);
+      final startSeconds = _startTime.inSeconds;
+      final endSeconds = _endTime.inSeconds;
+      final trimmedFileName = 'manual_trim_${startSeconds}_${endSeconds}_${timestamp}${fileExtension}';
       
-      final startSeconds = _startTime.inSeconds.toDouble();
-      final durationSeconds = (_endTime - _startTime).inSeconds.toDouble();
+      // Use cache directory for better file management
+      final tempDir = Directory.systemTemp;
+      final trimmedPath = path.join(tempDir.path, trimmedFileName);
+      
+      final startSecondsDbl = _startTime.inSeconds.toDouble();
+      final durationSecondsDbl = (_endTime - _startTime).inSeconds.toDouble();
       
       // FFmpeg command for precise trimming
       final command = '-y -i "${widget.videoFile.path}" '
-          '-ss $startSeconds '                        // Start time in seconds
-          '-t $durationSeconds '                      // Duration in seconds
+          '-ss $startSecondsDbl '                     // Start time in seconds
+          '-t $durationSecondsDbl '                   // Duration in seconds
           '-c:v libx264 '                             // Re-encode video
           '-c:a aac '                                 // Re-encode audio
           '-avoid_negative_ts make_zero '             // Clean timestamps
@@ -216,7 +237,12 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
         final trimmedFile = File(trimmedPath);
         if (await trimmedFile.exists()) {
           print('DEBUG: Manual trim successful');
-          widget.onTrimComplete(trimmedFile);
+          
+          // Cache the trimmed file for efficient access
+          final cachedFile = await _cacheVideoFile(trimmedFile);
+          
+          // Return the cached file
+          widget.onTrimComplete(cachedFile);
         } else {
           _showError('Failed to create trimmed video');
         }
@@ -229,6 +255,32 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
       _showError('Error trimming video: ${e.toString()}');
     } finally {
       setState(() => _isTrimming = false);
+    }
+  }
+
+  // Cache video file using Flutter Cache Manager
+  Future<File> _cacheVideoFile(File videoFile) async {
+    try {
+      print('DEBUG: Caching trimmed video file');
+      
+      // Generate a unique key for the trimmed video
+      final fileKey = 'trimmed_video_${DateTime.now().millisecondsSinceEpoch}_${path.basename(videoFile.path)}';
+      
+      // Read the video file bytes
+      final videoBytes = await videoFile.readAsBytes();
+      
+      // Store in cache with proper extension
+      final cachedFile = await _cacheManager.putFile(
+        fileKey,
+        videoBytes,
+        fileExtension: path.extension(videoFile.path),
+      );
+      
+      print('DEBUG: Trimmed video cached successfully: ${cachedFile.path}');
+      return cachedFile;
+    } catch (e) {
+      print('DEBUG: Caching failed, using original trimmed file: $e');
+      return videoFile; // Fallback to original trimmed file
     }
   }
 
@@ -270,12 +322,12 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
       ),
       body: !_isInitialized
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Video Player
-                Expanded(
-                  flex: 3,
-                  child: Container(
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Video Player
+                  Container(
+                    height: MediaQuery.of(context).size.height * 0.5, // 50% of screen height
                     width: double.infinity,
                     color: Colors.black,
                     child: Stack(
@@ -338,15 +390,13 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
                       ],
                     ),
                   ),
-                ),
-                
-                // Controls
-                Expanded(
-                  flex: 2,
-                  child: Container(
+                  
+                  // Controls
+                  Container(
                     padding: const EdgeInsets.all(16),
                     color: Colors.grey.shade900,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         // Current position
                         Text(
@@ -359,43 +409,52 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
                         // Start Time Controls
                         Row(
                           children: [
-                            const SizedBox(width: 80, child: Text('Start:', style: TextStyle(color: Colors.white))),
+                            const SizedBox(width: 60, child: Text('Start:', style: TextStyle(color: Colors.white))),
                             SizedBox(
-                              width: 50,
+                              width: 45,
                               child: TextField(
                                 controller: _startMinController,
                                 keyboardType: TextInputType.number,
-                                style: const TextStyle(color: Colors.white),
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
                                 decoration: const InputDecoration(
                                   hintText: 'Min',
-                                  hintStyle: TextStyle(color: Colors.grey),
+                                  hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
                                   border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  isDense: true,
                                 ),
                                 onChanged: (_) => _updateStartTime(),
                               ),
                             ),
                             const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              padding: EdgeInsets.symmetric(horizontal: 4),
                               child: Text(':', style: TextStyle(color: Colors.white)),
                             ),
                             SizedBox(
-                              width: 60,
+                              width: 50,
                               child: TextField(
                                 controller: _startSecController,
                                 keyboardType: TextInputType.number,
-                                style: const TextStyle(color: Colors.white),
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
                                 decoration: const InputDecoration(
                                   hintText: 'Sec',
-                                  hintStyle: TextStyle(color: Colors.grey),
+                                  hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
                                   border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  isDense: true,
                                 ),
                                 onChanged: (_) => _updateStartTime(),
                               ),
                             ),
                             const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: _seekToStart,
-                              child: const Text('Go'),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _seekToStart,
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('Go', style: TextStyle(fontSize: 12)),
+                              ),
                             ),
                           ],
                         ),
@@ -405,43 +464,52 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
                         // End Time Controls
                         Row(
                           children: [
-                            const SizedBox(width: 80, child: Text('End:', style: TextStyle(color: Colors.white))),
+                            const SizedBox(width: 60, child: Text('End:', style: TextStyle(color: Colors.white))),
                             SizedBox(
-                              width: 50,
+                              width: 45,
                               child: TextField(
                                 controller: _endMinController,
                                 keyboardType: TextInputType.number,
-                                style: const TextStyle(color: Colors.white),
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
                                 decoration: const InputDecoration(
                                   hintText: 'Min',
-                                  hintStyle: TextStyle(color: Colors.grey),
+                                  hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
                                   border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  isDense: true,
                                 ),
                                 onChanged: (_) => _updateEndTime(),
                               ),
                             ),
                             const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              padding: EdgeInsets.symmetric(horizontal: 4),
                               child: Text(':', style: TextStyle(color: Colors.white)),
                             ),
                             SizedBox(
-                              width: 60,
+                              width: 50,
                               child: TextField(
                                 controller: _endSecController,
                                 keyboardType: TextInputType.number,
-                                style: const TextStyle(color: Colors.white),
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
                                 decoration: const InputDecoration(
                                   hintText: 'Sec',
-                                  hintStyle: TextStyle(color: Colors.grey),
+                                  hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
                                   border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  isDense: true,
                                 ),
                                 onChanged: (_) => _updateEndTime(),
                               ),
                             ),
                             const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: _seekToEnd,
-                              child: const Text('Go'),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _seekToEnd,
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('Go', style: TextStyle(fontSize: 12)),
+                              ),
                             ),
                           ],
                         ),
@@ -456,26 +524,36 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 'Trimmed Duration: ${_formatDuration(_endTime - _startTime)}',
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
-                              ElevatedButton.icon(
-                                onPressed: _previewTrimmedSection,
-                                icon: const Icon(Icons.preview),
-                                label: const Text('Preview Trimmed Section'),
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: _previewTrimmedSection,
+                                  icon: const Icon(Icons.preview, size: 16),
+                                  label: const Text('Preview Trimmed Section', style: TextStyle(fontSize: 12)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
+                        
+                        // Add some bottom padding to ensure content is visible
+                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }
