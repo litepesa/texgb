@@ -16,7 +16,7 @@ import 'package:textgb/features/channels/screens/channel_comments_screen.dart';
 import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
 import 'package:textgb/features/channels/screens/channel_video_detail_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
-import 'package:textgb/features/channels/screens/create_channel_post_screen.dart';
+import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
@@ -195,7 +195,7 @@ class AppRoot extends ConsumerWidget {
           Constants.channelsFeedScreen: (context) => const ChannelsFeedScreen(),
           Constants.createChannelScreen: (context) => const CreateChannelScreen(),
           Constants.myChannelScreen: (context) => const MyChannelScreen(),
-          Constants.createChannelPostScreen: (context) => const CreateChannelPostScreen(),
+          Constants.createChannelPostScreen: (context) => const CreatePostScreen(),
           Constants.channelVideoDetailScreen: (context) {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
             return ChannelVideoDetailScreen(videoId: videoId);

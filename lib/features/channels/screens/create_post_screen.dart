@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -11,14 +12,14 @@ import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 
-class CreateChannelPostScreen extends ConsumerStatefulWidget {
-  const CreateChannelPostScreen({Key? key}) : super(key: key);
+class CreatePostScreen extends ConsumerStatefulWidget {
+  const CreatePostScreen({Key? key}) : super(key: key);
 
   @override
-  ConsumerState<CreateChannelPostScreen> createState() => _CreateChannelPostScreenState();
+  ConsumerState<CreatePostScreen> createState() => _CreatePostScreenState();
 }
 
-class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScreen> {
+class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
   
@@ -43,146 +44,435 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
   Future<void> _initializeVideoPlayer() async {
     if (_videoFile == null) return;
     
-    _videoPlayerController = VideoPlayerController.file(_videoFile!);
-    await _videoPlayerController!.initialize();
-    _videoPlayerController!.setLooping(true);
-    
-    setState(() {});
+    try {
+      print('DEBUG: Initializing video player for: ${_videoFile!.path}');
+      
+      _videoPlayerController?.dispose(); // Dispose previous controller
+      _videoPlayerController = VideoPlayerController.file(_videoFile!);
+      
+      await _videoPlayerController!.initialize();
+      _videoPlayerController!.setLooping(true);
+      
+      print('DEBUG: Video player initialized successfully');
+      setState(() {});
+    } catch (e) {
+      print('DEBUG: Video player initialization failed: $e');
+      _showError('Failed to initialize video player: $e');
+    }
   }
 
   Future<void> _pickVideoFromGallery() async {
     try {
+      print('DEBUG: Starting video picker...');
+      
       final video = await _picker.pickVideo(
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 5),
       );
       
       if (video != null) {
+        print('DEBUG: Video selected: ${video.path}');
         final videoFile = File(video.path);
-        await _processAndSetVideo(videoFile);
+        
+        // Check if file exists
+        if (await videoFile.exists()) {
+          print('DEBUG: Video file exists, processing...');
+          await _processAndSetVideo(videoFile);
+        } else {
+          print('DEBUG: Video file does not exist');
+          _showError('Selected video file not found');
+        }
+      } else {
+        print('DEBUG: No video selected');
       }
     } catch (e) {
+      print('DEBUG: Video picker error: $e');
       _showError('Failed to pick video: ${e.toString()}');
     }
   }
 
   Future<void> _captureVideoFromCamera() async {
     try {
+      print('DEBUG: Starting camera capture...');
+      
       final video = await _picker.pickVideo(
         source: ImageSource.camera,
         maxDuration: const Duration(minutes: 5),
       );
       
       if (video != null) {
+        print('DEBUG: Video captured: ${video.path}');
         final videoFile = File(video.path);
-        await _processAndSetVideo(videoFile);
+        
+        // Check if file exists
+        if (await videoFile.exists()) {
+          print('DEBUG: Captured video file exists, processing...');
+          await _processAndSetVideo(videoFile);
+        } else {
+          print('DEBUG: Captured video file does not exist');
+          _showError('Captured video file not found');
+        }
+      } else {
+        print('DEBUG: No video captured');
       }
     } catch (e) {
+      print('DEBUG: Camera capture error: $e');
       _showError('Failed to capture video: ${e.toString()}');
     }
   }
 
   Future<void> _processAndSetVideo(File videoFile) async {
-    // Check video duration first
-    final duration = await _getVideoDuration(videoFile);
-    if (duration.inMinutes > 5) {
+    print('DEBUG: Starting optimal quality-size processing');
+    
+    // Get video info for smart decisions
+    final videoInfo = await _analyzeVideo(videoFile);
+    print('DEBUG: Video analysis - ${videoInfo.toString()}');
+    
+    if (videoInfo.duration.inSeconds > 300) { // 5 minutes
       _showError('Video exceeds 5 minute limit');
       return;
     }
-
-    // Process video with FFmpeg using lossless HEVC
-    final processedFile = await _processVideoWithFFmpeg(videoFile);
+    
+    // Always process for optimal quality-size ratio
+    final optimizedVideo = await _optimizeVideoQualitySize(videoFile, videoInfo);
     
     setState(() {
-      _videoFile = processedFile ?? videoFile;
+      _videoFile = optimizedVideo ?? videoFile;
       _isVideoMode = true;
       _imageFiles = [];
     });
     
     await _initializeVideoPlayer();
+    print('DEBUG: Optimal processing complete');
   }
 
   Future<Duration> _getVideoDuration(File file) async {
-    final controller = VideoPlayerController.file(file);
-    await controller.initialize();
-    final duration = controller.value.duration;
-    await controller.dispose();
-    return duration;
+    try {
+      print('DEBUG: Getting video duration for: ${file.path}');
+      final controller = VideoPlayerController.file(file);
+      await controller.initialize();
+      final duration = controller.value.duration;
+      await controller.dispose();
+      print('DEBUG: Video duration obtained: ${duration.inSeconds} seconds');
+      return duration;
+    } catch (e) {
+      print('DEBUG: Error getting video duration: $e');
+      // Return a default duration if we can't get it
+      return const Duration(seconds: 0);
+    }
   }
 
-  Future<File?> _processVideoWithFFmpeg(File inputFile) async {
+  Future<VideoInfo> _analyzeVideo(File videoFile) async {
+    try {
+      // Get basic info from video player
+      final controller = VideoPlayerController.file(videoFile);
+      await controller.initialize();
+      
+      final duration = controller.value.duration;
+      final size = controller.value.size;
+      final fileSizeBytes = await videoFile.length();
+      final fileSizeMB = fileSizeBytes / (1024 * 1024);
+      
+      // Calculate current bitrate
+      int? currentBitrate;
+      if (duration.inSeconds > 0) {
+        currentBitrate = ((fileSizeBytes * 8) / duration.inSeconds / 1000).round();
+      }
+      
+      await controller.dispose();
+      
+      return VideoInfo(
+        duration: duration,
+        resolution: size,
+        fileSizeMB: fileSizeMB,
+        currentBitrate: currentBitrate,
+        frameRate: 30.0, // Default assumption
+      );
+    } catch (e) {
+      print('DEBUG: Video analysis error: $e');
+      // Return safe defaults
+      final fileSizeBytes = await videoFile.length();
+      return VideoInfo(
+        duration: const Duration(seconds: 60),
+        resolution: const Size(1920, 1080),
+        fileSizeMB: fileSizeBytes / (1024 * 1024),
+        frameRate: 30.0,
+      );
+    }
+  }
+
+  Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
-      final outputPath = '${tempDir.path}/processed_hevc_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final outputPath = '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
       
-      // HEVC (H.265) Lossless encoding command with highest quality audio
-      // First attempt: Copy original audio stream (preserves original quality)
+      // Determine optimal settings based on content
+      final settings = _calculateOptimalSettings(info);
+      print('DEBUG: Using optimization settings: $settings');
+      
+      // Build FFmpeg command for optimal quality-size ratio
       final command = '-y -i "${inputFile.path}" '
-          '-c:v libx265 '                    // Use HEVC/H.265 codec
-          '-preset ultrafast '               // Fastest encoding preset
-          '-x265-params lossless=1 '         // Enable lossless compression
-          '-crf 0 '                          // Constant Rate Factor 0 (lossless)
-          '-c:a copy '                       // Copy audio stream without re-encoding (preserves original quality)
-          '-movflags +faststart '            // Optimize for streaming
-          '-tag:v hvc1 '                     // Set video tag for better compatibility
-          '"$outputPath"';
+          
+          // Video encoding - optimal quality/size balance
+          '-c:v libx264 '                           // H.264 for best compatibility
+          '-preset ${settings.preset} '             // Better compression than fast
+          '-crf ${settings.crf} '                   // Constant Rate Factor for quality
+          '-maxrate ${settings.maxBitrate}k '       // Peak bitrate limit
+          '-bufsize ${settings.maxBitrate * 2}k '   // Buffer size (2x maxrate)
+          
+          // Video filters for quality optimization
+          '-vf "${settings.videoFilter}" '
+          
+          // Audio encoding - premium quality for content creation
+          '-c:a aac '                               // Best audio codec
+          '-b:a ${settings.audioBitrate}k '         // High-quality audio bitrate
+          '-ar 48000 '                             // Professional 48kHz sample rate
+          '-ac 2 '                                 // Stereo channels
+          '-profile:a aac_he_v2 '                  // HE-AAC v2 for efficiency at high bitrates
+          
+          // Optimization flags
+          '-movflags +faststart '                  // Web streaming optimization
+          '-profile:v high '                       // H.264 high profile
+          '-level:v 4.1 '                         // Compatibility level
+          '-pix_fmt yuv420p '                     // Color format compatibility
+          
+          // Output
+          '-f mp4 "${outputPath}"';
+      
+      print('DEBUG: Executing optimal compression');
+      print('DEBUG: Command: $command');
       
       final session = await FFmpegKit.execute(command);
       final returnCode = await session.getReturnCode();
+      final logs = await session.getLogsAsString();
       
       if (ReturnCode.isSuccess(returnCode)) {
-        return File(outputPath);
-      } else {
-        // Fallback 1: Try with lossless audio encoding if copy fails
-        final fallbackCommand1 = '-y -i "${inputFile.path}" '
-            '-c:v libx265 '
-            '-preset fast '
-            '-crf 0 '                        // Still lossless video
-            '-c:a flac '                     // FLAC lossless audio codec
-            '-compression_level 8 '          // Maximum FLAC compression
-            '-movflags +faststart '
-            '"$outputPath"';
-            
-        final fallbackSession1 = await FFmpegKit.execute(fallbackCommand1);
-        final fallbackReturnCode1 = await fallbackSession1.getReturnCode();
-        
-        if (ReturnCode.isSuccess(fallbackReturnCode1)) {
-          return File(outputPath);
-        } else {
-          // Fallback 2: High-quality AAC if FLAC is not supported
-          final fallbackCommand2 = '-y -i "${inputFile.path}" '
-              '-c:v libx265 '
-              '-preset fast '
-              '-crf 0 '                      // Still lossless video
-              '-c:a aac '                    // AAC audio codec
-              '-b:a 320k '                   // Maximum AAC bitrate (320kbps)
-              '-ar 48000 '                   // 48kHz sample rate
-              '-ac 2 '                       // Stereo channels
-              '-movflags +faststart '
-              '"$outputPath"';
-              
-          final fallbackSession2 = await FFmpegKit.execute(fallbackCommand2);
-          final fallbackReturnCode2 = await fallbackSession2.getReturnCode();
+        final outputFile = File(outputPath);
+        if (await outputFile.exists()) {
+          final originalSizeMB = info.fileSizeMB;
+          final newSizeMB = await outputFile.length() / (1024 * 1024);
+          final compressionRatio = ((originalSizeMB - newSizeMB) / originalSizeMB * 100);
           
-          if (ReturnCode.isSuccess(fallbackReturnCode2)) {
-            return File(outputPath);
+          print('DEBUG: Optimization successful!');
+          print('DEBUG: Original: ${originalSizeMB.toStringAsFixed(1)}MB → New: ${newSizeMB.toStringAsFixed(1)}MB');
+          print('DEBUG: Compression: ${compressionRatio.toStringAsFixed(1)}% smaller');
+          
+          // Only use compressed version if it's actually smaller and reasonable
+          if (newSizeMB < originalSizeMB && compressionRatio > 10) {
+            return outputFile;
           } else {
-            _showError('HEVC video processing failed');
+            print('DEBUG: Compression not beneficial, using original');
             return null;
           }
         }
       }
+      
+      print('DEBUG: Optimization failed - $logs');
+      return null;
+      
     } catch (e) {
-      _showError('Video processing error: ${e.toString()}');
+      print('DEBUG: Optimization error: $e');
       return null;
     }
   }
 
+  OptimizationSettings _calculateOptimalSettings(VideoInfo info) {
+    int crf = 23; // Default excellent quality
+    String preset = 'medium';
+    int maxBitrate = 2500;
+    int audioBitrate = 192; // Start with high-quality audio (192kbps)
+    String videoFilter = '';
+    
+    // Camera-specific optimizations
+    bool isCameraVideo = _detectCameraVideo(info);
+    if (isCameraVideo) {
+      print('DEBUG: Camera video detected - applying camera optimizations');
+      // Camera videos often need more aggressive compression
+      crf = 24; // Slightly more compression for camera videos
+      preset = 'slow'; // Better compression for raw camera footage
+    }
+    
+    // Smart resolution decisions
+    final targetResolution = _determineTargetResolution(info);
+    print('DEBUG: Target resolution: ${targetResolution.width}x${targetResolution.height}');
+    
+    // Adjust based on target resolution (mobile-optimized)
+    if (targetResolution != info.resolution) {
+      // Need to downscale
+      videoFilter = 'scale=${targetResolution.width}:${targetResolution.height}:force_original_aspect_ratio=decrease';
+      
+      if (isCameraVideo && targetResolution.height <= 720) {
+        // Enhanced filters for mobile 720p from camera footage
+        videoFilter += ',deshake,hqdn3d=2:1:2:1,unsharp=5:5:1.2:5:5:0.0'; // Stabilize + denoise + sharpen more for mobile
+      }
+      
+      // Mobile-optimized bitrates with premium audio
+      if (targetResolution.height >= 1080) {
+        maxBitrate = 2500; // 1080p for mobile (rare case)
+        crf = 23;
+        audioBitrate = 256; // Premium audio for high-res video
+      } else if (targetResolution.height >= 720) {
+        maxBitrate = 1500; // 720p sweet spot for mobile
+        crf = 21; // Higher quality since we're downscaling
+        audioBitrate = 192; // High-quality audio (near lossless)
+      } else {
+        maxBitrate = 1000; // Lower resolutions
+        crf = 20;
+        audioBitrate = 160; // Still excellent audio for lower res
+      }
+    } else if (info.resolution.height <= 720) {
+      // Already 720p or lower - perfect for mobile
+      crf = 24; // Good compression for mobile
+      maxBitrate = 1200;
+      audioBitrate = 192; // Premium audio quality
+    }
+    
+    // Adjust based on current bitrate (preserve audio quality)
+    if (info.currentBitrate != null) {
+      if (info.currentBitrate! > 5000) {
+        // Very high bitrate - aggressive video compression but preserve audio
+        crf = 25;
+        maxBitrate = math.max(1000, maxBitrate - 500);
+        // Keep high audio bitrate even with aggressive video compression
+        audioBitrate = math.max(192, audioBitrate);
+      } else if (info.currentBitrate! < 1000) {
+        // Already low bitrate - gentle compression, enhance audio
+        crf = math.max(18, crf - 2);
+        maxBitrate = math.min(2000, maxBitrate + 300);
+        audioBitrate = 256; // Boost audio for low-bitrate sources
+      }
+    }
+    
+    // Adjust based on duration (maintain audio quality for longer content)
+    if (info.duration.inSeconds > 180) { // 3+ minutes
+      // Longer videos need more video compression but preserve audio quality
+      crf = math.min(28, crf + 2);
+      maxBitrate = math.max(800, maxBitrate - 300);
+      // Maintain high audio quality for longer content where audio matters more
+      audioBitrate = math.max(192, audioBitrate);
+    }
+    
+    // Adjust based on file size (balance compression while preserving audio)
+    if (info.fileSizeMB > 100) {
+      // Large files need aggressive video compression but keep premium audio
+      crf = 26;
+      preset = 'slow'; // Better compression for large files
+      maxBitrate = 1200;
+      audioBitrate = math.max(192, audioBitrate); // Maintain premium audio
+    } else if (info.fileSizeMB < 20) {
+      // Small files - prioritize quality including premium audio
+      crf = math.max(18, crf - 2);
+      maxBitrate = math.min(2000, maxBitrate + 500);
+      audioBitrate = 256; // Premium audio for small, high-quality files
+    }
+    
+    return OptimizationSettings(
+      crf: crf,
+      preset: preset,
+      maxBitrate: maxBitrate,
+      audioBitrate: audioBitrate,
+      videoFilter: videoFilter,
+    );
+  }
+
+  // Smart resolution targeting optimized for mobile-only app
+  Size _determineTargetResolution(VideoInfo info) {
+    final currentRes = info.resolution;
+    
+    // Mobile-optimized strategy: Default to 720p for best experience
+    return _getMobileOptimizedResolution(info);
+  }
+
+  Size _getMobileOptimizedResolution(VideoInfo info) {
+    final currentWidth = info.resolution.width.toInt();
+    final currentHeight = info.resolution.height.toInt();
+    
+    print('DEBUG: Mobile-only app - optimizing for 720p target');
+    
+    // 4K+ videos: Always downscale to 720p (mobile doesn't need 4K)
+    if (currentHeight >= 2160 || currentWidth >= 3840) {
+      print('DEBUG: 4K+ video detected - downscaling to 720p for mobile');
+      return const Size(720, 1280); // Portrait 720p
+    }
+    
+    // 1080p videos: Default to 720p for mobile optimization
+    if (currentHeight >= 1080 || currentWidth >= 1920) {
+      
+      // Only keep 1080p in very specific cases for mobile
+      if (_shouldKeep1080pForMobile(info)) {
+        print('DEBUG: Keeping 1080p for mobile (special case)');
+        return Size(currentWidth.toDouble(), currentHeight.toDouble());
+      }
+      
+      print('DEBUG: Downscaling 1080p to 720p for optimal mobile experience');
+      return const Size(720, 1280); // Portrait 720p
+    }
+    
+    // 720p and below: Perfect for mobile, keep original
+    print('DEBUG: 720p or lower - optimal for mobile');
+    return Size(currentWidth.toDouble(), currentHeight.toDouble());
+  }
+
+  // Very selective criteria for keeping 1080p on mobile
+  bool _shouldKeep1080pForMobile(VideoInfo info) {
+    // Only keep 1080p if:
+    // 1. File is already very small (well optimized)
+    // 2. Short duration (quick to upload)
+    // 3. Low bitrate (already compressed)
+    
+    final isSmallFile = info.fileSizeMB < 15; // Very small file
+    final isShortVideo = info.duration.inSeconds < 30; // Very short
+    final isLowBitrate = (info.currentBitrate ?? 99999) < 3000; // Already compressed
+    
+    final shouldKeep = isSmallFile && isShortVideo && isLowBitrate;
+    
+    if (shouldKeep) {
+      print('DEBUG: 1080p mobile exception - small (${info.fileSizeMB.toStringAsFixed(1)}MB), short (${info.duration.inSeconds}s), low bitrate');
+    }
+    
+    return shouldKeep;
+  }
+
+  // Detect if video is likely from camera (vs downloaded/edited)
+  bool _detectCameraVideo(VideoInfo info) {
+    // Camera videos typically have:
+    // 1. Very high bitrates
+    // 2. Standard camera resolutions
+    // 3. Standard frame rates
+    
+    final isHighBitrate = (info.currentBitrate ?? 0) > 10000; // > 10 Mbps
+    final isCameraResolution = _isCameraResolution(info.resolution);
+    final isRecentlyCreated = true; // Could check file creation time
+    
+    return isHighBitrate && isCameraResolution;
+  }
+
+  bool _isCameraResolution(Size resolution) {
+    // Common camera resolutions
+    final commonCameraResolutions = [
+      Size(3840, 2160), // 4K
+      Size(2720, 1530), // 2.7K
+      Size(1920, 1080), // 1080p
+      Size(1280, 720),  // 720p
+      // Portrait versions
+      Size(2160, 3840), // 4K portrait
+      Size(1530, 2720), // 2.7K portrait
+      Size(1080, 1920), // 1080p portrait
+      Size(720, 1280),  // 720p portrait
+    ];
+    
+    return commonCameraResolutions.any((cameraRes) =>
+      (resolution.width == cameraRes.width && resolution.height == cameraRes.height));
+  }
+
   Future<void> _pickImages() async {
     try {
+      print('DEBUG: Starting image picker...');
+      
       final images = await _picker.pickMultiImage();
       
       if (images.isNotEmpty) {
+        print('DEBUG: ${images.length} images selected');
         List<File> imageFiles = images.map((xFile) => File(xFile.path)).toList();
         
         if (imageFiles.length > 10) {
@@ -195,13 +485,19 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           _isVideoMode = false;
           _clearVideo();
         });
+        
+        print('DEBUG: Images processed successfully');
+      } else {
+        print('DEBUG: No images selected');
       }
     } catch (e) {
+      print('DEBUG: Image picker error: $e');
       _showError('Failed to pick images: ${e.toString()}');
     }
   }
 
   void _clearVideo() {
+    print('DEBUG: Clearing video');
     if (_videoPlayerController != null) {
       _videoPlayerController!.dispose();
       _videoPlayerController = null;
@@ -223,6 +519,8 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
   }
 
   void _submitForm() {
+    print('DEBUG: Form submission started');
+    
     if (_formKey.currentState!.validate()) {
       final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
       final userChannel = ref.read(channelsProvider).userChannel;
@@ -247,6 +545,8 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
         tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
       }
       
+      print('DEBUG: Submitting ${_isVideoMode ? 'video' : 'images'}');
+      
       if (_isVideoMode) {
         channelVideosNotifier.uploadVideo(
           channel: userChannel,
@@ -254,10 +554,12 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           caption: _captionController.text,
           tags: tags,
           onSuccess: (message) {
+            print('DEBUG: Video upload success: $message');
             _showSuccess(message);
             _navigateBack();
           },
           onError: (error) {
+            print('DEBUG: Video upload error: $error');
             _showError(error);
           },
         );
@@ -268,36 +570,44 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           caption: _captionController.text,
           tags: tags,
           onSuccess: (message) {
+            print('DEBUG: Images upload success: $message');
             _showSuccess(message);
             _navigateBack();
           },
           onError: (error) {
+            print('DEBUG: Images upload error: $error');
             _showError(error);
           },
         );
       }
+    } else {
+      print('DEBUG: Form validation failed');
     }
   }
 
   void _showError(String message) {
+    print('DEBUG: Showing error: $message');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
   }
 
   void _showMessage(String message) {
+    print('DEBUG: Showing message: $message');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
   }
 
   void _showSuccess(String message) {
+    print('DEBUG: Showing success: $message');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
   }
 
   void _navigateBack() {
+    print('DEBUG: Navigating back');
     Future.delayed(const Duration(milliseconds: 300), () {
       Navigator.of(context).pop(true);
     });
@@ -523,13 +833,13 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.videocam,
+              Icons.high_quality,
               color: modernTheme.primaryColor,
               size: 64,
             ),
             const SizedBox(height: 16),
             Text(
-              'Add a video',
+              'Add high-quality video',
               style: TextStyle(
                 color: modernTheme.textColor,
                 fontSize: 18,
@@ -538,7 +848,7 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
             ),
             const SizedBox(height: 8),
             Text(
-              'Share your content with your audience',
+              'Optimized for quality and file size',
               style: TextStyle(
                 color: modernTheme.textSecondaryColor,
                 fontSize: 14,
@@ -571,12 +881,33 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Max video length: 5 minutes | HEVC Lossless',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 12,
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor!.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    '📱 Mobile Optimized',
+                    style: TextStyle(
+                      color: modernTheme.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Perfect quality for mobile • Ultra-fast uploads',
+                    style: TextStyle(
+                      color: modernTheme.textSecondaryColor,
+                      fontSize: 10,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
           ],
@@ -801,5 +1132,50 @@ class _CreateChannelPostScreenState extends ConsumerState<CreateChannelPostScree
         ],
       );
     }
+  }
+}
+
+// Data classes for video processing
+class VideoInfo {
+  final Duration duration;
+  final Size resolution;
+  final double fileSizeMB;
+  final int? currentBitrate;
+  final double frameRate;
+  
+  VideoInfo({
+    required this.duration,
+    required this.resolution,
+    required this.fileSizeMB,
+    this.currentBitrate,
+    required this.frameRate,
+  });
+  
+  @override
+  String toString() {
+    return 'Duration: ${duration.inSeconds}s, Resolution: ${resolution.width}x${resolution.height}, '
+           'Size: ${fileSizeMB.toStringAsFixed(1)}MB, Bitrate: ${currentBitrate ?? 'unknown'}kbps, '
+           'FPS: ${frameRate.toStringAsFixed(1)}';
+  }
+}
+
+class OptimizationSettings {
+  final int crf;
+  final String preset;
+  final int maxBitrate;
+  final int audioBitrate;
+  final String videoFilter;
+  
+  OptimizationSettings({
+    required this.crf,
+    required this.preset,
+    required this.maxBitrate,
+    required this.audioBitrate,
+    required this.videoFilter,
+  });
+  
+  @override
+  String toString() {
+    return 'CRF: $crf, Preset: $preset, MaxBitrate: ${maxBitrate}k, Audio: ${audioBitrate}k';
   }
 }
