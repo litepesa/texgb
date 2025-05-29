@@ -64,9 +64,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Media selection
   bool _isVideoMode = true;
   File? _videoFile;
+  VideoInfo? _videoInfo; // Store video info for later optimization
   List<File> _imageFiles = [];
   VideoPlayerController? _videoPlayerController;
   bool _isVideoPlaying = false;
+  
+  // Optimization state
+  bool _isOptimizing = false;
+  double _optimizationProgress = 0.0;
   
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
@@ -162,9 +167,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   }
 
   Future<void> _processAndSetVideo(File videoFile) async {
-    print('DEBUG: Starting optimal quality-size processing');
+    print('DEBUG: Processing video for immediate display');
     
-    // Get video info for smart decisions
+    // Get video info for later optimization and trim decisions
     final videoInfo = await _analyzeVideo(videoFile);
     print('DEBUG: Video analysis - ${videoInfo.toString()}');
     
@@ -282,11 +287,26 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       print('DEBUG: Executing optimal compression');
       print('DEBUG: Command: $command');
       
+      // Simulate progress updates during optimization
+      final progressTimer = Timer.periodic(const Duration(milliseconds: 300), (timer) {
+        if (mounted && _isOptimizing) {
+          setState(() {
+            _optimizationProgress = (_optimizationProgress + 0.05).clamp(0.0, 0.9);
+          });
+        } else {
+          timer.cancel();
+        }
+      });
+      
       final session = await FFmpegKit.execute(command);
+      progressTimer.cancel();
+      
       final returnCode = await session.getReturnCode();
       final logs = await session.getLogsAsString();
       
       if (ReturnCode.isSuccess(returnCode)) {
+        setState(() => _optimizationProgress = 1.0);
+        
         final outputFile = File(outputPath);
         if (await outputFile.exists()) {
           final originalSizeMB = info.fileSizeMB;
@@ -549,6 +569,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       _videoPlayerController = null;
     }
     _videoFile = null;
+    _videoInfo = null;
   }
 
   void _togglePlayPause() {
@@ -611,7 +632,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           child: const Text('Use Full Video'),
           onPressed: () async {
             Navigator.of(context).pop();
-            await _processVideoDirectly(videoFile, videoInfo);
+            await _setVideoDirectly(videoFile, videoInfo);
           },
         ),
         TextButton(
@@ -637,21 +658,19 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     );
   }
 
-  // Process video directly without trimming (for videos under 5 minutes)
-  Future<void> _processVideoDirectly(File videoFile, VideoInfo videoInfo) async {
-    print('DEBUG: Processing video directly without trimming');
-    
-    // Always process for optimal quality-size ratio
-    final optimizedVideo = await _optimizeVideoQualitySize(videoFile, videoInfo);
+  // NEW: Set video directly without optimization for immediate display
+  Future<void> _setVideoDirectly(File videoFile, VideoInfo videoInfo) async {
+    print('DEBUG: Setting video directly for immediate display');
     
     setState(() {
-      _videoFile = optimizedVideo ?? videoFile;
+      _videoFile = videoFile;
+      _videoInfo = videoInfo; // Store for later optimization
       _isVideoMode = true;
       _imageFiles = [];
     });
     
     await _initializeVideoPlayer();
-    print('DEBUG: Direct processing complete');
+    print('DEBUG: Video set successfully - ready for user interaction');
   }
 
   void _showManualTrimScreen(File videoFile, VideoInfo videoInfo) {
@@ -677,8 +696,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       // Cache the trimmed file for efficient access
       final cachedFile = await _cacheVideoFile(trimmedFile);
       
+      // Analyze the trimmed video for later optimization
+      final trimmedVideoInfo = await _analyzeVideo(cachedFile);
+      
       setState(() {
         _videoFile = cachedFile;
+        _videoInfo = trimmedVideoInfo; // Store for later optimization
         _isVideoMode = true;
         _imageFiles = [];
       });
@@ -785,7 +808,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  void _submitForm() {
+  // NEW: Modified submit form to handle optimization during post
+  void _submitForm() async {
     print('DEBUG: Form submission started');
     
     if (_formKey.currentState!.validate()) {
@@ -815,9 +839,34 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       print('DEBUG: Submitting ${_isVideoMode ? 'video' : 'images'}');
       
       if (_isVideoMode) {
+        // Optimize video before upload if we have video info
+        File videoToUpload = _videoFile!;
+        
+        if (_videoInfo != null) {
+          setState(() {
+            _isOptimizing = true;
+            _optimizationProgress = 0.0;
+          });
+          
+          print('DEBUG: Optimizing video before upload...');
+          final optimizedVideo = await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
+          
+          setState(() {
+            _isOptimizing = false;
+            _optimizationProgress = 0.0;
+          });
+          
+          if (optimizedVideo != null) {
+            videoToUpload = optimizedVideo;
+            print('DEBUG: Using optimized video for upload');
+          } else {
+            print('DEBUG: Using original video for upload');
+          }
+        }
+        
         channelVideosNotifier.uploadVideo(
           channel: userChannel,
-          videoFile: _videoFile!,
+          videoFile: videoToUpload,
           caption: _captionController.text,
           tags: tags,
           onSuccess: (message) {
@@ -907,11 +956,13 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         actions: [
           if (_isVideoMode && _videoFile != null || !_isVideoMode && _imageFiles.isNotEmpty)
             TextButton(
-              onPressed: channelVideosState.isUploading ? null : _submitForm,
+              onPressed: (channelVideosState.isUploading || _isOptimizing) ? null : _submitForm,
               child: Text(
-                'Post',
+                _isOptimizing ? 'Optimizing...' : (channelVideosState.isUploading ? 'Uploading...' : 'Post'),
                 style: TextStyle(
-                  color: modernTheme.primaryColor,
+                  color: (channelVideosState.isUploading || _isOptimizing) 
+                      ? modernTheme.textSecondaryColor 
+                      : modernTheme.primaryColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -995,6 +1046,60 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 
               const SizedBox(height: 24),
               
+              // Optimization progress indicator (NEW)
+              if (_isOptimizing)
+                Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor!.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: modernTheme.primaryColor!.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.video_settings,
+                                color: modernTheme.primaryColor,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Optimizing video for best quality...',
+                                style: TextStyle(
+                                  color: modernTheme.textColor,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          LinearProgressIndicator(
+                            value: _optimizationProgress,
+                            backgroundColor: modernTheme.borderColor,
+                            valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${(_optimizationProgress * 100).toStringAsFixed(0)}% complete',
+                            style: TextStyle(
+                              color: modernTheme.textSecondaryColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              
               // Upload progress indicator
               if (channelVideosState.isUploading)
                 Column(
@@ -1039,7 +1144,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   }
                   return null;
                 },
-                enabled: !channelVideosState.isUploading,
+                enabled: !channelVideosState.isUploading && !_isOptimizing,
               ),
               
               const SizedBox(height: 16),
@@ -1058,7 +1163,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ),
                   hintText: 'e.g. sports, travel, music',
                 ),
-                enabled: !channelVideosState.isUploading,
+                enabled: !channelVideosState.isUploading && !_isOptimizing,
               ),
               
               const SizedBox(height: 24),
@@ -1067,16 +1172,18 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: channelVideosState.isUploading ? null : _submitForm,
+                  onPressed: (channelVideosState.isUploading || _isOptimizing) ? null : _submitForm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: modernTheme.primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
                   ),
-                  child: channelVideosState.isUploading
-                      ? const Text('Uploading...')
-                      : const Text('Post Content'),
+                  child: _isOptimizing
+                      ? const Text('Optimizing Video...')
+                      : (channelVideosState.isUploading
+                          ? const Text('Uploading...')
+                          : const Text('Post Content')),
                 ),
               ),
               
@@ -1106,24 +1213,26 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _pickVideoFromGallery,
+              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickVideoFromGallery : null,
               icon: const Icon(Icons.photo_library),
               label: const Text('Select from Gallery'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
               ),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: _captureVideoFromCamera,
+              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _captureVideoFromCamera : null,
               icon: const Icon(Icons.videocam),
               label: const Text('Record Video'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
               ),
             ),
           ],
@@ -1163,16 +1272,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             bottom: 16,
             right: 16,
             child: IconButton(
-              onPressed: _pickVideoFromGallery,
+              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickVideoFromGallery : null,
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.5),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.edit,
-                  color: Colors.white,
+                  color: (_isOptimizing || ref.watch(channelVideosProvider).isUploading) ? Colors.grey : Colors.white,
                   size: 20,
                 ),
               ),
@@ -1234,13 +1343,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _pickImages,
+              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickImages : null,
               icon: const Icon(Icons.add_photo_alternate),
               label: const Text('Select from Gallery'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
               ),
             ),
             const SizedBox(height: 8),
@@ -1269,11 +1379,13 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 ),
               ),
               TextButton.icon(
-                onPressed: _pickImages,
+                onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickImages : null,
                 icon: const Icon(Icons.add_photo_alternate),
                 label: const Text('Change'),
                 style: TextButton.styleFrom(
-                  foregroundColor: modernTheme.primaryColor,
+                  foregroundColor: (_isOptimizing || ref.watch(channelVideosProvider).isUploading) 
+                      ? modernTheme.textSecondaryColor 
+                      : modernTheme.primaryColor,
                 ),
               ),
             ],
@@ -1322,20 +1434,20 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     top: 4,
                     right: 4,
                     child: GestureDetector(
-                      onTap: () {
+                      onTap: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? () {
                         setState(() {
                           _imageFiles.removeAt(index);
                         });
-                      },
+                      } : null,
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.7),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.close,
-                          color: Colors.white,
+                          color: (_isOptimizing || ref.watch(channelVideosProvider).isUploading) ? Colors.grey : Colors.white,
                           size: 12,
                         ),
                       ),

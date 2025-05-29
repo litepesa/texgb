@@ -122,18 +122,21 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
       _startSecController.text = validSeconds.toString().padLeft(2, '0');
     }
     
-    _startTime = Duration(minutes: minutes, seconds: validSeconds);
+    final newStartTime = Duration(minutes: minutes, seconds: validSeconds);
     
     // Ensure start time doesn't exceed video duration
-    if (_startTime >= widget.videoInfo.duration) {
+    if (newStartTime >= widget.videoInfo.duration) {
       _startTime = widget.videoInfo.duration - const Duration(seconds: 1);
       _startMinController.text = _startTime.inMinutes.toString();
       _startSecController.text = (_startTime.inSeconds % 60).toString().padLeft(2, '0');
+    } else {
+      _startTime = newStartTime;
     }
     
-    // Ensure start time is before end time
-    if (_startTime >= _endTime) {
+    // Only adjust end time if it's now before the new start time
+    if (_endTime <= _startTime) {
       _endTime = _startTime + const Duration(seconds: 1);
+      // Make sure we don't exceed video duration
       if (_endTime > widget.videoInfo.duration) {
         _endTime = widget.videoInfo.duration;
       }
@@ -154,20 +157,26 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
       _endSecController.text = validSeconds.toString().padLeft(2, '0');
     }
     
-    _endTime = Duration(minutes: minutes, seconds: validSeconds);
+    final newEndTime = Duration(minutes: minutes, seconds: validSeconds);
     
-    // Ensure end time doesn't exceed video duration
-    if (_endTime > widget.videoInfo.duration) {
+    // Check if the new end time is valid
+    if (newEndTime > widget.videoInfo.duration) {
+      // If exceeds video duration, set to video duration
       _endTime = widget.videoInfo.duration;
       _endMinController.text = _endTime.inMinutes.toString();
       _endSecController.text = (_endTime.inSeconds % 60).toString().padLeft(2, '0');
-    }
-    
-    // Ensure end time is after start time
-    if (_endTime <= _startTime) {
+    } else if (newEndTime <= _startTime) {
+      // If end time is before or equal to start time, set it to start time + 1 second
       _endTime = _startTime + const Duration(seconds: 1);
+      // Make sure we don't exceed video duration
+      if (_endTime > widget.videoInfo.duration) {
+        _endTime = widget.videoInfo.duration;
+      }
       _endMinController.text = _endTime.inMinutes.toString();
       _endSecController.text = (_endTime.inSeconds % 60).toString().padLeft(2, '0');
+    } else {
+      // Valid end time, use it
+      _endTime = newEndTime;
     }
     
     setState(() {});
