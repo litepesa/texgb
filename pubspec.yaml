@@ -94,6 +94,7 @@ dependencies:
   audio_session: ^0.2.2
   dio: ^5.8.0+1
   volume_controller: ^3.4.0
+  device_info_plus: ^11.3.0
 
   
 
