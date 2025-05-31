@@ -5,18 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/constants.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
+import 'package:audio_session/audio_session.dart';
 
 class ChannelVideoItem extends ConsumerStatefulWidget {
   final ChannelVideoModel video;
   final bool isActive;
-  final Function(VideoPlayerController)? onVideoControllerReady;
-  final VideoPlayerController? preloadedController;
+  final Function(Player)? onVideoControllerReady;
+  final Player? preloadedController;
   final bool isLoading;
   final bool hasFailed;
   
@@ -37,7 +39,8 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
 class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
 
-  VideoPlayerController? _videoPlayerController;
+  Player? _player;
+  VideoController? _videoController;
   bool _isInitialized = false;
   bool _isPlaying = false;
   int _currentImageIndex = 0;
@@ -105,12 +108,13 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
 
   void _cleanupCurrentController(ChannelVideoItem oldWidget) {
     if (_isInitialized && 
-        _videoPlayerController != null && 
+        _player != null && 
         oldWidget.preloadedController == null) {
-      _videoPlayerController!.dispose();
+      _player!.dispose();
     }
     
-    _videoPlayerController = null;
+    _player = null;
+    _videoController = null;
     _isInitialized = false;
   }
 
@@ -136,10 +140,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       return;
     }
     
-    await _initializeVideoWithCache();
+    await _initializeVideoWithMediaKit();
   }
 
-  Future<void> _initializeVideoWithCache() async {
+  Future<void> _initializeVideoWithMediaKit() async {
     if (_isInitializing) return;
     
     try {
@@ -147,7 +151,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         _isInitializing = true;
       });
 
-      debugPrint('Initializing video with cache: ${widget.video.videoUrl}');
+      debugPrint('Initializing MediaKit video with amplification: ${widget.video.videoUrl}');
+
+      // Configure mobile audio session for maximum amplification
+      await _configureMobileAudioSession();
 
       // Use preloaded controller if available
       if (widget.preloadedController != null) {
@@ -158,29 +165,25 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         try {
           if (await _cacheService.isVideoCached(widget.video.videoUrl)) {
             cachedFile = await _cacheService.getCachedVideo(widget.video.videoUrl);
-            debugPrint('Using cached video: ${cachedFile.path}');
+            debugPrint('Using cached video for MediaKit: ${cachedFile.path}');
           } else {
-            debugPrint('Video not cached, downloading: ${widget.video.videoUrl}');
-            cachedFile = await _cacheService.preloadVideo(widget.video.videoUrl);
+            debugPrint('Video not cached, using network URL with MediaKit: ${widget.video.videoUrl}');
+            // Start caching in background
+            _cacheService.preloadVideo(widget.video.videoUrl);
           }
         } catch (e) {
           debugPrint('Cache error, falling back to network: $e');
         }
 
-        // Initialize video player with cached file or network URL
-        if (cachedFile != null && await cachedFile.exists()) {
-          await _createControllerFromFile(cachedFile);
-        } else {
-          debugPrint('Fallback to network video');
-          await _createControllerFromNetwork();
-        }
+        // Initialize MediaKit player
+        await _createMediaKitPlayer(cachedFile);
       }
       
-      if (_videoPlayerController != null && mounted) {
-        await _setupVideoController();
+      if (_player != null && mounted) {
+        await _setupMediaKitController();
       }
     } catch (e) {
-      debugPrint('Video initialization failed: $e');
+      debugPrint('MediaKit video initialization failed: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -190,74 +193,100 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     }
   }
 
-  Future<void> _usePreloadedController() async {
-    _videoPlayerController = widget.preloadedController;
-    
-    if (!_videoPlayerController!.value.isInitialized) {
-      await _videoPlayerController!.initialize();
+  Future<void> _configureMobileAudioSession() async {
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(AudioSessionConfiguration(
+        // iOS Configuration for maximum audio performance
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+        avAudioSessionMode: AVAudioSessionMode.moviePlayback,
+        
+        // Android Configuration for enhanced audio
+        androidAudioAttributes: const AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.movie,
+          flags: AndroidAudioFlags.audibilityEnforced,
+          usage: AndroidAudioUsage.media,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
+        androidWillPauseWhenDucked: false,
+      ));
+      
+      debugPrint('Mobile audio session configured for amplification');
+    } catch (e) {
+      debugPrint('Audio session configuration failed: $e');
     }
   }
 
-  Future<void> _createControllerFromFile(File videoFile) async {
-    _videoPlayerController = VideoPlayerController.file(
-      videoFile,
-      videoPlayerOptions: VideoPlayerOptions(
-        allowBackgroundPlayback: false,
-        mixWithOthers: false,
-      ),
-    );
+  Future<void> _usePreloadedController() async {
+    _player = widget.preloadedController;
+    _videoController = VideoController(_player!);
     
-    await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 10),
-    );
+    // Apply aggressive audio amplification to preloaded controller
+    await _player!.setVolume(400.0); // 400% amplification
+    debugPrint('Applied 400% audio amplification to preloaded MediaKit player');
   }
 
-  Future<void> _createControllerFromNetwork() async {
-    _videoPlayerController = VideoPlayerController.networkUrl(
-      Uri.parse(widget.video.videoUrl),
-      videoPlayerOptions: VideoPlayerOptions(
-        allowBackgroundPlayback: false,
-        mixWithOthers: false,
-      ),
-    );
+  Future<void> _createMediaKitPlayer(File? videoFile) async {
+    _player = Player();
+    _videoController = VideoController(_player!);
     
-    await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 10),
-    );
+    // Configure MediaKit player for optimal mobile performance
+    await _player!.setPlaylistMode(PlaylistMode.single);
+    //await _player!.setAudioDevice(AudioDevice.auto());
+    
+    // AGGRESSIVE AUDIO AMPLIFICATION - TikTok Style
+    await _player!.setVolume(400.0); // 400% volume boost!
+    debugPrint('MediaKit player configured with 400% audio amplification');
+    
+    // Load video from cached file or network
+    if (videoFile != null && await videoFile.exists()) {
+      await _player!.open(Media(videoFile.path));
+      debugPrint('MediaKit loaded cached video: ${videoFile.path}');
+    } else {
+      await _player!.open(Media(widget.video.videoUrl));
+      debugPrint('MediaKit loaded network video: ${widget.video.videoUrl}');
+    }
   }
 
-  Future<void> _setupVideoController() async {
-    _videoPlayerController!.setLooping(true);
+  Future<void> _setupMediaKitController() async {
+    // Set looping for continuous playback
+    await _player!.setPlaylistMode(PlaylistMode.loop);
     
     setState(() {
       _isInitialized = true;
     });
     
     if (widget.isActive) {
-      _videoPlayerController!.seekTo(Duration.zero);
+      await _player!.seek(Duration.zero);
       _playVideo();
     }
     
+    // Notify parent that MediaKit controller is ready
     if (widget.onVideoControllerReady != null) {
-      widget.onVideoControllerReady!(_videoPlayerController!);
+      widget.onVideoControllerReady!(_player!);
     }
+    
+    debugPrint('MediaKit video setup complete with audio amplification');
   }
 
   void _playVideo() {
-    if (_isInitialized && _videoPlayerController != null) {
-      _videoPlayerController!.play();
+    if (_isInitialized && _player != null) {
+      _player!.play();
       setState(() {
         _isPlaying = true;
       });
+      debugPrint('MediaKit video playing with amplified audio');
     }
   }
 
   void _pauseVideo() {
-    if (_isInitialized && _videoPlayerController != null) {
-      _videoPlayerController!.pause();
+    if (_isInitialized && _player != null) {
+      _player!.pause();
       setState(() {
         _isPlaying = false;
       });
+      debugPrint('MediaKit video paused');
     }
   }
 
@@ -269,8 +298,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     if (_isPlaying) {
       _pauseVideo();
     } else {
-      if (_videoPlayerController != null) {
-        _videoPlayerController!.seekTo(Duration.zero);
+      if (_player != null) {
+        _player!.seek(Duration.zero);
       }
       _playVideo();
     }
@@ -307,11 +336,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     _heartScaleController.dispose();
     
     if (_isInitialized && 
-        _videoPlayerController != null && 
+        _player != null && 
         widget.preloadedController == null) {
-      _videoPlayerController!.dispose();
+      _player!.dispose();
     }
-    _videoPlayerController = null;
+    _player = null;
+    _videoController = null;
     super.dispose();
   }
 
@@ -453,7 +483,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     if (widget.video.isMultipleImages) {
       return _buildImageCarousel(modernTheme);
     } else {
-      return _buildVideoPlayer(modernTheme);
+      return _buildMediaKitVideoPlayer(modernTheme);
     }
   }
 
@@ -504,8 +534,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  Widget _buildVideoPlayer(ModernThemeExtension modernTheme) {
-    if (!_isInitialized) {
+  Widget _buildMediaKitVideoPlayer(ModernThemeExtension modernTheme) {
+    if (!_isInitialized || _videoController == null) {
       return Container(
         width: double.infinity,
         height: double.infinity,
@@ -517,21 +547,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     }
     
     return SizedBox.expand(
-      child: _buildFullScreenVideo(),
-    );
-  }
-
-  Widget _buildFullScreenVideo() {
-    final controller = _videoPlayerController!;
-    
-    return SizedBox.expand(
-      child: FittedBox(
+      child: Video(
+        controller: _videoController!,
         fit: BoxFit.cover,
-        child: SizedBox(
-          width: controller.value.size.width,
-          height: controller.value.size.height,
-          child: VideoPlayer(controller),
-        ),
+        controls: NoVideoControls, // Hide controls for TikTok-style experience
       ),
     );
   }

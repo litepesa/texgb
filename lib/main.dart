@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart'; // Added MediaKit import
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
@@ -52,6 +53,9 @@ final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRout
 void main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize MediaKit for enhanced video playback with audio amplification
+  MediaKit.ensureInitialized();
   
   // Initialize Firebase
   await Firebase.initializeApp(

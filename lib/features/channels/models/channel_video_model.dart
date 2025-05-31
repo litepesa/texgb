@@ -96,6 +96,12 @@ class ChannelVideoModel {
     );
   }
 
+  get duration => null;
+
+  get title => null;
+
+  get fileSize => null;
+
   ChannelVideoModel copyWith({
     String? id,
     String? channelId,
