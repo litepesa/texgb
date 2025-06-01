@@ -223,8 +223,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     _videoController = VideoController(_player!);
     
     // Apply aggressive audio amplification to preloaded controller
-    await _player!.setVolume(400.0); // 400% amplification
-    debugPrint('Applied 400% audio amplification to preloaded MediaKit player');
+    await _player!.setVolume(200.0); // 200% amplification
+    debugPrint('Applied 200% audio amplification to preloaded MediaKit player');
   }
 
   Future<void> _createMediaKitPlayer(File? videoFile) async {
@@ -236,8 +236,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     //await _player!.setAudioDevice(AudioDevice.auto());
     
     // AGGRESSIVE AUDIO AMPLIFICATION - TikTok Style
-    await _player!.setVolume(400.0); // 400% volume boost!
-    debugPrint('MediaKit player configured with 400% audio amplification');
+    await _player!.setVolume(200.0); // 200% volume boost!
+    debugPrint('MediaKit player configured with 200% audio amplification');
     
     // Load video from cached file or network
     if (videoFile != null && await videoFile.exists()) {

@@ -289,4 +289,6 @@ class VideoCacheService {
     }
     _preloadCompleters.clear();
   }
+
+  void preloadVideoWithAudioProcessing(String videoUrl) {}
 }

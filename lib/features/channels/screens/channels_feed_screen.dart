@@ -366,7 +366,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       await player.setAudioFilter('dynaudnorm=f=500:g=31:p=0.95:m=5.0:r=1.0:n=1:c=1:b=1');
       
       // Set volume to let the normalization do most of the work
-      player.setVolume(300.0); // High base, normalization will adjust
+      player.setVolume(200.0); // High base, normalization will adjust
       
       debugPrint('✅ Applied smart auto-normalizing filter - will boost quiet videos and control loud ones');
       
@@ -379,7 +379,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       
     } catch (e) {
       debugPrint('⚠️ Progressive adjustment failed: $e');
-      player.setVolume(400.0); // Fallback to your original 400%
+      player.setVolume(200.0); // Fallback to your original 200%
     }
   }
 
@@ -392,8 +392,8 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       debugPrint('🔊 Applied aggressive boost for quiet content');
     } catch (e) {
       // If filters fail, just use high volume
-      player.setVolume(400.0);
-      debugPrint('🔊 Using 400% volume fallback for quiet content');
+      player.setVolume(200.0);
+      debugPrint('🔊 Using 200% volume fallback for quiet content');
     }
   }
 
@@ -403,13 +403,13 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     try {
       // This filter automatically detects quiet vs loud content and adjusts
       player.setAudioFilter('dynaudnorm=f=500:g=31:p=0.95:m=10.0:r=0.5:n=1:c=1:b=1');
-      player.setVolume(250.0);
+      player.setVolume(200.0);
       
       debugPrint('✅ Fallback: Using auto-adaptive normalization');
     } catch (e) {
       // Last resort: Your original 400% boost
-      player.setVolume(400.0);
-      debugPrint('🔊 Last resort: 400% volume boost');
+      player.setVolume(200.0);
+      debugPrint('🔊 Last resort: 200% volume boost');
     }
   }
 
