@@ -246,12 +246,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       setState(() {
         _isOptimizing = true;
-        _optimizationStatus = 'Applying premium loud audio processing...';
+        _optimizationStatus = 'Optimizing video...';
         _optimizationProgress = 0.0;
       });
 
       setState(() {
-        _optimizationStatus = 'Enhancing audio for premium loud sound...';
+        _optimizationStatus = 'Optimizing video...';
         _optimizationProgress = 0.3;
       });
 
@@ -261,7 +261,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           '-crf 23 '                     // High quality video
           '-preset medium '              // Balanced encoding
           '-profile:v high '             // H.264 High Profile
-          '-r 30 '                       // 30fps
           '-c:a aac '                    // AAC audio
           '-b:a 128k '                   // High quality audio
           '-ar 48000 '                   // 48kHz sample rate
@@ -273,7 +272,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       print('DEBUG: FFmpeg premium loud command: ffmpeg $loudCommand');
 
       setState(() {
-        _optimizationStatus = 'Encoding premium loud audio...';
+        _optimizationStatus = 'Optimizing video...';
         _optimizationProgress = 0.6;
       });
 
@@ -297,8 +296,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               _isOptimizing = false;
               _optimizationProgress = 1.0;
               _optimizationStatus = ReturnCode.isSuccess(returnCode) 
-                  ? 'Premium loud -10 LUFS completed! 🎵✨'
-                  : 'Processing failed';
+                  ? 'Video optimized successfully!'
+                  : 'Optimization failed';
             });
           }
           // Complete the future when processing is actually done
@@ -335,7 +334,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         final newSizeMB = await outputFile.length() / (1024 * 1024);
         final compressionRatio = ((originalSizeMB - newSizeMB) / originalSizeMB * 100);
         
-        print('DEBUG: Premium loud -10 LUFS processing successful!');
+        print('DEBUG: Video optimization successful!');
         print('DEBUG: Original: ${originalSizeMB.toStringAsFixed(1)}MB → New: ${newSizeMB.toStringAsFixed(1)}MB');
         print('DEBUG: Compression: ${compressionRatio.toStringAsFixed(1)}% smaller');
         
@@ -352,16 +351,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         return outputFile;
       }
       
-      print('DEBUG: Premium loud processing failed - output file not found');
+      print('DEBUG: Video optimization failed - output file not found');
       return null;
       
     } catch (e) {
-      print('DEBUG: Premium loud processing error: $e');
+      print('DEBUG: Video optimization error: $e');
       if (mounted) {
         setState(() {
           _isOptimizing = false;
           _optimizationProgress = 0.0;
-          _optimizationStatus = 'Processing failed';
+          _optimizationStatus = 'Optimization failed';
         });
         
         // Hide error status after a delay
@@ -873,6 +872,39 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               
               const SizedBox(height: 24),
               
+              // Video length tip
+              if (_isVideoMode)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: modernTheme.primaryColor!.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: modernTheme.primaryColor!.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: modernTheme.primaryColor,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Max 5 minutes • Videos under 1 minute perform better',
+                          style: TextStyle(
+                            color: modernTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
               // Media preview or picker
               _isVideoMode
                   ? (_videoFile == null
@@ -882,7 +914,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 
               const SizedBox(height: 24),
               
-              // Premium Loud Audio Processing (-10 LUFS)
+              // Video optimization progress
               if (_isOptimizing)
                 Column(
                   children: [
@@ -900,7 +932,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           Row(
                             children: [
                               Icon(
-                                Icons.high_quality,
+                                Icons.settings,
                                 color: modernTheme.primaryColor,
                                 size: 20,
                               ),
@@ -908,7 +940,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                               Expanded(
                                 child: Text(
                                   _optimizationStatus.isEmpty 
-                                      ? 'Premium loud audio processing...'
+                                      ? 'Optimizing video...'
                                       : _optimizationStatus,
                                   style: TextStyle(
                                     color: modernTheme.textColor,
@@ -926,25 +958,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${(_optimizationProgress * 100).toStringAsFixed(0)}% complete',
-                                style: TextStyle(
-                                  color: modernTheme.textSecondaryColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Text(
-                                '🎵✨ -10 LUFS PREMIUM',
-                                style: TextStyle(
-                                  color: modernTheme.primaryColor,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            '${(_optimizationProgress * 100).toStringAsFixed(0)}% complete',
+                            style: TextStyle(
+                              color: modernTheme.textSecondaryColor,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -1033,7 +1052,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
                   ),
                   child: _isOptimizing
-                      ? const Text('Premium Audio Processing...')
+                      ? const Text('Optimizing...')
                       : (channelVideosState.isUploading
                           ? const Text('Uploading...')
                           : const Text('Post Content')),
