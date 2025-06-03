@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +14,6 @@ import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path/path.dart' as path;
-
 
 // Data classes for video processing - shared with VideoTrimScreen
 class VideoInfo {
@@ -72,6 +70,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Optimization state
   bool _isOptimizing = false;
   double _optimizationProgress = 0.0;
+  String _optimizationStatus = '';
   
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
@@ -239,296 +238,143 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
+  // Premium Loud Audio Processing - Best Sound Quality at -10 LUFS
   Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
       final outputPath = '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
       
-      // Determine optimal settings based on content
-      final settings = _calculateOptimalSettings(info);
-      print('DEBUG: Using optimization settings: $settings');
-      
-      // Build FFmpeg command for optimal quality-size ratio
-      String command = '-y -i "${inputFile.path}" ';
-      
-      // Video encoding - optimal quality/size balance
-      command += '-c:v libx264 '                           // H.264 for best compatibility
-          '-preset ${settings.preset} '             // Better compression than fast
-          '-crf ${settings.crf} '                   // Constant Rate Factor for quality
-          '-maxrate ${settings.maxBitrate}k '       // Peak bitrate limit
-          '-bufsize ${settings.maxBitrate * 2}k ';  // Buffer size (2x maxrate)
-      
-      // Video filters for quality optimization
-      if (settings.videoFilter.isNotEmpty) {
-        command += '-vf "${settings.videoFilter}" ';
-      }
-      
-      // Audio filters for professional loudness normalization
-      if (settings.audioFilter.isNotEmpty) {
-        command += '-af "${settings.audioFilter}" ';
-      }
-      
-      // Audio encoding - premium quality for content creation
-      command += '-c:a aac '                               // Best audio codec
-          '-b:a ${settings.audioBitrate}k '         // High-quality audio bitrate
-          '-ar 48000 '                             // Professional 48kHz sample rate
-          '-ac 2 '                                 // Stereo channels
-          '-profile:a aac_he_v2 '                  // HE-AAC v2 for efficiency at high bitrates
-          
-          // Optimization flags
-          '-movflags +faststart '                  // Web streaming optimization
-          '-profile:v high '                       // H.264 high profile
-          '-level:v 4.1 '                         // Compatibility level
-          '-pix_fmt yuv420p '                     // Color format compatibility
-          
-          // Output
-          '-f mp4 "${outputPath}"';
-      
-      print('DEBUG: Executing optimal compression');
-      print('DEBUG: Command: $command');
-      
-      // Simulate progress updates during optimization
-      final progressTimer = Timer.periodic(const Duration(milliseconds: 300), (timer) {
-        if (mounted && _isOptimizing) {
-          setState(() {
-            _optimizationProgress = (_optimizationProgress + 0.05).clamp(0.0, 0.9);
-          });
-        } else {
-          timer.cancel();
-        }
+      setState(() {
+        _isOptimizing = true;
+        _optimizationStatus = 'Applying premium loud audio processing...';
+        _optimizationProgress = 0.0;
       });
+
+      setState(() {
+        _optimizationStatus = 'Enhancing audio for premium loud sound...';
+        _optimizationProgress = 0.3;
+      });
+
+      // Premium loud audio - balanced for best sound quality at high volume
+      final loudCommand = '-y -i "${inputFile.path}" '
+          '-c:v libx264 '                // H.264 for compatibility
+          '-crf 23 '                     // High quality video
+          '-preset medium '              // Balanced encoding
+          '-profile:v high '             // H.264 High Profile
+          '-r 30 '                       // 30fps
+          '-c:a aac '                    // AAC audio
+          '-b:a 128k '                   // High quality audio
+          '-ar 48000 '                   // 48kHz sample rate
+          '-ac 2 '                       // Stereo
+          '-af "volume=2.2,equalizer=f=60:width_type=h:width=2:g=3,equalizer=f=150:width_type=h:width=2:g=2,equalizer=f=8000:width_type=h:width=2:g=1,compand=attacks=0.2:decays=0.4:points=-80/-80|-50/-20|-30/-15|-20/-10|-5/-5|0/-2|20/-2,highpass=f=40,lowpass=f=15000,loudnorm=I=-10:TP=-1.5:LRA=7:linear=true" '
+          '-movflags +faststart '        // Optimize for streaming
+          '-f mp4 "$outputPath"';
+
+      print('DEBUG: FFmpeg premium loud command: ffmpeg $loudCommand');
+
+      setState(() {
+        _optimizationStatus = 'Encoding premium loud audio...';
+        _optimizationProgress = 0.6;
+      });
+
+      // Get video duration for real progress calculation
+      final videoDurationMs = info.duration.inMilliseconds;
+      print('DEBUG: Video duration: ${videoDurationMs}ms for progress calculation');
       
-      final session = await FFmpegKit.execute(command);
-      progressTimer.cancel();
+      // Create a completer to properly wait for async completion
+      final Completer<void> processingCompleter = Completer<void>();
       
-      final returnCode = await session.getReturnCode();
-      final logs = await session.getLogsAsString();
-      
-      if (ReturnCode.isSuccess(returnCode)) {
-        setState(() => _optimizationProgress = 1.0);
-        
-        final outputFile = File(outputPath);
-        if (await outputFile.exists()) {
-          final originalSizeMB = info.fileSizeMB;
-          final newSizeMB = await outputFile.length() / (1024 * 1024);
-          final compressionRatio = ((originalSizeMB - newSizeMB) / originalSizeMB * 100);
+      // Execute with real progress tracking using async
+      FFmpegKit.executeAsync(
+        loudCommand,
+        (session) async {
+          // Completion callback - this is when processing actually finishes
+          print('DEBUG: FFmpeg execution completed');
+          final returnCode = await session.getReturnCode();
           
-          print('DEBUG: Optimization successful!');
-          print('DEBUG: Original: ${originalSizeMB.toStringAsFixed(1)}MB → New: ${newSizeMB.toStringAsFixed(1)}MB');
-          print('DEBUG: Compression: ${compressionRatio.toStringAsFixed(1)}% smaller');
-          
-          // Only use compressed version if it's actually smaller and reasonable
-          if (newSizeMB < originalSizeMB && compressionRatio > 10) {
-            return outputFile;
-          } else {
-            print('DEBUG: Compression not beneficial, using original');
-            return null;
+          if (mounted) {
+            setState(() {
+              _isOptimizing = false;
+              _optimizationProgress = 1.0;
+              _optimizationStatus = ReturnCode.isSuccess(returnCode) 
+                  ? 'Premium loud -10 LUFS completed! 🎵✨'
+                  : 'Processing failed';
+            });
           }
-        }
+          // Complete the future when processing is actually done
+          if (!processingCompleter.isCompleted) {
+            processingCompleter.complete();
+          }
+        },
+        (log) {
+          // Log callback (optional for debugging)
+          // print('DEBUG: FFmpeg log: ${log.getMessage()}');
+        },
+        (statistics) {
+          // Real progress statistics callback
+          if (mounted && _isOptimizing && statistics.getTime() > 0 && videoDurationMs > 0) {
+            final baseProgress = 0.6; // Start from 60%
+            final encodingProgress = (statistics.getTime() / videoDurationMs).clamp(0.0, 1.0);
+            final totalProgress = baseProgress + (encodingProgress * 0.4); // Remaining 40%
+            
+            setState(() {
+              _optimizationProgress = totalProgress.clamp(0.0, 1.0);
+            });
+            print('DEBUG: Real progress: ${(totalProgress * 100).toStringAsFixed(1)}%');
+          }
+        },
+      );
+      
+      // Wait for the actual processing to complete
+      await processingCompleter.future;
+      
+      // Now check the results after processing is truly complete
+      final outputFile = File(outputPath);
+      if (await outputFile.exists()) {
+        final originalSizeMB = info.fileSizeMB;
+        final newSizeMB = await outputFile.length() / (1024 * 1024);
+        final compressionRatio = ((originalSizeMB - newSizeMB) / originalSizeMB * 100);
+        
+        print('DEBUG: Premium loud -10 LUFS processing successful!');
+        print('DEBUG: Original: ${originalSizeMB.toStringAsFixed(1)}MB → New: ${newSizeMB.toStringAsFixed(1)}MB');
+        print('DEBUG: Compression: ${compressionRatio.toStringAsFixed(1)}% smaller');
+        
+        // Hide processing status after a delay
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _optimizationStatus = '';
+              _optimizationProgress = 0.0;
+            });
+          }
+        });
+        
+        return outputFile;
       }
       
-      print('DEBUG: Optimization failed - $logs');
+      print('DEBUG: Premium loud processing failed - output file not found');
       return null;
       
     } catch (e) {
-      print('DEBUG: Optimization error: $e');
+      print('DEBUG: Premium loud processing error: $e');
+      if (mounted) {
+        setState(() {
+          _isOptimizing = false;
+          _optimizationProgress = 0.0;
+          _optimizationStatus = 'Processing failed';
+        });
+        
+        // Hide error status after a delay
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _optimizationStatus = '';
+            });
+          }
+        });
+      }
       return null;
     }
-  }
-
-  OptimizationSettings _calculateOptimalSettings(VideoInfo info) {
-    int crf = 23; // Default excellent quality
-    String preset = 'medium';
-    int maxBitrate = 2500;
-    int audioBitrate = 192; // Start with high-quality audio (192kbps)
-    String videoFilter = '';
-    String audioFilter = '';
-    
-    // Professional loudness normalization for content creation
-    audioFilter = 'loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json';
-    print('DEBUG: Applied professional loudness normalization');
-    
-    // Camera-specific optimizations
-    bool isCameraVideo = _detectCameraVideo(info);
-    if (isCameraVideo) {
-      print('DEBUG: Camera video detected - applying camera optimizations');
-      // Camera videos often need more aggressive compression
-      crf = 24; // Slightly more compression for camera videos
-      preset = 'slow'; // Better compression for raw camera footage
-    }
-    
-    // Smart resolution decisions
-    final targetResolution = _determineTargetResolution(info);
-    print('DEBUG: Target resolution: ${targetResolution.width}x${targetResolution.height}');
-    
-    // Adjust based on target resolution (mobile-optimized)
-    if (targetResolution != info.resolution) {
-      // Need to downscale
-      videoFilter = 'scale=${targetResolution.width}:${targetResolution.height}:force_original_aspect_ratio=decrease';
-      
-      if (isCameraVideo && targetResolution.height <= 720) {
-        // Enhanced filters for mobile 720p from camera footage
-        videoFilter += ',deshake,hqdn3d=2:1:2:1,unsharp=5:5:1.2:5:5:0.0'; // Stabilize + denoise + sharpen more for mobile
-      }
-      
-      // Mobile-optimized bitrates with premium audio
-      if (targetResolution.height >= 1080) {
-        maxBitrate = 2500; // 1080p for mobile (rare case)
-        crf = 23;
-        audioBitrate = 256; // Premium audio for high-res video
-      } else if (targetResolution.height >= 720) {
-        maxBitrate = 1500; // 720p sweet spot for mobile
-        crf = 21; // Higher quality since we're downscaling
-        audioBitrate = 192; // High-quality audio (near lossless)
-      } else {
-        maxBitrate = 1000; // Lower resolutions
-        crf = 20;
-        audioBitrate = 160; // Still excellent audio for lower res
-      }
-    } else if (info.resolution.height <= 720) {
-      // Already 720p or lower - perfect for mobile
-      crf = 24; // Good compression for mobile
-      maxBitrate = 1200;
-      audioBitrate = 192; // Premium audio quality
-    }
-    
-    // Adjust based on current bitrate (preserve audio quality)
-    if (info.currentBitrate != null) {
-      if (info.currentBitrate! > 5000) {
-        // Very high bitrate - aggressive video compression but preserve audio
-        crf = 25;
-        maxBitrate = math.max(1000, maxBitrate - 500);
-        // Keep high audio bitrate even with aggressive video compression
-        audioBitrate = math.max(192, audioBitrate);
-      } else if (info.currentBitrate! < 1000) {
-        // Already low bitrate - gentle compression, enhance audio
-        crf = math.max(18, crf - 2);
-        maxBitrate = math.min(2000, maxBitrate + 300);
-        audioBitrate = 256; // Boost audio for low-bitrate sources
-      }
-    }
-    
-    // Adjust based on duration (maintain audio quality for longer content)
-    if (info.duration.inSeconds > 180) { // 3+ minutes
-      // Longer videos need more video compression but preserve audio quality
-      crf = math.min(28, crf + 2);
-      maxBitrate = math.max(800, maxBitrate - 300);
-      // Maintain high audio quality for longer content where audio matters more
-      audioBitrate = math.max(192, audioBitrate);
-    }
-    
-    // Adjust based on file size (balance compression while preserving audio)
-    if (info.fileSizeMB > 100) {
-      // Large files need aggressive video compression but keep premium audio
-      crf = 26;
-      preset = 'slow'; // Better compression for large files
-      maxBitrate = 1200;
-      audioBitrate = math.max(192, audioBitrate); // Maintain premium audio
-    } else if (info.fileSizeMB < 20) {
-      // Small files - prioritize quality including premium audio
-      crf = math.max(18, crf - 2);
-      maxBitrate = math.min(2000, maxBitrate + 500);
-      audioBitrate = 256; // Premium audio for small, high-quality files
-    }
-    
-    return OptimizationSettings(
-      crf: crf,
-      preset: preset,
-      maxBitrate: maxBitrate,
-      audioBitrate: audioBitrate,
-      videoFilter: videoFilter,
-      audioFilter: audioFilter,
-    );
-  }
-
-  // Smart resolution targeting optimized for mobile-only app
-  Size _determineTargetResolution(VideoInfo info) {
-    final currentRes = info.resolution;
-    
-    // Mobile-optimized strategy: Default to 720p for best experience
-    return _getMobileOptimizedResolution(info);
-  }
-
-  Size _getMobileOptimizedResolution(VideoInfo info) {
-    final currentWidth = info.resolution.width.toInt();
-    final currentHeight = info.resolution.height.toInt();
-    
-    print('DEBUG: Mobile-only app - optimizing for 720p target');
-    
-    // 4K+ videos: Always downscale to 720p (mobile doesn't need 4K)
-    if (currentHeight >= 2160 || currentWidth >= 3840) {
-      print('DEBUG: 4K+ video detected - downscaling to 720p for mobile');
-      return const Size(720, 1280); // Portrait 720p
-    }
-    
-    // 1080p videos: Default to 720p for mobile optimization
-    if (currentHeight >= 1080 || currentWidth >= 1920) {
-      
-      // Only keep 1080p in very specific cases for mobile
-      if (_shouldKeep1080pForMobile(info)) {
-        print('DEBUG: Keeping 1080p for mobile (special case)');
-        return Size(currentWidth.toDouble(), currentHeight.toDouble());
-      }
-      
-      print('DEBUG: Downscaling 1080p to 720p for optimal mobile experience');
-      return const Size(720, 1280); // Portrait 720p
-    }
-    
-    // 720p and below: Perfect for mobile, keep original
-    print('DEBUG: 720p or lower - optimal for mobile');
-    return Size(currentWidth.toDouble(), currentHeight.toDouble());
-  }
-
-  // Very selective criteria for keeping 1080p on mobile
-  bool _shouldKeep1080pForMobile(VideoInfo info) {
-    // Only keep 1080p if:
-    // 1. File is already very small (well optimized)
-    // 2. Short duration (quick to upload)
-    // 3. Low bitrate (already compressed)
-    
-    final isSmallFile = info.fileSizeMB < 15; // Very small file
-    final isShortVideo = info.duration.inSeconds < 30; // Very short
-    final isLowBitrate = (info.currentBitrate ?? 99999) < 3000; // Already compressed
-    
-    final shouldKeep = isSmallFile && isShortVideo && isLowBitrate;
-    
-    if (shouldKeep) {
-      print('DEBUG: 1080p mobile exception - small (${info.fileSizeMB.toStringAsFixed(1)}MB), short (${info.duration.inSeconds}s), low bitrate');
-    }
-    
-    return shouldKeep;
-  }
-
-  // Detect if video is likely from camera (vs downloaded/edited)
-  bool _detectCameraVideo(VideoInfo info) {
-    // Camera videos typically have:
-    // 1. Very high bitrates
-    // 2. Standard camera resolutions
-    // 3. Standard frame rates
-    
-    final isHighBitrate = (info.currentBitrate ?? 0) > 10000; // > 10 Mbps
-    final isCameraResolution = _isCameraResolution(info.resolution);
-    final isRecentlyCreated = true; // Could check file creation time
-    
-    return isHighBitrate && isCameraResolution;
-  }
-
-  bool _isCameraResolution(Size resolution) {
-    // Common camera resolutions
-    final commonCameraResolutions = [
-      Size(3840, 2160), // 4K
-      Size(2720, 1530), // 2.7K
-      Size(1920, 1080), // 1080p
-      Size(1280, 720),  // 720p
-      // Portrait versions
-      Size(2160, 3840), // 4K portrait
-      Size(1530, 2720), // 2.7K portrait
-      Size(1080, 1920), // 1080p portrait
-      Size(720, 1280),  // 720p portrait
-    ];
-    
-    return commonCameraResolutions.any((cameraRes) =>
-      (resolution.width == cameraRes.width && resolution.height == cameraRes.height));
   }
 
   Future<void> _pickImages() async {
@@ -658,7 +504,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     );
   }
 
-  // NEW: Set video directly without optimization for immediate display
+  // Set video directly without optimization for immediate display
   Future<void> _setVideoDirectly(File videoFile, VideoInfo videoInfo) async {
     print('DEBUG: Setting video directly for immediate display');
     
@@ -808,7 +654,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  // NEW: Modified submit form to handle optimization during post
+  // Modified submit form to handle optimization during post
   void _submitForm() async {
     print('DEBUG: Form submission started');
     
@@ -843,18 +689,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         File videoToUpload = _videoFile!;
         
         if (_videoInfo != null) {
-          setState(() {
-            _isOptimizing = true;
-            _optimizationProgress = 0.0;
-          });
-          
           print('DEBUG: Optimizing video before upload...');
           final optimizedVideo = await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
-          
-          setState(() {
-            _isOptimizing = false;
-            _optimizationProgress = 0.0;
-          });
           
           if (optimizedVideo != null) {
             videoToUpload = optimizedVideo;
@@ -1046,7 +882,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 
               const SizedBox(height: 24),
               
-              // Optimization progress indicator (NEW)
+              // Premium Loud Audio Processing (-10 LUFS)
               if (_isOptimizing)
                 Column(
                   children: [
@@ -1064,17 +900,21 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           Row(
                             children: [
                               Icon(
-                                Icons.video_settings,
+                                Icons.high_quality,
                                 color: modernTheme.primaryColor,
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                'Optimizing video for best quality...',
-                                style: TextStyle(
-                                  color: modernTheme.textColor,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                              Expanded(
+                                child: Text(
+                                  _optimizationStatus.isEmpty 
+                                      ? 'Premium loud audio processing...'
+                                      : _optimizationStatus,
+                                  style: TextStyle(
+                                    color: modernTheme.textColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1086,12 +926,25 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            '${(_optimizationProgress * 100).toStringAsFixed(0)}% complete',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 14,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${(_optimizationProgress * 100).toStringAsFixed(0)}% complete',
+                                style: TextStyle(
+                                  color: modernTheme.textSecondaryColor,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                '🎵✨ -10 LUFS PREMIUM',
+                                style: TextStyle(
+                                  color: modernTheme.primaryColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -1180,7 +1033,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
                   ),
                   child: _isOptimizing
-                      ? const Text('Optimizing Video...')
+                      ? const Text('Premium Audio Processing...')
                       : (channelVideosState.isUploading
                           ? const Text('Uploading...')
                           : const Text('Post Content')),
@@ -1460,28 +1313,5 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         ],
       );
     }
-  }
-}
-
-class OptimizationSettings {
-  final int crf;
-  final String preset;
-  final int maxBitrate;
-  final int audioBitrate;
-  final String videoFilter;
-  final String audioFilter;
-  
-  OptimizationSettings({
-    required this.crf,
-    required this.preset,
-    required this.maxBitrate,
-    required this.audioBitrate,
-    required this.videoFilter,
-    required this.audioFilter,
-  });
-  
-  @override
-  String toString() {
-    return 'CRF: $crf, Preset: $preset, MaxBitrate: ${maxBitrate}k, Audio: ${audioBitrate}k, AudioFilter: ${audioFilter.isNotEmpty ? "loudnorm" : "none"}';
   }
 }
