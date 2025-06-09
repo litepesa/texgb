@@ -690,7 +690,76 @@ class ChatRepository {
       return 0;
     }
   }
+
+  // Toggle pin status for a chat
+Future<void> togglePinChat(String chatId) async {
+  try {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    // Get the chat document
+    final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
+    
+    if (chatDoc.exists) {
+      final currentPinStatus = chatDoc.data()?['isPinned'] as bool? ?? false;
+      final newPinStatus = !currentPinStatus;
+      
+      Map<String, dynamic> updateData = {
+        'isPinned': newPinStatus,
+      };
+      
+      // Add timestamp when pinning
+      if (newPinStatus) {
+        updateData['pinnedAt'] = DateTime.now().millisecondsSinceEpoch.toString();
+      } else {
+        updateData['pinnedAt'] = null; // Remove timestamp when unpinning
+      }
+      
+      await _firestore.collection(Constants.chats).doc(chatId).update(updateData);
+      
+      debugPrint('Chat ${newPinStatus ? 'pinned' : 'unpinned'} successfully');
+    }
+  } catch (e) {
+    debugPrint('Error toggling pin status: $e');
+    rethrow;
+  }
 }
+
+// Delete a chat entirely
+Future<void> deleteChat(String chatId) async {
+  try {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    // Delete all messages in the chat first
+    final messagesQuery = await _firestore
+        .collection(Constants.chats)
+        .doc(chatId)
+        .collection(Constants.messages)
+        .get();
+    
+    // Delete messages in batches
+    if (messagesQuery.docs.isNotEmpty) {
+      WriteBatch batch = _firestore.batch();
+      
+      for (final doc in messagesQuery.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      await batch.commit();
+    }
+    
+    // Delete the chat document
+    await _firestore.collection(Constants.chats).doc(chatId).delete();
+    
+    debugPrint('Chat deleted successfully');
+  } catch (e) {
+    debugPrint('Error deleting chat: $e');
+    rethrow;
+  }
+}
+}
+
 
 // Provider for the chat repository
 final chatRepositoryProvider = Provider((ref) {

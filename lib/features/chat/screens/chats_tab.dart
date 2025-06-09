@@ -2,11 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -32,21 +34,129 @@ class ChatsTab extends ConsumerWidget {
           return _buildEmptyState(context);
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.only(top: 8.0, bottom: 100),
-          itemCount: directChats.length,
-          itemBuilder: (context, index) {
-            final chat = directChats[index];
-            return _buildChatItem(context, ref, chat);
+        // Sort chats: pinned first, then by last message time
+        directChats.sort((a, b) {
+          // Check if either chat is pinned
+          final aPinned = a.isPinned ?? false;
+          final bPinned = b.isPinned ?? false;
+          
+          if (aPinned && !bPinned) return -1;
+          if (!aPinned && bPinned) return 1;
+          
+          // If both have same pin status, sort by last message time
+          final aTime = int.parse(a.lastMessageTime);
+          final bTime = int.parse(b.lastMessageTime);
+          return bTime.compareTo(aTime);
+        });
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.refresh(chatStreamProvider);
           },
+          child: ListView.separated(
+            padding: const EdgeInsets.only(top: 8.0, bottom: 100),
+            itemCount: directChats.length,
+            separatorBuilder: (context, index) => _buildDivider(context),
+            itemBuilder: (context, index) {
+              final chat = directChats[index];
+              return _buildChatItem(context, ref, chat);
+            },
+          ),
         );
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(),
+      loading: () => _buildShimmerList(),
+      error: (error, stack) => _buildErrorState(context, ref),
+    );
+  }
+
+  Widget _buildShimmerList() {
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 8.0, bottom: 100),
+      itemCount: 6,
+      separatorBuilder: (context, index) => _buildDivider(context),
+      itemBuilder: (context, index) => _buildShimmerItem(),
+    );
+  }
+
+  Widget _buildShimmerItem() {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          shape: BoxShape.circle,
+        ),
       ),
-      error: (error, stack) => Center(
-        child: Text('Error loading chats: $error'),
+      title: Container(
+        height: 16,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(4),
+        ),
       ),
+      subtitle: Container(
+        height: 12,
+        width: 200,
+        margin: const EdgeInsets.only(top: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      trailing: Container(
+        height: 12,
+        width: 50,
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context, WidgetRef ref) {
+    final modernTheme = context.modernTheme;
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: modernTheme.textSecondaryColor,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Failed to load chats',
+            style: TextStyle(
+              fontSize: 18,
+              color: modernTheme.textColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => ref.refresh(chatStreamProvider),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivider(BuildContext context) {
+    final modernTheme = context.modernTheme;
+    
+    return Container(
+      margin: const EdgeInsets.only(left: 72), // 16 (ListTile padding) + 40 (avatar) + 16 (gap) = 72
+      height: 0.5,
+      color: modernTheme.dividerColor?.withOpacity(0.3),
     );
   }
 
@@ -102,32 +212,26 @@ class ChatsTab extends ConsumerWidget {
 
   Widget _buildChatItem(BuildContext context, WidgetRef ref, ChatModel chat) {
     final modernTheme = context.modernTheme;
-    final chatTheme = context.chatTheme;
-    final animationTheme = context.animationTheme;
     final currentUser = ref.read(currentUserProvider);
     
-    // Format time
+    // Format time with better UX
     final timestamp = int.parse(chat.lastMessageTime);
     final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
     final now = DateTime.now();
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final difference = now.difference(dateTime);
     
     String timeText;
-    if (dateTime.year == now.year && 
-        dateTime.month == now.month && 
-        dateTime.day == now.day) {
-      // Today - show time
+    if (difference.inMinutes < 1) {
+      timeText = 'now';
+    } else if (difference.inMinutes < 60) {
+      timeText = '${difference.inMinutes}m';
+    } else if (difference.inHours < 24 && dateTime.day == now.day) {
       timeText = DateFormat('HH:mm').format(dateTime);
-    } else if (dateTime.year == yesterday.year && 
-               dateTime.month == yesterday.month && 
-               dateTime.day == yesterday.day) {
-      // Yesterday
+    } else if (difference.inDays == 1) {
       timeText = 'Yesterday';
-    } else if (now.difference(dateTime).inDays < 7) {
-      // Within the last week - show day name
+    } else if (difference.inDays < 7) {
       timeText = DateFormat('EEEE').format(dateTime);
     } else {
-      // Older - show date
       timeText = DateFormat('dd/MM/yyyy').format(dateTime);
     }
     
@@ -140,30 +244,33 @@ class ChatsTab extends ConsumerWidget {
                                     
     // Determine if there are unread messages
     final bool hasUnread = unreadCount > 0;
+    final bool isPinned = chat.isPinned ?? false;
     
-    return AnimatedContainer(
-      duration: animationTheme.shortDuration,
-      curve: animationTheme.standardCurve,
-      decoration: BoxDecoration(
-        color: hasUnread ? modernTheme.surfaceVariantColor?.withOpacity(0.3) : Colors.transparent,
-      ),
+    return GestureDetector(
+      onLongPress: () => _showChatOptions(context, ref, chat),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-          backgroundImage: chat.contactImage.isNotEmpty
-              ? NetworkImage(chat.contactImage)
-              : null,
-          child: chat.contactImage.isEmpty
-              ? Text(
-                  chat.contactName.isNotEmpty
-                      ? chat.contactName.substring(0, 1)
-                      : '?',
-                  style: TextStyle(
+        key: ValueKey(chat.id),
+        leading: Stack(
+          children: [
+            _buildAvatar(chat, modernTheme),
+            if (isPinned)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
                     color: modernTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
+                    shape: BoxShape.circle,
                   ),
-                )
-              : null,
+                  child: const Icon(
+                    Icons.push_pin,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
         ),
         title: Text(
           chat.contactName,
@@ -179,9 +286,9 @@ class ChatsTab extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Icon(
-                  _getMessageStatusIcon(),
+                  Icons.done_all, // You can enhance this based on actual message status
                   size: 14,
-                  color: _getMessageStatusColor(context),
+                  color: modernTheme.textSecondaryColor,
                 ),
               ),
             Expanded(
@@ -221,7 +328,7 @@ class ChatsTab extends ConsumerWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Text(
-                  unreadCount.toString(),
+                  unreadCount > 99 ? '99+' : unreadCount.toString(),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,
@@ -235,17 +342,193 @@ class ChatsTab extends ConsumerWidget {
       ),
     );
   }
-  
-  // Helper method to get the appropriate message status icon
-  IconData _getMessageStatusIcon() {
-    // We don't have access to the actual message status from the chat list
-    // So we'll just use a simple sent icon
-    return Icons.done;
+
+  Widget _buildAvatar(ChatModel chat, ModernThemeExtension modernTheme) {
+    if (chat.contactImage.isNotEmpty) {
+      return CircleAvatar(
+        backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+        child: CachedNetworkImage(
+          imageUrl: chat.contactImage,
+          imageBuilder: (context, imageProvider) => CircleAvatar(
+            backgroundImage: imageProvider,
+          ),
+          placeholder: (context, url) => CircleAvatar(
+            backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+            child: Text(
+              _getAvatarInitials(chat.contactName),
+              style: TextStyle(
+                color: modernTheme.primaryColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) => CircleAvatar(
+            backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+            child: Text(
+              _getAvatarInitials(chat.contactName),
+              style: TextStyle(
+                color: modernTheme.primaryColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    return CircleAvatar(
+      backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+      child: Text(
+        _getAvatarInitials(chat.contactName),
+        style: TextStyle(
+          color: modernTheme.primaryColor,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
-  
-  // Helper method to get the appropriate message status color
-  Color _getMessageStatusColor(BuildContext context) {
-    return context.modernTheme.textSecondaryColor ?? Colors.grey;
+
+  String _getAvatarInitials(String name) {
+    if (name.isEmpty) return '?';
+    final words = name.trim().split(' ');
+    if (words.length >= 2) {
+      return '${words[0][0]}${words[1][0]}'.toUpperCase();
+    }
+    return name[0].toUpperCase();
+  }
+
+  void _showChatOptions(BuildContext context, WidgetRef ref, ChatModel chat) {
+    final modernTheme = context.modernTheme;
+    final isPinned = chat.isPinned ?? false;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: modernTheme.surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(
+                  color: modernTheme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Icon(
+                  isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                  color: modernTheme.textColor,
+                ),
+                title: Text(
+                  isPinned ? 'Unpin chat' : 'Pin chat',
+                  style: TextStyle(color: modernTheme.textColor),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _togglePinChat(context, ref, chat);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                ),
+                title: const Text(
+                  'Delete chat',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmDeleteChat(context, ref, chat);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _togglePinChat(BuildContext context, WidgetRef ref, ChatModel chat) async {
+    try {
+      final chatRepository = ref.read(chatRepositoryProvider);
+      await chatRepository.togglePinChat(chat.id);
+      
+      // Show feedback
+      if (context.mounted) {
+        final isPinned = !(chat.isPinned ?? false);
+        showSnackBar(
+          context, 
+          isPinned ? 'Chat pinned' : 'Chat unpinned'
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        showSnackBar(context, 'Failed to ${(chat.isPinned ?? false) ? 'unpin' : 'pin'} chat');
+      }
+    }
+  }
+
+  void _confirmDeleteChat(BuildContext context, WidgetRef ref, ChatModel chat) {
+    final modernTheme = context.modernTheme;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: modernTheme.surfaceColor,
+        title: Text(
+          'Delete Chat',
+          style: TextStyle(color: modernTheme.textColor),
+        ),
+        content: Text(
+          'Are you sure you want to delete this chat with ${chat.contactName}? This action cannot be undone.',
+          style: TextStyle(color: modernTheme.textSecondaryColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: modernTheme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteChat(context, ref, chat);
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteChat(BuildContext context, WidgetRef ref, ChatModel chat) async {
+    try {
+      final chatRepository = ref.read(chatRepositoryProvider);
+      await chatRepository.deleteChat(chat.id);
+      
+      if (context.mounted) {
+        showSnackBar(context, 'Chat deleted');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        showSnackBar(context, 'Failed to delete chat');
+      }
+    }
   }
 
   String _getLastMessagePreview(ChatModel chat) {

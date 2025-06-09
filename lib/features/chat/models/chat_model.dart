@@ -19,6 +19,8 @@ class ChatModel {
   final bool isGroup;
   final String? groupId;
   final Map<String, int> unreadCountByUser; // Per-user unread counts
+  final bool? isPinned; // Added for pin functionality
+  final DateTime? pinnedAt; // Added to track when it was pinned
 
   ChatModel({
     required this.id,
@@ -33,6 +35,8 @@ class ChatModel {
     this.isGroup = false,
     this.groupId,
     Map<String, int>? unreadCountByUser,
+    this.isPinned,
+    this.pinnedAt,
   }) : this.unreadCountByUser = unreadCountByUser ?? {};
 
   factory ChatModel.fromMap(Map<String, dynamic> map) {
@@ -91,6 +95,26 @@ class ChatModel {
       unreadCount = 0;
     }
     
+    // Parse pin data
+    final bool? isPinned = map['isPinned'] as bool?;
+    DateTime? pinnedAt;
+    
+    if (map['pinnedAt'] != null) {
+      try {
+        // Handle both string and int timestamps
+        final pinnedAtValue = map['pinnedAt'];
+        if (pinnedAtValue is String && pinnedAtValue.isNotEmpty) {
+          pinnedAt = DateTime.fromMillisecondsSinceEpoch(int.parse(pinnedAtValue));
+        } else if (pinnedAtValue is int) {
+          pinnedAt = DateTime.fromMillisecondsSinceEpoch(pinnedAtValue);
+        }
+      } catch (e) {
+        print('Error parsing pinnedAt: $e');
+        // If parsing fails, set to null
+        pinnedAt = null;
+      }
+    }
+    
     return ChatModel(
       id: map['id'] ?? '',
       contactUID: map[Constants.contactUID] ?? '',
@@ -104,7 +128,41 @@ class ChatModel {
       isGroup: map['isGroup'] ?? false,
       groupId: map[Constants.groupId],
       unreadCountByUser: unreadCountByUser,
+      isPinned: isPinned,
+      pinnedAt: pinnedAt,
     );
+  }
+
+  // Convert ChatModel to Map for Firestore
+  Map<String, dynamic> toMap() {
+    final Map<String, dynamic> data = {
+      'id': id,
+      Constants.contactUID: contactUID,
+      Constants.contactName: contactName,
+      Constants.contactImage: contactImage,
+      Constants.lastMessage: lastMessage,
+      Constants.messageType: lastMessageType.name,
+      Constants.timeSent: lastMessageTime,
+      'lastMessageSender': lastMessageSender,
+      'unreadCount': unreadCount,
+      'isGroup': isGroup,
+      'unreadCountByUser': unreadCountByUser,
+    };
+    
+    // Add group-specific fields
+    if (isGroup && groupId != null) {
+      data[Constants.groupId] = groupId;
+    }
+    
+    // Add pin-related fields
+    if (isPinned != null) {
+      data['isPinned'] = isPinned;
+    }
+    if (pinnedAt != null) {
+      data['pinnedAt'] = pinnedAt!.millisecondsSinceEpoch.toString();
+    }
+    
+    return data;
   }
 
   // IMPROVED: getDisplayUnreadCount only counts received messages, not sent ones
@@ -136,5 +194,113 @@ class ChatModel {
   // Helper method to check if the current user has unread messages
   bool hasUnreadMessages() {
     return getDisplayUnreadCount() > 0;
+  }
+  
+  // Helper method to check if the chat is pinned
+  bool get isPinnedChat => isPinned ?? false;
+  
+  // Create a copy of the chat model with updated fields
+  ChatModel copyWith({
+    String? id,
+    String? contactUID,
+    String? contactName,
+    String? contactImage,
+    String? lastMessage,
+    MessageEnum? lastMessageType,
+    String? lastMessageTime,
+    String? lastMessageSender,
+    int? unreadCount,
+    bool? isGroup,
+    String? groupId,
+    Map<String, int>? unreadCountByUser,
+    bool? isPinned,
+    DateTime? pinnedAt,
+  }) {
+    return ChatModel(
+      id: id ?? this.id,
+      contactUID: contactUID ?? this.contactUID,
+      contactName: contactName ?? this.contactName,
+      contactImage: contactImage ?? this.contactImage,
+      lastMessage: lastMessage ?? this.lastMessage,
+      lastMessageType: lastMessageType ?? this.lastMessageType,
+      lastMessageTime: lastMessageTime ?? this.lastMessageTime,
+      lastMessageSender: lastMessageSender ?? this.lastMessageSender,
+      unreadCount: unreadCount ?? this.unreadCount,
+      isGroup: isGroup ?? this.isGroup,
+      groupId: groupId ?? this.groupId,
+      unreadCountByUser: unreadCountByUser ?? Map.from(this.unreadCountByUser),
+      isPinned: isPinned ?? this.isPinned,
+      pinnedAt: pinnedAt ?? this.pinnedAt,
+    );
+  }
+  
+  // Helper method to pin/unpin the chat
+  ChatModel togglePin() {
+    final newPinStatus = !isPinnedChat;
+    return copyWith(
+      isPinned: newPinStatus,
+      pinnedAt: newPinStatus ? DateTime.now() : null,
+    );
+  }
+  
+  // Helper method to pin the chat
+  ChatModel pin() {
+    return copyWith(
+      isPinned: true,
+      pinnedAt: DateTime.now(),
+    );
+  }
+  
+  // Helper method to unpin the chat
+  ChatModel unpin() {
+    return copyWith(
+      isPinned: false,
+      pinnedAt: null,
+    );
+  }
+  
+  // Override toString for debugging
+  @override
+  String toString() {
+    return 'ChatModel(id: $id, contactName: $contactName, isPinned: $isPinned, unreadCount: ${getDisplayUnreadCount()})';
+  }
+  
+  // Override equality operator
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    
+    return other is ChatModel &&
+      other.id == id &&
+      other.contactUID == contactUID &&
+      other.contactName == contactName &&
+      other.contactImage == contactImage &&
+      other.lastMessage == lastMessage &&
+      other.lastMessageType == lastMessageType &&
+      other.lastMessageTime == lastMessageTime &&
+      other.lastMessageSender == lastMessageSender &&
+      other.unreadCount == unreadCount &&
+      other.isGroup == isGroup &&
+      other.groupId == groupId &&
+      other.isPinned == isPinned;
+  }
+  
+  // Override hashCode
+  @override
+  int get hashCode {
+    return Object.hash(
+      id,
+      contactUID,
+      contactName,
+      contactImage,
+      lastMessage,
+      lastMessageType,
+      lastMessageTime,
+      lastMessageSender,
+      unreadCount,
+      isGroup,
+      groupId,
+      isPinned,
+    );
   }
 }
