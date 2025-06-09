@@ -9,9 +9,9 @@ import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:video_player/video_player.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
-import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new_gpl/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_gpl/ffmpeg_kit_config.dart';
+import 'package:ffmpeg_kit_flutter_new_gpl/return_code.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path/path.dart' as path;
 
@@ -238,7 +238,57 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  // Premium Loud Audio Processing - Best Sound Quality at -10 LUFS
+  // Fixed CRF 23 - excellent quality for all content
+  int _getFixedCRF() {
+    return 23; // High quality, works great for all resolutions
+  }
+
+  // Get optimal preset based on video characteristics
+  String _getOptimalPreset(VideoInfo info) {
+    final totalPixels = info.resolution.width * info.resolution.height;
+    final duration = info.duration.inSeconds;
+    
+    // For high resolution or long videos, use slower preset for better compression
+    if (totalPixels >= 1920 * 1080 || duration > 180) {
+      return 'slow';      // Better compression, slower encoding
+    } else if (totalPixels >= 1280 * 720) {
+      return 'medium';    // Balanced
+    } else {
+      return 'fast';      // Quick encoding for lower resolution
+    }
+  }
+
+  // Get optimal profile based on resolution
+  String _getOptimalProfile(VideoInfo info) {
+    final totalPixels = info.resolution.width * info.resolution.height;
+    
+    if (totalPixels >= 1920 * 1080) {
+      return 'high';      // High profile for better compression at high res
+    } else {
+      return 'main';      // Main profile for compatibility
+    }
+  }
+
+  // Build video filters for enhancement
+  String _buildVideoFilters(VideoInfo info) {
+    List<String> filters = [];
+    
+    // Only add enhancement filters if the source quality is decent
+    if (info.currentBitrate != null && info.currentBitrate! > 1000) {
+      // Subtle sharpening for better perceived quality
+      filters.add('unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=0.25:chroma_msize_x=3:chroma_msize_y=3:chroma_amount=0.25');
+      
+      // Slight saturation boost for more vivid colors
+      filters.add('eq=saturation=1.1');
+      
+      // Noise reduction for cleaner image (very light)
+      filters.add('hqdn3d=luma_spatial=1:chroma_spatial=0.5:luma_tmp=2:chroma_tmp=1');
+    }
+    
+    return filters.join(',');
+  }
+
+  // Enhanced Premium Loud Audio Processing with Adaptive Video Quality
   Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
@@ -251,16 +301,49 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       });
 
       setState(() {
-        _optimizationStatus = 'Optimizing video...';
+        _optimizationStatus = 'Analyzing video quality...';
         _optimizationProgress = 0.3;
       });
 
-      // Premium loud audio - balanced for best sound quality at high volume
-      final loudCommand = '-y -i "${inputFile.path}" '
-          '-c:v libx264 '                // H.264 for compatibility
-          '-crf 23 '                     // High quality video
-          '-preset medium '              // Balanced encoding
-          '-profile:v high '             // H.264 High Profile
+      // Use fixed CRF 23 and determine other optimal settings
+      int fixedCRF = _getFixedCRF(); // Always 23 - excellent for all content
+      String preset = _getOptimalPreset(info);
+      String profile = _getOptimalProfile(info);
+      String videoFilters = _buildVideoFilters(info);
+      
+      print('DEBUG: Using fixed CRF: $fixedCRF, Preset: $preset, Profile: $profile');
+
+      // Enhanced command with fixed CRF 23 and preserved audio processing
+      final enhancedCommand = '-y -i "${inputFile.path}" '
+          // Video encoding with fixed CRF 23 - excellent quality for all content
+          '-c:v libx264 '
+          '-crf $fixedCRF '                      // Fixed CRF 23 - high quality, works great
+          '-preset slow '                     // Adaptive preset for quality/speed balance
+          '-profile:v $profile '                 // Optimal profile for device compatibility
+          '-level 4.1 '                         // Ensures broad device compatibility
+          '-pix_fmt yuv420p '                    // Ensures compatibility with all players
+          '-g 30 '                               // Keyframe interval (2x framerate assumed)
+          '-keyint_min 15 '                      // Minimum keyframe interval
+          '-sc_threshold 40 '                    // Scene change detection threshold
+          '-refs 3 '                             // Reference frames for better compression
+          '-bf 3 '                               // B-frames for better compression
+          '-b_strategy 2 '                       // Optimal B-frame strategy
+          '-coder 1 '                            // CABAC entropy encoding
+          '-me_method hex '                      // Motion estimation method
+          '-subq 7 '                             // Subpixel motion estimation quality
+          '-cmp chroma '                         // Comparison function
+          '-partitions parti8x8+parti4x4+partp8x8+partb8x8 ' // Partition types
+          '-me_range 16 '                        // Motion estimation range
+          '-trellis 1 '                          // Trellis quantization
+          '-8x8dct 1 '                           // 8x8 DCT transform
+          '-fast-pskip 1 '                       // Fast P-skip
+          '-mixed-refs 1 '                       // Mixed references
+          '-wpredp 2 '                           // Weighted prediction for P-frames
+          '-aq-mode 1 '                          // Adaptive quantization mode
+          '-aq-strength 0.8 '                    // Adaptive quantization strength
+          // Video filters for enhancement (if any)
+          '${videoFilters.isNotEmpty ? '-vf "$videoFilters" ' : ''}'
+          // Premium loud audio - preserved exactly as original
           '-c:a aac '                    // AAC audio
           '-b:a 128k '                   // High quality audio
           '-ar 48000 '                   // 48kHz sample rate
@@ -269,10 +352,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           '-movflags +faststart '        // Optimize for streaming
           '-f mp4 "$outputPath"';
 
-      print('DEBUG: FFmpeg premium loud command: ffmpeg $loudCommand');
+      print('DEBUG: Enhanced FFmpeg command: ffmpeg $enhancedCommand');
 
       setState(() {
-        _optimizationStatus = 'Optimizing video...';
+        _optimizationStatus = 'Encoding with enhanced quality...';
         _optimizationProgress = 0.6;
       });
 
@@ -285,10 +368,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       // Execute with real progress tracking using async
       FFmpegKit.executeAsync(
-        loudCommand,
+        enhancedCommand,
         (session) async {
           // Completion callback - this is when processing actually finishes
-          print('DEBUG: FFmpeg execution completed');
+          print('DEBUG: Enhanced FFmpeg execution completed');
           final returnCode = await session.getReturnCode();
           
           if (mounted) {
@@ -296,7 +379,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               _isOptimizing = false;
               _optimizationProgress = 1.0;
               _optimizationStatus = ReturnCode.isSuccess(returnCode) 
-                  ? 'Video optimized successfully!'
+                  ? 'Video optimized with enhanced quality!'
                   : 'Optimization failed';
             });
           }
@@ -319,7 +402,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             setState(() {
               _optimizationProgress = totalProgress.clamp(0.0, 1.0);
             });
-            print('DEBUG: Real progress: ${(totalProgress * 100).toStringAsFixed(1)}%');
+            print('DEBUG: Enhanced encoding progress: ${(totalProgress * 100).toStringAsFixed(1)}%');
           }
         },
       );
@@ -334,9 +417,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         final newSizeMB = await outputFile.length() / (1024 * 1024);
         final compressionRatio = ((originalSizeMB - newSizeMB) / originalSizeMB * 100);
         
-        print('DEBUG: Video optimization successful!');
+        print('DEBUG: Enhanced video optimization successful!');
         print('DEBUG: Original: ${originalSizeMB.toStringAsFixed(1)}MB → New: ${newSizeMB.toStringAsFixed(1)}MB');
         print('DEBUG: Compression: ${compressionRatio.toStringAsFixed(1)}% smaller');
+        //print('DEBUG: Used CRF: $optimalCRF for optimal quality');
+        
+        // Validate quality hasn't degraded too much
+        if (compressionRatio > 95) {
+          print('DEBUG: Warning: Compression ratio very high, quality may be affected');
+        }
         
         // Hide processing status after a delay
         Future.delayed(const Duration(seconds: 3), () {
@@ -351,11 +440,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         return outputFile;
       }
       
-      print('DEBUG: Video optimization failed - output file not found');
+      print('DEBUG: Enhanced video optimization failed - output file not found');
       return null;
       
     } catch (e) {
-      print('DEBUG: Video optimization error: $e');
+      print('DEBUG: Enhanced video optimization error: $e');
       if (mounted) {
         setState(() {
           _isOptimizing = false;

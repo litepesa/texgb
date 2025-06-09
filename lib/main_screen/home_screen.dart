@@ -9,12 +9,12 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
-import 'package:textgb/features/status/screens/status_overview_screen.dart';
+import 'package:textgb/features/groups/models/group_model.dart';
+import 'package:textgb/features/groups/providers/group_provider.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
@@ -32,11 +32,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   int _previousIndex = 0;
   final PageController _pageController = PageController();
   final GlobalKey _channelsFeedKey = GlobalKey();
-  
-  // Chat tab controllers
-  int _chatTabIndex = 0; // 0: Chats, 1: Groups, 2: Status
-  late TabController _chatTabController;
-  final PageController _chatPageController = PageController();
   
   // Simple controller for channels feed
   bool _isChannelsFeedActive = false;
@@ -69,31 +64,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<String> _tabNames = [
     'Chats',
-    'Wallet',
-    '',  // Empty for center button
-    'Channels',
-    'Profile'
+    'Groups',
+    'Discover',
+    'Me'
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.bubble_left,
-    CupertinoIcons.creditcard,
-    Icons.add,
-    CupertinoIcons.tv,
+    CupertinoIcons.chat_bubble_text,
+    CupertinoIcons.person_3,
+    CupertinoIcons.compass,
     CupertinoIcons.person
-  ];
-
-  final List<String> _chatTabNames = ['Chats', 'Groups', 'Status'];
-  final List<IconData> _chatTabIcons = [
-    CupertinoIcons.bubble_left,
-    CupertinoIcons.group,
-    CupertinoIcons.photo_on_rectangle
   ];
 
   @override
   void initState() {
     super.initState();
-    _chatTabController = TabController(length: 3, vsync: this);
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(channelsProvider.notifier).loadUserChannel();
@@ -106,23 +91,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Ensure channels feed is properly cleaned up
     _pauseChannelsFeed();
     _pageController.dispose();
-    _chatTabController.dispose();
-    _chatPageController.dispose();
     super.dispose();
   }
 
   void _onTabTapped(int index) {
-    if (index == 2) {
-      final userChannel = ref.read(channelsProvider).userChannel;
-      
-      if (userChannel == null) {
-        Navigator.of(context).pushNamed(Constants.createChannelScreen);
-      } else {
-        Navigator.of(context).pushNamed(Constants.createChannelPostScreen);
-      }
-      return;
-    }
-    
     // Store previous index for video lifecycle management
     _previousIndex = _currentIndex;
     
@@ -134,37 +106,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Handle channels feed video lifecycle based on tab changes
     _handleChannelsFeedLifecycle(index);
 
-    int pageIndex = index > 2 ? index - 1 : index;
     _pageController.animateToPage(
-      pageIndex,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  void _onChatTabChanged(int index) {
-    setState(() {
-      _chatTabIndex = index;
-    });
-    
-    _chatPageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
-    
-    _chatTabController.animateTo(index);
-  }
-
-  void _onChatPageChanged(int index) {
-    setState(() {
-      _chatTabIndex = index;
-    });
-    _chatTabController.animateTo(index);
   }
   
   void _handleChannelsFeedLifecycle(int newIndex) {
-    const channelsFeedIndex = 3; // Channels tab at index 3
+    const channelsFeedIndex = 2; // Channels tab at index 2
     
     // Debug logging
     debugPrint('Tab changed from $_previousIndex to $newIndex');
@@ -181,8 +131,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   void _updateSystemUI() {
-    final isChannelsTab = _currentIndex == 3; // Channels tab at index 3
-    final isProfileTab = _currentIndex == 4; // Profile tab at index 4
+    final isChannelsTab = _currentIndex == 2; // Channels tab at index 2
+    final isProfileTab = _currentIndex == 3; // Profile tab at index 3
     
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -193,132 +143,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   void _onPageChanged(int index) {
-    int tabIndex = index >= 2 ? index + 1 : index;
-    
     // Store previous index before updating
     _previousIndex = _currentIndex;
     
     setState(() {
-      _currentIndex = tabIndex;
+      _currentIndex = index;
       _updateSystemUI();
     });
     
     // Handle video lifecycle for page changes too
-    _handleChannelsFeedLifecycle(tabIndex);
-  }
-
-  Widget _buildFloatingTabBar(ModernThemeExtension modernTheme) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Container(
-        height: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-            color: modernTheme.borderColor!.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: List.generate(_chatTabNames.length, (index) {
-            final isSelected = _chatTabIndex == index;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => _onChatTabChanged(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                  child: Center(
-                    child: isSelected 
-                        ? _buildSelectedTab(index, modernTheme)
-                        : _buildUnselectedTab(index, modernTheme),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectedTab(int index, ModernThemeExtension modernTheme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: modernTheme.primaryColor!.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            _chatTabIcons[index],
-            size: 16,
-            color: modernTheme.primaryColor,
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              _chatTabNames[index],
-              style: TextStyle(
-                color: modernTheme.primaryColor,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUnselectedTab(int index, ModernThemeExtension modernTheme) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Icon(
-        _chatTabIcons[index],
-        size: 18,
-        color: modernTheme.textSecondaryColor,
-      ),
-    );
-  }
-
-  Widget _buildChatSection(ModernThemeExtension modernTheme) {
-    return Column(
-      children: [
-        _buildFloatingTabBar(modernTheme),
-        Expanded(
-          child: PageView(
-            controller: _chatPageController,
-            onPageChanged: _onChatPageChanged,
-            children: const [
-              ChatsTab(),
-              GroupsTab(),
-              StatusOverviewScreen(),
-            ],
-          ),
-        ),
-      ],
-    );
+    _handleChannelsFeedLifecycle(index);
   }
 
   @override
@@ -326,9 +160,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
-    final isChannelsTab = _currentIndex == 3; // Channels tab at index 3
-    final isProfileTab = _currentIndex == 4; // Profile tab at index 4
+    final groupsAsyncValue = ref.watch(userGroupsStreamProvider);
+    final isChannelsTab = _currentIndex == 2; // Channels tab at index 2
+    final isProfileTab = _currentIndex == 3; // Profile tab at index 3
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    // Debug logging for groups
+    groupsAsyncValue.whenData((groups) {
+      final currentUser = ref.watch(currentUserProvider);
+      if (currentUser != null) {
+        final totalUnread = groups.fold<int>(0, (sum, group) => sum + group.getUnreadCountForUser(currentUser.uid));
+        debugPrint('Groups unread count: $totalUnread');
+        for (final group in groups) {
+          debugPrint('Group ${group.groupName}: ${group.getUnreadCountForUser(currentUser.uid)} unread');
+        }
+      }
+    });
 
     return Scaffold(
       extendBody: true,
@@ -343,21 +190,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Chats section with floating tabbar (index 0)
+          // Chats tab (index 0)
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: _buildChatSection(modernTheme),
+            child: const ChatsTab(),
           ),
-          // Wallet tab (index 1)
+          // Groups tab (index 1)
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const WalletScreen(),
+            child: const GroupsTab(),
           ),
-          // Channels feed (index 2 -> page index 2)
+          // Channels feed (index 2)
           ChannelsFeedScreen(key: _channelsFeedKey),
-          // Profile tab (index 3 -> page index 3)
+          // Profile tab (index 3)
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
@@ -373,9 +220,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Divider(
+            Container(
               height: 1,
-              thickness: 0.5,
+              width: double.infinity,
               color: isChannelsTab ? Colors.grey[900] : modernTheme.dividerColor,
             ),
             SafeArea(
@@ -393,7 +240,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
                 items: List.generate(
                   _tabNames.length,
-                  (index) => _buildBottomNavItem(index, modernTheme, chatsAsyncValue),
+                  (index) => _buildBottomNavItem(index, modernTheme, chatsAsyncValue, groupsAsyncValue),
                 ),
               ),
             ),
@@ -409,25 +256,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int index, 
     ModernThemeExtension modernTheme,
     AsyncValue<List<ChatModel>> chatsAsyncValue,
+    AsyncValue<List<GroupModel>> groupsAsyncValue,
   ) {
     final isSelected = _currentIndex == index;
     
-    if (index == 2) {
-      return BottomNavigationBarItem(
-        icon: SizedBox(
-          height: 48,
-          child: Center(child: CustomIconButton()),
-        ),
-        label: '',
-      );
-    }
-    
-    // Chats tab is at index 0 - show unread count
+    // Chats tab is at index 0 - show unread count for direct chats only
     if (index == 0) {
       return chatsAsyncValue.when(
         data: (chats) {
+          // Calculate unread count from direct chats only
           final directChats = chats.where((chat) => !chat.isGroup).toList();
-          final totalUnreadCount = directChats.fold<int>(
+          final chatUnreadCount = directChats.fold<int>(
             0, 
             (sum, chat) => sum + chat.getDisplayUnreadCount()
           );
@@ -436,7 +275,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             index, 
             isSelected, 
             modernTheme, 
-            totalUnreadCount
+            chatUnreadCount
+          );
+        },
+        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+      );
+    }
+    
+    // Groups tab is at index 1 - show unread count for groups
+    if (index == 1) {
+      return groupsAsyncValue.when(
+        data: (groups) {
+          final currentUser = ref.watch(currentUserProvider);
+          
+          final groupUnreadCount = currentUser != null 
+              ? groups.fold<int>(
+                  0, 
+                  (sum, group) => sum + group.getUnreadCountForUser(currentUser.uid)
+                )
+              : 0;
+          
+          return _buildNavItemWithBadge(
+            index, 
+            isSelected, 
+            modernTheme, 
+            groupUnreadCount
           );
         },
         loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
@@ -524,23 +388,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Updated to show different FABs based on current tab and sub-tab
+  // Show FAB on Chats and Groups tabs
   bool _shouldShowFab() {
-    // Show FAB on main tabs and chat sub-tabs
     return _currentIndex == 0 || _currentIndex == 1;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     return AppBar(
-      elevation: 0,
       backgroundColor: modernTheme.backgroundColor,
-      centerTitle: true, // Center the app title
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: true,
       title: _buildAppBarTitle(modernTheme),
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1.0),
-        child: Divider(
-          height: 1,
-          thickness: 0.5,
+        preferredSize: const Size.fromHeight(0.5),
+        child: Container(
+          height: 0.5,
+          width: double.infinity,
           color: modernTheme.dividerColor,
         ),
       ),
@@ -557,6 +421,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color: modernTheme.textColor,          
               fontWeight: FontWeight.w500,
               fontSize: 22,
+              letterSpacing: -0.3,
             ),
           ),
           TextSpan(
@@ -565,6 +430,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color: modernTheme.primaryColor,
               fontWeight: FontWeight.w700,
               fontSize: 24,
+              letterSpacing: -0.3,
             ),
           ),
         ],
@@ -574,54 +440,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 0) {
-      // Chat section - different FAB based on sub-tab
-      switch (_chatTabIndex) {
-        case 0: // Chats tab
-          return FloatingActionButton(
-            backgroundColor: modernTheme.primaryColor,
-            foregroundColor: Colors.white,
-            elevation: 4,
-            onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
-            child: const Icon(CupertinoIcons.bubble_left),
-          );
-        case 1: // Groups tab
-          return FloatingActionButton(
-            backgroundColor: modernTheme.primaryColor,
-            foregroundColor: Colors.white,
-            elevation: 4,
-            onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
-            child: const Icon(CupertinoIcons.group_solid),
-          );
-        case 2: // Status tab
-          return FloatingActionButton(
-            backgroundColor: modernTheme.primaryColor,
-            foregroundColor: Colors.white,
-            elevation: 4,
-            onPressed: () => Navigator.pushNamed(context, Constants.createStatusScreen),
-            child: const Icon(CupertinoIcons.camera),
-          );
-        default:
-          return FloatingActionButton(
-            backgroundColor: modernTheme.primaryColor,
-            foregroundColor: Colors.white,
-            elevation: 4,
-            onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
-            child: const Icon(CupertinoIcons.bubble_left),
-          );
-      }
-    } else if (_currentIndex == 1) {
-      // Wallet tab - Quick send money FAB
+      // Chats tab - New chat FAB
       return FloatingActionButton(
         backgroundColor: modernTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
-        onPressed: () {
-          // Handle quick send money action
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Quick Send Money feature coming soon!')),
-          );
-        },
-        child: const Icon(CupertinoIcons.paperplane),
+        onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
+        child: const Icon(CupertinoIcons.chat_bubble_text),
+      );
+    } else if (_currentIndex == 1) {
+      // Groups tab - Create group FAB
+      return FloatingActionButton(
+        backgroundColor: modernTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
+        child: const Icon(CupertinoIcons.person_3),
       );
     }
     

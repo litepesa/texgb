@@ -31,6 +31,38 @@ class GroupsTab extends ConsumerStatefulWidget {
 }
 
 class _GroupsTabState extends ConsumerState<GroupsTab> {
+  final TextEditingController _searchController = TextEditingController();
+  List<GroupModel> _searchResults = [];
+  bool _isSearching = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Perform search
+  void _performSearch(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _searchResults = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    final results = await ref.read(groupProvider.notifier).searchGroups(query);
+    
+    setState(() {
+      _searchResults = results;
+      _isSearching = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
@@ -42,7 +74,40 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
     
     return Scaffold(
       backgroundColor: theme.backgroundColor,
-      body: _buildGroupsContent(userGroupsAsync, groupChatsAsync),
+      body: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search groups...',
+                prefixIcon: Icon(Icons.search, color: theme.textSecondaryColor),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: theme.borderColor!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: theme.borderColor!),
+                ),
+                filled: true,
+                fillColor: theme.surfaceColor,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onChanged: _performSearch,
+            ),
+          ),
+          
+          // Main content
+          Expanded(
+            child: _searchController.text.isNotEmpty
+                ? _buildSearchResults()
+                : _buildGroupsContent(userGroupsAsync, groupChatsAsync),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: theme.primaryColor,
         foregroundColor: Colors.white,
@@ -323,6 +388,39 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
           ),
         ],
       ),
+    );
+  }
+
+  // Search results widget
+  Widget _buildSearchResults() {
+    final theme = context.modernTheme;
+    
+    if (_isSearching) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Text(
+          'No groups found',
+          style: TextStyle(color: theme.textColor),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 80),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final group = _searchResults[index];
+        return GroupTile(
+          group: group,
+          onTap: () {
+            // Open group
+            ref.read(groupProvider.notifier).openGroupChat(group, context);
+          },
+        );
+      },
     );
   }
 }

@@ -526,7 +526,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     
     return SizedBox.expand(
       child: FittedBox(
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         child: SizedBox(
           width: controller.value.size.width,
           height: controller.value.size.height,
