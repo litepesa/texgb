@@ -71,7 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_text,
-    CupertinoIcons.person_3,
+    CupertinoIcons.person_2,
     CupertinoIcons.compass,
     CupertinoIcons.person
   ];
