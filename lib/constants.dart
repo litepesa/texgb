@@ -67,7 +67,7 @@ class Constants {
   static const String editStatusScreen = '/editStatusScreen';
   
   // New alias routes for Moments feature - alternative names for the same screens
-  static const String statusFeedScreen = '/momentsFeedScreen'; // Alias for statusOverviewScreen
+  static const String momentsFeedScreen = '/momentsFeedScreen'; // Alias for statusOverviewScreen
   static const String momentsDetailScreen = '/momentsDetailScreen'; // Alias for statusDetailScreen
   static const String createMomentScreen = '/createMomentScreen'; // Alias for createStatusScreen
   
