@@ -12,6 +12,7 @@ import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
+import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
@@ -29,33 +30,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   int _currentIndex = 0;
   int _previousIndex = 0;
   final PageController _pageController = PageController();
+  bool _isPageAnimating = false;
   final GlobalKey _channelsFeedKey = GlobalKey();
   
-  // Simple controller for channels feed
+  // Professional channels feed lifecycle management
   bool _isChannelsFeedActive = false;
   
-  // Helper method to pause channels feed
+  // Professional method to pause channels feed using the original extension
   void _pauseChannelsFeed() {
     if (_isChannelsFeedActive) {
       _isChannelsFeedActive = false;
-      try {
-        final dynamic state = _channelsFeedKey.currentState;
-        state?.onScreenBecameInactive?.call();
-      } catch (e) {
-        debugPrint('Error pausing channels feed: $e');
+      final state = _channelsFeedKey.currentState;
+      if (state != null) {
+        // Call the lifecycle method directly since we know it exists
+        (state as dynamic).onScreenBecameInactive();
       }
     }
   }
   
-  // Helper method to resume channels feed
+  // Professional method to resume channels feed using the original extension
   void _resumeChannelsFeed() {
     if (!_isChannelsFeedActive) {
       _isChannelsFeedActive = true;
-      try {
-        final dynamic state = _channelsFeedKey.currentState;
-        state?.onScreenBecameActive?.call();
-      } catch (e) {
-        debugPrint('Error resuming channels feed: $e');
+      final state = _channelsFeedKey.currentState;
+      if (state != null) {
+        // Call the lifecycle method directly since we know it exists
+        (state as dynamic).onScreenBecameActive();
       }
     }
   }
@@ -69,7 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_text,
-    CupertinoIcons.creditcard, // Changed from camera to wallet icon
+    Icons.monetization_on_outlined,
     CupertinoIcons.compass,
     CupertinoIcons.person
   ];
@@ -81,13 +81,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(channelsProvider.notifier).loadUserChannel();
       _updateSystemUI();
+      // Initialize channels feed as inactive since we start on Chats tab
+      _isChannelsFeedActive = false;
     });
   }
 
   @override
   void dispose() {
-    // Ensure channels feed is properly cleaned up
-    _pauseChannelsFeed();
+    // Professional cleanup - ensure channels feed is properly paused before disposal
+    if (_isChannelsFeedActive) {
+      _pauseChannelsFeed();
+    }
     _pageController.dispose();
     super.dispose();
   }
@@ -96,34 +100,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Store previous index for video lifecycle management
     _previousIndex = _currentIndex;
     
+    // Handle channels feed video lifecycle based on tab changes
+    _handleChannelsFeedLifecycle(index);
+    
     setState(() {
       _currentIndex = index;
       _updateSystemUI(); // Force immediate update
     });
 
-    // Handle channels feed video lifecycle based on tab changes
-    _handleChannelsFeedLifecycle(index);
-
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    // Use jumpToPage to avoid showing intermediate pages
+    _isPageAnimating = true;
+    _pageController.jumpToPage(index);
+    // Reset animation flag after a brief delay
+    Future.delayed(const Duration(milliseconds: 50), () {
+      _isPageAnimating = false;
+    });
   }
   
   void _handleChannelsFeedLifecycle(int newIndex) {
     const channelsFeedIndex = 2; // Channels tab at index 2
     
-    // Debug logging
-    debugPrint('Tab changed from $_previousIndex to $newIndex');
-    
     if (_previousIndex == channelsFeedIndex && newIndex != channelsFeedIndex) {
-      // User left channels feed tab - pause all videos
-      debugPrint('Pausing channels feed videos');
+      // User left channels feed tab - pause all videos immediately
       _pauseChannelsFeed();
     } else if (_previousIndex != channelsFeedIndex && newIndex == channelsFeedIndex) {
-      // User entered channels feed tab - resume videos
-      debugPrint('Resuming channels feed videos');
+      // User entered channels feed tab - resume videos immediately
       _resumeChannelsFeed();
     }
   }
@@ -141,6 +142,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   void _onPageChanged(int index) {
+    // Only process page changes that aren't from programmatic jumps
+    if (_isPageAnimating) return;
+    
     // Store previous index before updating
     _previousIndex = _currentIndex;
     
@@ -151,6 +155,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     // Handle video lifecycle for page changes too
     _handleChannelsFeedLifecycle(index);
+  }
+
+  // Helper method to get progress bar from channels feed screen
+  Widget _buildProgressBarFromFeedScreen(BuildContext context) {
+    final state = _channelsFeedKey.currentState;
+    if (state == null) return const SizedBox.shrink();
+    
+    return (state as dynamic).buildEnhancedProgressBar(context.modernTheme);
   }
 
   @override
@@ -184,7 +196,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           // Wallet tab (index 1) - Replaced Moments tab
           const WalletScreen(),
-          // Channels feed (index 2)
+          // Channels feed (index 2) - Always present but lifecycle managed
           ChannelsFeedScreen(key: _channelsFeedKey),
           // Profile tab (index 3)
           Container(
@@ -202,6 +214,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Add the progress bar here - only show for channels tab
+            if (_currentIndex == 2) // Only show for channels tab
+              Consumer(
+                builder: (context, ref, _) {
+                  final videosState = ref.watch(channelVideosProvider);
+                  return videosState.videos.isNotEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _buildProgressBarFromFeedScreen(context),
+                        )
+                      : const SizedBox.shrink();
+                },
+              ),
+            
             Container(
               height: 1,
               width: double.infinity,
@@ -210,19 +236,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             SafeArea(
               top: false,
               bottom: false,
-              child: BottomNavigationBar(
-                currentIndex: _currentIndex,
-                onTap: _onTabTapped,
-                backgroundColor: Colors.transparent,
-                selectedItemColor: modernTheme.primaryColor,
-                unselectedItemColor: modernTheme.textSecondaryColor,
-                type: BottomNavigationBarType.fixed,
-                elevation: 0,
-                selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
-                items: List.generate(
-                  _tabNames.length,
-                  (index) => _buildBottomNavItem(index, modernTheme, chatsAsyncValue),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  splashFactory: NoSplash.splashFactory,
+                  highlightColor: Colors.transparent,
+                ),
+                child: BottomNavigationBar(
+                  currentIndex: _currentIndex,
+                  onTap: _onTabTapped,
+                  backgroundColor: Colors.transparent,
+                  selectedItemColor: modernTheme.primaryColor,
+                  unselectedItemColor: modernTheme.textSecondaryColor,
+                  type: BottomNavigationBarType.fixed,
+                  elevation: 0,
+                  selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+                  items: List.generate(
+                    _tabNames.length,
+                    (index) => _buildBottomNavItem(index, modernTheme, chatsAsyncValue),
+                  ),
                 ),
               ),
             ),

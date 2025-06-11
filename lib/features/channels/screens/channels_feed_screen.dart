@@ -39,7 +39,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _isScreenActive = true;
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
-  bool _showProgressBar = true;
   
   // Enhanced progress tracking
   double _videoProgress = 0.0;
@@ -48,6 +47,9 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   VideoPlayerController? _currentVideoController;
   Timer? _progressUpdateTimer;
   Timer? _cacheCleanupTimer;
+  
+  // Simple notifier for home screen progress bar
+  final ValueNotifier<double> _progressNotifier = ValueNotifier<double>(0.0);
   
   static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
   static const Duration _cacheCleanupInterval = Duration(minutes: 10);
@@ -93,12 +95,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     debugPrint('ChannelsFeedScreen: Screen became active');
     _isScreenActive = true;
-    
-    if (mounted) {
-      setState(() {
-        _showProgressBar = true;
-      });
-    }
     
     if (_isAppInForeground) {
       _resumePlayback();
@@ -159,6 +155,8 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       setState(() {
         _videoProgress = _progressController.value;
       });
+      // Simple update for home screen - no other changes
+      _progressNotifier.value = _progressController.value;
     }
   }
 
@@ -185,7 +183,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       if (mounted) {
         setState(() {
           _isFirstLoad = false;
-          _showProgressBar = true;
         });
         
         _progressController.forward();
@@ -205,13 +202,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     if (!_isScreenActive || !_isAppInForeground) return;
     
     _progressUpdateTimer?.cancel();
-    
-    // Ensure progress bar is visible
-    if (mounted) {
-      setState(() {
-        _showProgressBar = true;
-      });
-    }
     
     _progressUpdateTimer = Timer.periodic(_progressUpdateInterval, (timer) {
       if (!mounted || !_isScreenActive || !_isAppInForeground) {
@@ -234,6 +224,9 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               _videoProgress = progress;
             });
             
+            // Simple update for home screen - no other changes
+            _progressNotifier.value = progress;
+            
             debugPrint('Video Progress: ${(progress * 100).toStringAsFixed(1)}%');
           }
           
@@ -248,6 +241,8 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           setState(() {
             _videoProgress = _progressController.value;
           });
+          // Simple update for home screen - no other changes
+          _progressNotifier.value = _progressController.value;
         }
       }
     });
@@ -278,7 +273,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     setState(() {
       _currentVideoController = controller;
       _videoProgress = 0.0;
-      _showProgressBar = true;
     });
     
     controller.seekTo(Duration.zero);
@@ -308,8 +302,10 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _videoProgress = 0.0;
       _videoPosition = Duration.zero;
       _videoDuration = Duration.zero;
-      _showProgressBar = true;
     });
+
+    // Simple update for home screen - no other changes
+    _progressNotifier.value = 0.0;
 
     _progressUpdateTimer?.cancel();
     _progressController.reset();
@@ -330,6 +326,68 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     ref.read(channelVideosProvider.notifier).incrementViewCount(videos[index].id);
   }
 
+  // Public method to build progress bar (for home screen access)
+  Widget buildEnhancedProgressBar(ModernThemeExtension modernTheme) {
+    return ValueListenableBuilder<double>(
+      valueListenable: _progressNotifier,
+      builder: (context, progress, child) {
+        // Always show progress bar when there's any progress or during initial load
+        if (progress == 0.0 && !_isFirstLoad) return const SizedBox.shrink();
+        
+        return Container(
+          height: 2, // Reduced from 3px to 2px
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            color: Colors.white.withOpacity(0.3),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: Stack(
+              children: [
+                // Background track
+                Container(
+                  width: double.infinity,
+                  height: 2, // Reduced from 3px to 2px
+                  color: Colors.transparent,
+                ),
+                // Progress fill
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 100),
+                  width: (MediaQuery.of(context).size.width - 32) * progress.clamp(0.0, 1.0),
+                  height: 1, // Reduced from 2px to 1px
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        modernTheme.primaryColor ?? Colors.blue,
+                        (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.5),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     debugPrint('ChannelsFeedScreen: Disposing');
@@ -341,6 +399,9 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     _progressController.dispose();
     _pageController.dispose();
+    
+    // Clean up the simple notifier
+    _progressNotifier.dispose();
     
     _pauseAllPlayback();
     _cacheService.dispose();
@@ -375,14 +436,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       body: Stack(
         children: [
           _buildBody(channelVideosState, channelsState, modernTheme, bottomNavHeight),
-          
-          // Enhanced progress bar with cache indicators
-          Positioned(
-            bottom: bottomNavHeight + 16,
-            left: 16,
-            right: 16,
-            child: _buildEnhancedProgressBar(modernTheme),
-          ),
           
           // Cache performance indicator (debug mode only)
           if (kDebugMode)
@@ -428,65 +481,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             onVideoControllerReady: _onVideoControllerReady,
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildEnhancedProgressBar(ModernThemeExtension modernTheme) {
-    final shouldShow = _showProgressBar && (_videoProgress > 0.0 || _isFirstLoad);
-    
-    debugPrint('Progress Bar - Show: $shouldShow, Progress: $_videoProgress, FirstLoad: $_isFirstLoad');
-    
-    if (!shouldShow) return const SizedBox.shrink();
-    
-    return Container(
-      height: 4,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(2),
-        color: Colors.white.withOpacity(0.3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(2),
-        child: Stack(
-          children: [
-            // Background track
-            Container(
-              width: double.infinity,
-              height: 4,
-              color: Colors.transparent,
-            ),
-            // Progress fill with enhanced styling for cached content
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
-              width: (MediaQuery.of(context).size.width - 32) * _videoProgress.clamp(0.0, 1.0),
-              height: 4,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    modernTheme.primaryColor ?? Colors.blue,
-                    (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(2),
-                boxShadow: [
-                  BoxShadow(
-                    color: (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.5),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -667,7 +661,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         _videoProgress = 0.0;
         _videoPosition = Duration.zero;
         _videoDuration = Duration.zero;
-        _showProgressBar = true;
       });
       _progressUpdateTimer?.cancel();
       _progressController.reset();
