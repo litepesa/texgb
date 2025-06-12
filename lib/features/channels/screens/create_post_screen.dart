@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/features/channels/widgets/video_trim_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
@@ -72,6 +73,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   double _optimizationProgress = 0.0;
   String _optimizationStatus = '';
   
+  // Wakelock state tracking
+  bool _wakelockActive = false;
+  
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
 
@@ -82,7 +86,34 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     _tagsController.dispose();
     // Clean up cache when disposing (optional)
     _cacheManager.emptyCache();
+    // Ensure wakelock is disabled when leaving the screen
+    _disableWakelock();
     super.dispose();
+  }
+
+  // Wakelock management methods
+  Future<void> _enableWakelock() async {
+    if (!_wakelockActive) {
+      try {
+        await WakelockPlus.enable();
+        _wakelockActive = true;
+        print('DEBUG: Wakelock enabled');
+      } catch (e) {
+        print('DEBUG: Failed to enable wakelock: $e');
+      }
+    }
+  }
+
+  Future<void> _disableWakelock() async {
+    if (_wakelockActive) {
+      try {
+        await WakelockPlus.disable();
+        _wakelockActive = false;
+        print('DEBUG: Wakelock disabled');
+      } catch (e) {
+        print('DEBUG: Failed to disable wakelock: $e');
+      }
+    }
   }
 
   Future<void> _initializeVideoPlayer() async {
@@ -109,6 +140,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     try {
       print('DEBUG: Starting video picker...');
       
+      // Enable wakelock during video selection and processing
+      await _enableWakelock();
+      
       final video = await _picker.pickVideo(
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 5),
@@ -125,19 +159,25 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         } else {
           print('DEBUG: Video file does not exist');
           _showError('Selected video file not found');
+          await _disableWakelock(); // Disable if failed
         }
       } else {
         print('DEBUG: No video selected');
+        await _disableWakelock(); // Disable if cancelled
       }
     } catch (e) {
       print('DEBUG: Video picker error: $e');
       _showError('Failed to pick video: ${e.toString()}');
+      await _disableWakelock(); // Disable on error
     }
   }
 
   Future<void> _captureVideoFromCamera() async {
     try {
       print('DEBUG: Starting camera capture...');
+      
+      // Enable wakelock during video recording - crucial for camera recording
+      await _enableWakelock();
       
       final video = await _picker.pickVideo(
         source: ImageSource.camera,
@@ -155,18 +195,23 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         } else {
           print('DEBUG: Captured video file does not exist');
           _showError('Captured video file not found');
+          await _disableWakelock(); // Disable if failed
         }
       } else {
         print('DEBUG: No video captured');
+        await _disableWakelock(); // Disable if cancelled
       }
     } catch (e) {
       print('DEBUG: Camera capture error: $e');
       _showError('Failed to capture video: ${e.toString()}');
+      await _disableWakelock(); // Disable on error
     }
   }
 
   Future<void> _processAndSetVideo(File videoFile) async {
     print('DEBUG: Processing video for immediate display');
+    
+    // Keep wakelock active during video processing
     
     // Get video info for later optimization and trim decisions
     final videoInfo = await _analyzeVideo(videoFile);
@@ -294,6 +339,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       final tempDir = Directory.systemTemp;
       final outputPath = '${tempDir.path}/optimized_${DateTime.now().millisecondsSinceEpoch}.mp4';
       
+      // Ensure wakelock is active during optimization
+      await _enableWakelock();
+      
       setState(() {
         _isOptimizing = true;
         _optimizationStatus = 'Optimizing video...';
@@ -383,6 +431,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   : 'Optimization failed';
             });
           }
+          
+          // Wakelock can be disabled after optimization, but keep it if uploading
+          if (!ref.read(channelVideosProvider).isUploading) {
+            await _disableWakelock();
+          }
+          
           // Complete the future when processing is actually done
           if (!processingCompleter.isCompleted) {
             processingCompleter.complete();
@@ -441,6 +495,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       }
       
       print('DEBUG: Enhanced video optimization failed - output file not found');
+      await _disableWakelock(); // Disable on failure
       return null;
       
     } catch (e) {
@@ -461,6 +516,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           }
         });
       }
+      await _disableWakelock(); // Disable on error
       return null;
     }
   }
@@ -504,6 +560,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
     _videoFile = null;
     _videoInfo = null;
+    // Disable wakelock when clearing video if not in other processes
+    if (!_isOptimizing && !ref.read(channelVideosProvider).isUploading) {
+      _disableWakelock();
+    }
   }
 
   void _togglePlayPause() {
@@ -538,6 +598,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           child: const Text('Cancel'),
           onPressed: () {
             Navigator.of(context).pop();
+            _disableWakelock(); // Disable wakelock if user cancels
           },
         ),
         TextButton(
@@ -605,9 +666,13 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     
     await _initializeVideoPlayer();
     print('DEBUG: Video set successfully - ready for user interaction');
+    
+    // Wakelock can be disabled now since video is ready for preview
+    // But keep it enabled if user is likely to process/upload soon
   }
 
   void _showManualTrimScreen(File videoFile, VideoInfo videoInfo) {
+    // Keep wakelock active during trim screen navigation
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => VideoTrimScreen(
@@ -648,6 +713,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     } catch (e) {
       print('DEBUG: Error setting trimmed video: $e');
       _showError('Failed to set trimmed video: ${e.toString()}');
+      await _disableWakelock(); // Disable on error
     }
   }
 
@@ -681,6 +747,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   Future<void> _trimVideoTo5Minutes(File videoFile, VideoInfo videoInfo) async {
     try {
       print('DEBUG: Starting video trim to 5 minutes');
+      
+      // Ensure wakelock is active during trimming
+      await _enableWakelock();
       
       // Show loading indicator
       if (mounted) {
@@ -731,14 +800,17 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         } else {
           print('DEBUG: Trimmed file not found');
           _showError('Failed to trim video - file not created');
+          await _disableWakelock(); // Disable on failure
         }
       } else {
         print('DEBUG: Video trim failed - $logs');
         _showError('Failed to trim video. Please try a different video.');
+        await _disableWakelock(); // Disable on failure
       }
     } catch (e) {
       print('DEBUG: Video trim error: $e');
       _showError('Failed to trim video: ${e.toString()}');
+      await _disableWakelock(); // Disable on error
     }
   }
 
@@ -764,6 +836,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         _showError('Please select at least one image');
         return;
       }
+      
+      // Enable wakelock during upload process
+      await _enableWakelock();
       
       List<String> tags = [];
       if (_tagsController.text.isNotEmpty) {
@@ -801,6 +876,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           onError: (error) {
             print('DEBUG: Video upload error: $error');
             _showError(error);
+            _disableWakelock(); // Disable on upload error
           },
         );
       } else {
@@ -817,6 +893,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           onError: (error) {
             print('DEBUG: Images upload error: $error');
             _showError(error);
+            _disableWakelock(); // Disable on upload error
           },
         );
       }
@@ -848,6 +925,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   void _navigateBack() {
     print('DEBUG: Navigating back');
+    // Disable wakelock when leaving the screen
+    _disableWakelock();
     Future.delayed(const Duration(milliseconds: 300), () {
       Navigator.of(context).pop(true);
     });
@@ -875,7 +954,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             Icons.arrow_back,
             color: modernTheme.textColor,
           ),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            _disableWakelock(); // Ensure wakelock is disabled when going back
+            Navigator.of(context).pop();
+          },
         ),
         actions: [
           if (_isVideoMode && _videoFile != null || !_isVideoMode && _imageFiles.isNotEmpty)

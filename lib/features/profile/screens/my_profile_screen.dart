@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
@@ -14,6 +15,65 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+
+// Custom cache manager for profile images with longer cache duration
+class ProfileImageCacheManager {
+  static const key = 'profileImageCache';
+  
+  static CacheManager instance = CacheManager(
+    Config(
+      key,
+      stalePeriod: const Duration(days: 30), // Keep for 30 days
+      maxNrOfCacheObjects: 100, // Max 100 cached profile images
+      repo: JsonCacheInfoRepository(databaseName: key),
+      fileService: HttpFileService(),
+    ),
+  );
+  
+  // Preload multiple profile images
+  static Future<void> preloadProfileImages(List<String> imageUrls) async {
+    for (String url in imageUrls) {
+      if (url.isNotEmpty) {
+        try {
+          await instance.downloadFile(url);
+        } catch (e) {
+          debugPrint('Failed to preload image: $url, Error: $e');
+        }
+      }
+    }
+  }
+  
+  // Clear specific user's cached profile image
+  static Future<void> clearUserProfileImage(String imageUrl) async {
+    if (imageUrl.isNotEmpty) {
+      await instance.removeFile(imageUrl);
+    }
+  }
+  
+  // Get cached file info
+  static Future<FileInfo?> getCachedImageInfo(String url) async {
+    try {
+      return await instance.getFileFromCache(url);
+    } catch (e) {
+      return null;
+    }
+  }
+}
+
+// App data cache manager for user data, stats, etc.
+class AppDataCacheManager {
+  static const key = 'appDataCache';
+  
+  static CacheManager instance = CacheManager(
+    Config(
+      key,
+      stalePeriod: const Duration(hours: 6), // Refresh every 6 hours
+      maxNrOfCacheObjects: 50,
+      repo: JsonCacheInfoRepository(databaseName: key),
+      fileService: HttpFileService(),
+    ),
+  );
+}
 
 // Offline mode provider
 final offlineModeProvider = StateProvider<bool>((ref) => false);
@@ -52,6 +112,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     
     // Ensure system UI is consistent with HomeScreen
     _updateSystemUI();
+    
+    // Preload user's profile image and related images in background
+    _preloadCriticalImages();
   }
   
   @override
@@ -76,6 +139,38 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
     ));
+  }
+
+  // Preload critical images for better UX - runs in background
+  Future<void> _preloadCriticalImages() async {
+    try {
+      final user = ref.read(currentUserProvider);
+      final authState = ref.read(authenticationProvider).value;
+      
+      List<String> imagesToPreload = [];
+      
+      // Add current user's image
+      if (user?.image.isNotEmpty == true) {
+        imagesToPreload.add(user!.image);
+      }
+      
+      // Add saved accounts' images for quick switching
+      if (authState?.savedAccounts != null) {
+        for (var account in authState!.savedAccounts!) {
+          if (account.image.isNotEmpty) {
+            imagesToPreload.add(account.image);
+          }
+        }
+      }
+      
+      // Preload in background without blocking UI
+      if (imagesToPreload.isNotEmpty) {
+        ProfileImageCacheManager.preloadProfileImages(imagesToPreload);
+      }
+      
+    } catch (e) {
+      debugPrint('Error preloading images: $e');
+    }
   }
 
   Future<void> _selectImage() async {
@@ -175,10 +270,20 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       // Upload new image if selected
       String imageUrl = user.image;
       if (_profileImage != null) {
+        // Clear old cached image first
+        if (user.image.isNotEmpty) {
+          await ProfileImageCacheManager.clearUserProfileImage(user.image);
+        }
+        
         imageUrl = await storeFileToStorage(
           file: _profileImage!,
           reference: '${Constants.userImages}/${user.uid}',
         );
+        
+        // Preload the new image to cache in background
+        if (imageUrl.isNotEmpty) {
+          ProfileImageCacheManager.instance.downloadFile(imageUrl);
+        }
       }
 
       // Create updated user model
@@ -267,7 +372,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
   
-  // Enhanced profile header with better design
+  // Enhanced profile header with optimized image caching
   Widget _buildEnhancedProfileHeader(UserModel user, ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -292,7 +397,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             child: Column(
               children: [
-                // Profile Image with enhanced design
+                // Profile Image with enhanced caching
                 Stack(
                   alignment: Alignment.center,
                   children: [
@@ -336,6 +441,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                           : user.image.isNotEmpty 
                             ? CachedNetworkImage(
                                 imageUrl: user.image,
+                                cacheManager: ProfileImageCacheManager.instance,
                                 fit: BoxFit.cover,
                                 placeholder: (context, url) => Container(
                                   color: Colors.grey[300],
@@ -354,6 +460,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                     color: Colors.white,
                                   ),
                                 ),
+                                // Enhanced cache options for better performance
+                                memCacheWidth: 110,
+                                memCacheHeight: 110,
+                                maxWidthDiskCache: 220,
+                                maxHeightDiskCache: 220,
                               )
                             : Container(
                                 color: Colors.grey[300],
@@ -1460,9 +1571,25 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                       ),
                       child: CircleAvatar(
                         radius: 24,
-                        backgroundImage: account.image.isNotEmpty
-                            ? CachedNetworkImageProvider(account.image)
-                            : const AssetImage('assets/images/user_icon.png') as ImageProvider,
+                        child: ClipOval(
+                          child: account.image.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: account.image,
+                                  cacheManager: ProfileImageCacheManager.instance,
+                                  fit: BoxFit.cover,
+                                  width: 48,
+                                  height: 48,
+                                  placeholder: (context, url) => Container(
+                                    color: Colors.grey[300],
+                                    child: const Icon(Icons.person),
+                                  ),
+                                  errorWidget: (context, error, stackTrace) => Container(
+                                    color: Colors.grey[300],
+                                    child: const Icon(Icons.person),
+                                  ),
+                                )
+                              : const Icon(Icons.person),
+                        ),
                       ),
                     ),
                     title: Text(
@@ -1521,6 +1648,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       await ref.read(authenticationProvider.notifier).switchAccount(selectedAccount);
       if (mounted) {
         showSnackBar(context, 'Switched to ${selectedAccount.name}\'s account');
+        // Preload the new account's images in background
+        _preloadCriticalImages();
       }
     } catch (e) {
       if (mounted) {
