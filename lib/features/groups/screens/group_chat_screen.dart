@@ -15,10 +15,10 @@ import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
 import 'package:textgb/features/groups/repositories/group_repository.dart';
 import 'package:textgb/features/groups/services/group_security_service.dart';
+import 'package:textgb/features/groups/widgets/group_chat_app_bar.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -443,6 +443,14 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     ref.read(chatProvider.notifier).setReplyingTo(message);
   }
 
+  /// Build enhanced group app bar
+  PreferredSizeWidget _buildGroupAppBar(BuildContext context, GroupModel group) {
+    return GroupChatAppBar(
+      group: group,
+      onBack: () => Navigator.pop(context),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -702,178 +710,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                     }
                   : null,
             ),
-        ],
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildGroupAppBar(BuildContext context, GroupModel group) {
-    final modernTheme = context.modernTheme;
-    
-    return AppBar(
-      elevation: 0,
-      backgroundColor: modernTheme.backgroundColor,
-      leading: AppBarBackButton(onPressed: () => Navigator.pop(context)),
-      title: GestureDetector(
-        onTap: () {
-          // Navigate to group info screen when tapping on title
-          Navigator.pushNamed(
-            context,
-            Constants.groupInformationScreen,
-            arguments: group,
-          );
-        },
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundImage: group.groupImage.isNotEmpty
-                  ? NetworkImage(group.groupImage)
-                  : null,
-              backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
-              radius: 18,
-              child: group.groupImage.isEmpty
-                  ? Icon(
-                      Icons.group,
-                      color: modernTheme.primaryColor,
-                      size: 18,
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    group.groupName,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    '${group.membersUIDs.length} members',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: modernTheme.textSecondaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        // Group settings menu
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          onSelected: (value) async {
-            switch (value) {
-              case 'info':
-                Navigator.pushNamed(
-                  context,
-                  Constants.groupInformationScreen,
-                  arguments: group,
-                );
-                break;
-              case 'settings':
-                final isAdmin = await ref.read(groupProvider.notifier)
-                    .isCurrentUserAdmin(group.groupId);
-                if (isAdmin) {
-                  Navigator.pushNamed(
-                    context,
-                    Constants.groupSettingsScreen,
-                    arguments: group,
-                  );
-                } else {
-                  showSnackBar(context, 'Only admins can access group settings');
-                }
-                break;
-              case 'requests':
-                final isAdmin = await ref.read(groupProvider.notifier)
-                    .isCurrentUserAdmin(group.groupId);
-                if (isAdmin && group.awaitingApprovalUIDs.isNotEmpty) {
-                  Navigator.pushNamed(
-                    context,
-                    Constants.pendingRequestsScreen,
-                    arguments: group,
-                  );
-                } else if (!isAdmin) {
-                  showSnackBar(context, 'Only admins can view pending requests');
-                } else {
-                  showSnackBar(context, 'No pending requests');
-                }
-                break;
-              case 'leave':
-                _showLeaveGroupDialog();
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'info',
-              child: ListTile(
-                leading: Icon(Icons.info_outline),
-                title: Text('Group Info'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'settings',
-              child: ListTile(
-                leading: Icon(Icons.settings),
-                title: Text('Group Settings'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            if (group.awaitingApprovalUIDs.isNotEmpty)
-              PopupMenuItem(
-                value: 'requests',
-                child: ListTile(
-                  leading: const Icon(Icons.person_add),
-                  title: Text('Pending Requests (${group.awaitingApprovalUIDs.length})'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            const PopupMenuItem(
-              value: 'leave',
-              child: ListTile(
-                leading: Icon(Icons.exit_to_app, color: Colors.red),
-                title: Text('Leave Group', style: TextStyle(color: Colors.red)),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-  
-  void _showLeaveGroupDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Leave Group'),
-        content: const Text('Are you sure you want to leave this group?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await ref.read(groupProvider.notifier).leaveGroup(widget.groupId);
-                if (mounted) {
-                  Navigator.pop(context); // Return to groups list
-                }
-              } catch (e) {
-                if (mounted) {
-                  showSnackBar(context, 'Error leaving group: $e');
-                }
-              }
-            },
-            child: const Text('Leave', style: TextStyle(color: Colors.red)),
-          ),
         ],
       ),
     );

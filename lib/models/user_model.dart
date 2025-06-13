@@ -13,6 +13,10 @@ class UserModel {
   List<String> blockedUIDs;
   List<String> statusMutedUsers;
   
+  // Channel-related fields
+  List<String> followedChannels; // Channels this user follows
+  int followingCount; // Count of channels this user is following
+  
   // New payment-related fields
   bool isAccountActivated;
   String? paymentTransactionId;
@@ -31,6 +35,8 @@ class UserModel {
     required this.contactsUIDs,
     required this.blockedUIDs,
     this.statusMutedUsers = const [],
+    this.followedChannels = const [],
+    this.followingCount = 0,
     this.isAccountActivated = false,  // Default to false
     this.paymentTransactionId,
     this.paymentDate,
@@ -39,6 +45,8 @@ class UserModel {
 
   // Update factory method
   factory UserModel.fromMap(Map<String, dynamic> map) {
+    final followedChannelsList = List<String>.from(map['followedChannels'] ?? []);
+    
     return UserModel(
       uid: map[Constants.uid] ?? '',
       name: map[Constants.name] ?? '',
@@ -51,6 +59,8 @@ class UserModel {
       contactsUIDs: List<String>.from(map[Constants.contactsUIDs] ?? []),
       blockedUIDs: List<String>.from(map[Constants.blockedUIDs] ?? []),
       statusMutedUsers: List<String>.from(map[Constants.statusMutedUsers] ?? []),
+      followedChannels: followedChannelsList,
+      followingCount: map['followingCount'] ?? followedChannelsList.length, // Use saved count or calculate from list
       isAccountActivated: map[Constants.isAccountActivated] ?? false,
       paymentTransactionId: map[Constants.paymentTransactionId],
       paymentDate: map[Constants.paymentDate],
@@ -71,6 +81,8 @@ class UserModel {
     List<String>? contactsUIDs,
     List<String>? blockedUIDs,
     List<String>? statusMutedUsers,
+    List<String>? followedChannels,
+    int? followingCount,
     bool? isAccountActivated,
     String? paymentTransactionId,
     String? paymentDate,
@@ -88,6 +100,8 @@ class UserModel {
       contactsUIDs: contactsUIDs ?? List<String>.from(this.contactsUIDs),
       blockedUIDs: blockedUIDs ?? List<String>.from(this.blockedUIDs),
       statusMutedUsers: statusMutedUsers ?? List<String>.from(this.statusMutedUsers),
+      followedChannels: followedChannels ?? List<String>.from(this.followedChannels),
+      followingCount: followingCount ?? this.followingCount,
       isAccountActivated: isAccountActivated ?? this.isAccountActivated,
       paymentTransactionId: paymentTransactionId ?? this.paymentTransactionId,
       paymentDate: paymentDate ?? this.paymentDate,
@@ -109,6 +123,8 @@ class UserModel {
       Constants.contactsUIDs: contactsUIDs,
       Constants.blockedUIDs: blockedUIDs,
       Constants.statusMutedUsers: statusMutedUsers,
+      'followedChannels': followedChannels,
+      'followingCount': followingCount,
       Constants.isAccountActivated: isAccountActivated,
       Constants.paymentTransactionId: paymentTransactionId,
       Constants.paymentDate: paymentDate,

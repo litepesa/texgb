@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
+import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:video_player/video_player.dart';
@@ -42,6 +43,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   bool _isPlaying = false;
   int _currentImageIndex = 0;
   bool _isInitializing = false;
+  // Removed local _isFollowing state - will use provider state instead
   
   // Animation controllers for like effect
   late AnimationController _likeAnimationController;
@@ -349,13 +351,16 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             if (_showLikeAnimation)
               _buildLikeAnimation(),
             
+            // Top right floating buttons (follow and search)
+            _buildTopRightFloatingButtons(modernTheme),
+            
             // Gradient overlay for better text readability
             _buildGradientOverlay(),
             
             // Content overlay
             _buildContentOverlay(modernTheme),
             
-            // Compact action buttons
+            // Compact action buttons (only like, comment, download)
             _buildCompactActionButtons(modernTheme),
             
             // Image carousel indicators
@@ -363,6 +368,50 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               _buildCarouselIndicators(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTopRightFloatingButtons(ModernThemeExtension modernTheme) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 20,
+      right: 16,
+      child: Row(
+        children: [
+          // Follow button - just text
+          GestureDetector(
+            onTap: () => _toggleFollow(),
+            child: Consumer(
+              builder: (context, ref, child) {
+                // Get the current follow status from your channels provider
+                final channelsState = ref.watch(channelsProvider);
+                final isFollowing = _isUserFollowingChannel(channelsState, widget.video.channelId);
+                
+                return Text(
+                  isFollowing ? 'Unfollow' : 'Follow',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          const SizedBox(width: 16),
+          
+          // Search button - just icon
+          GestureDetector(
+            onTap: () => _navigateToSearch(),
+            child: const Icon(
+              Icons.search,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -792,9 +841,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       right: 12,
       child: Column(
         children: [
-          _buildProfileAction(modernTheme),
-          const SizedBox(height: 16),
-          
+          // Like button
           _buildCompactActionButton(
             widget.video.isLiked ? Icons.favorite : Icons.favorite_border,
             widget.video.likes,
@@ -805,8 +852,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             isActive: widget.video.isLiked,
           ),
           
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           
+          // Comment button
           _buildCompactActionButton(
             Icons.chat_bubble_outline,
             widget.video.comments,
@@ -816,97 +864,17 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             },
           ),
           
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           
+          // Download button
           _buildCompactActionButton(
-            Icons.bookmark_border,
+            Icons.download_outlined,
             0,
             Colors.white,
             () {
-              _toggleBookmark();
+              _downloadVideo();
             },
             showCount: false,
-          ),
-          
-          const SizedBox(height: 12),
-          
-          _buildCompactActionButton(
-            Icons.share_outlined,
-            0,
-            Colors.white,
-            () {
-              _showShareOptions();
-            },
-            showCount: false,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileAction(ModernThemeExtension modernTheme) {
-    return GestureDetector(
-      onTap: () => _navigateToChannelProfile(),
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 22,
-              backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-              backgroundImage: widget.video.channelImage.isNotEmpty
-                  ? NetworkImage(widget.video.channelImage)
-                  : null,
-              child: widget.video.channelImage.isEmpty
-                  ? Text(
-                      widget.video.channelName.isNotEmpty
-                          ? widget.video.channelName[0].toUpperCase()
-                          : "C",
-                      style: TextStyle(
-                        color: modernTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    )
-                  : null,
-            ),
-          ),
-          Positioned(
-            bottom: -2,
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF3040),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 12,
-              ),
-            ),
           ),
         ],
       ),
@@ -993,91 +961,32 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  void _toggleBookmark() {
-    debugPrint('Bookmarking video: ${widget.video.id}');
+  // Helper method to check if user is following a channel
+  bool _isUserFollowingChannel(ChannelsState channelsState, String channelId) {
+    // Check if the channelId is in the followedChannels list
+    return channelsState.followedChannels.contains(channelId);
+  }
+
+  void _toggleFollow() {
+    // Use your existing toggleFollowChannel method
+    ref.read(channelsProvider.notifier).toggleFollowChannel(widget.video.channelId);
+  }
+
+  void _navigateToSearch() {
+    debugPrint('Navigating to search');
+    // TODO: Navigate to search screen
+    Navigator.of(context).pushNamed('/search');
+  }
+
+  void _downloadVideo() {
+    debugPrint('Downloading video: ${widget.video.id}');
+    // TODO: Implement video download functionality
   }
 
   void _navigateToChannelProfile() {
     Navigator.of(context).pushNamed(
       Constants.channelProfileScreen,
       arguments: widget.video.channelId,
-    );
-  }
-
-  void _showShareOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey[900]
-              : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Share Video',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildShareOption(Icons.copy, 'Copy Link', () {
-                  Navigator.pop(context);
-                }),
-                _buildShareOption(Icons.message, 'Message', () {
-                  Navigator.pop(context);
-                }),
-                _buildShareOption(Icons.more_horiz, 'More', () {
-                  Navigator.pop(context);
-                }),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShareOption(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.grey[700]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

@@ -10,6 +10,8 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/channels/models/channel_model.dart';
+import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -92,6 +94,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   late TextEditingController _aboutController;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  ChannelModel? _userChannel;
+  bool _isLoadingChannelData = true;
   
   @override
   void initState() {
@@ -115,6 +119,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     
     // Preload user's profile image and related images in background
     _preloadCriticalImages();
+    
+    // Load channel data for stats
+    _loadChannelData();
   }
   
   @override
@@ -139,6 +146,27 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
     ));
+  }
+
+  // Load channel data to get real stats
+  Future<void> _loadChannelData() async {
+    try {
+      final userChannel = ref.read(channelsProvider).userChannel;
+      
+      if (mounted) {
+        setState(() {
+          _userChannel = userChannel;
+          _isLoadingChannelData = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingChannelData = false;
+        });
+      }
+      debugPrint('Error loading channel data: $e');
+    }
   }
 
   // Preload critical images for better UX - runs in background
@@ -311,10 +339,21 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     }
   }
 
+  // Helper method to format numbers
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    }
+    return count.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final user = ref.watch(currentUserProvider);
+    final channelsState = ref.watch(channelsProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Update system UI when widget rebuilds
@@ -349,7 +388,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               _buildMyPostsFeature(modernTheme),
               
               // Quick Stats
-              _buildQuickStats(user, modernTheme),
+              _buildQuickStats(user, modernTheme, channelsState),
               
               // Profile Information
               _buildProfileInfo(user, modernTheme),
@@ -783,8 +822,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
   
-  // Quick stats section
-  Widget _buildQuickStats(UserModel user, ModernThemeExtension modernTheme) {
+  // Quick stats section with real data including following count
+  Widget _buildQuickStats(UserModel user, ModernThemeExtension modernTheme, ChannelsState channelsState) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
@@ -799,15 +838,45 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatItem('Posts', '0', Icons.video_library, modernTheme),
-          _buildStatItem('Followers', '0', Icons.people, modernTheme),
-          _buildStatItem('Following', '0', Icons.person_add, modernTheme),
-          _buildStatItem('Likes', '0', Icons.favorite, modernTheme),
-        ],
-      ),
+      child: _isLoadingChannelData
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItemLoading(modernTheme),
+                _buildStatItemLoading(modernTheme),
+                _buildStatItemLoading(modernTheme),
+                _buildStatItemLoading(modernTheme),
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(
+                  'Posts', 
+                  _userChannel != null ? _formatCount(_userChannel!.videosCount) : '0', 
+                  Icons.video_library, 
+                  modernTheme
+                ),
+                _buildStatItem(
+                  'Followers', 
+                  _userChannel != null ? _formatCount(_userChannel!.followers) : '0', 
+                  Icons.people, 
+                  modernTheme
+                ),
+                _buildStatItem(
+                  'Following', 
+                  _formatCount(user.followingCount), // Use user's following count
+                  Icons.person_add, 
+                  modernTheme
+                ),
+                _buildStatItem(
+                  'Likes', 
+                  _userChannel != null ? _formatCount(_userChannel!.likesCount) : '0', 
+                  Icons.favorite, 
+                  modernTheme
+                ),
+              ],
+            ),
     );
   }
   
@@ -833,6 +902,39 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           style: TextStyle(
             color: modernTheme.textSecondaryColor,
             fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItemLoading(ModernThemeExtension modernTheme) {
+    return Column(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: modernTheme.primaryColor!.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: 30,
+          height: 18,
+          decoration: BoxDecoration(
+            color: modernTheme.textColor!.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: 40,
+          height: 12,
+          decoration: BoxDecoration(
+            color: modernTheme.textSecondaryColor!.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4),
           ),
         ),
       ],
@@ -1648,6 +1750,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       await ref.read(authenticationProvider.notifier).switchAccount(selectedAccount);
       if (mounted) {
         showSnackBar(context, 'Switched to ${selectedAccount.name}\'s account');
+        // Reload channel data for the new account
+        _loadChannelData();
         // Preload the new account's images in background
         _preloadCriticalImages();
       }

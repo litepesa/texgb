@@ -286,6 +286,7 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     try {
       final uid = _auth.currentUser!.uid;
       final channelDoc = _firestore.collection(Constants.channels).doc(channelId);
+      final userDoc = _firestore.collection(Constants.users).doc(uid);
       
       // Get current followed channels
       List<String> followedChannels = List.from(state.followedChannels);
@@ -316,16 +317,21 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
         followedChannels: followedChannels,
       );
       
-      // Update Firestore
-      // 1. Update user's followed channels
-      await _firestore.collection(Constants.users).doc(uid).update({
+      // Update Firestore in batch
+      final batch = _firestore.batch();
+      
+      // 1. Update user's followed channels and following count
+      batch.update(userDoc, {
         'followedChannels': isCurrentlyFollowed
             ? FieldValue.arrayRemove([channelId])
             : FieldValue.arrayUnion([channelId]),
+        'followingCount': isCurrentlyFollowed
+            ? FieldValue.increment(-1)
+            : FieldValue.increment(1),
       });
       
       // 2. Update channel's followers count and list
-      await channelDoc.update({
+      batch.update(channelDoc, {
         'followers': isCurrentlyFollowed
             ? FieldValue.increment(-1)
             : FieldValue.increment(1),
@@ -333,6 +339,9 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
             ? FieldValue.arrayRemove([uid])
             : FieldValue.arrayUnion([uid]),
       });
+      
+      // Commit the batch
+      await batch.commit();
       
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -500,6 +509,9 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
       state = state.copyWith(error: e.toString());
     }
   }
+
+  // Get user's following count
+  int get followingCount => state.followedChannels.length;
 }
 
 // Provider definition

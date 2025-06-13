@@ -607,15 +607,6 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen> {
         privacyText = 'Only selected contacts will see this status';
         privacyIcon = Icons.person_add;
         break;
-      case StatusPrivacyType.public:
-        // TODO: Handle this case.
-        throw UnimplementedError();
-      case StatusPrivacyType.public_except_contacts:
-        // TODO: Handle this case.
-        throw UnimplementedError();
-      case StatusPrivacyType.public_except_some:
-        // TODO: Handle this case.
-        throw UnimplementedError();
     }
     
     return GestureDetector(

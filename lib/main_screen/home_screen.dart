@@ -8,7 +8,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
@@ -62,15 +62,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<String> _tabNames = [
     'Chats',
-    'Wallet',
+    'Groups',
     'Discover',
     'Me'
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_text,
-    CupertinoIcons.bitcoin,
-    //Icons.monetization_on_outlined,
+    Icons.group_outlined,
     CupertinoIcons.compass,
     CupertinoIcons.person
   ];
@@ -173,16 +172,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final chatsAsyncValue = ref.watch(chatStreamProvider);
     final isChannelsTab = _currentIndex == 2; // Channels tab at index 2
     final isProfileTab = _currentIndex == 3; // Profile tab at index 3
-    final isWalletTab = _currentIndex == 1; // Wallet tab at index 1
+    final isGroupsTab = _currentIndex == 1; // Groups tab at index 1
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isChannelsTab || isProfileTab || isWalletTab,
+      extendBodyBehindAppBar: isChannelsTab || isProfileTab,
       backgroundColor: isChannelsTab ? Colors.black : modernTheme.backgroundColor,
       
-      // Hide AppBar for channels, profile, and wallet tabs
-      appBar: (isChannelsTab || isProfileTab || isWalletTab) ? null : _buildAppBar(modernTheme, isDarkMode),
+      // Hide AppBar for channels and profile tabs only
+      appBar: (isChannelsTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -195,8 +194,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const ChatsTab(),
           ),
-          // Wallet tab (index 1) - Replaced Moments tab
-          const WalletScreen(),
+          // Groups tab (index 1) - Replaced Wallet tab
+          Container(
+            color: modernTheme.backgroundColor,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: const GroupsTab(),
+          ),
           // Channels feed (index 2) - Always present but lifecycle managed
           ChannelsFeedScreen(key: _channelsFeedKey),
           // Profile tab (index 3)
@@ -297,7 +300,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // For other tabs (Wallet, Discover, Me), no badge needed
+    // Groups tab is at index 1 - show unread count for group chats only
+    if (index == 1) {
+      return chatsAsyncValue.when(
+        data: (chats) {
+          // Calculate unread count from group chats only
+          final groupChats = chats.where((chat) => chat.isGroup).toList();
+          final groupUnreadCount = groupChats.fold<int>(
+            0, 
+            (sum, chat) => sum + chat.getDisplayUnreadCount()
+          );
+          
+          return _buildNavItemWithBadge(
+            index, 
+            isSelected, 
+            modernTheme, 
+            groupUnreadCount
+          );
+        },
+        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+      );
+    }
+    
+    // For other tabs (Discover, Me), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
   
@@ -378,9 +404,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB only on Chats tab (removed wallet tab from FAB logic)
+  // Show FAB on Chats and Groups tabs
   bool _shouldShowFab() {
-    return _currentIndex == 0;
+    return _currentIndex == 0 || _currentIndex == 1;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -437,6 +463,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         elevation: 4,
         onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
         child: const Icon(CupertinoIcons.chat_bubble_text),
+      );
+    } else if (_currentIndex == 1) {
+      // Groups tab - Create group FAB (using the existing FAB from GroupsTab)
+      return FloatingActionButton(
+        backgroundColor: modernTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
+        child: const Icon(Icons.group_add),
       );
     }
     
