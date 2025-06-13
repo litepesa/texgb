@@ -2,14 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
-import 'package:textgb/models/user_model.dart';
 
 class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final GroupModel group;
@@ -27,24 +26,16 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
+    
+    // Simply watch the group provider - Riverpod handles caching automatically
     final groupState = ref.watch(groupProvider);
     
-    // Use the initial group data immediately, then update with fresh data when available
+    // Use updated group data if available, otherwise use the passed group
     final currentGroup = groupState.valueOrNull?.currentGroup ?? group;
     final groupMembers = groupState.valueOrNull?.currentGroupMembers ?? [];
     
-    // Pre-load group details in the background without blocking UI
-    ref.listen(groupProvider, (previous, next) {
-      // This listener ensures fresh data is loaded but doesn't block initial render
-    });
-    
-    // Trigger background refresh if we don't have current group data
-    if (groupState.valueOrNull?.currentGroup?.groupId != group.groupId) {
-      // Load fresh data in background without waiting
-      Future.microtask(() {
-        ref.read(groupProvider.notifier).getGroupDetails(group.groupId);
-      });
-    }
+    // Get current user for admin check
+    final currentUser = ref.watch(currentUserProvider);
     
     return AppBar(
       elevation: 0,
@@ -61,7 +52,6 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
       ),
       title: InkWell(
         onTap: () {
-          // Navigate to group info screen when tapping on title area
           Navigator.pushNamed(
             context,
             Constants.groupInformationScreen,
@@ -73,7 +63,7 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           child: Row(
             children: [
-              // Group profile image with cached loading and immediate fallback
+              // Group profile image
               Hero(
                 tag: 'group_image_${currentGroup.groupId}',
                 child: Stack(
@@ -88,25 +78,17 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
                                 width: 40,
                                 height: 40,
                                 fit: BoxFit.cover,
-                                cacheManager: CacheManager(
-                                  Config(
-                                    'group_images',
-                                    stalePeriod: const Duration(days: 7),
-                                    maxNrOfCacheObjects: 100,
-                                  ),
-                                ),
-                                placeholder: (context, url) => Icon(
-                                  Icons.group,
-                                  color: modernTheme.primaryColor,
-                                  size: 20,
+                                placeholder: (context, url) => Container(
+                                  width: 40,
+                                  height: 40,
+                                  color: modernTheme.primaryColor?.withOpacity(0.1),
+                                  child: const SizedBox.shrink(), // Don't show icon while loading
                                 ),
                                 errorWidget: (context, url, error) => Icon(
                                   Icons.group,
                                   color: modernTheme.primaryColor,
                                   size: 20,
                                 ),
-                                fadeInDuration: const Duration(milliseconds: 150),
-                                fadeOutDuration: const Duration(milliseconds: 150),
                               ),
                             )
                           : Icon(
@@ -115,7 +97,7 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
                               size: 20,
                             ),
                     ),
-                    // Group type indicator (private/public)
+                    // Group type indicator
                     Positioned(
                       bottom: 0,
                       right: 0,
@@ -144,13 +126,13 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
               ),
               const SizedBox(width: 12),
               
-              // Group info with smart member count display
+              // Group info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Group name with typing indicator space
+                    // Group name with admin badge
                     Row(
                       children: [
                         Expanded(
@@ -165,14 +147,68 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        // Admin badge if user is admin (cached check)
-                        _buildAdminBadge(ref, currentGroup, modernTheme),
+                        // Simple admin badge check using existing group data
+                        if (currentUser != null && currentGroup.isAdmin(currentUser.uid))
+                          Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: modernTheme.primaryColor?.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'ADMIN',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: modernTheme.primaryColor,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     
-                    // Members count and status with smart loading
+                    // Members count - only show when we have real data
                     const SizedBox(height: 1),
-                    _buildGroupSubtitle(context, currentGroup, groupMembers, modernTheme, groupState.isLoading),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: () {
+                            final memberCountText = _getMemberCountText(
+                              groupMembers, 
+                              currentGroup, 
+                              groupState.isLoading,
+                            );
+                            
+                            // Only show member count if we have real data
+                            if (memberCountText != null) {
+                              return Text(
+                                memberCountText,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: modernTheme.textSecondaryColor,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            }
+                            
+                            // Show nothing while waiting for real data
+                            return const SizedBox.shrink();
+                          }(),
+                        ),
+                        // Only show encryption indicator when we have member data
+                        if (_getMemberCountText(groupMembers, currentGroup, groupState.isLoading) != null)
+                          Icon(
+                            Icons.lock_outline,
+                            size: 12,
+                            color: modernTheme.textSecondaryColor?.withOpacity(0.6),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -181,7 +217,6 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
         ),
       ),
       actions: [
-        // More options menu
         PopupMenuButton<String>(
           icon: Icon(
             Icons.more_vert,
@@ -190,7 +225,7 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          onSelected: (value) => _handleMenuAction(context, ref, value, currentGroup),
+          onSelected: (value) => _handleMenuAction(context, ref, value, currentGroup, currentUser),
           itemBuilder: (context) => [
             PopupMenuItem(
               value: 'info',
@@ -225,24 +260,27 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
               ),
             ),
             const PopupMenuDivider(),
-            PopupMenuItem(
-              value: 'settings',
-              child: _buildMenuItem(
-                icon: Icons.settings_outlined,
-                title: 'Group Settings',
-                modernTheme: modernTheme,
-              ),
-            ),
-            if (currentGroup.awaitingApprovalUIDs.isNotEmpty)
+            // Only show admin options if user is admin
+            if (currentUser != null && currentGroup.isAdmin(currentUser.uid)) ...[
               PopupMenuItem(
-                value: 'requests',
+                value: 'settings',
                 child: _buildMenuItem(
-                  icon: Icons.person_add_outlined,
-                  title: 'Pending Requests (${currentGroup.awaitingApprovalUIDs.length})',
+                  icon: Icons.settings_outlined,
+                  title: 'Group Settings',
                   modernTheme: modernTheme,
                 ),
               ),
-            const PopupMenuDivider(),
+              if (currentGroup.awaitingApprovalUIDs.isNotEmpty)
+                PopupMenuItem(
+                  value: 'requests',
+                  child: _buildMenuItem(
+                    icon: Icons.person_add_outlined,
+                    title: 'Pending Requests (${currentGroup.awaitingApprovalUIDs.length})',
+                    modernTheme: modernTheme,
+                  ),
+                ),
+              const PopupMenuDivider(),
+            ],
             PopupMenuItem(
               value: 'leave',
               child: _buildMenuItem(
@@ -258,79 +296,24 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
     );
   }
 
-  // Cached admin badge check with immediate display
-  Widget _buildAdminBadge(WidgetRef ref, GroupModel group, ModernThemeExtension modernTheme) {
-    return FutureBuilder<bool>(
-      future: ref.read(groupProvider.notifier).isCurrentUserAdmin(group.groupId),
-      builder: (context, snapshot) {
-        // Show cached result immediately if available
-        if (snapshot.hasData && snapshot.data == true) {
-          return Container(
-            margin: const EdgeInsets.only(left: 4),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 4,
-              vertical: 1,
-            ),
-            decoration: BoxDecoration(
-              color: modernTheme.primaryColor?.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'ADMIN',
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                color: modernTheme.primaryColor,
-              ),
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
-  }
-
-  // Smart subtitle that shows immediate info and updates progressively
-  Widget _buildGroupSubtitle(
-    BuildContext context,
-    GroupModel group,
-    List groupMembers,
-    ModernThemeExtension modernTheme,
-    bool isLoading,
-  ) {
-    // Use immediate data from group model, then enhance with fresh data
-    final memberCount = groupMembers.isNotEmpty ? groupMembers.length : group.membersUIDs.length;
-    
-    String subtitleText;
-    if (memberCount == 0) {
-      subtitleText = isLoading ? 'Loading...' : 'No members';
-    } else if (memberCount == 1) {
-      subtitleText = '1 member';
-    } else {
-      subtitleText = '$memberCount members';
+  // Simple helper to get member count text - only show real data
+  String? _getMemberCountText(List groupMembers, GroupModel group, bool isLoading) {
+    // Don't show anything while loading
+    if (isLoading && groupMembers.isEmpty && group.membersUIDs.isEmpty) {
+      return null;
     }
     
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            subtitleText,
-            style: TextStyle(
-              fontSize: 12,
-              color: modernTheme.textSecondaryColor,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        // Add encryption indicator
-        Icon(
-          Icons.lock_outline,
-          size: 12,
-          color: modernTheme.textSecondaryColor?.withOpacity(0.6),
-        ),
-      ],
-    );
+    // Use fresh member data if available, otherwise use group data
+    final memberCount = groupMembers.isNotEmpty ? groupMembers.length : group.membersUIDs.length;
+    
+    // Only show count if we have actual data
+    if (memberCount == 0) {
+      return null; // Don't show "No members" - wait for real data
+    } else if (memberCount == 1) {
+      return '1 member';
+    } else {
+      return '$memberCount members';
+    }
   }
 
   Widget _buildMenuItem({
@@ -369,6 +352,7 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
     WidgetRef ref,
     String action,
     GroupModel group,
+    currentUser,
   ) async {
     switch (action) {
       case 'info':
@@ -380,48 +364,31 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
         break;
         
       case 'search':
-        // TODO: Implement message search
         showSnackBar(context, 'Message search coming soon');
         break;
         
       case 'mute':
-        // TODO: Implement mute notifications
         showSnackBar(context, 'Mute notifications coming soon');
         break;
         
       case 'media':
-        // TODO: Navigate to media gallery
         showSnackBar(context, 'Media gallery coming soon');
         break;
         
       case 'settings':
-        final isAdmin = await ref.read(groupProvider.notifier)
-            .isCurrentUserAdmin(group.groupId);
-        if (isAdmin) {
-          Navigator.pushNamed(
-            context,
-            Constants.groupSettingsScreen,
-            arguments: group,
-          );
-        } else {
-          showSnackBar(context, 'Only admins can access group settings');
-        }
+        Navigator.pushNamed(
+          context,
+          Constants.groupSettingsScreen,
+          arguments: group,
+        );
         break;
         
       case 'requests':
-        final isAdmin = await ref.read(groupProvider.notifier)
-            .isCurrentUserAdmin(group.groupId);
-        if (isAdmin && group.awaitingApprovalUIDs.isNotEmpty) {
-          Navigator.pushNamed(
-            context,
-            Constants.pendingRequestsScreen,
-            arguments: group,
-          );
-        } else if (!isAdmin) {
-          showSnackBar(context, 'Only admins can view pending requests');
-        } else {
-          showSnackBar(context, 'No pending requests');
-        }
+        Navigator.pushNamed(
+          context,
+          Constants.pendingRequestsScreen,
+          arguments: group,
+        );
         break;
         
       case 'leave':
@@ -477,7 +444,7 @@ class GroupChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
               try {
                 await ref.read(groupProvider.notifier).leaveGroup(group.groupId);
                 if (context.mounted) {
-                  Navigator.pop(context); // Return to groups list
+                  Navigator.pop(context);
                   showSnackBar(context, 'You left the group');
                 }
               } catch (e) {
