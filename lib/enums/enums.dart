@@ -1,4 +1,4 @@
-// lib/enums/enums.dart
+// lib/enums/enums.dart - Enhanced privacy settings for status posts
 import 'package:flutter/material.dart';
 
 enum ContactViewType {
@@ -88,11 +88,14 @@ enum StatusType {
   link,
 }
 
-/// Privacy settings for status posts
+/// Enhanced privacy settings for status posts with public options
 enum StatusPrivacyType {
-  all_contacts,    // All contacts can see
-  except,          // All contacts except specific ones
-  only,            // Only specific contacts can see
+  all_contacts,         // All contacts can see
+  except,              // All contacts except specific ones
+  only,                // Only specific contacts can see
+  public,              // Public to everyone on the app (including contacts)
+  public_except_contacts, // Public to everyone EXCEPT all contacts
+  public_except_some,   // Public to everyone except specific contacts
 }
 
 // Extension for converting string to MessageEnum
@@ -260,7 +263,7 @@ extension StatusTypeToMessageEnum on StatusType {
   }
 }
 
-/// Extension to provide helper methods for StatusPrivacyType
+/// Enhanced extension to provide helper methods for StatusPrivacyType
 extension StatusPrivacyTypeExtension on StatusPrivacyType {
   /// Convert a string representation to StatusPrivacyType enum
   static StatusPrivacyType fromString(String type) {
@@ -269,6 +272,12 @@ extension StatusPrivacyTypeExtension on StatusPrivacyType {
         return StatusPrivacyType.except;
       case 'only':
         return StatusPrivacyType.only;
+      case 'public':
+        return StatusPrivacyType.public;
+      case 'public_except_contacts':
+        return StatusPrivacyType.public_except_contacts;
+      case 'public_except_some':
+        return StatusPrivacyType.public_except_some;
       case 'all_contacts':
       default:
         return StatusPrivacyType.all_contacts;
@@ -284,19 +293,68 @@ extension StatusPrivacyTypeExtension on StatusPrivacyType {
         return 'Only share with...';
       case StatusPrivacyType.all_contacts:
         return 'My contacts';
+      case StatusPrivacyType.public:
+        return 'Public';
+      case StatusPrivacyType.public_except_contacts:
+        return 'Public (hidden from contacts)';
+      case StatusPrivacyType.public_except_some:
+        return 'Public except...';
+    }
+  }
+  
+  /// Get a detailed description for the privacy type
+  String get description {
+    switch (this) {
+      case StatusPrivacyType.except:
+        return 'Share with all your contacts except specific ones';
+      case StatusPrivacyType.only:
+        return 'Share only with specific contacts';
+      case StatusPrivacyType.all_contacts:
+        return 'Share with all your contacts';
+      case StatusPrivacyType.public:
+        return 'Share publicly with everyone on the app';
+      case StatusPrivacyType.public_except_contacts:
+        return 'Share publicly but hide from all your contacts';
+      case StatusPrivacyType.public_except_some:
+        return 'Share publicly but hide from specific contacts';
     }
   }
   
   /// Get an icon for the privacy type
-  String get icon {
+  IconData get icon {
     switch (this) {
       case StatusPrivacyType.except:
-        return 'person_remove';
+        return Icons.person_remove;
       case StatusPrivacyType.only:
-        return 'people';
+        return Icons.people;
       case StatusPrivacyType.all_contacts:
-        return 'contacts';
+        return Icons.contacts;
+      case StatusPrivacyType.public:
+        return Icons.public;
+      case StatusPrivacyType.public_except_contacts:
+        return Icons.public_off;
+      case StatusPrivacyType.public_except_some:
+        return Icons.remove_circle_outline;
     }
+  }
+  
+  /// Check if this privacy type is public
+  bool get isPublic {
+    return this == StatusPrivacyType.public ||
+           this == StatusPrivacyType.public_except_contacts ||
+           this == StatusPrivacyType.public_except_some;
+  }
+  
+  /// Check if this privacy type needs contact selection
+  bool get needsContactSelection {
+    return this == StatusPrivacyType.except ||
+           this == StatusPrivacyType.only ||
+           this == StatusPrivacyType.public_except_some;
+  }
+  
+  /// Check if this privacy type hides from contacts
+  bool get hidesFromContacts {
+    return this == StatusPrivacyType.public_except_contacts;
   }
 }
 

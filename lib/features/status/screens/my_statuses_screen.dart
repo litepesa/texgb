@@ -422,6 +422,15 @@ class MyStatusesScreen extends ConsumerWidget {
         return Icons.person_remove;
       case StatusPrivacyType.only:
         return Icons.person_add;
+      case StatusPrivacyType.public:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case StatusPrivacyType.public_except_contacts:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case StatusPrivacyType.public_except_some:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 
@@ -433,6 +442,15 @@ class MyStatusesScreen extends ConsumerWidget {
         return 'Except some';
       case StatusPrivacyType.only:
         return 'Only some';
+      case StatusPrivacyType.public:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case StatusPrivacyType.public_except_contacts:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+      case StatusPrivacyType.public_except_some:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 }

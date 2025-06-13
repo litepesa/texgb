@@ -39,10 +39,6 @@ import 'package:textgb/features/status/screens/status_detail_screen.dart';
 import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/features/status/screens/status_viewer_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
-
-import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
 import 'package:textgb/models/user_model.dart';
@@ -144,10 +140,6 @@ class AppRoot extends ConsumerWidget {
           Constants.contactsScreen: (context) => const ContactsScreen(),
           Constants.addContactScreen: (context) => const AddContactScreen(),
           Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
-
-          Constants.momentsFeedScreen: (context) => const MomentsFeedScreen(),
-          Constants.createMomentScreen: (context) => const CreateMomentScreen(),
-
           Constants.contactProfileScreen: (context) {
             final args = ModalRoute.of(context)!.settings.arguments as UserModel;
             return ContactProfileScreen(contact: args);
