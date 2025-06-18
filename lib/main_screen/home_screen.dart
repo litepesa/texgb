@@ -7,11 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
-import 'package:textgb/features/channels/screens/explore_channels_screen.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
-//import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
+import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
@@ -208,7 +207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: const StatusOverviewScreen(),
           ),
           // Channels feed (index 3)
-          ExploreChannelsScreen(key: _channelsFeedKey),
+          ChannelsFeedScreen(key: _channelsFeedKey),
         ],
       ),
       
