@@ -4,16 +4,19 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/channels/screens/explore_channels_screen.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
-import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
+//import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
+import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
@@ -63,15 +66,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final List<String> _tabNames = [
     'Chats',
     'Groups',
-    'Discover',
-    'Me'
+    'Status',
+    'Channels'
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_text,
     Icons.group_outlined,
-    CupertinoIcons.compass,
-    CupertinoIcons.person
+    Icons.donut_large_outlined,
+    CupertinoIcons.tv
   ];
 
   @override
@@ -118,7 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   void _handleChannelsFeedLifecycle(int newIndex) {
-    const channelsFeedIndex = 2; // Channels tab at index 2
+    const channelsFeedIndex = 3; // Channels tab now at index 3
     
     if (_previousIndex == channelsFeedIndex && newIndex != channelsFeedIndex) {
       // User left channels feed tab - pause all videos immediately
@@ -130,8 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   void _updateSystemUI() {
-    final isChannelsTab = _currentIndex == 2; // Channels tab at index 2
-    final isProfileTab = _currentIndex == 3; // Profile tab at index 3
+    final isChannelsTab = _currentIndex == 3; // Channels tab now at index 3
     
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -170,18 +172,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
-    final isChannelsTab = _currentIndex == 2; // Channels tab at index 2
-    final isProfileTab = _currentIndex == 3; // Profile tab at index 3
+    final isChannelsTab = _currentIndex == 3; // Channels tab now at index 3
     final isGroupsTab = _currentIndex == 1; // Groups tab at index 1
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isChannelsTab || isProfileTab,
+      extendBodyBehindAppBar: isChannelsTab,
       backgroundColor: isChannelsTab ? Colors.black : modernTheme.backgroundColor,
       
-      // Hide AppBar for channels and profile tabs only
-      appBar: (isChannelsTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
+      // Hide AppBar for channels tab only
+      appBar: isChannelsTab ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -194,20 +195,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const ChatsTab(),
           ),
-          // Groups tab (index 1) - Replaced Wallet tab
+          // Groups tab (index 1)
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const GroupsTab(),
           ),
-          // Channels feed (index 2) - Always present but lifecycle managed
-          ChannelsFeedScreen(key: _channelsFeedKey),
-          // Profile tab (index 3)
+          // Status tab (index 2)
           Container(
-            color: modernTheme.surfaceColor,
+            color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const MyProfileScreen(),
+            child: const StatusOverviewScreen(),
           ),
+          // Channels feed (index 3)
+          ExploreChannelsScreen(key: _channelsFeedKey),
         ],
       ),
       
@@ -219,7 +220,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             // Add the progress bar here - only show for channels tab
-            if (_currentIndex == 2) // Only show for channels tab
+            if (_currentIndex == 3) // Only show for channels tab
               Consumer(
                 builder: (context, ref, _) {
                   final videosState = ref.watch(channelVideosProvider);
@@ -323,7 +324,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // For other tabs (Discover, Me), no badge needed
+    // For other tabs (Status, Discover), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
   
@@ -404,9 +405,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats and Groups tabs
+  // Show FAB on Chats, Groups, and Status tabs
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1;
+    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 2;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -416,6 +417,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       scrolledUnderElevation: 0,
       centerTitle: true,
       title: _buildAppBarTitle(modernTheme),
+      actions: [
+        _buildProfileButton(modernTheme),
+        const SizedBox(width: 16),
+      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
@@ -453,6 +458,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     );
   }
+
+  Widget _buildProfileButton(ModernThemeExtension modernTheme) {
+    final currentUser = ref.watch(currentUserProvider);
+    
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MyProfileScreen(),
+          ),
+        );
+      },
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.red,
+            width: 2,
+          ),
+        ),
+        child: ClipOval(
+          child: currentUser?.image != null && currentUser!.image.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: currentUser.image,
+                  fit: BoxFit.cover,
+                  width: 40,
+                  height: 40,
+                  memCacheWidth: 80,
+                  memCacheHeight: 80,
+                  placeholder: (context, url) => Container(
+                    color: modernTheme.primaryColor?.withOpacity(0.3),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: modernTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: modernTheme.primaryColor,
+                    child: const Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                )
+              : Container(
+                  color: modernTheme.primaryColor,
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
   
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 0) {
@@ -465,13 +532,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: const Icon(CupertinoIcons.chat_bubble_text),
       );
     } else if (_currentIndex == 1) {
-      // Groups tab - Create group FAB (using the existing FAB from GroupsTab)
+      // Groups tab - Create group FAB
       return FloatingActionButton(
         backgroundColor: modernTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
         onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
         child: const Icon(Icons.group_add),
+      );
+    } else if (_currentIndex == 2) {
+      // Status tab - Create status FAB
+      return FloatingActionButton(
+        backgroundColor: modernTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        onPressed: () => Navigator.pushNamed(context, Constants.createStatusScreen),
+        child: const Icon(Icons.add),
       );
     }
     

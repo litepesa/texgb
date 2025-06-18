@@ -1,6 +1,7 @@
 // lib/features/channels/widgets/channel_video_item.dart
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
@@ -856,7 +857,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           // Comment button
           _buildCompactActionButton(
-            Icons.chat_bubble_outline,
+            CupertinoIcons.text_bubble,
             widget.video.comments,
             Colors.white,
             () {
