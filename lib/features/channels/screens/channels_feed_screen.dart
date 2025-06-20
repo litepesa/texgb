@@ -1,5 +1,4 @@
-// Enhanced version of lib/features/channels/screens/channels_feed_screen.dart
-// Replace the existing file with this enhanced version that includes caching
+// lib/features/channels/screens/channels_feed_screen.dart
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -449,7 +448,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             _buildInactiveOverlay(modernTheme),
         ],
       ),
-      floatingActionButton: _buildFloatingActionButton(channelsState, modernTheme),
+      // FAB removed - no longer shows floating action button
     );
   }
 
@@ -626,20 +625,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             ),
         ],
       ),
-    );
-  }
-
-  Widget? _buildFloatingActionButton(ChannelsState channelsState, ModernThemeExtension modernTheme) {
-    return FloatingActionButton(
-      backgroundColor: modernTheme.primaryColor,
-      onPressed: () {
-        if (channelsState.userChannel == null) {
-          _navigateToCreateChannel();
-        } else {
-          _navigateToCreatePost();
-        }
-      },
-      child: const Icon(Icons.add),
     );
   }
 

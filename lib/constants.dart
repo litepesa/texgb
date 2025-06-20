@@ -1,4 +1,4 @@
-// lib/constants.dart - Updated for Channels feature and Wallet feature
+// lib/constants.dart - Updated for Public Groups feature
 class Constants {
   // screens routes
   static const String landingScreen = '/landingScreen';
@@ -20,7 +20,8 @@ class Constants {
   static const String privacySettingsScreen = '/privacySettingsScreen';
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   
-  // Group routes (keeping for backward compatibility)
+  // Group routes (Private Groups)
+  static const String groupsMainScreen = '/groupsMainScreen'; // New main screen for both private and public
   static const String groupSettingsScreen = '/groupSettingsScreen';
   static const String groupInformationScreen = '/groupInformationScreen';
   static const String groupsScreen = '/groupsScreen';
@@ -48,6 +49,18 @@ class Constants {
   static const String channelCommentsScreen = '/channelCommentsScreen';
   static const String exploreChannelsScreen = '/exploreChannelsScreen';
   static const String myPostScreen = '/myPostScreen'; // New route for My Post Screen
+
+  // Public Groups routes (NEW)
+  static const String publicGroupFeedScreen = '/publicGroupFeedScreen';
+  static const String createPublicGroupScreen = '/createPublicGroupScreen';
+  static const String publicGroupInfoScreen = '/publicGroupInfoScreen';
+  static const String editPublicGroupScreen = '/editPublicGroupScreen';
+  static const String explorePublicGroupsScreen = '/explorePublicGroupsScreen';
+  static const String createPublicGroupPostScreen = '/createPublicGroupPostScreen';
+  static const String editPublicGroupPostScreen = '/editPublicGroupPostScreen';
+  static const String publicGroupPostCommentsScreen = '/publicGroupPostCommentsScreen';
+  static const String publicGroupPostDetailScreen = '/publicGroupPostDetailScreen';
+  static const String myPublicGroupsScreen = '/myPublicGroupsScreen';
   
   // Wallet routes
   static const String walletScreen = '/walletScreen';
@@ -90,6 +103,14 @@ class Constants {
   static const String channelFiles = 'channelFiles';
   static const String channelLikes = 'channelLikes';
   static const String channelViews = 'channelViews';
+
+  // Collection names for Public Groups feature (NEW)
+  static const String publicGroups = 'public_groups';
+  static const String publicGroupPosts = 'public_group_posts';
+  static const String postComments = 'post_comments';
+  static const String publicGroupFiles = 'public_group_files';
+  static const String publicGroupReactions = 'public_group_reactions';
+  static const String publicGroupSubscribers = 'public_group_subscribers';
   
   // Collection names for Wallet feature
   static const String wallets = 'wallets';
@@ -159,6 +180,33 @@ class Constants {
   static const String mediaUrl = 'mediaUrl';
   static const String postViewCount = 'postViewCount';
   static const String isPinned = 'isPinned';
+
+  // Public Group model fields (NEW)
+  static const String publicGroupId = 'publicGroupId';
+  static const String publicGroupName = 'publicGroupName';
+  static const String publicGroupDescription = 'publicGroupDescription';
+  static const String publicGroupImage = 'publicGroupImage';
+  static const String creatorUID = 'creatorUID';
+  static const String subscribersCount = 'subscribersCount';
+  static const String publicGroupSettings = 'publicGroupSettings';
+  
+  // Public Group Post model fields (NEW)
+  static const String publicPostId = 'publicPostId';
+  static const String publicGroupPostId = 'publicGroupPostId';
+  static const String authorUID = 'authorUID';
+  static const String authorName = 'authorName';
+  static const String authorImage = 'authorImage';
+  static const String content = 'content';
+  static const String mediaUrls = 'mediaUrls';
+  static const String postType = 'postType';
+  static const String reactions = 'reactions';
+  static const String reactionsCount = 'reactionsCount';
+  static const String metadata = 'metadata';
+  
+  // Comment model fields (NEW)
+  static const String commentId = 'commentId';
+  static const String repliedToCommentId = 'repliedToCommentId';
+  static const String repliedToAuthorName = 'repliedToAuthorName';
   
   // User-related constants
   static const String uid = 'uid';
@@ -173,6 +221,7 @@ class Constants {
   static const String contactsUIDs = 'contactsUIDs';
   static const String blockedUIDs = 'blockedUIDs';
   static const String statusMutedUsers = 'statusMutedUsers'; // New field for muted users in status
+  static const String followedPublicGroups = 'followedPublicGroups'; // NEW field for public groups
 
   static const String verificationId = 'verificationId';
 
@@ -196,7 +245,6 @@ class Constants {
   static const String repliedTo = 'repliedTo';
   static const String repliedMessageType = 'repliedMessageType';
   static const String isMe = 'isMe';
-  static const String reactions = 'reactions';
   static const String isSeenBy = 'isSeenBy';
   static const String deletedBy = 'deletedBy';
 
@@ -209,8 +257,7 @@ class Constants {
   static const String private = 'private';
   static const String public = 'public';
 
-  // Group-related constants
-  static const String creatorUID = 'creatorUID';
+  // Group-related constants (Private Groups)
   static const String groupName = 'groupName';
   static const String groupDescription = 'groupDescription';
   static const String groupImage = 'groupImage';
