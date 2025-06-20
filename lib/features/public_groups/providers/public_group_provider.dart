@@ -73,6 +73,8 @@ class PublicGroupState {
     }
     return copyWith(loadingStates: newLoadingStates);
   }
+
+  getCurrentUserUid() {}
 }
 
 @riverpod

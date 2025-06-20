@@ -175,14 +175,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isChannelsTab = _currentIndex == 2; // Channels tab now at index 2
     final isGroupsTab = _currentIndex == 3; // Groups tab now at index 3
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final topPadding = MediaQuery.of(context).padding.top;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isChannelsTab,
+      extendBodyBehindAppBar: isChannelsTab || isGroupsTab, // Extend for both channels and groups
       backgroundColor: isChannelsTab ? Colors.black : modernTheme.backgroundColor,
       
-      // Hide AppBar for channels tab only
-      appBar: isChannelsTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      // Hide AppBar for channels tab (index 2) AND groups tab (index 3)
+      appBar: (isChannelsTab || isGroupsTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -203,11 +204,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           // Channels feed (index 2)
           ChannelsFeedScreen(key: _channelsFeedKey),
-          // Groups tab (index 3)
+          // Groups tab (index 3) - Fixed with proper padding
           Container(
             color: modernTheme.backgroundColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const GroupsTab(),
+            child: SafeArea(
+              bottom: false, // Let the bottom navigation handle bottom padding
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: 0, // No extra top padding since we're using SafeArea
+                  bottom: bottomPadding + 80, // Add space for bottom nav + some extra
+                ),
+                child: const GroupsTab(),
+              ),
+            ),
           ),
         ],
       ),
@@ -405,9 +414,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats, Status, and Groups tabs
+  // Show FAB on Chats and Status tabs only
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 3;
+    return _currentIndex == 0 || _currentIndex == 1;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -547,15 +556,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         elevation: 4,
         onPressed: () => Navigator.pushNamed(context, Constants.createStatusScreen),
         child: const Icon(Icons.add),
-      );
-    } else if (_currentIndex == 3) {
-      // Groups tab - Create group FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
-        child: const Icon(Icons.group_add),
       );
     }
     

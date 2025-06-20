@@ -46,6 +46,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 
+// Public Groups imports
+import 'package:textgb/features/public_groups/models/public_group_model.dart';
+import 'package:textgb/features/public_groups/models/public_group_post_model.dart';
+import 'package:textgb/features/public_groups/screens/public_groups_screen.dart';
+import 'package:textgb/features/public_groups/screens/create_public_group_screen.dart';
+import 'package:textgb/features/public_groups/screens/public_group_feed_screen.dart';
+import 'package:textgb/features/public_groups/screens/public_group_info_screen.dart';
+import 'package:textgb/features/public_groups/screens/edit_public_group_screen.dart';
+import 'package:textgb/features/public_groups/screens/explore_public_groups_screen.dart';
+import 'package:textgb/features/public_groups/screens/create_public_group_post_screen.dart';
+import 'package:textgb/features/public_groups/screens/edit_public_group_post_screen.dart';
+import 'package:textgb/features/public_groups/screens/public_group_post_comments_screen.dart';
+import 'package:textgb/features/public_groups/screens/public_group_post_detail_screen.dart';
+import 'package:textgb/features/public_groups/screens/my_public_groups_screen.dart';
+
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
 
@@ -144,6 +159,7 @@ class AppRoot extends ConsumerWidget {
             final args = ModalRoute.of(context)!.settings.arguments as UserModel;
             return ContactProfileScreen(contact: args);
           },
+          
           // Chat screen route
           Constants.chatScreen: (context) {
             final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
@@ -155,7 +171,7 @@ class AppRoot extends ConsumerWidget {
             );
           },
           
-          // Group routes
+          // Private Group routes
           Constants.groupsScreen: (context) => const GroupsTab(),
           Constants.createGroupScreen: (context) => const CreateGroupScreen(),
           Constants.groupInformationScreen: (context) {
@@ -177,6 +193,49 @@ class AppRoot extends ConsumerWidget {
               group: args['group'] as GroupModel,
             );
           },
+
+          // Public Groups routes (NEW)
+          Constants.publicGroupsScreen: (context) => const PublicGroupsScreen(),
+          Constants.createPublicGroupScreen: (context) => const CreatePublicGroupScreen(),
+          Constants.publicGroupFeedScreen: (context) {
+            final publicGroup = ModalRoute.of(context)!.settings.arguments as PublicGroupModel;
+            return PublicGroupFeedScreen(publicGroup: publicGroup);
+          },
+          Constants.publicGroupInfoScreen: (context) {
+            final publicGroup = ModalRoute.of(context)!.settings.arguments as PublicGroupModel;
+            return PublicGroupInfoScreen(publicGroup: publicGroup);
+          },
+          Constants.editPublicGroupScreen: (context) {
+            final publicGroup = ModalRoute.of(context)!.settings.arguments as PublicGroupModel;
+            return EditPublicGroupScreen(publicGroup: publicGroup);
+          },
+          Constants.explorePublicGroupsScreen: (context) => const ExplorePublicGroupsScreen(),
+          Constants.createPublicGroupPostScreen: (context) {
+            final publicGroup = ModalRoute.of(context)!.settings.arguments as PublicGroupModel;
+            return CreatePublicGroupPostScreen(publicGroup: publicGroup);
+          },
+          Constants.editPublicGroupPostScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return EditPublicGroupPostScreen(
+              post: args['post'] as PublicGroupPostModel,
+              publicGroup: args['publicGroup'] as PublicGroupModel,
+            );
+          },
+          Constants.publicGroupPostCommentsScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return PublicGroupPostCommentsScreen(
+              post: args['post'] as PublicGroupPostModel,
+              publicGroup: args['publicGroup'] as PublicGroupModel,
+            );
+          },
+          Constants.publicGroupPostDetailScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return PublicGroupPostDetailScreen(
+              post: args['post'] as PublicGroupPostModel,
+              publicGroup: args['publicGroup'] as PublicGroupModel,
+            );
+          },
+          Constants.myPublicGroupsScreen: (context) => const MyPublicGroupsScreen(),
           
           // Status routes
           Constants.statusOverviewScreen: (context) => const StatusOverviewScreen(),

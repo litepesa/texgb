@@ -51,6 +51,7 @@ class Constants {
   static const String myPostScreen = '/myPostScreen'; // New route for My Post Screen
 
   // Public Groups routes (NEW)
+  static const String publicGroupsScreen = '/publicGroupsScreen'; // FIXED: Added proper route string
   static const String publicGroupFeedScreen = '/publicGroupFeedScreen';
   static const String createPublicGroupScreen = '/createPublicGroupScreen';
   static const String publicGroupInfoScreen = '/publicGroupInfoScreen';
@@ -272,5 +273,7 @@ class Constants {
 
   static const String groupImages = 'groupImages';
 
-  static var privacySettings;
+  // REMOVED the problematic variables:
+  // static var privacySettings;
+  // static var publicGroupsScreen;
 }
