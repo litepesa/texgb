@@ -13,7 +13,6 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/models/user_model.dart';
 
-// Provider to filter only group chats from the chat stream
 final groupChatStreamProvider = Provider<AsyncValue<List<ChatModel>>>((ref) {
   final allChats = ref.watch(chatStreamProvider);
   
@@ -32,144 +31,149 @@ class GroupsTab extends ConsumerStatefulWidget {
 }
 
 class _GroupsTabState extends ConsumerState<GroupsTab>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
+  final _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      setState(() {}); // Rebuild to update app bar
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = context.modernTheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final topPadding = MediaQuery.of(context).padding.top;
-    
+    final isPublicTab = _tabController.index == 1;
+
+    // Debug print to see current tab index
+    print('Current tab index: ${_tabController.index}, isPublicTab: $isPublicTab');
+
     return Scaffold(
       backgroundColor: theme.backgroundColor,
-      body: Column(
-        children: [
-          // Custom app bar with safe area
-          Container(
-            padding: EdgeInsets.only(
-              top: topPadding + 16,
-              left: 20,
-              right: 20,
-              bottom: 16,
-            ),
-            decoration: BoxDecoration(
-              color: theme.backgroundColor,
-              border: Border(
-                bottom: BorderSide(
-                  color: theme.dividerColor!.withOpacity(0.1),
-                  width: 0.5,
+      body: NestedScrollView(
+        controller: _scrollController,
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverAppBar(
+              pinned: true,
+              floating: true,
+              snap: true,
+              expandedHeight: 160.0,
+              backgroundColor: theme.backgroundColor,
+              elevation: 0,
+              flexibleSpace: FlexibleSpaceBar(
+                collapseMode: CollapseMode.pin,
+                background: Padding(
+                  padding: EdgeInsets.only(
+                    top: topPadding + 16,
+                    left: 20,
+                    right: 20,
+                    bottom: 16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Dynamic title
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (Widget child, Animation<double> animation) {
+                          return FadeTransition(opacity: animation, child: child);
+                        },
+                        child: Text(
+                          key: ValueKey('title_$isPublicTab'),
+                          isPublicTab ? 'Public Groups' : 'Groups',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textColor,
+                            height: 1.0,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Dynamic subtitle
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (Widget child, Animation<double> animation) {
+                          return FadeTransition(opacity: animation, child: child);
+                        },
+                        child: Text(
+                          key: ValueKey('subtitle_$isPublicTab'),
+                          isPublicTab 
+                              ? 'Discover and join public communities'
+                              : 'Private spaces for your connections',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: theme.textSecondaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(56),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _buildTabBar(theme),
                 ),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header Row
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTitle(theme),
-                    ),
-                    const SizedBox(width: 16),
-                    _buildActionButtons(theme),
-                  ],
-                ),
-                
-                const SizedBox(height: 20),
-                
-                // Tab Bar
-                _buildTabBar(theme),
-              ],
-            ),
-          ),
-          
-          // Tab content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _PrivateGroupsScreen(),
-                const PublicGroupsScreen(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTitle(ModernThemeExtension theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Groups',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: theme.textColor,
-            height: 1.0,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Connect and communicate',
-          style: TextStyle(
-            fontSize: 15,
-            color: theme.textSecondaryColor,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons(ModernThemeExtension theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.primaryColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: IconButton(
-        onPressed: () => _showCreateGroupOptions(context),
-        icon: const Icon(
-          Icons.add_rounded,
-          color: Colors.white,
-          size: 22,
-        ),
-        padding: const EdgeInsets.all(10),
-        constraints: const BoxConstraints(
-          minWidth: 44,
-          minHeight: 44,
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _PrivateGroupsScreen(),
+            const PublicGroupsScreen(),
+          ],
         ),
       ),
+      floatingActionButton: _buildFloatingActionButton(theme, isPublicTab),
     );
   }
 
   Widget _buildTabBar(ModernThemeExtension theme) {
     return Container(
-      height: 44,
+      height: 48,
       decoration: BoxDecoration(
         color: theme.surfaceVariantColor,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: TabBar(
         controller: _tabController,
+        onTap: (index) {
+          // Force immediate rebuild when tab is tapped
+          setState(() {});
+        },
         indicator: BoxDecoration(
           color: theme.primaryColor,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(10),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         indicatorPadding: const EdgeInsets.all(2),
@@ -189,6 +193,21 @@ class _GroupsTabState extends ConsumerState<GroupsTab>
           Tab(text: 'Public'),
         ],
       ),
+    );
+  }
+
+  Widget _buildFloatingActionButton(ModernThemeExtension theme, bool isPublicTab) {
+    return FloatingActionButton(
+      backgroundColor: theme.primaryColor,
+      foregroundColor: Colors.white,
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      onPressed: () => isPublicTab
+          ? Navigator.pushNamed(context, Constants.createPublicGroupScreen)
+          : _showCreateGroupOptions(context),
+      child: const Icon(Icons.add_rounded, size: 24),
     );
   }
 
@@ -219,9 +238,7 @@ class _GroupsTabState extends ConsumerState<GroupsTab>
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                
                 const SizedBox(height: 24),
-                
                 Text(
                   'Create New Group',
                   style: TextStyle(
@@ -230,9 +247,7 @@ class _GroupsTabState extends ConsumerState<GroupsTab>
                     color: theme.textColor,
                   ),
                 ),
-                
                 const SizedBox(height: 24),
-                
                 _buildCreateOption(
                   icon: Icons.lock_outline,
                   title: 'Private Group',
@@ -242,9 +257,7 @@ class _GroupsTabState extends ConsumerState<GroupsTab>
                     Navigator.pushNamed(context, Constants.createGroupScreen);
                   },
                 ),
-                
                 const SizedBox(height: 16),
-                
                 _buildCreateOption(
                   icon: Icons.campaign_outlined,
                   title: 'Public Group',
@@ -297,9 +310,7 @@ class _GroupsTabState extends ConsumerState<GroupsTab>
                     size: 24,
                   ),
                 ),
-                
                 const SizedBox(width: 16),
-                
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,7 +334,6 @@ class _GroupsTabState extends ConsumerState<GroupsTab>
                     ],
                   ),
                 ),
-                
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 16,
@@ -338,7 +348,6 @@ class _GroupsTabState extends ConsumerState<GroupsTab>
   }
 }
 
-// Private Groups Screen (extracted from the old implementation)
 class _PrivateGroupsScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<_PrivateGroupsScreen> createState() => _PrivateGroupsScreenState();
@@ -348,6 +357,7 @@ class _PrivateGroupsScreenState extends ConsumerState<_PrivateGroupsScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<GroupModel> _searchResults = [];
   bool _isSearching = false;
+  bool _isSearchActive = false;
 
   @override
   void dispose() {
@@ -385,31 +395,66 @@ class _PrivateGroupsScreenState extends ConsumerState<_PrivateGroupsScreen> {
     
     return Column(
       children: [
-        // Search bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search private groups...',
-              prefixIcon: Icon(Icons.search, color: theme.textSecondaryColor),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: theme.borderColor!),
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: theme.surfaceVariantColor,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: _isSearchActive 
+                    ? theme.primaryColor!.withOpacity(0.5)
+                    : theme.borderColor!.withOpacity(0.1),
+                width: 1,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: theme.borderColor!),
-              ),
-              filled: true,
-              fillColor: theme.surfaceColor,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
             ),
-            onChanged: _performSearch,
+            child: TextField(
+              controller: _searchController,
+              onTap: () {
+                setState(() {
+                  _isSearchActive = true;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search private groups...',
+                hintStyle: TextStyle(
+                  color: theme.textSecondaryColor,
+                  fontSize: 15,
+                ),
+                prefixIcon: Icon(
+                  Icons.search, 
+                  color: theme.textSecondaryColor,
+                  size: 20,
+                ),
+                suffixIcon: _isSearchActive
+                    ? IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _isSearchActive = false;
+                            _searchResults = [];
+                          });
+                          FocusScope.of(context).unfocus();
+                        },
+                        icon: Icon(
+                          Icons.close,
+                          color: theme.textSecondaryColor,
+                          size: 20,
+                        ),
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              style: TextStyle(
+                color: theme.textColor,
+                fontSize: 15,
+              ),
+              onChanged: _performSearch,
+            ),
           ),
         ),
-        
-        // Main content
         Expanded(
           child: _searchController.text.isNotEmpty
               ? _buildSearchResults(bottomPadding)

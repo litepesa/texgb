@@ -33,7 +33,6 @@ class _GroupTileState extends ConsumerState<GroupTile> {
   @override
   void didUpdateWidget(GroupTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-check admin status if group changed
     if (oldWidget.group.groupId != widget.group.groupId) {
       _checkAdminStatus();
     }
@@ -49,7 +48,6 @@ class _GroupTileState extends ConsumerState<GroupTile> {
     try {
       final currentUser = ref.read(currentUserProvider);
       if (currentUser != null) {
-        // First check local group data for quick response
         final isLocalAdmin = widget.group.isAdmin(currentUser.uid);
         
         if (isLocalAdmin != _isAdmin) {
@@ -58,7 +56,6 @@ class _GroupTileState extends ConsumerState<GroupTile> {
           });
         }
 
-        // Then verify with security service for accuracy
         final isActualAdmin = await ref.read(groupProvider.notifier)
             .isCurrentUserAdmin(widget.group.groupId);
         
@@ -69,11 +66,10 @@ class _GroupTileState extends ConsumerState<GroupTile> {
         }
       }
     } catch (e) {
-      // If there's an error, fall back to local group data
       final currentUser = ref.read(currentUserProvider);
-      if (currentUser != null) {
+      if (currentUser != null && mounted) {
         final localAdmin = widget.group.isAdmin(currentUser.uid);
-        if (localAdmin != _isAdmin && mounted) {
+        if (localAdmin != _isAdmin) {
           setState(() {
             _isAdmin = localAdmin;
           });
@@ -93,175 +89,216 @@ class _GroupTileState extends ConsumerState<GroupTile> {
     final theme = context.modernTheme;
     final currentUser = ref.watch(currentUserProvider);
     
-    // Calculate unread messages for this group
     final unreadCount = currentUser != null 
         ? widget.group.getUnreadCountForUser(currentUser.uid)
         : 0;
     final hasUnread = unreadCount > 0;
     
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      elevation: 0,
-      color: hasUnread ? theme.surfaceVariantColor?.withOpacity(0.3) : theme.surfaceColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.borderColor!.withOpacity(0.2),
-          width: 1,
-        ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            children: [
-              // Group image
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: theme.primaryColor!.withOpacity(0.2),
-                backgroundImage: widget.group.groupImage.isNotEmpty
-                    ? NetworkImage(widget.group.groupImage)
-                    : null,
-                child: widget.group.groupImage.isEmpty
-                    ? Icon(
-                        Icons.group,
-                        color: theme.primaryColor,
-                        size: 24,
-                      )
-                    : null,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: hasUnread 
+                  ? theme.primaryColor!.withOpacity(0.05)
+                  : theme.surfaceColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: hasUnread
+                    ? theme.primaryColor!.withOpacity(0.2)
+                    : theme.borderColor!.withOpacity(0.1),
+                width: 1,
               ),
-              const SizedBox(width: 16),
-              // Group info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.group.groupName,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
-                              color: theme.textColor,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+            ),
+            child: Row(
+              children: [
+                // Group avatar
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor!.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: widget.group.groupImage.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            widget.group.groupImage,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return _buildFallbackAvatar(theme);
+                            },
                           ),
-                        ),
-                        // Admin badge with loading state
-                        if (_isCheckingAdmin)
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: theme.primaryColor,
-                            ),
-                          )
-                        else if (_isAdmin)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: theme.primaryColor!.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                        )
+                      : _buildFallbackAvatar(theme),
+                ),
+                const SizedBox(width: 16),
+                // Group info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              'Admin',
+                              widget.group.groupName,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 17,
+                                fontWeight: hasUnread 
+                                    ? FontWeight.w700 
+                                    : FontWeight.w600,
+                                color: theme.textColor,
+                                height: 1.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (_isCheckingAdmin)
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
                                 color: theme.primaryColor,
                               ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.group.lastMessage.isNotEmpty
-                          ? widget.group.getLastMessagePreview()
-                          : widget.group.groupDescription,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: hasUnread ? theme.textColor : theme.textSecondaryColor,
-                        fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.people,
-                          size: 14,
-                          color: theme.textTertiaryColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${widget.group.membersUIDs.length} members',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.textTertiaryColor,
-                          ),
-                        ),
-                        const Spacer(),
-                        // Last message time or creation date
-                        Text(
-                          _formatTime(widget.group.lastMessageTime.isNotEmpty
-                              ? widget.group.lastMessageTime
-                              : widget.group.createdAt),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: hasUnread ? theme.primaryColor : theme.textTertiaryColor,
-                          ),
-                        ),
-                        // Add unread count badge to the right
-                        if (hasUnread) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: theme.primaryColor,
-                              shape: unreadCount > 99 
-                                  ? BoxShape.rectangle 
-                                  : BoxShape.circle,
-                              borderRadius: unreadCount > 99 
-                                  ? BorderRadius.circular(10) 
-                                  : null,
-                            ),
-                            constraints: BoxConstraints(
-                              minWidth: unreadCount > 99 ? 32 : 24,
-                              minHeight: 24,
-                            ),
-                            child: Center(
+                            )
+                          else if (_isAdmin)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.primaryColor!.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: theme.primaryColor!.withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              ),
                               child: Text(
-                                unreadCount > 99 
-                                    ? '99+' 
-                                    : unreadCount.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                'Admin',
+                                style: TextStyle(
                                   fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.primaryColor,
                                 ),
                               ),
                             ),
-                          ),
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.group.lastMessage.isNotEmpty
+                            ? widget.group.getLastMessagePreview()
+                            : widget.group.groupDescription,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: hasUnread 
+                              ? theme.textColor 
+                              : theme.textSecondaryColor,
+                          fontWeight: hasUnread 
+                              ? FontWeight.w500 
+                              : FontWeight.normal,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.people_alt_rounded,
+                            size: 16,
+                            color: theme.textTertiaryColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${widget.group.membersUIDs.length} members',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: theme.textTertiaryColor,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            _formatTime(widget.group.lastMessageTime.isNotEmpty
+                                ? widget.group.lastMessageTime
+                                : widget.group.createdAt),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: hasUnread 
+                                  ? theme.primaryColor 
+                                  : theme.textTertiaryColor,
+                              fontWeight: hasUnread 
+                                  ? FontWeight.w600 
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          if (hasUnread) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: unreadCount > 99 ? 8 : 6,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.primaryColor,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              constraints: BoxConstraints(
+                                minWidth: unreadCount > 99 ? 28 : 20,
+                                minHeight: 20,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  unreadCount > 99 ? '99+' : unreadCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFallbackAvatar(ModernThemeExtension theme) {
+    return Center(
+      child: Icon(
+        Icons.group_rounded,
+        size: 28,
+        color: theme.primaryColor,
       ),
     );
   }
@@ -277,19 +314,14 @@ class _GroupTileState extends ConsumerState<GroupTile> {
     final difference = now.difference(messageTime);
     
     if (difference.inDays > 7) {
-      // If more than a week, show date
       return '${messageTime.day}/${messageTime.month}/${messageTime.year}';
     } else if (difference.inDays > 0) {
-      // If more than a day, show days ago
       return '${difference.inDays}d ago';
     } else if (difference.inHours > 0) {
-      // If more than an hour, show hours ago
       return '${difference.inHours}h ago';
     } else if (difference.inMinutes > 0) {
-      // If more than a minute, show minutes ago
       return '${difference.inMinutes}m ago';
     } else {
-      // Otherwise, show "just now"
       return 'Just now';
     }
   }

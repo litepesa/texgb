@@ -73,8 +73,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     CupertinoIcons.chat_bubble_text,
     Icons.donut_large_outlined,
     CupertinoIcons.compass,
-    CupertinoIcons.person_2
-    //Icons.group_outlined
+    //CupertinoIcons.person_2
+    Icons.group_outlined
   ];
 
   @override
