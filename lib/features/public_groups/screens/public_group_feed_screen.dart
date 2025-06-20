@@ -2,12 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/public_groups/models/public_group_model.dart';
 import 'package:textgb/features/public_groups/models/public_group_post_model.dart';
 import 'package:textgb/features/public_groups/providers/public_group_provider.dart';
-import 'package:textgb/features/public_groups/widgets/public_group_app_bar.dart';
 import 'package:textgb/features/public_groups/widgets/public_group_post_item.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -125,10 +123,144 @@ class _PublicGroupFeedScreenState extends ConsumerState<PublicGroupFeedScreen>
         controller: _scrollController,
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
-            PublicGroupAppBar(
-              publicGroup: currentGroup,
-              onBack: () => Navigator.pop(context),
-              onInfo: _navigateToGroupInfo,
+            // Custom SliverAppBar instead of PublicGroupAppBar
+            SliverAppBar(
+              expandedHeight: 200.0,
+              floating: false,
+              pinned: true,
+              backgroundColor: theme.surfaceColor,
+              foregroundColor: theme.textColor,
+              elevation: 0,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back, color: theme.textColor),
+                onPressed: () => Navigator.pop(context),
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(Icons.info_outline, color: theme.textColor),
+                  onPressed: _navigateToGroupInfo,
+                ),
+                IconButton(
+                  icon: Icon(Icons.more_vert, color: theme.textColor),
+                  onPressed: () {
+                    // Handle more options
+                  },
+                ),
+              ],
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        theme.primaryColor!.withOpacity(0.8),
+                        theme.surfaceColor!,
+                      ],
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              // Group avatar
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(25),
+                                  color: Colors.white.withOpacity(0.2),
+                                ),
+                                child: currentGroup.groupImage.isNotEmpty
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(25),
+                                        child: Image.network(
+                                          currentGroup.groupImage,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return _buildGroupAvatar(currentGroup.groupName);
+                                          },
+                                        ),
+                                      )
+                                    : _buildGroupAvatar(currentGroup.groupName),
+                              ),
+                              
+                              const SizedBox(width: 16),
+                              
+                              // Group info
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            currentGroup.groupName,
+                                            style: TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w700,
+                                              color: theme.textColor,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (currentGroup.isVerified)
+                                          Icon(
+                                            Icons.verified,
+                                            size: 24,
+                                            color: theme.primaryColor,
+                                          ),
+                                      ],
+                                    ),
+                                    
+                                    const SizedBox(height: 4),
+                                    
+                                    Text(
+                                      currentGroup.getSubscribersText(),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: theme.textSecondaryColor,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    
+                                    if (currentGroup.groupDescription.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        currentGroup.groupDescription,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: theme.textSecondaryColor,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                title: Text(
+                  currentGroup.groupName,
+                  style: TextStyle(
+                    color: theme.textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
           ];
         },
@@ -141,6 +273,25 @@ class _PublicGroupFeedScreenState extends ConsumerState<PublicGroupFeedScreen>
               ),
       ),
       floatingActionButton: canPost ? _buildFloatingActionButton(theme) : null,
+    );
+  }
+
+  Widget _buildGroupAvatar(String groupName) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(25),
+        color: Colors.white.withOpacity(0.9),
+      ),
+      child: Center(
+        child: Text(
+          groupName.isNotEmpty ? groupName[0].toUpperCase() : '?',
+          style: TextStyle(
+            color: Colors.blue.shade700,
+            fontSize: 32,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
   }
 
@@ -161,165 +312,25 @@ class _PublicGroupFeedScreenState extends ConsumerState<PublicGroupFeedScreen>
     return RefreshIndicator(
       onRefresh: _refreshFeed,
       color: theme.primaryColor,
-      child: CustomScrollView(
+      child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          // Group info header
-          SliverToBoxAdapter(
-            child: _buildGroupHeader(group, theme),
-          ),
-          
-          // Posts list
-          SliverList.separated(
-            itemCount: posts.length,
-            separatorBuilder: (context, index) => Container(
-              height: 8,
-              color: theme.surfaceVariantColor?.withOpacity(0.3),
-            ),
-            itemBuilder: (context, index) {
-              final post = posts[index];
-              return PublicGroupPostItem(
-                post: post,
-                publicGroup: group,
-                onReaction: (emoji) => _handlePostReaction(post, emoji),
-                onComment: () => _navigateToComments(post),
-                onShare: () => _handlePostShare(post),
-                onMenuAction: (action) => _handlePostMenuAction(post, action),
-              );
-            },
-          ),
-          
-          // Bottom spacing
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 100),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGroupHeader(PublicGroupModel group, ModernThemeExtension theme) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        border: Border(
-          bottom: BorderSide(
-            color: theme.dividerColor!.withOpacity(0.1),
-            width: 0.5,
-          ),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: posts.length,
+        separatorBuilder: (context, index) => Container(
+          height: 8,
+          color: theme.surfaceVariantColor?.withOpacity(0.3),
         ),
-      ),
-      child: Row(
-        children: [
-          // Group avatar
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: theme.primaryColor!.withOpacity(0.1),
-            ),
-            child: group.groupImage.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Image.network(
-                      group.groupImage,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildGroupAvatar(group.groupName, theme);
-                      },
-                    ),
-                  )
-                : _buildGroupAvatar(group.groupName, theme),
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // Group info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        group.groupName,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: theme.textColor,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (group.isVerified)
-                      Container(
-                        margin: const EdgeInsets.only(left: 8),
-                        child: Icon(
-                          Icons.verified,
-                          size: 24,
-                          color: theme.primaryColor,
-                        ),
-                      ),
-                  ],
-                ),
-                
-                const SizedBox(height: 4),
-                
-                Text(
-                  group.getSubscribersText(),
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: theme.textSecondaryColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                
-                if (group.groupDescription.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    group.groupDescription,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: theme.textSecondaryColor,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGroupAvatar(String groupName, ModernThemeExtension theme) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.primaryColor!,
-            theme.primaryColor!.withOpacity(0.8),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Text(
-          groupName.isNotEmpty ? groupName[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        itemBuilder: (context, index) {
+          final post = posts[index];
+          return PublicGroupPostItem(
+            post: post,
+            publicGroup: group,
+            onReaction: (emoji) => _handlePostReaction(post, emoji),
+            onComment: () => _navigateToComments(post),
+            onShare: () => _handlePostShare(post),
+            onMenuAction: (action) => _handlePostMenuAction(post, action),
+          );
+        },
       ),
     );
   }
@@ -371,35 +382,21 @@ class _PublicGroupFeedScreenState extends ConsumerState<PublicGroupFeedScreen>
             
             const SizedBox(height: 32),
             
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  colors: [
-                    theme.primaryColor!,
-                    theme.primaryColor!.withOpacity(0.8),
-                  ],
+            ElevatedButton(
+              onPressed: _handleSubscribe,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _handleSubscribe,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    child: Text(
-                      'Subscribe',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+              child: const Text(
+                'Subscribe',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -461,35 +458,21 @@ class _PublicGroupFeedScreenState extends ConsumerState<PublicGroupFeedScreen>
             if (canPost) ...[
               const SizedBox(height: 32),
               
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [
-                      theme.primaryColor!,
-                      theme.primaryColor!.withOpacity(0.8),
-                    ],
+              ElevatedButton(
+                onPressed: _navigateToCreatePost,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: _navigateToCreatePost,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                      child: Text(
-                        'Create First Post',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                child: const Text(
+                  'Create First Post',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -569,37 +552,15 @@ class _PublicGroupFeedScreenState extends ConsumerState<PublicGroupFeedScreen>
     return AnimatedSlide(
       duration: const Duration(milliseconds: 200),
       offset: _showCreatePostButton ? Offset.zero : const Offset(0, 2),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              theme.primaryColor!,
-              theme.primaryColor!.withOpacity(0.8),
-            ],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: theme.primaryColor!.withOpacity(0.3),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: FloatingActionButton.extended(
-          onPressed: _navigateToCreatePost,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          icon: const Icon(
-            Icons.add_rounded,
-            color: Colors.white,
-          ),
-          label: const Text(
-            'Post',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+      child: FloatingActionButton.extended(
+        onPressed: _navigateToCreatePost,
+        backgroundColor: theme.primaryColor,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text(
+          'Post',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -652,7 +613,6 @@ class _PublicGroupFeedScreenState extends ConsumerState<PublicGroupFeedScreen>
   }
 
   void _handlePostShare(PublicGroupPostModel post) {
-    // TODO: Implement post sharing
     showSnackBar(context, 'Sharing functionality coming soon');
   }
 
@@ -738,12 +698,10 @@ class _PublicGroupFeedScreenState extends ConsumerState<PublicGroupFeedScreen>
   }
 
   void _handleReportPost(PublicGroupPostModel post) {
-    // TODO: Implement post reporting
     showSnackBar(context, 'Reporting functionality coming soon');
   }
 
   void _handleCopyPostLink(PublicGroupPostModel post) {
-    // TODO: Implement copy post link
     showSnackBar(context, 'Link copied to clipboard');
   }
 }
