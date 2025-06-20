@@ -1,6 +1,11 @@
 // lib/features/public_groups/widgets/public_group_post_item.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'dart:typed_data';
+import 'dart:io';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/public_groups/models/public_group_model.dart';
@@ -30,6 +35,132 @@ class PublicGroupPostItem extends ConsumerStatefulWidget {
 }
 
 class _PublicGroupPostItemState extends ConsumerState<PublicGroupPostItem> {
+  VideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
+  bool _isVideoPlaying = false;
+  Map<String, Uint8List?> _videoThumbnails = {};
+  Map<String, File?> _cachedImages = {};
+  bool _isLoadingThumbnails = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _preloadMedia();
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _preloadMedia() async {
+    if (widget.post.mediaUrls.isNotEmpty) {
+      // Preload images
+      _preloadImages();
+      
+      // Generate video thumbnails
+      if (widget.post.postType == MessageEnum.video) {
+        _generateVideoThumbnails();
+      }
+    }
+  }
+
+  Future<void> _preloadImages() async {
+    for (String url in widget.post.mediaUrls) {
+      if (widget.post.postType == MessageEnum.image) {
+        try {
+          final file = await DefaultCacheManager().getSingleFile(url);
+          if (mounted) {
+            setState(() {
+              _cachedImages[url] = file;
+            });
+          }
+        } catch (e) {
+          debugPrint('Error caching image: $e');
+        }
+      }
+    }
+  }
+
+  Future<void> _generateVideoThumbnails() async {
+    if (_isLoadingThumbnails) return;
+    
+    setState(() {
+      _isLoadingThumbnails = true;
+    });
+
+    for (String videoUrl in widget.post.mediaUrls) {
+      try {
+        final thumbnail = await VideoThumbnail.thumbnailData(
+          video: videoUrl,
+          imageFormat: ImageFormat.JPEG,
+          maxHeight: 200,
+          quality: 75,
+        );
+        
+        if (mounted) {
+          setState(() {
+            _videoThumbnails[videoUrl] = thumbnail;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error generating video thumbnail: $e');
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingThumbnails = false;
+      });
+    }
+  }
+
+  Future<void> _initializeVideo(String videoUrl) async {
+    try {
+      // Get cached video file
+      final file = await DefaultCacheManager().getSingleFile(videoUrl);
+      
+      _videoController = VideoPlayerController.file(file);
+      await _videoController!.initialize();
+      
+      if (mounted) {
+        setState(() {
+          _isVideoInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing video: $e');
+      // Fallback to network video
+      try {
+        _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+        await _videoController!.initialize();
+        
+        if (mounted) {
+          setState(() {
+            _isVideoInitialized = true;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error with network video: $e');
+      }
+    }
+  }
+
+  void _toggleVideoPlayback() {
+    if (_videoController == null) return;
+
+    setState(() {
+      if (_isVideoPlaying) {
+        _videoController!.pause();
+        _isVideoPlaying = false;
+      } else {
+        _videoController!.play();
+        _isVideoPlaying = true;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
@@ -268,7 +399,7 @@ class _PublicGroupPostItemState extends ConsumerState<PublicGroupPostItem> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: _buildMediaWidget(mediaUrl, BoxFit.cover),
+        child: _buildMediaWidget(mediaUrl, BoxFit.cover, isFullSize: true),
       ),
     );
   }
@@ -451,49 +582,160 @@ class _PublicGroupPostItemState extends ConsumerState<PublicGroupPostItem> {
     );
   }
 
-  Widget _buildMediaWidget(String mediaUrl, BoxFit fit) {
+  Widget _buildMediaWidget(String mediaUrl, BoxFit fit, {bool isFullSize = false}) {
     if (widget.post.postType == MessageEnum.video) {
-      return Stack(
+      return _buildVideoWidget(mediaUrl, fit, isFullSize: isFullSize);
+    } else {
+      return _buildImageWidget(mediaUrl, fit);
+    }
+  }
+
+  Widget _buildImageWidget(String imageUrl, BoxFit fit) {
+    final cachedFile = _cachedImages[imageUrl];
+    
+    if (cachedFile != null) {
+      return Image.file(
+        cachedFile,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildErrorPlaceholder();
+        },
+      );
+    }
+
+    return Image.network(
+      imageUrl,
+      fit: fit,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return _buildLoadingPlaceholder(loadingProgress);
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return _buildErrorPlaceholder();
+      },
+    );
+  }
+
+  Widget _buildVideoWidget(String videoUrl, BoxFit fit, {bool isFullSize = false}) {
+    final thumbnail = _videoThumbnails[videoUrl];
+    
+    return GestureDetector(
+      onTap: isFullSize ? () => _playFullScreenVideo(videoUrl) : null,
+      child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            mediaUrl,
-            fit: fit,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey[300],
-                child: const Icon(Icons.broken_image, size: 50),
-              );
-            },
-          ),
+          // Video thumbnail or placeholder
+          if (thumbnail != null)
+            Image.memory(
+              thumbnail,
+              fit: fit,
+            )
+          else if (_isLoadingThumbnails)
+            _buildLoadingPlaceholder(null)
+          else
+            Container(
+              color: Colors.grey[300],
+              child: const Icon(Icons.videocam, size: 50, color: Colors.grey),
+            ),
+          
+          // Play button overlay
           Center(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(isFullSize ? 16 : 12),
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.6),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.play_arrow,
                 color: Colors.white,
-                size: 32,
+                size: isFullSize ? 40 : 32,
               ),
             ),
           ),
+          
+          // Video duration (if available in metadata)
+          if (widget.post.metadata.containsKey('duration'))
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _formatDuration(widget.post.metadata['duration']),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
         ],
-      );
-    } else {
-      return Image.network(
-        mediaUrl,
-        fit: fit,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            color: Colors.grey[300],
-            child: const Icon(Icons.broken_image, size: 50),
-          );
-        },
-      );
-    }
+      ),
+    );
+  }
+
+  Widget _buildLoadingPlaceholder(ImageChunkEvent? loadingProgress) {
+    return Container(
+      color: Colors.grey[200],
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              value: loadingProgress?.expectedTotalBytes != null
+                  ? loadingProgress!.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+            if (loadingProgress?.expectedTotalBytes != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${((loadingProgress!.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!) * 100).toInt()}%',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorPlaceholder() {
+    return Container(
+      color: Colors.grey[300],
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.broken_image, size: 50, color: Colors.grey),
+          SizedBox(height: 8),
+          Text(
+            'Failed to load media',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _playFullScreenVideo(String videoUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenVideoPlayer(videoUrl: videoUrl),
+      ),
+    );
+  }
+
+  String _formatDuration(dynamic duration) {
+    if (duration is! int) return '';
+    
+    final minutes = duration ~/ 60;
+    final seconds = duration % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   Widget _buildPostStats(ModernThemeExtension theme) {
@@ -714,5 +956,262 @@ class _PublicGroupPostItemState extends ConsumerState<PublicGroupPostItem> {
         ),
       ),
     );
+  }
+}
+
+// Full-screen video player widget
+class FullScreenVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+
+  const FullScreenVideoPlayer({
+    super.key,
+    required this.videoUrl,
+  });
+
+  @override
+  State<FullScreenVideoPlayer> createState() => _FullScreenVideoPlayerState();
+}
+
+class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+  bool _showControls = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      // Try to get cached video first
+      final file = await DefaultCacheManager().getSingleFile(widget.videoUrl);
+      _controller = VideoPlayerController.file(file);
+    } catch (e) {
+      // Fallback to network video
+      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    }
+
+    try {
+      await _controller!.initialize();
+      await _controller!.play();
+      
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing video: $e');
+    }
+  }
+
+  void _togglePlayPause() {
+    if (_controller == null || !_isInitialized) return;
+
+    setState(() {
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+      } else {
+        _controller!.play();
+      }
+    });
+  }
+
+  void _toggleControls() {
+    setState(() {
+      _showControls = !_showControls;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // Video player
+            Center(
+              child: _isInitialized
+                  ? GestureDetector(
+                      onTap: _toggleControls,
+                      child: AspectRatio(
+                        aspectRatio: _controller!.value.aspectRatio,
+                        child: VideoPlayer(_controller!),
+                      ),
+                    )
+                  : const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                      ),
+                    ),
+            ),
+            
+            // Controls overlay
+            if (_showControls && _isInitialized)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.7),
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.7),
+                      ],
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // Top controls
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () {
+                                // Handle download
+                              },
+                              icon: const Icon(
+                                Icons.download,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                // Handle share
+                              },
+                              icon: const Icon(
+                                Icons.share,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const Spacer(),
+                      
+                      // Center play/pause button
+                      Center(
+                        child: GestureDetector(
+                          onTap: _togglePlayPause,
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _controller!.value.isPlaying
+                                  ? Icons.pause
+                                  : Icons.play_arrow,
+                              color: Colors.white,
+                              size: 40,
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      const Spacer(),
+                      
+                      // Bottom controls
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            // Progress bar
+                            VideoProgressIndicator(
+                              _controller!,
+                              allowScrubbing: true,
+                              colors: const VideoProgressColors(
+                                playedColor: Colors.white,
+                                bufferedColor: Colors.grey,
+                                backgroundColor: Colors.grey,
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 8),
+                            
+                            // Time and controls
+                            Row(
+                              children: [
+                                Text(
+                                  _formatDuration(_controller!.value.position),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  onPressed: () {
+                                    // Handle mute/unmute
+                                    setState(() {
+                                      _controller!.setVolume(
+                                        _controller!.value.volume > 0 ? 0.0 : 1.0,
+                                      );
+                                    });
+                                  },
+                                  icon: Icon(
+                                    _controller!.value.volume > 0
+                                        ? Icons.volume_up
+                                        : Icons.volume_off,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  _formatDuration(_controller!.value.duration),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    
+    if (duration.inHours > 0) {
+      return '${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds';
+    } else {
+      return '$twoDigitMinutes:$twoDigitSeconds';
+    }
   }
 }

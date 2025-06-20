@@ -8,11 +8,11 @@ import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
 import 'package:textgb/features/groups/widgets/group_tile.dart';
-import 'package:textgb/features/public_groups/screens/public_groups_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/models/user_model.dart';
 
+// Provider to filter only group chats from the chat stream
 final groupChatStreamProvider = Provider<AsyncValue<List<ChatModel>>>((ref) {
   final allChats = ref.watch(chatStreamProvider);
   
@@ -30,334 +30,10 @@ class GroupsTab extends ConsumerStatefulWidget {
   ConsumerState<GroupsTab> createState() => _GroupsTabState();
 }
 
-class _GroupsTabState extends ConsumerState<GroupsTab>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-  late TabController _tabController;
-  final _scrollController = ScrollController();
-
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_onTabChanged);
-  }
-
-  @override
-  void dispose() {
-    _tabController.removeListener(_onTabChanged);
-    _tabController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onTabChanged() {
-    if (mounted) {
-      setState(() {}); // Rebuild to update app bar
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    final theme = context.modernTheme;
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final topPadding = MediaQuery.of(context).padding.top;
-    final isPublicTab = _tabController.index == 1;
-
-    // Debug print to see current tab index
-    print('Current tab index: ${_tabController.index}, isPublicTab: $isPublicTab');
-
-    return Scaffold(
-      backgroundColor: theme.backgroundColor,
-      body: NestedScrollView(
-        controller: _scrollController,
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              pinned: true,
-              floating: true,
-              snap: true,
-              expandedHeight: 160.0,
-              backgroundColor: theme.backgroundColor,
-              elevation: 0,
-              flexibleSpace: FlexibleSpaceBar(
-                collapseMode: CollapseMode.pin,
-                background: Padding(
-                  padding: EdgeInsets.only(
-                    top: topPadding + 16,
-                    left: 20,
-                    right: 20,
-                    bottom: 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Dynamic title
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        transitionBuilder: (Widget child, Animation<double> animation) {
-                          return FadeTransition(opacity: animation, child: child);
-                        },
-                        child: Text(
-                          key: ValueKey('title_$isPublicTab'),
-                          isPublicTab ? 'Public Groups' : 'Groups',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textColor,
-                            height: 1.0,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Dynamic subtitle
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        transitionBuilder: (Widget child, Animation<double> animation) {
-                          return FadeTransition(opacity: animation, child: child);
-                        },
-                        child: Text(
-                          key: ValueKey('subtitle_$isPublicTab'),
-                          isPublicTab 
-                              ? 'Discover and join public communities'
-                              : 'Private spaces for your connections',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: theme.textSecondaryColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
-              ),
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(56),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildTabBar(theme),
-                ),
-              ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _PrivateGroupsScreen(),
-            const PublicGroupsScreen(),
-          ],
-        ),
-      ),
-      floatingActionButton: _buildFloatingActionButton(theme, isPublicTab),
-    );
-  }
-
-  Widget _buildTabBar(ModernThemeExtension theme) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: theme.surfaceVariantColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        onTap: (index) {
-          // Force immediate rebuild when tab is tapped
-          setState(() {});
-        },
-        indicator: BoxDecoration(
-          color: theme.primaryColor,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicatorPadding: const EdgeInsets.all(2),
-        labelColor: Colors.white,
-        unselectedLabelColor: theme.textSecondaryColor,
-        labelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
-        dividerColor: Colors.transparent,
-        tabs: const [
-          Tab(text: 'Private'),
-          Tab(text: 'Public'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFloatingActionButton(ModernThemeExtension theme, bool isPublicTab) {
-    return FloatingActionButton(
-      backgroundColor: theme.primaryColor,
-      foregroundColor: Colors.white,
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      onPressed: () => isPublicTab
-          ? Navigator.pushNamed(context, Constants.createPublicGroupScreen)
-          : _showCreateGroupOptions(context),
-      child: const Icon(Icons.add_rounded, size: 24),
-    );
-  }
-
-  void _showCreateGroupOptions(BuildContext context) {
-    final theme = context.modernTheme;
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: theme.surfaceColor,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(24),
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.textTertiaryColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Create New Group',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: theme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _buildCreateOption(
-                  icon: Icons.lock_outline,
-                  title: 'Private Group',
-                  subtitle: 'Chat with invited members only',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, Constants.createGroupScreen);
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildCreateOption(
-                  icon: Icons.campaign_outlined,
-                  title: 'Public Group',
-                  subtitle: 'Share posts with followers',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, Constants.createPublicGroupScreen);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCreateOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    final theme = context.modernTheme;
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.surfaceVariantColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: theme.primaryColor!.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: theme.primaryColor,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textColor,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: theme.textSecondaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 16,
-                  color: theme.textTertiaryColor,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PrivateGroupsScreen extends ConsumerStatefulWidget {
-  @override
-  ConsumerState<_PrivateGroupsScreen> createState() => _PrivateGroupsScreenState();
-}
-
-class _PrivateGroupsScreenState extends ConsumerState<_PrivateGroupsScreen> {
+class _GroupsTabState extends ConsumerState<GroupsTab> {
   final TextEditingController _searchController = TextEditingController();
   List<GroupModel> _searchResults = [];
   bool _isSearching = false;
-  bool _isSearchActive = false;
 
   @override
   void dispose() {
@@ -365,6 +41,7 @@ class _PrivateGroupsScreenState extends ConsumerState<_PrivateGroupsScreen> {
     super.dispose();
   }
 
+  // Perform search
   void _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() {
@@ -389,85 +66,63 @@ class _PrivateGroupsScreenState extends ConsumerState<_PrivateGroupsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
+    // Watch user groups stream
     final userGroupsAsync = ref.watch(userGroupsStreamProvider);
-    final groupChatsAsync = ref.watch(groupChatStreamProvider);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
     
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: theme.surfaceVariantColor,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: _isSearchActive 
-                    ? theme.primaryColor!.withOpacity(0.5)
-                    : theme.borderColor!.withOpacity(0.1),
-                width: 1,
-              ),
-            ),
+    // Watch group chats stream
+    final groupChatsAsync = ref.watch(groupChatStreamProvider);
+    
+    return Scaffold(
+      backgroundColor: theme.backgroundColor,
+      body: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: TextField(
               controller: _searchController,
-              onTap: () {
-                setState(() {
-                  _isSearchActive = true;
-                });
-              },
               decoration: InputDecoration(
-                hintText: 'Search private groups...',
-                hintStyle: TextStyle(
-                  color: theme.textSecondaryColor,
-                  fontSize: 15,
+                hintText: 'Search groups...',
+                prefixIcon: Icon(Icons.search, color: theme.textSecondaryColor),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: theme.borderColor!),
                 ),
-                prefixIcon: Icon(
-                  Icons.search, 
-                  color: theme.textSecondaryColor,
-                  size: 20,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: theme.borderColor!),
                 ),
-                suffixIcon: _isSearchActive
-                    ? IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _isSearchActive = false;
-                            _searchResults = [];
-                          });
-                          FocusScope.of(context).unfocus();
-                        },
-                        icon: Icon(
-                          Icons.close,
-                          color: theme.textSecondaryColor,
-                          size: 20,
-                        ),
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              style: TextStyle(
-                color: theme.textColor,
-                fontSize: 15,
+                filled: true,
+                fillColor: theme.surfaceColor,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onChanged: _performSearch,
             ),
           ),
-        ),
-        Expanded(
-          child: _searchController.text.isNotEmpty
-              ? _buildSearchResults(bottomPadding)
-              : _buildGroupsContent(userGroupsAsync, groupChatsAsync, bottomPadding),
-        ),
-      ],
+          
+          // Main content
+          Expanded(
+            child: _searchController.text.isNotEmpty
+                ? _buildSearchResults()
+                : _buildGroupsContent(userGroupsAsync, groupChatsAsync),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: theme.primaryColor,
+        foregroundColor: Colors.white,
+        onPressed: () {
+          Navigator.pushNamed(context, Constants.createGroupScreen);
+        },
+        child: const Icon(Icons.group_add),
+      ),
     );
   }
 
+  // Updated method to build combined groups content
   Widget _buildGroupsContent(
     AsyncValue<List<GroupModel>> userGroupsAsync, 
-    AsyncValue<List<ChatModel>> groupChatsAsync,
-    double bottomPadding,
+    AsyncValue<List<ChatModel>> groupChatsAsync
   ) {
     final theme = context.modernTheme;
     
@@ -475,185 +130,182 @@ class _PrivateGroupsScreenState extends ConsumerState<_PrivateGroupsScreen> {
       data: (userGroups) {
         return groupChatsAsync.when(
           data: (groupChats) {
-            final allGroups = _combinePrivateGroups(userGroups, groupChats);
-            
-            if (allGroups.isEmpty) {
+            // If both are empty, show empty state
+            if (userGroups.isEmpty && groupChats.isEmpty) {
               return _buildEmptyState();
             }
             
-            return ListView.separated(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding + 100),
+            // Create a unified list of groups
+            final List<GroupModel> allGroups = List.from(userGroups);
+            final Map<String, bool> groupIds = {};
+            
+            // Track existing group IDs
+            for (final group in userGroups) {
+              groupIds[group.groupId] = true;
+            }
+            
+            // Add group chats that aren't in userGroups
+            for (final chat in groupChats) {
+              if (!groupIds.containsKey(chat.id)) {
+                // Create a new group model from the chat
+                final group = GroupModel(
+                  groupId: chat.id,
+                  groupName: chat.contactName,
+                  groupDescription: '',
+                  groupImage: chat.contactImage,
+                  creatorUID: '',
+                  isPrivate: true,
+                  editSettings: false,
+                  approveMembers: false,
+                  lockMessages: false,
+                  requestToJoin: false,
+                  membersUIDs: const [],
+                  adminsUIDs: const [],
+                  awaitingApprovalUIDs: const [],
+                  lastMessage: chat.lastMessage,
+                  lastMessageSender: chat.lastMessageSender,
+                  lastMessageTime: chat.lastMessageTime,
+                  unreadCount: chat.unreadCount,
+                  unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
+                  createdAt: '',
+                );
+                
+                allGroups.add(group);
+              } else {
+                // Update existing group with latest message info
+                final existingGroupIndex = allGroups.indexWhere((g) => g.groupId == chat.id);
+                if (existingGroupIndex != -1) {
+                  final existingGroup = allGroups[existingGroupIndex];
+                  
+                  // Only update if chat has more recent message
+                  if (chat.lastMessageTime.isNotEmpty && 
+                      (existingGroup.lastMessageTime.isEmpty || 
+                       int.parse(chat.lastMessageTime) > int.parse(existingGroup.lastMessageTime))) {
+                    
+                    allGroups[existingGroupIndex] = existingGroup.copyWith(
+                      lastMessage: chat.lastMessage,
+                      lastMessageSender: chat.lastMessageSender,
+                      lastMessageTime: chat.lastMessageTime,
+                      unreadCount: chat.unreadCount,
+                      unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
+                    );
+                  }
+                }
+              }
+            }
+            
+            // Sort by most recent message
+            allGroups.sort((a, b) {
+              if (a.lastMessageTime.isEmpty) return 1;
+              if (b.lastMessageTime.isEmpty) return -1;
+              return int.parse(b.lastMessageTime).compareTo(int.parse(a.lastMessageTime));
+            });
+            
+            // Show a single unified list
+            return ListView.builder(
+              padding: const EdgeInsets.only(bottom: 80),
               itemCount: allGroups.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final group = allGroups[index];
-                return GroupTile(
-                  group: group,
-                  onTap: () {
-                    ref.read(groupProvider.notifier).openGroupChat(group, context);
-                  },
-                );
+                
+                // Check if this is from groupChats or userGroups
+                final isFromChat = !groupIds.containsKey(group.groupId) || 
+                  (groupIds.containsKey(group.groupId) && 
+                   groupChats.any((c) => c.id == group.groupId && 
+                                          c.lastMessageTime == group.lastMessageTime));
+                
+                if (isFromChat) {
+                  // Find the original chat
+                  final chat = groupChats.firstWhere((c) => c.id == group.groupId);
+                  
+                  return GroupTile(
+                    group: group,
+                    onTap: () {
+                      _openGroupChat(chat);
+                    },
+                  );
+                } else {
+                  return GroupTile(
+                    group: group,
+                    onTap: () {
+                      ref.read(groupProvider.notifier).openGroupChat(group, context);
+                    },
+                  );
+                }
               },
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, s) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                'Error loading group chats: $e',
-                style: TextStyle(color: theme.textColor),
-                textAlign: TextAlign.center,
-              ),
+            child: Text(
+              'Error loading group chats: $e',
+              style: TextStyle(color: theme.textColor),
             ),
           ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            'Error loading groups: $e',
-            style: TextStyle(color: context.modernTheme.textColor),
-            textAlign: TextAlign.center,
-          ),
+        child: Text(
+          'Error loading groups: $e',
+          style: TextStyle(color: context.modernTheme.textColor),
         ),
       ),
     );
   }
-
-  Widget _buildEmptyState() {
-    final theme = context.modernTheme;
-    
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.group_outlined, 
-              size: 80, 
-              color: theme.textTertiaryColor,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No private groups yet',
-              style: TextStyle(
-                color: theme.textColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create a new group or join an existing one',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: theme.textSecondaryColor,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pushNamed(context, Constants.createGroupScreen);
-              },
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Create Private Group'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+  
+  // Helper method to build a group chat tile from a chat model
+  Widget _buildGroupChatTile(ChatModel chat) {
+    // Convert chat model to group model for display consistency
+    final group = GroupModel(
+      groupId: chat.id,
+      groupName: chat.contactName,
+      groupDescription: '',
+      groupImage: chat.contactImage,
+      creatorUID: '',
+      isPrivate: true,
+      editSettings: false,
+      approveMembers: false,
+      lockMessages: false,
+      requestToJoin: false,
+      // For group chats, we'll use empty members list since we don't have participants field
+      membersUIDs: const [],
+      adminsUIDs: const [],
+      awaitingApprovalUIDs: const [],
+      lastMessage: chat.lastMessage,
+      lastMessageSender: chat.lastMessageSender,
+      lastMessageTime: chat.lastMessageTime,
+      unreadCount: chat.unreadCount,
+      unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
+      createdAt: '',
     );
-  }
-
-  Widget _buildSearchResults(double bottomPadding) {
-    final theme = context.modernTheme;
     
-    if (_isSearching) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_searchResults.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.search_off,
-                size: 64,
-                color: theme.textTertiaryColor,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No groups found',
-                style: TextStyle(
-                  color: theme.textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Try searching with different keywords',
-                style: TextStyle(
-                  color: theme.textSecondaryColor,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding + 100),
-      itemCount: _searchResults.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final group = _searchResults[index];
-        return GroupTile(
-          group: group,
-          onTap: () {
-            ref.read(groupProvider.notifier).openGroupChat(group, context);
-          },
-        );
+    return GroupTile(
+      group: group,
+      onTap: () {
+        _openGroupChat(chat);
       },
     );
   }
 
-  List<GroupModel> _combinePrivateGroups(
-    List<GroupModel> userGroups,
-    List<ChatModel> groupChats,
-  ) {
-    final allGroups = List<GroupModel>.from(userGroups);
-    final groupIds = <String>{};
-    
-    for (final group in userGroups) {
-      groupIds.add(group.groupId);
-    }
-    
-    for (final chat in groupChats) {
-      if (!groupIds.contains(chat.id)) {
-        final group = GroupModel(
+  // Method to handle opening a group chat from chat model
+  void _openGroupChat(ChatModel chat) async {
+    try {
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) return;
+      
+      // Create an empty list of members
+      final List<UserModel> members = [];
+      
+      // Open the chat in the chat provider
+      await ref.read(chatProvider.notifier).openGroupChat(
+        chat.id, 
+        members, // Pass empty member list
+      );
+      
+      if (mounted) {
+        // Create temporary group model to pass to the screen
+        final tempGroup = GroupModel(
           groupId: chat.id,
           groupName: chat.contactName,
           groupDescription: '',
@@ -664,7 +316,7 @@ class _PrivateGroupsScreenState extends ConsumerState<_PrivateGroupsScreen> {
           approveMembers: false,
           lockMessages: false,
           requestToJoin: false,
-          membersUIDs: const [],
+          membersUIDs: const [], // Empty list since we don't have participants
           adminsUIDs: const [],
           awaitingApprovalUIDs: const [],
           lastMessage: chat.lastMessage,
@@ -674,16 +326,101 @@ class _PrivateGroupsScreenState extends ConsumerState<_PrivateGroupsScreen> {
           unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
           createdAt: '',
         );
-        allGroups.add(group);
+        
+        // Navigate to group chat screen
+        Navigator.pushNamed(
+          context,
+          Constants.groupChatScreen,
+          arguments: {
+            'groupId': chat.id,
+            'group': tempGroup,
+            'isGroup': true,
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error opening group chat: $e');
       }
     }
+  }
+
+  // Empty state widget
+  Widget _buildEmptyState() {
+    final theme = context.modernTheme;
     
-    allGroups.sort((a, b) {
-      if (a.lastMessageTime.isEmpty) return 1;
-      if (b.lastMessageTime.isEmpty) return -1;
-      return int.parse(b.lastMessageTime).compareTo(int.parse(a.lastMessageTime));
-    });
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.group_outlined, size: 80, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            'No groups yet',
+            style: TextStyle(
+              color: theme.textColor,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create a new group or join an existing one',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: theme.textSecondaryColor,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pushNamed(context, Constants.createGroupScreen);
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Create Group'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Search results widget
+  Widget _buildSearchResults() {
+    final theme = context.modernTheme;
     
-    return allGroups;
+    if (_isSearching) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Text(
+          'No groups found',
+          style: TextStyle(color: theme.textColor),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 80),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final group = _searchResults[index];
+        return GroupTile(
+          group: group,
+          onTap: () {
+            // Open group
+            ref.read(groupProvider.notifier).openGroupChat(group, context);
+          },
+        );
+      },
+    );
   }
 }
