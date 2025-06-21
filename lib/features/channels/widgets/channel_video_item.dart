@@ -516,23 +516,46 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       );
     }
     
-    return SizedBox.expand(
-      child: _buildFullScreenVideo(),
-    );
+    return _buildFullScreenVideo();
   }
 
+  // Updated method to fill screen width while maintaining aspect ratio (no side black bars)
   Widget _buildFullScreenVideo() {
     final controller = _videoPlayerController!;
+    final videoSize = controller.value.size;
     
-    return SizedBox.expand(
-      child: FittedBox(
-        fit: BoxFit.contain,
-        child: SizedBox(
-          width: controller.value.size.width,
-          height: controller.value.size.height,
-          child: VideoPlayer(controller),
-        ),
-      ),
+    if (videoSize.isEmpty) {
+      return Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.black,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final screenHeight = constraints.maxHeight;
+        final videoAspectRatio = videoSize.width / videoSize.height;
+        
+        // Always fill the screen width to avoid horizontal black bars
+        final width = screenWidth;
+        final height = screenWidth / videoAspectRatio;
+        
+        return Container(
+          width: screenWidth,
+          height: screenHeight,
+          color: Colors.black,
+          child: Center(
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: VideoPlayer(controller),
+            ),
+          ),
+        );
+      },
     );
   }
 
