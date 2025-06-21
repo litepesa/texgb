@@ -10,12 +10,10 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
-import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/channels/providers/channels_provider.dart';
-import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
-import 'package:textgb/features/status/screens/status_overview_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
@@ -33,48 +31,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   int _previousIndex = 0;
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
-  final GlobalKey _channelsFeedKey = GlobalKey();
-  
-  // Professional channels feed lifecycle management
-  bool _isChannelsFeedActive = false;
-  
-  // Professional method to pause channels feed using the original extension
-  void _pauseChannelsFeed() {
-    if (_isChannelsFeedActive) {
-      _isChannelsFeedActive = false;
-      final state = _channelsFeedKey.currentState;
-      if (state != null) {
-        // Call the lifecycle method directly since we know it exists
-        (state as dynamic).onScreenBecameInactive();
-      }
-    }
-  }
-  
-  // Professional method to resume channels feed using the original extension
-  void _resumeChannelsFeed() {
-    if (!_isChannelsFeedActive) {
-      _isChannelsFeedActive = true;
-      final state = _channelsFeedKey.currentState;
-      if (state != null) {
-        // Call the lifecycle method directly since we know it exists
-        (state as dynamic).onScreenBecameActive();
-      }
-    }
-  }
   
   final List<String> _tabNames = [
     'Chats',
-    'Status',
+    'Groups',
     'Discover',
-    'Groups'
+    'Profile'
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_text,
-    Icons.donut_large_outlined,
+    Icons.group_outlined,
     CupertinoIcons.compass,
-    //CupertinoIcons.person_2
-    Icons.group_outlined
+    Icons.person_outline
   ];
 
   @override
@@ -82,29 +51,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.initState();
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(channelsProvider.notifier).loadUserChannel();
       _updateSystemUI();
-      // Initialize channels feed as inactive since we start on Chats tab
-      _isChannelsFeedActive = false;
     });
   }
 
   @override
   void dispose() {
-    // Professional cleanup - ensure channels feed is properly paused before disposal
-    if (_isChannelsFeedActive) {
-      _pauseChannelsFeed();
-    }
     _pageController.dispose();
     super.dispose();
   }
 
   void _onTabTapped(int index) {
-    // Store previous index for video lifecycle management
+    // Store previous index for navigation management
     _previousIndex = _currentIndex;
-    
-    // Handle channels feed video lifecycle based on tab changes
-    _handleChannelsFeedLifecycle(index);
     
     setState(() {
       _currentIndex = index;
@@ -120,24 +79,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
   
-  void _handleChannelsFeedLifecycle(int newIndex) {
-    const channelsFeedIndex = 2; // Channels tab now at index 2
-    
-    if (_previousIndex == channelsFeedIndex && newIndex != channelsFeedIndex) {
-      // User left channels feed tab - pause all videos immediately
-      _pauseChannelsFeed();
-    } else if (_previousIndex != channelsFeedIndex && newIndex == channelsFeedIndex) {
-      // User entered channels feed tab - resume videos immediately
-      _resumeChannelsFeed();
-    }
-  }
-  
   void _updateSystemUI() {
-    final isChannelsTab = _currentIndex == 2; // Channels tab now at index 2
-    
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      systemNavigationBarColor: isChannelsTab ? Colors.black : Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
     ));
@@ -154,17 +99,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _currentIndex = index;
       _updateSystemUI();
     });
-    
-    // Handle video lifecycle for page changes too
-    _handleChannelsFeedLifecycle(index);
-  }
-
-  // Helper method to get progress bar from channels feed screen
-  Widget _buildProgressBarFromFeedScreen(BuildContext context) {
-    final state = _channelsFeedKey.currentState;
-    if (state == null) return const SizedBox.shrink();
-    
-    return (state as dynamic).buildEnhancedProgressBar(context.modernTheme);
   }
 
   @override
@@ -172,17 +106,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
-    final isChannelsTab = _currentIndex == 2; // Channels tab now at index 2
-    final isGroupsTab = _currentIndex == 3; // Groups tab now at index 3
+    final isProfileTab = _currentIndex == 3; // Profile tab at index 3
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isChannelsTab,
-      backgroundColor: isChannelsTab ? Colors.black : modernTheme.backgroundColor,
+      extendBodyBehindAppBar: isProfileTab,
+      backgroundColor: modernTheme.backgroundColor,
       
-      // Hide AppBar for channels tab only
-      appBar: isChannelsTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      // Hide AppBar for profile tab only
+      appBar: isProfileTab ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -195,48 +128,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const ChatsTab(),
           ),
-          // Status tab (index 1)
-          Container(
-            color: modernTheme.backgroundColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const StatusOverviewScreen(),
-          ),
-          // Channels feed (index 2)
-          ChannelsFeedScreen(key: _channelsFeedKey),
-          // Groups tab (index 3)
+          // Groups tab (index 1) - moved from index 3
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const GroupsTab(),
           ),
+          // Discover tab (index 2) - new discover screen instead of channels feed
+          Container(
+            color: modernTheme.backgroundColor,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: const DiscoverScreen(),
+          ),
+          // Profile tab (index 3) - moved from dropdown menu
+          const MyProfileScreen(),
         ],
       ),
       
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: isChannelsTab ? Colors.black : modernTheme.surfaceColor,
+          color: modernTheme.surfaceColor,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Add the progress bar here - only show for channels tab
-            if (_currentIndex == 2) // Only show for channels tab
-              Consumer(
-                builder: (context, ref, _) {
-                  final videosState = ref.watch(channelVideosProvider);
-                  return videosState.videos.isNotEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: _buildProgressBarFromFeedScreen(context),
-                        )
-                      : const SizedBox.shrink();
-                },
-              ),
-            
             Container(
               height: 1,
               width: double.infinity,
-              color: isChannelsTab ? Colors.grey[900] : modernTheme.dividerColor,
+              color: modernTheme.dividerColor,
             ),
             SafeArea(
               top: false,
@@ -301,8 +220,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // Groups tab is at index 3 - show unread count for group chats only
-    if (index == 3) {
+    // Groups tab is at index 1 - show unread count for group chats only
+    if (index == 1) {
       return chatsAsyncValue.when(
         data: (chats) {
           // Calculate unread count from group chats only
@@ -324,7 +243,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // For other tabs (Status, Channels), no badge needed
+    // For other tabs (Discover, Profile), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
   
@@ -405,14 +324,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats, Status, and Groups tabs
+  // Show FAB on Chats and Groups tabs only
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 3;
+    return _currentIndex == 0 || _currentIndex == 1;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     return AppBar(
-      backgroundColor: modernTheme.backgroundColor,
+      backgroundColor: _currentIndex == 2 ? modernTheme.surfaceColor : modernTheme.backgroundColor,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true, // Center the title
@@ -433,6 +352,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildAppBarTitle(ModernThemeExtension modernTheme) {
+    // Dynamic title based on current tab
+    if (_currentIndex == 2) {
+      // Discover tab
+      return Text(
+        'Discover',
+        style: TextStyle(
+          color: modernTheme.textColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 22,
+          letterSpacing: -0.3,
+        ),
+      );
+    }
+    
+    // Default WeiBao title for other tabs
     return RichText(
       text: TextSpan(
         children: [
@@ -484,18 +418,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       position: PopupMenuPosition.under,
       offset: const Offset(0, 8),
       onSelected: (String value) {
-        if (value == 'profile') {
+        if (value == 'post') {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const MyProfileScreen(),
+              builder: (context) => const CreatePostScreen(),
+            ),
+          );
+        } else if (value == 'wallet') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const WalletScreen(),
             ),
           );
         }
       },
       itemBuilder: (BuildContext context) => [
         PopupMenuItem<String>(
-          value: 'profile',
+          value: 'post',
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -508,14 +449,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.person_outline,
+                  Icons.add_box_outlined,
                   color: modernTheme.primaryColor,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 16),
               Text(
-                'My Profile',
+                'Post',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'wallet',
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor?.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: modernTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Wallet',
                 style: TextStyle(
                   color: modernTheme.textColor,
                   fontSize: 15,
@@ -540,15 +512,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: const Icon(CupertinoIcons.chat_bubble_text),
       );
     } else if (_currentIndex == 1) {
-      // Status tab - Create status FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.createStatusScreen),
-        child: const Icon(Icons.add),
-      );
-    } else if (_currentIndex == 3) {
       // Groups tab - Create group FAB
       return FloatingActionButton(
         backgroundColor: modernTheme.primaryColor,

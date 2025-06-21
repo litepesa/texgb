@@ -490,7 +490,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       color: Colors.black,
       child: Image.network(
         imageUrl,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         width: double.infinity,
         height: double.infinity,
         loadingBuilder: (context, child, loadingProgress) {

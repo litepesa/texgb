@@ -47,7 +47,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   Timer? _progressUpdateTimer;
   Timer? _cacheCleanupTimer;
   
-  // Simple notifier for home screen progress bar
+  // Simple notifier for progress tracking
   final ValueNotifier<double> _progressNotifier = ValueNotifier<double>(0.0);
   
   static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
@@ -154,7 +154,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       setState(() {
         _videoProgress = _progressController.value;
       });
-      // Simple update for home screen - no other changes
       _progressNotifier.value = _progressController.value;
     }
   }
@@ -163,7 +162,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.black,
       systemNavigationBarIconBrightness: Brightness.light,
     ));
   }
@@ -223,7 +222,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               _videoProgress = progress;
             });
             
-            // Simple update for home screen - no other changes
             _progressNotifier.value = progress;
             
             debugPrint('Video Progress: ${(progress * 100).toStringAsFixed(1)}%');
@@ -240,7 +238,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           setState(() {
             _videoProgress = _progressController.value;
           });
-          // Simple update for home screen - no other changes
           _progressNotifier.value = _progressController.value;
         }
       }
@@ -303,7 +300,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _videoDuration = Duration.zero;
     });
 
-    // Simple update for home screen - no other changes
     _progressNotifier.value = 0.0;
 
     _progressUpdateTimer?.cancel();
@@ -325,16 +321,15 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     ref.read(channelVideosProvider.notifier).incrementViewCount(videos[index].id);
   }
 
-  // Public method to build progress bar (for home screen access)
-  Widget buildEnhancedProgressBar(ModernThemeExtension modernTheme) {
+  // Progress bar for displaying current progress
+  Widget buildProgressBar(ModernThemeExtension modernTheme) {
     return ValueListenableBuilder<double>(
       valueListenable: _progressNotifier,
       builder: (context, progress, child) {
-        // Always show progress bar when there's any progress or during initial load
         if (progress == 0.0 && !_isFirstLoad) return const SizedBox.shrink();
         
         return Container(
-          height: 2, // Reduced from 3px to 2px
+          height: 2,
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(2),
@@ -351,17 +346,15 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             borderRadius: BorderRadius.circular(2),
             child: Stack(
               children: [
-                // Background track
                 Container(
                   width: double.infinity,
-                  height: 2, // Reduced from 3px to 2px
+                  height: 2,
                   color: Colors.transparent,
                 ),
-                // Progress fill
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 100),
                   width: (MediaQuery.of(context).size.width - 32) * progress.clamp(0.0, 1.0),
-                  height: 1, // Reduced from 2px to 1px
+                  height: 1,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -387,6 +380,16 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
+  void _resetSystemUIOnExit() {
+    // Reset system UI to default transparent state when leaving this screen
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ));
+  }
+
   @override
   void dispose() {
     debugPrint('ChannelsFeedScreen: Disposing');
@@ -398,17 +401,24 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     _progressController.dispose();
     _pageController.dispose();
-    
-    // Clean up the simple notifier
     _progressNotifier.dispose();
     
     _pauseAllPlayback();
     _cacheService.dispose();
     
     WakelockPlus.disable();
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+    
+    // Reset system UI when disposing
+    _resetSystemUIOnExit();
     
     super.dispose();
+  }
+
+  @override
+  void deactivate() {
+    // Reset system UI when screen becomes inactive (e.g., navigating away)
+    _resetSystemUIOnExit();
+    super.deactivate();
   }
 
   @override
@@ -428,27 +438,33 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       );
     }
     
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      extendBody: true,
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          _buildBody(channelVideosState, channelsState, modernTheme, bottomNavHeight),
-          
-          // Cache performance indicator (debug mode only)
-          if (kDebugMode)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
-              left: 16,
-              child: _buildCacheDebugInfo(modernTheme),
-            ),
-          
-          if (!_isScreenActive)
-            _buildInactiveOverlay(modernTheme),
-        ],
+    return WillPopScope(
+      onWillPop: () async {
+        // Reset system UI when user navigates back
+        _resetSystemUIOnExit();
+        return true;
+      },
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        extendBody: true,
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            _buildBody(channelVideosState, channelsState, modernTheme, bottomNavHeight),
+            
+            // Cache performance indicator (debug mode only)
+            if (kDebugMode)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 10,
+                left: 16,
+                child: _buildCacheDebugInfo(modernTheme),
+              ),
+            
+            if (!_isScreenActive)
+              _buildInactiveOverlay(modernTheme),
+          ],
+        ),
       ),
-      // FAB removed - no longer shows floating action button
     );
   }
 
@@ -656,7 +672,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 }
 
-// Extension for tab management
+// Extension for tab management (kept for potential future use)
 extension ChannelsFeedScreenExtension on _ChannelsFeedScreenState {
   static void handleTabChanged(GlobalKey<_ChannelsFeedScreenState> feedScreenKey, bool isActive) {
     final state = feedScreenKey.currentState;
