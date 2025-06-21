@@ -696,24 +696,40 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             onTap: () => _navigateToChannelProfile(),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-                  backgroundImage: widget.video.channelImage.isNotEmpty
-                      ? NetworkImage(widget.video.channelImage)
-                      : null,
-                  child: widget.video.channelImage.isEmpty
-                      ? Text(
-                          widget.video.channelName.isNotEmpty
-                              ? widget.video.channelName[0].toUpperCase()
-                              : "C",
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        )
-                      : null,
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.red,
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+                    backgroundImage: widget.video.channelImage.isNotEmpty
+                        ? NetworkImage(widget.video.channelImage)
+                        : null,
+                    child: widget.video.channelImage.isEmpty
+                        ? Text(
+                            widget.video.channelName.isNotEmpty
+                                ? widget.video.channelName[0].toUpperCase()
+                                : "C",
+                            style: TextStyle(
+                              color: modernTheme.primaryColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          )
+                        : null,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Flexible(
