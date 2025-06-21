@@ -349,14 +349,14 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             if (_showLikeAnimation)
               _buildLikeAnimation(),
             
+            // Top header with user info and actions
+            _buildTopHeader(modernTheme),
+            
             // Gradient overlay for better text readability
             _buildGradientOverlay(),
             
             // Content overlay
             _buildContentOverlay(modernTheme),
-            
-            // Compact action buttons
-            _buildCompactActionButtons(modernTheme),
             
             // Image carousel indicators
             if (widget.video.isMultipleImages && widget.video.imageUrls.length > 1)
@@ -691,75 +691,33 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Channel info
+          // Channel info - username only for cleaner look
           GestureDetector(
             onTap: () => _navigateToChannelProfile(),
             child: Row(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.red,
-                      width: 2,
+                Flexible(
+                  child: Text(
+                    widget.video.channelName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 2,
+                        ),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-                    backgroundImage: widget.video.channelImage.isNotEmpty
-                        ? NetworkImage(widget.video.channelImage)
-                        : null,
-                    child: widget.video.channelImage.isEmpty
-                        ? Text(
-                            widget.video.channelName.isNotEmpty
-                                ? widget.video.channelName[0].toUpperCase()
-                                : "C",
-                            style: TextStyle(
-                              color: modernTheme.primaryColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          )
-                        : null,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          widget.video.channelName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.verified,
-                        color: Colors.blue,
-                        size: 14,
-                      ),
-                    ],
-                  ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.verified,
+                  color: Colors.blue,
+                  size: 14,
                 ),
               ],
             ),
@@ -825,180 +783,266 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  Widget _buildCompactActionButtons(ModernThemeExtension modernTheme) {
+  Widget _buildTopHeader(ModernThemeExtension modernTheme) {
     return Positioned(
-      bottom: 80,
-      right: 12,
-      child: Column(
-        children: [
-          _buildProfileAction(modernTheme),
-          const SizedBox(height: 16),
-          
-          _buildCompactActionButton(
-            widget.video.isLiked ? Icons.favorite : Icons.favorite_border,
-            widget.video.likes,
-            widget.video.isLiked ? const Color(0xFFFF3040) : Colors.white,
-            () {
-              ref.read(channelVideosProvider.notifier).likeVideo(widget.video.id);
-            },
-            isActive: widget.video.isLiked,
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + 8,
+          left: 16,
+          right: 16,
+          bottom: 8,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withOpacity(0.7),
+              Colors.black.withOpacity(0.4),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.7, 1.0],
           ),
-          
-          const SizedBox(height: 12),
-          
-          _buildCompactActionButton(
-            Icons.chat_bubble_outline,
-            widget.video.comments,
-            Colors.white,
-            () {
-              showCommentsBottomSheet(context, widget.video.id);
-            },
-          ),
-          
-          const SizedBox(height: 12),
-          
-          _buildCompactActionButton(
-            Icons.bookmark_border,
-            0,
-            Colors.white,
-            () {
-              _toggleBookmark();
-            },
-            showCount: false,
-          ),
-          
-          const SizedBox(height: 12),
-          
-          _buildCompactActionButton(
-            Icons.share_outlined,
-            0,
-            Colors.white,
-            () {
-              _showShareOptions();
-            },
-            showCount: false,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileAction(ModernThemeExtension modernTheme) {
-    return GestureDetector(
-      onTap: () => _navigateToChannelProfile(),
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+        ),
+        child: Row(
+          children: [
+            // Back button
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 24,
                 ),
-              ],
+              ),
             ),
-            child: CircleAvatar(
-              radius: 22,
-              backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-              backgroundImage: widget.video.channelImage.isNotEmpty
-                  ? NetworkImage(widget.video.channelImage)
-                  : null,
-              child: widget.video.channelImage.isEmpty
-                  ? Text(
-                      widget.video.channelName.isNotEmpty
-                          ? widget.video.channelName[0].toUpperCase()
-                          : "C",
-                      style: TextStyle(
-                        color: modernTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+            
+            const SizedBox(width: 12),
+            
+            // User avatar
+            GestureDetector(
+              onTap: () => _navigateToChannelProfile(),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.red, width: 2),
+                ),
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
+                  backgroundImage: widget.video.channelImage.isNotEmpty
+                      ? NetworkImage(widget.video.channelImage)
+                      : null,
+                  child: widget.video.channelImage.isEmpty
+                      ? Text(
+                          widget.video.channelName.isNotEmpty
+                              ? widget.video.channelName[0].toUpperCase()
+                              : "C",
+                          style: TextStyle(
+                            color: modernTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            ),
+            
+            const SizedBox(width: 12),
+            
+            // User info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.video.channelName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 2,
+                              ),
+                            ],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    )
-                  : null,
-            ),
-          ),
-          Positioned(
-            bottom: -2,
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF3040),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.verified,
+                        color: Colors.blue,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Yesterday, 18:48', // You can make this dynamic based on video timestamp
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 12,
+                      shadows: const [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 12,
-              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompactActionButton(
-    IconData icon,
-    int count,
-    Color color,
-    VoidCallback onTap, {
-    bool isActive = false,
-    bool showCount = true,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          children: [
-            // Clean icon without background styling
-            Icon(
-              icon,
-              color: color,
-              size: 28,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.8),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-            if (showCount && count > 0) ...[
-              const SizedBox(height: 4),
-              Text(
-                _formatCount(count),
-                style: TextStyle(
+            
+            // Three dots menu
+            GestureDetector(
+              onTap: () => _showVideoOptionsMenu(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(
+                  Icons.more_vert,
                   color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.8),
-                      blurRadius: 4,
-                    ),
-                  ],
+                  size: 24,
                 ),
               ),
-            ],
+            ),
           ],
         ),
       ),
     );
+  }
+
+  void _showVideoOptionsMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey[900]
+              : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Video Options',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            _buildMenuOption(
+              Icons.person_add_outlined,
+              'Follow ${widget.video.channelName}',
+              () {
+                Navigator.pop(context);
+                _followChannel();
+              },
+            ),
+            
+            const SizedBox(height: 16),
+            
+            _buildMenuOption(
+              Icons.bookmark_border,
+              'Bookmark Video',
+              () {
+                Navigator.pop(context);
+                _toggleBookmark();
+              },
+            ),
+            
+            const SizedBox(height: 16),
+            
+            _buildMenuOption(
+              Icons.share_outlined,
+              'Share Video',
+              () {
+                Navigator.pop(context);
+                _showShareOptions();
+              },
+            ),
+            
+            const SizedBox(height: 16),
+            
+            _buildMenuOption(
+              Icons.report_outlined,
+              'Report Video',
+              () {
+                Navigator.pop(context);
+                _reportVideo();
+              },
+            ),
+            
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuOption(IconData icon, String title, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _followChannel() {
+    debugPrint('Following channel: ${widget.video.channelId}');
+    // Add your follow logic here
+  }
+
+  void _reportVideo() {
+    debugPrint('Reporting video: ${widget.video.id}');
+    // Add your report logic here
   }
 
   Widget _buildCarouselIndicators() {

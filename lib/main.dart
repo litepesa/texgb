@@ -61,6 +61,13 @@ import 'package:textgb/features/public_groups/screens/public_group_post_comments
 import 'package:textgb/features/public_groups/screens/public_group_post_detail_screen.dart';
 import 'package:textgb/features/public_groups/screens/my_public_groups_screen.dart';
 
+// Moments imports (NEW)
+import 'package:textgb/features/moments/models/moment_model.dart';
+import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
+import 'package:textgb/features/moments/screens/create_moment_screen.dart';
+import 'package:textgb/features/moments/screens/moment_detail_screen.dart';
+import 'package:textgb/features/moments/screens/media_viewer_screen.dart';
+
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
 
@@ -249,6 +256,26 @@ class AppRoot extends ConsumerWidget {
             final args = ModalRoute.of(context)!.settings.arguments as StatusModel;
             return StatusDetailScreen(status: args);
           },
+
+          // Moments routes (NEW)
+          Constants.momentsFeedScreen: (context) => const MomentsFeedScreen(),
+          Constants.createMomentScreen: (context) => const CreateMomentScreen(),
+          Constants.momentDetailScreen: (context) {
+            final moment = ModalRoute.of(context)!.settings.arguments as MomentModel;
+            return MomentDetailScreen(moment: moment);
+          },
+          Constants.mediaViewerScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return MediaViewerScreen(
+              mediaUrls: args['mediaUrls'] as List<String>,
+              initialIndex: args['initialIndex'] as int? ?? 0,
+            );
+          },
+          Constants.myMomentsScreen: (context) => const Scaffold(
+            body: Center(
+              child: Text('My Moments Screen - To be implemented'),
+            ),
+          ), // Placeholder for MyMomentsScreen
           
           // Channels routes (replacing Marketplace routes)
           Constants.channelsFeedScreen: (context) => const ChannelsFeedScreen(),

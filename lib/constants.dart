@@ -1,4 +1,4 @@
-// lib/constants.dart - Updated for Public Groups feature
+// lib/constants.dart - Updated with Moments feature
 class Constants {
   // screens routes
   static const String landingScreen = '/landingScreen';
@@ -80,10 +80,15 @@ class Constants {
   static const String statusSettingsScreen = '/statusSettingsScreen';
   static const String editStatusScreen = '/editStatusScreen';
   
+  // New Moments feature routes - WeChat Moments-like implementation
+  static const String momentsFeedScreen = '/momentsFeedScreen';
+  static const String createMomentScreen = '/createMomentScreen';
+  static const String momentDetailScreen = '/momentDetailScreen';
+  static const String mediaViewerScreen = '/mediaViewerScreen';
+  static const String myMomentsScreen = '/myMomentsScreen';
+  
   // New alias routes for Moments feature - alternative names for the same screens
-  static const String momentsFeedScreen = '/momentsFeedScreen'; // Alias for statusOverviewScreen
-  static const String momentsDetailScreen = '/momentsDetailScreen'; // Alias for statusDetailScreen
-  static const String createMomentScreen = '/createMomentScreen'; // Alias for createStatusScreen
+  static const String momentsDetailScreen = '/momentsDetailScreen'; // Alias for momentDetailScreen
   
   // Payment screen routes
   static const String paymentScreen = '/paymentScreen';
@@ -133,6 +138,13 @@ class Constants {
   static const String statusId = 'statusId';
   static const String statusType = 'statusType';
   static const String statusViewCount = 'viewCount';
+
+  // Collection names for Moments feature (NEW)
+  static const String moments = 'moments';
+  static const String momentComments = 'moment_comments';
+  static const String momentReactions = 'moment_reactions';
+  static const String momentFiles = 'moment_files';
+  static const String momentLikes = 'moment_likes';
 
   // Payment-related constants
   static const String isAccountActivated = 'isAccountActivated';
@@ -203,6 +215,20 @@ class Constants {
   static const String reactions = 'reactions';
   static const String reactionsCount = 'reactionsCount';
   static const String metadata = 'metadata';
+
+  // Moments model fields (NEW)
+  static const String momentId = 'momentId';
+  static const String momentContent = 'momentContent';
+  static const String momentMediaUrls = 'momentMediaUrls';
+  static const String momentMediaType = 'momentMediaType';
+  static const String momentLocation = 'momentLocation';
+  static const String momentPrivacy = 'momentPrivacy';
+  static const String momentVisibleTo = 'momentVisibleTo';
+  static const String momentHiddenFrom = 'momentHiddenFrom';
+  static const String momentCreatedAt = 'momentCreatedAt';
+  static const String momentLikesCount = 'momentLikesCount';
+  static const String momentCommentsCount = 'momentCommentsCount';
+  static const String momentLikedBy = 'momentLikedBy';
   
   // Comment model fields (NEW)
   static const String commentId = 'commentId';
@@ -272,8 +298,4 @@ class Constants {
   static const String awaitingApprovalUIDs = 'awaitingApprovalUIDs';
 
   static const String groupImages = 'groupImages';
-
-  // REMOVED the problematic variables:
-  // static var privacySettings;
-  // static var publicGroupsScreen;
 }

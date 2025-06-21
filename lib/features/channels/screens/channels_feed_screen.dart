@@ -65,7 +65,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
-    _setupSystemUI();
     _loadVideos();
     _setupCacheCleanup();
     _hasInitialized = true;
@@ -163,9 +162,10 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _setupSystemUI() {
+    // This screen always has a black background, so status bar icons should always be light/white
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
+      statusBarIconBrightness: Brightness.light, // Always light icons for black background
       systemNavigationBarColor: Colors.black,
       systemNavigationBarIconBrightness: Brightness.light,
     ));
@@ -594,6 +594,9 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    
+    // Setup system UI for current theme
+    _setupSystemUI();
     
     final channelVideosState = ref.watch(channelVideosProvider);
     final channelsState = ref.watch(channelsProvider);
