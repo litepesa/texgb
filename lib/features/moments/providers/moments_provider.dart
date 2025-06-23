@@ -19,6 +19,7 @@ class MomentsState {
   final String? error;
   final bool hasMore;
   final DocumentSnapshot? lastDocument;
+  final bool isInitialized;
 
   const MomentsState({
     this.isLoading = false,
@@ -27,6 +28,7 @@ class MomentsState {
     this.error,
     this.hasMore = true,
     this.lastDocument,
+    this.isInitialized = false,
   });
 
   MomentsState copyWith({
@@ -36,6 +38,7 @@ class MomentsState {
     String? error,
     bool? hasMore,
     DocumentSnapshot? lastDocument,
+    bool? isInitialized,
   }) {
     return MomentsState(
       isLoading: isLoading ?? this.isLoading,
@@ -44,6 +47,7 @@ class MomentsState {
       error: error,
       hasMore: hasMore ?? this.hasMore,
       lastDocument: lastDocument ?? this.lastDocument,
+      isInitialized: isInitialized ?? this.isInitialized,
     );
   }
 }
@@ -55,7 +59,55 @@ class MomentsNotifier extends _$MomentsNotifier {
 
   @override
   FutureOr<MomentsState> build() async {
-    return const MomentsState();
+    try {
+      final authState = await ref.read(authenticationProvider.future);
+      
+      if (authState.userModel == null) {
+        return const MomentsState(isInitialized: true);
+      }
+
+      final user = authState.userModel!;
+      final contactUIDs = user.contactsUIDs;
+      final allUIDs = [user.uid, ...contactUIDs];
+
+      // Load moments in batches to handle Firestore's whereIn limitation (max 10 items)
+      final List<MomentModel> allMoments = [];
+      
+      for (int i = 0; i < allUIDs.length; i += 10) {
+        final batch = allUIDs.skip(i).take(10).toList();
+        
+        final snapshot = await _firestore
+            .collection(Constants.moments) // Use moments collection instead
+            .where('authorUID', whereIn: batch)
+            .orderBy('createdAt', descending: true)
+            .limit(_pageSize)
+            .get();
+
+        final batchMoments = snapshot.docs
+            .map((doc) => MomentModel.fromMap(doc.data()))
+            .toList();
+            
+        allMoments.addAll(batchMoments);
+      }
+
+      // Sort all moments by creation date
+      allMoments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      // Take only the latest ones up to pageSize
+      final finalMoments = allMoments.take(_pageSize).toList();
+
+      return MomentsState(
+        moments: finalMoments,
+        isSuccessful: true,
+        isInitialized: true,
+        hasMore: allMoments.length >= _pageSize,
+      );
+    } catch (e) {
+      return MomentsState(
+        error: e.toString(),
+        isInitialized: true,
+      );
+    }
   }
 
   // Create a new moment
@@ -119,11 +171,11 @@ class MomentsNotifier extends _$MomentsNotifier {
 
       // Save to Firestore
       await _firestore
-          .collection(Constants.statusPosts)
+          .collection(Constants.moments) // Use moments collection
           .doc(momentId)
           .set(moment.toMap());
 
-      // Add to local state
+      // Add to local state at the beginning
       final updatedMoments = [moment, ...state.value!.moments];
       
       state = AsyncValue.data(state.value!.copyWith(
@@ -145,10 +197,13 @@ class MomentsNotifier extends _$MomentsNotifier {
     
     // Don't load if already loading and not refreshing
     if (state.value!.isLoading && !refresh) return;
-    
-    // Reset state if refreshing
+
+    // Update loading state
     if (refresh) {
-      state = AsyncValue.data(const MomentsState(isLoading: true));
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: true,
+        error: null,
+      ));
     } else {
       state = AsyncValue.data(state.value!.copyWith(
         isLoading: true,
@@ -166,34 +221,58 @@ class MomentsNotifier extends _$MomentsNotifier {
       final contactUIDs = user.contactsUIDs;
       final allUIDs = [user.uid, ...contactUIDs];
 
-      // Build query
-      Query query = _firestore
-          .collection(Constants.statusPosts)
-          .where('authorUID', whereIn: allUIDs.take(10).toList()) // Firestore limit
-          .orderBy('createdAt', descending: true)
-          .limit(_pageSize);
+      // Load moments in batches to handle Firestore's whereIn limitation
+      final List<MomentModel> allMoments = [];
+      
+      for (int i = 0; i < allUIDs.length; i += 10) {
+        final batch = allUIDs.skip(i).take(10).toList();
+        
+        Query query = _firestore
+            .collection(Constants.moments) // Use moments collection
+            .where('authorUID', whereIn: batch)
+            .orderBy('createdAt', descending: true);
 
-      // Add pagination if not refreshing
-      if (!refresh && state.value!.lastDocument != null) {
-        query = query.startAfterDocument(state.value!.lastDocument!);
+        // Add pagination if not refreshing and we have a last document
+        if (!refresh && state.value!.lastDocument != null) {
+          query = query.startAfterDocument(state.value!.lastDocument!);
+        }
+
+        query = query.limit(_pageSize);
+        
+        final snapshot = await query.get();
+        
+        final batchMoments = snapshot.docs
+            .map((doc) => MomentModel.fromMap(doc.data() as Map<String, dynamic>))
+            .toList();
+            
+        allMoments.addAll(batchMoments);
       }
 
-      final snapshot = await query.get();
-      
-      final moments = snapshot.docs
-          .map((doc) => MomentModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      // Sort all moments by creation date
+      allMoments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      // Update state
+      // Handle pagination
       final currentMoments = refresh ? <MomentModel>[] : state.value!.moments;
-      final updatedMoments = [...currentMoments, ...moments];
+      final updatedMoments = [...currentMoments, ...allMoments];
+      
+      // Remove duplicates based on momentId
+      final uniqueMoments = <String, MomentModel>{};
+      for (final moment in updatedMoments) {
+        uniqueMoments[moment.momentId] = moment;
+      }
+      final finalMoments = uniqueMoments.values.toList();
+      
+      // Sort again after deduplication
+      finalMoments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       
       state = AsyncValue.data(state.value!.copyWith(
-        moments: updatedMoments,
+        moments: finalMoments,
         isLoading: false,
         isSuccessful: true,
-        hasMore: snapshot.docs.length == _pageSize,
-        lastDocument: snapshot.docs.isNotEmpty ? snapshot.docs.last : null,
+        hasMore: allMoments.length >= _pageSize,
+        lastDocument: allMoments.isNotEmpty 
+            ? null // We'll need to track this per batch if implementing proper pagination
+            : state.value!.lastDocument,
       ));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
@@ -212,7 +291,7 @@ class MomentsNotifier extends _$MomentsNotifier {
       if (authState.userModel == null) return;
 
       final userId = authState.userModel!.uid;
-      final momentRef = _firestore.collection(Constants.statusPosts).doc(momentId);
+      final momentRef = _firestore.collection(Constants.moments).doc(momentId); // Use moments collection
 
       // Find the moment in local state
       final momentIndex = state.value!.moments.indexWhere((m) => m.momentId == momentId);
@@ -246,7 +325,10 @@ class MomentsNotifier extends _$MomentsNotifier {
 
       state = AsyncValue.data(state.value!.copyWith(moments: updatedMoments));
     } catch (e) {
-      debugPrint('Error toggling like: $e');
+      // Silently handle error in production
+      if (kDebugMode) {
+        debugPrint('Error toggling like: $e');
+      }
     }
   }
 
@@ -259,7 +341,7 @@ class MomentsNotifier extends _$MomentsNotifier {
       if (authState.userModel == null) return;
 
       final userId = authState.userModel!.uid;
-      final momentRef = _firestore.collection(Constants.statusPosts).doc(momentId);
+      final momentRef = _firestore.collection(Constants.moments).doc(momentId); // Use moments collection
 
       // Find the moment in local state
       final momentIndex = state.value!.moments.indexWhere((m) => m.momentId == momentId);
@@ -283,7 +365,10 @@ class MomentsNotifier extends _$MomentsNotifier {
 
       state = AsyncValue.data(state.value!.copyWith(moments: updatedMoments));
     } catch (e) {
-      debugPrint('Error adding view: $e');
+      // Silently handle error in production
+      if (kDebugMode) {
+        debugPrint('Error adding view: $e');
+      }
     }
   }
 
@@ -293,7 +378,7 @@ class MomentsNotifier extends _$MomentsNotifier {
 
     try {
       // Delete from Firestore
-      await _firestore.collection(Constants.statusPosts).doc(momentId).delete();
+      await _firestore.collection(Constants.moments).doc(momentId).delete(); // Use moments collection
 
       // Remove from local state
       final updatedMoments = state.value!.moments
@@ -302,7 +387,10 @@ class MomentsNotifier extends _$MomentsNotifier {
 
       state = AsyncValue.data(state.value!.copyWith(moments: updatedMoments));
     } catch (e) {
-      debugPrint('Error deleting moment: $e');
+      // Silently handle error in production
+      if (kDebugMode) {
+        debugPrint('Error deleting moment: $e');
+      }
     }
   }
 
@@ -310,7 +398,7 @@ class MomentsNotifier extends _$MomentsNotifier {
   Future<List<MomentModel>> getUserMoments(String userId) async {
     try {
       final snapshot = await _firestore
-          .collection(Constants.statusPosts)
+          .collection(Constants.moments) // Use moments collection
           .where('authorUID', isEqualTo: userId)
           .orderBy('createdAt', descending: true)
           .get();
@@ -319,7 +407,9 @@ class MomentsNotifier extends _$MomentsNotifier {
           .map((doc) => MomentModel.fromMap(doc.data()))
           .toList();
     } catch (e) {
-      debugPrint('Error getting user moments: $e');
+      if (kDebugMode) {
+        debugPrint('Error getting user moments: $e');
+      }
       return [];
     }
   }
@@ -351,18 +441,20 @@ class MomentsNotifier extends _$MomentsNotifier {
       );
 
       await _firestore
-          .collection(Constants.statusComments)
+          .collection(Constants.momentComments) // Use moment comments collection
           .doc(commentId)
           .set(comment.toMap());
     } catch (e) {
-      debugPrint('Error adding comment: $e');
+      if (kDebugMode) {
+        debugPrint('Error adding comment: $e');
+      }
     }
   }
 
   // Get comments for a moment
   Stream<List<MomentComment>> getMomentComments(String momentId) {
     return _firestore
-        .collection(Constants.statusComments)
+        .collection(Constants.momentComments) // Use moment comments collection
         .where('momentId', isEqualTo: momentId)
         .orderBy('createdAt', descending: false)
         .snapshots()

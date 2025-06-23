@@ -47,10 +47,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
     
     _scrollController.addListener(_onScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadInitialData();
-      _animationController.forward();
-    });
+    _animationController.forward();
   }
 
   @override
@@ -65,10 +62,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         _scrollController.position.maxScrollExtent * 0.8) {
       _loadMore();
     }
-  }
-
-  Future<void> _loadInitialData() async {
-    await ref.read(momentsNotifierProvider.notifier).loadMomentsFeed(refresh: true);
   }
 
   Future<void> _loadMore() async {
@@ -240,7 +233,13 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   }
 
   Widget _buildMomentsFeed(MomentsState state, AsyncValue authState) {
-    if (state.moments.isEmpty && !state.isLoading) {
+    // Show loading if not initialized yet
+    if (!state.isInitialized && state.isLoading) {
+      return _buildLoadingState();
+    }
+
+    // Show empty state if no moments and finished loading
+    if (state.moments.isEmpty && state.isInitialized && !state.isLoading) {
       return _buildEmptyState();
     }
 
@@ -491,7 +490,10 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         },
         transitionDuration: const Duration(milliseconds: 300),
       ),
-    );
+    ).then((_) {
+      // Refresh moments after creating a new one
+      _refreshFeed();
+    });
   }
 
   void _likeMoment(String momentId) {
