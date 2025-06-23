@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/providers/moments_provider.dart';
+import 'package:textgb/features/moments/widgets/moment_privacy_settings_sheet.dart';
+import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 class CreateMomentScreen extends ConsumerStatefulWidget {
@@ -19,7 +21,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen>
   final TextEditingController _contentController = TextEditingController();
   final List<File> _selectedFiles = [];
   MessageEnum _mediaType = MessageEnum.text;
-  MomentPrivacy _selectedPrivacy = MomentPrivacy.allContacts;
+  MomentPrivacyType _privacyType = MomentPrivacyType.all_contacts;
+  List<String> _selectedContactsUIDs = [];
   bool _isPosting = false;
   int _selectedBackgroundIndex = 0;
   late AnimationController _animationController;
@@ -198,6 +201,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen>
                 Expanded(
                   child: _buildContent(),
                 ),
+                _buildPrivacyIndicator(),
                 _buildBottomActions(),
               ],
             ),
@@ -239,36 +243,58 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen>
               ),
             ),
           ),
-          if (_canPost())
-            GestureDetector(
-              onTap: _isPosting ? null : _postMoment,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: wechatGreen,
-                  borderRadius: BorderRadius.circular(20),
+          Row(
+            children: [
+              // Privacy Settings Button
+              GestureDetector(
+                onTap: _showPrivacySettings,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(
+                    Icons.privacy_tip_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
-                child: _isPosting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Share',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
               ),
-            )
-          else
-            const SizedBox(width: 60),
+              const SizedBox(width: 8),
+              // Share Button
+              if (_canPost())
+                GestureDetector(
+                  onTap: _isPosting ? null : _postMoment,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: wechatGreen,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: _isPosting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Share',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                )
+              else
+                const SizedBox(width: 60),
+            ],
+          ),
         ],
       ),
     );
@@ -610,6 +636,73 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen>
     );
   }
 
+  Widget _buildPrivacyIndicator() {
+    String privacyText;
+    IconData privacyIcon;
+
+    switch (_privacyType) {
+      case MomentPrivacyType.all_contacts:
+        privacyText = 'All contacts can see this moment';
+        privacyIcon = Icons.people;
+        break;
+      case MomentPrivacyType.except:
+        privacyText = 'All contacts except selected ones will see this moment';
+        privacyIcon = Icons.person_remove;
+        break;
+      case MomentPrivacyType.only:
+        privacyText = 'Only selected contacts will see this moment';
+        privacyIcon = Icons.person_add;
+        break;
+    }
+
+    return GestureDetector(
+      onTap: _showPrivacySettings,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: wechatGreen.withOpacity(0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: wechatGreen,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                privacyIcon,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                privacyText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white.withOpacity(0.7),
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomActions() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -730,6 +823,25 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen>
         ),
       ),
     );
+  }
+
+  void _showPrivacySettings() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const MomentPrivacySettingsSheet(),
+    );
+
+    if (result != null) {
+      final privacyType = result['privacyType'] as MomentPrivacyType;
+      final selectedContacts = result['selectedContacts'] as List<UserModel>;
+      
+      setState(() {
+        _privacyType = privacyType;
+        _selectedContactsUIDs = selectedContacts.map((contact) => contact.uid).toList();
+      });
+    }
   }
 
   void _selectTextMode() {
@@ -925,11 +1037,25 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen>
     setState(() => _isPosting = true);
 
     try {
+      // Convert privacy type to MomentPrivacy for the existing model
+      MomentPrivacy momentPrivacy;
+      switch (_privacyType) {
+        case MomentPrivacyType.all_contacts:
+          momentPrivacy = MomentPrivacy.allContacts;
+          break;
+        case MomentPrivacyType.except:
+        case MomentPrivacyType.only:
+          momentPrivacy = MomentPrivacy.customList;
+          break;
+      }
+
       await ref.read(momentsNotifierProvider.notifier).createMoment(
         content: _contentController.text.trim(),
         mediaFiles: _selectedFiles,
         mediaType: _selectedFiles.isEmpty ? MessageEnum.text : _mediaType,
-        privacy: _selectedPrivacy,
+        privacy: momentPrivacy,
+        // You can extend the createMoment method to handle the new privacy logic
+        // taggedUsers: _selectedContactsUIDs,
       );
 
       if (mounted) {
