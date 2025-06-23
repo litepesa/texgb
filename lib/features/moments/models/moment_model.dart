@@ -1,5 +1,5 @@
 // lib/features/moments/models/moment_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:textgb/enums/enums.dart';
 
 class MomentModel {
   final String momentId;
@@ -8,18 +8,15 @@ class MomentModel {
   final String authorImage;
   final String content;
   final List<String> mediaUrls;
-  final String mediaType; // 'image', 'video', 'text', 'mixed'
+  final MessageEnum mediaType;
   final DateTime createdAt;
   final List<String> likedBy;
-  final int likesCount;
-  final int commentsCount;
-  final String? location;
+  final List<String> viewedBy;
+  final Map<String, dynamic> location;
+  final List<String> taggedUsers;
   final MomentPrivacy privacy;
-  final List<String> visibleTo; // For custom privacy
-  final List<String> hiddenFrom; // For except privacy
   final bool isEdited;
   final DateTime? editedAt;
-  final Map<String, dynamic>? metadata;
 
   MomentModel({
     required this.momentId,
@@ -31,40 +28,15 @@ class MomentModel {
     required this.mediaType,
     required this.createdAt,
     required this.likedBy,
-    required this.likesCount,
-    required this.commentsCount,
-    this.location,
+    required this.viewedBy,
+    required this.location,
+    required this.taggedUsers,
     required this.privacy,
-    required this.visibleTo,
-    required this.hiddenFrom,
-    required this.isEdited,
+    this.isEdited = false,
     this.editedAt,
-    this.metadata,
   });
 
-  factory MomentModel.fromMap(Map<String, dynamic> map) {
-    return MomentModel(
-      momentId: map['momentId'] ?? '',
-      authorUID: map['authorUID'] ?? '',
-      authorName: map['authorName'] ?? '',
-      authorImage: map['authorImage'] ?? '',
-      content: map['content'] ?? '',
-      mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
-      mediaType: map['mediaType'] ?? 'text',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      likedBy: List<String>.from(map['likedBy'] ?? []),
-      likesCount: map['likesCount'] ?? 0,
-      commentsCount: map['commentsCount'] ?? 0,
-      location: map['location'],
-      privacy: MomentPrivacy.fromString(map['privacy'] ?? 'all_contacts'),
-      visibleTo: List<String>.from(map['visibleTo'] ?? []),
-      hiddenFrom: List<String>.from(map['hiddenFrom'] ?? []),
-      isEdited: map['isEdited'] ?? false,
-      editedAt: map['editedAt'] != null ? (map['editedAt'] as Timestamp).toDate() : null,
-      metadata: map['metadata'],
-    );
-  }
-
+  // Convert to map for Firestore
   Map<String, dynamic> toMap() {
     return {
       'momentId': momentId,
@@ -73,21 +45,50 @@ class MomentModel {
       'authorImage': authorImage,
       'content': content,
       'mediaUrls': mediaUrls,
-      'mediaType': mediaType,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'mediaType': mediaType.name,
+      'createdAt': createdAt.millisecondsSinceEpoch,
       'likedBy': likedBy,
-      'likesCount': likesCount,
-      'commentsCount': commentsCount,
+      'viewedBy': viewedBy,
       'location': location,
+      'taggedUsers': taggedUsers,
       'privacy': privacy.name,
-      'visibleTo': visibleTo,
-      'hiddenFrom': hiddenFrom,
       'isEdited': isEdited,
-      'editedAt': editedAt != null ? Timestamp.fromDate(editedAt!) : null,
-      'metadata': metadata,
+      'editedAt': editedAt?.millisecondsSinceEpoch,
     };
   }
 
+  // Create from Firestore map
+  factory MomentModel.fromMap(Map<String, dynamic> map) {
+    return MomentModel(
+      momentId: map['momentId'] ?? '',
+      authorUID: map['authorUID'] ?? '',
+      authorName: map['authorName'] ?? '',
+      authorImage: map['authorImage'] ?? '',
+      content: map['content'] ?? '',
+      mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
+      mediaType: (map['mediaType'] as String).toMessageEnum(),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt'] ?? 0),
+      likedBy: List<String>.from(map['likedBy'] ?? []),
+      viewedBy: List<String>.from(map['viewedBy'] ?? []),
+      location: Map<String, dynamic>.from(map['location'] ?? {}),
+      taggedUsers: List<String>.from(map['taggedUsers'] ?? []),
+      privacy: MomentPrivacyExtension.fromString(map['privacy'] ?? 'all_contacts'),
+      isEdited: map['isEdited'] ?? false,
+      editedAt: map['editedAt'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch(map['editedAt'])
+          : null,
+    );
+  }
+
+  // Helper getters
+  int get likesCount => likedBy.length;
+  int get viewsCount => viewedBy.length;
+  bool get hasMedia => mediaUrls.isNotEmpty;
+  bool get hasImages => mediaType == MessageEnum.image;
+  bool get hasVideo => mediaType == MessageEnum.video;
+  bool get hasLocation => location.isNotEmpty;
+
+  // Copy with method
   MomentModel copyWith({
     String? momentId,
     String? authorUID,
@@ -95,18 +96,15 @@ class MomentModel {
     String? authorImage,
     String? content,
     List<String>? mediaUrls,
-    String? mediaType,
+    MessageEnum? mediaType,
     DateTime? createdAt,
     List<String>? likedBy,
-    int? likesCount,
-    int? commentsCount,
-    String? location,
+    List<String>? viewedBy,
+    Map<String, dynamic>? location,
+    List<String>? taggedUsers,
     MomentPrivacy? privacy,
-    List<String>? visibleTo,
-    List<String>? hiddenFrom,
     bool? isEdited,
     DateTime? editedAt,
-    Map<String, dynamic>? metadata,
   }) {
     return MomentModel(
       momentId: momentId ?? this.momentId,
@@ -118,74 +116,17 @@ class MomentModel {
       mediaType: mediaType ?? this.mediaType,
       createdAt: createdAt ?? this.createdAt,
       likedBy: likedBy ?? this.likedBy,
-      likesCount: likesCount ?? this.likesCount,
-      commentsCount: commentsCount ?? this.commentsCount,
+      viewedBy: viewedBy ?? this.viewedBy,
       location: location ?? this.location,
+      taggedUsers: taggedUsers ?? this.taggedUsers,
       privacy: privacy ?? this.privacy,
-      visibleTo: visibleTo ?? this.visibleTo,
-      hiddenFrom: hiddenFrom ?? this.hiddenFrom,
       isEdited: isEdited ?? this.isEdited,
       editedAt: editedAt ?? this.editedAt,
-      metadata: metadata ?? this.metadata,
     );
   }
-
-  bool get hasMedia => mediaUrls.isNotEmpty;
-  bool get hasMultipleMedia => mediaUrls.length > 1;
-  bool get isTextOnly => mediaType == 'text' && !hasMedia;
-  bool get hasImages => mediaType == 'image' || mediaType == 'mixed';
-  bool get hasVideo => mediaType == 'video' || mediaType == 'mixed';
 }
 
-enum MomentPrivacy {
-  allContacts,
-  except,
-  only,
-  public;
-
-  String get name {
-    switch (this) {
-      case MomentPrivacy.allContacts:
-        return 'all_contacts';
-      case MomentPrivacy.except:
-        return 'except';
-      case MomentPrivacy.only:
-        return 'only';
-      case MomentPrivacy.public:
-        return 'public';
-    }
-  }
-
-  String get displayName {
-    switch (this) {
-      case MomentPrivacy.allContacts:
-        return 'All Contacts';
-      case MomentPrivacy.except:
-        return 'All Contacts Except...';
-      case MomentPrivacy.only:
-        return 'Only Share With...';
-      case MomentPrivacy.public:
-        return 'Public';
-    }
-  }
-
-  static MomentPrivacy fromString(String value) {
-    switch (value) {
-      case 'except':
-        return MomentPrivacy.except;
-      case 'only':
-        return MomentPrivacy.only;
-      case 'public':
-        return MomentPrivacy.public;
-      case 'all_contacts':
-      default:
-        return MomentPrivacy.allContacts;
-    }
-  }
-}
-
-// Comment model for moments
-class MomentCommentModel {
+class MomentComment {
   final String commentId;
   final String momentId;
   final String authorUID;
@@ -195,10 +136,8 @@ class MomentCommentModel {
   final DateTime createdAt;
   final String? replyToUID;
   final String? replyToName;
-  final List<String> likedBy;
-  final int likesCount;
 
-  MomentCommentModel({
+  MomentComment({
     required this.commentId,
     required this.momentId,
     required this.authorUID,
@@ -208,25 +147,7 @@ class MomentCommentModel {
     required this.createdAt,
     this.replyToUID,
     this.replyToName,
-    required this.likedBy,
-    required this.likesCount,
   });
-
-  factory MomentCommentModel.fromMap(Map<String, dynamic> map) {
-    return MomentCommentModel(
-      commentId: map['commentId'] ?? '',
-      momentId: map['momentId'] ?? '',
-      authorUID: map['authorUID'] ?? '',
-      authorName: map['authorName'] ?? '',
-      authorImage: map['authorImage'] ?? '',
-      content: map['content'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      replyToUID: map['replyToUID'],
-      replyToName: map['replyToName'],
-      likedBy: List<String>.from(map['likedBy'] ?? []),
-      likesCount: map['likesCount'] ?? 0,
-    );
-  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -236,13 +157,65 @@ class MomentCommentModel {
       'authorName': authorName,
       'authorImage': authorImage,
       'content': content,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'createdAt': createdAt.millisecondsSinceEpoch,
       'replyToUID': replyToUID,
       'replyToName': replyToName,
-      'likedBy': likedBy,
-      'likesCount': likesCount,
     };
   }
 
-  bool get isReply => replyToUID != null;
+  factory MomentComment.fromMap(Map<String, dynamic> map) {
+    return MomentComment(
+      commentId: map['commentId'] ?? '',
+      momentId: map['momentId'] ?? '',
+      authorUID: map['authorUID'] ?? '',
+      authorName: map['authorName'] ?? '',
+      authorImage: map['authorImage'] ?? '',
+      content: map['content'] ?? '',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt'] ?? 0),
+      replyToUID: map['replyToUID'],
+      replyToName: map['replyToName'],
+    );
+  }
+}
+
+enum MomentPrivacy {
+  allContacts,
+  onlyMe,
+  customList,
+}
+
+extension MomentPrivacyExtension on MomentPrivacy {
+  String get name {
+    switch (this) {
+      case MomentPrivacy.allContacts:
+        return 'all_contacts';
+      case MomentPrivacy.onlyMe:
+        return 'only_me';
+      case MomentPrivacy.customList:
+        return 'custom_list';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case MomentPrivacy.allContacts:
+        return 'All Contacts';
+      case MomentPrivacy.onlyMe:
+        return 'Only Me';
+      case MomentPrivacy.customList:
+        return 'Custom List';
+    }
+  }
+
+  static MomentPrivacy fromString(String value) {
+    switch (value) {
+      case 'only_me':
+        return MomentPrivacy.onlyMe;
+      case 'custom_list':
+        return MomentPrivacy.customList;
+      case 'all_contacts':
+      default:
+        return MomentPrivacy.allContacts;
+    }
+  }
 }

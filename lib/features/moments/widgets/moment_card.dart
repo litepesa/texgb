@@ -1,384 +1,592 @@
 // lib/features/moments/widgets/moment_card.dart
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
-import 'package:textgb/features/moments/widgets/moment_media_grid.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-import 'package:timeago/timeago.dart' as timeago;
 
-class MomentCard extends StatelessWidget {
+class MomentCard extends StatefulWidget {
   final MomentModel moment;
-  final String currentUserUID;
   final VoidCallback onLike;
   final VoidCallback onComment;
+  final VoidCallback onView;
   final VoidCallback? onDelete;
-  final VoidCallback? onTap;
 
   const MomentCard({
     super.key,
     required this.moment,
-    required this.currentUserUID,
     required this.onLike,
     required this.onComment,
+    required this.onView,
     this.onDelete,
-    this.onTap,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final isMyMoment = moment.authorUID == currentUserUID;
-    final isLiked = moment.likedBy.contains(currentUserUID);
+  State<MomentCard> createState() => _MomentCardState();
+}
 
+class _MomentCardState extends State<MomentCard> {
+  bool _hasViewed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Add view after a short delay to simulate viewing
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!_hasViewed && mounted) {
+        widget.onView();
+        _hasViewed = true;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with user info
-              _buildHeader(context, isMyMoment),
-              
-              const SizedBox(height: 12),
-              
-              // Content
-              if (moment.content.isNotEmpty) ...[
-                _buildContent(),
-                const SizedBox(height: 12),
-              ],
-              
-              // Media
-              if (moment.hasMedia) ...[
-                MomentMediaGrid(
-                  mediaUrls: moment.mediaUrls,
-                  mediaType: moment.mediaType,
-                ),
-                const SizedBox(height: 12),
-              ],
-              
-              // Location
-              if (moment.location != null) ...[
-                _buildLocation(),
-                const SizedBox(height: 12),
-              ],
-              
-              // Actions
-              _buildActions(context, isLiked),
-              
-              // Likes and comments count
-              if (moment.likesCount > 0 || moment.commentsCount > 0) ...[
-                const SizedBox(height: 8),
-                _buildStats(),
-              ],
-            ],
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: Color(0xFFF0F0F0),
+            width: 1,
           ),
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          if (widget.moment.content.isNotEmpty) _buildContent(),
+          if (widget.moment.hasMedia) _buildMedia(),
+          _buildActions(),
+          if (widget.moment.likesCount > 0) _buildLikesCount(),
+          _buildTimeStamp(),
+        ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isMyMoment) {
-    return Row(
-      children: [
-        // Profile picture
-        userImageWidget(
-          imageUrl: moment.authorImage,
-          radius: 20,
-          onTap: () {
-            // TODO: Navigate to user profile
-          },
-        ),
-        
-        const SizedBox(width: 12),
-        
-        // User info
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    moment.authorName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  if (moment.privacy != MomentPrivacy.allContacts) ...[
-                    const SizedBox(width: 8),
-                    _buildPrivacyIcon(),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                timeago.format(moment.createdAt),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF8E8E93),
-                ),
-              ),
-            ],
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          userImageWidget(
+            imageUrl: widget.moment.authorImage,
+            radius: 20,
+            onTap: () {}, // Could navigate to user profile
           ),
-        ),
-        
-        // More options
-        if (isMyMoment)
-          GestureDetector(
-            onTap: () => _showMoreOptions(context),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              child: const Icon(
-                CupertinoIcons.ellipsis,
-                color: Color(0xFF8E8E93),
-                size: 20,
-              ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.moment.authorName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1D1D1D),
+                  ),
+                ),
+                Text(
+                  _formatTime(widget.moment.createdAt),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF9E9E9E),
+                  ),
+                ),
+              ],
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildPrivacyIcon() {
-    IconData icon;
-    Color color = const Color(0xFF8E8E93);
-    
-    switch (moment.privacy) {
-      case MomentPrivacy.only:
-        icon = CupertinoIcons.person_2;
-        break;
-      case MomentPrivacy.except:
-        icon = CupertinoIcons.minus_circle;
-        break;
-      case MomentPrivacy.public:
-        icon = CupertinoIcons.globe;
-        break;
-      default:
-        icon = CupertinoIcons.person_3;
-    }
-    
-    return Icon(
-      icon,
-      size: 14,
-      color: color,
+          if (widget.onDelete != null)
+            GestureDetector(
+              onTap: () => _showMoreOptions(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(
+                  Icons.more_horiz,
+                  color: Color(0xFF9E9E9E),
+                  size: 20,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildContent() {
-    return Text(
-      moment.content,
-      style: const TextStyle(
-        fontSize: 16,
-        color: Color(0xFF1A1A1A),
-        height: 1.4,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        widget.moment.content,
+        style: const TextStyle(
+          fontSize: 15,
+          color: Color(0xFF1D1D1D),
+          height: 1.4,
+        ),
       ),
     );
   }
 
-  Widget _buildLocation() {
-    return Row(
-      children: [
-        const Icon(
-          CupertinoIcons.location,
-          size: 14,
-          color: Color(0xFF007AFF),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          moment.location!,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFF007AFF),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+  Widget _buildMedia() {
+    if (widget.moment.hasImages) {
+      return _buildImageMedia();
+    } else if (widget.moment.hasVideo) {
+      return _buildVideoMedia();
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildImageMedia() {
+    final images = widget.moment.mediaUrls;
+    final imageCount = images.length;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      child: _buildImageGrid(images, imageCount),
     );
   }
 
-  Widget _buildActions(BuildContext context, bool isLiked) {
-    return Row(
-      children: [
-        // Like button
-        GestureDetector(
-          onTap: onLike,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+  Widget _buildImageGrid(List<String> images, int count) {
+    if (count == 1) {
+      return _buildSingleImage(images[0]);
+    } else if (count == 2) {
+      return _buildTwoImages(images);
+    } else if (count <= 4) {
+      return _buildFourImages(images);
+    } else {
+      return _buildNineImages(images);
+    }
+  }
+
+  Widget _buildSingleImage(String imageUrl) {
+    return Container(
+      height: 300,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: const Color(0xFFF8F8F8),
+            child: const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF1D1D1D),
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: const Color(0xFFF8F8F8),
+            child: const Icon(
+              Icons.error_outline,
+              color: Color(0xFF9E9E9E),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTwoImages(List<String> images) {
+    return Container(
+      height: 200,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildImageItem(images[0]),
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: _buildImageItem(images[1]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFourImages(List<String> images) {
+    return Container(
+      height: 200,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: _buildImageItem(images[0])),
+                const SizedBox(width: 2),
+                Expanded(child: _buildImageItem(images[1])),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: images.length > 2 
+                      ? _buildImageItem(images[2])
+                      : const SizedBox.shrink(),
+                ),
+                if (images.length > 3) const SizedBox(width: 2),
+                if (images.length > 3)
+                  Expanded(child: _buildImageItem(images[3])),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNineImages(List<String> images) {
+    return Container(
+      height: 300,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: _buildImageItem(images[0])),
+                const SizedBox(width: 2),
+                Expanded(child: _buildImageItem(images[1])),
+                const SizedBox(width: 2),
+                Expanded(child: _buildImageItem(images[2])),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: images.length > 3 
+                      ? _buildImageItem(images[3])
+                      : const SizedBox.shrink(),
+                ),
+                if (images.length > 4) const SizedBox(width: 2),
+                if (images.length > 4)
+                  Expanded(child: _buildImageItem(images[4])),
+                if (images.length > 5) const SizedBox(width: 2),
+                if (images.length > 5)
+                  Expanded(child: _buildImageItem(images[5])),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: images.length > 6 
+                      ? _buildImageItem(images[6])
+                      : const SizedBox.shrink(),
+                ),
+                if (images.length > 7) const SizedBox(width: 2),
+                if (images.length > 7)
+                  Expanded(child: _buildImageItem(images[7])),
+                if (images.length > 8) const SizedBox(width: 2),
+                if (images.length > 8)
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        _buildImageItem(images[8]),
+                        if (images.length > 9)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '+${images.length - 9}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageItem(String imageUrl) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: const Color(0xFFF8F8F8),
+          child: const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF1D1D1D),
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: const Color(0xFFF8F8F8),
+          child: const Icon(
+            Icons.error_outline,
+            color: Color(0xFF9E9E9E),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoMedia() {
+    return Container(
+      height: 300,
+      margin: const EdgeInsets.only(top: 12, left: 16, right: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          children: [
+            Container(
+              color: const Color(0xFF1D1D1D),
+              child: const Center(
+                child: Icon(
+                  Icons.play_circle_filled,
+                  size: 64,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 8,
+              left: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.videocam,
+                      color: Colors.white,
+                      size: 12,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Video',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActions() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: widget.onLike,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isLiked ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+                  widget.moment.likedBy.isNotEmpty
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  color: widget.moment.likedBy.isNotEmpty
+                      ? Colors.red
+                      : const Color(0xFF9E9E9E),
                   size: 20,
-                  color: isLiked ? const Color(0xFFFF3B30) : const Color(0xFF8E8E93),
                 ),
-                if (moment.likesCount > 0) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    '${moment.likesCount}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isLiked ? const Color(0xFFFF3B30) : const Color(0xFF8E8E93),
-                      fontWeight: FontWeight.w500,
-                    ),
+                const SizedBox(width: 4),
+                Text(
+                  'Like',
+                  style: TextStyle(
+                    color: widget.moment.likedBy.isNotEmpty
+                        ? Colors.red
+                        : const Color(0xFF9E9E9E),
+                    fontSize: 14,
                   ),
-                ],
+                ),
               ],
             ),
           ),
-        ),
-        
-        const SizedBox(width: 24),
-        
-        // Comment button
-        GestureDetector(
-          onTap: onComment,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            child: Row(
+          const SizedBox(width: 24),
+          GestureDetector(
+            onTap: widget.onComment,
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.chat_bubble_outline,
+                  color: Color(0xFF9E9E9E),
+                  size: 20,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  'Comment',
+                  style: TextStyle(
+                    color: Color(0xFF9E9E9E),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          if (widget.moment.viewsCount > 0)
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(
-                  CupertinoIcons.chat_bubble,
-                  size: 20,
-                  color: Color(0xFF8E8E93),
+                  Icons.visibility,
+                  color: Color(0xFF9E9E9E),
+                  size: 16,
                 ),
-                if (moment.commentsCount > 0) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    '${moment.commentsCount}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF8E8E93),
-                      fontWeight: FontWeight.w500,
-                    ),
+                const SizedBox(width: 4),
+                Text(
+                  '${widget.moment.viewsCount}',
+                  style: const TextStyle(
+                    color: Color(0xFF9E9E9E),
+                    fontSize: 12,
                   ),
-                ],
+                ),
               ],
             ),
-          ),
-        ),
-        
-        const Spacer(),
-        
-        // Share button
-        GestureDetector(
-          onTap: () => _shareMoment(context),
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            child: const Icon(
-              CupertinoIcons.share,
-              size: 20,
-              color: Color(0xFF8E8E93),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStats() {
-    final hasLikes = moment.likesCount > 0;
-    final hasComments = moment.commentsCount > 0;
-    
-    if (!hasLikes && !hasComments) return const SizedBox.shrink();
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          if (hasLikes) ...[
-            Icon(
-              CupertinoIcons.heart_fill,
-              size: 12,
-              color: Color(0xFFFF3B30),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              _getLikesText(),
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF8E8E93),
-              ),
-            ),
-          ],
-          
-          if (hasLikes && hasComments) ...[
-            const SizedBox(width: 16),
-            Container(
-              width: 2,
-              height: 2,
-              decoration: const BoxDecoration(
-                color: Color(0xFF8E8E93),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 16),
-          ],
-          
-          if (hasComments) ...[
-            Text(
-              '${moment.commentsCount} ${moment.commentsCount == 1 ? 'comment' : 'comments'}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF8E8E93),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  String _getLikesText() {
-    if (moment.likesCount == 1) {
-      return '1 like';
+  Widget _buildLikesCount() {
+    if (widget.moment.likesCount == 0) return const SizedBox.shrink();
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        '${widget.moment.likesCount} ${widget.moment.likesCount == 1 ? 'like' : 'likes'}',
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF1D1D1D),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeStamp() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Text(
+        _formatDetailedTime(widget.moment.createdAt),
+        style: const TextStyle(
+          fontSize: 12,
+          color: Color(0xFF9E9E9E),
+        ),
+      ),
+    );
+  }
+
+  void _showMoreOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (widget.onDelete != null)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text(
+                  'Delete Moment',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onDelete!();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}m';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours}h';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d';
     } else {
-      return '${moment.likesCount} likes';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     }
   }
 
-  void _showMoreOptions(BuildContext context) {
-    showCupertinoModalPopup(
-      context: context,
-      builder: (context) => CupertinoActionSheet(
-        actions: [
-          if (onDelete != null)
-            CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.pop(context);
-                onDelete!();
-              },
-              isDestructiveAction: true,
-              child: const Text('Delete Moment'),
-            ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implement edit moment
-              showSnackBar(context, 'Edit feature coming soon');
-            },
-            child: const Text('Edit Moment'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-      ),
-    );
-  }
+  String _formatDetailedTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
 
-  void _shareMoment(BuildContext context) {
-    // TODO: Implement share functionality
-    showSnackBar(context, 'Share feature coming soon');
+    if (difference.inDays < 1) {
+      if (difference.inHours < 1) {
+        if (difference.inMinutes < 1) {
+          return 'Just now';
+        }
+        return '${difference.inMinutes} minutes ago';
+      }
+      return '${difference.inHours} hours ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} at ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    }
   }
 }

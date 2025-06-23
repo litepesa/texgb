@@ -1,262 +1,346 @@
-// lib/features/moments/widgets/my_moments_header.dart
-import 'package:flutter/cupertino.dart';
+// lib/features/moments/widgets/my_moment_header.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
+import 'package:textgb/features/moments/providers/moments_provider.dart';
+import 'package:textgb/features/moments/screens/create_moment_screen.dart';
+import 'package:textgb/features/moments/screens/my_moments_screen.dart';
+import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class MyMomentsHeader extends ConsumerWidget {
-  final List<MomentModel> myMoments;
-  final VoidCallback onCreateMoment;
-  final VoidCallback onViewMyMoments;
+class MyMomentHeader extends ConsumerStatefulWidget {
+  final UserModel user;
 
-  const MyMomentsHeader({
-    super.key,
-    required this.myMoments,
-    required this.onCreateMoment,
-    required this.onViewMyMoments,
-  });
+  const MyMomentHeader({super.key, required this.user});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authenticationProvider);
-    final currentUser = authState.value?.userModel;
+  ConsumerState<MyMomentHeader> createState() => _MyMomentHeaderState();
+}
 
-    if (currentUser == null) return const SizedBox.shrink();
+class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
+  List<MomentModel> _myMoments = [];
+  bool _isLoading = true;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadMyMoments();
+  }
+
+  Future<void> _loadMyMoments() async {
+    try {
+      final moments = await ref.read(momentsNotifierProvider.notifier)
+          .getUserMoments(widget.user.uid);
+      
+      if (mounted) {
+        setState(() {
+          _myMoments = moments;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              // Profile picture with camera overlay
-              GestureDetector(
-                onTap: onCreateMoment,
-                child: Stack(
-                  children: [
-                    userImageWidget(
-                      imageUrl: currentUser.image,
-                      radius: 32,
-                      onTap: onCreateMoment,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF007AFF),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 2,
-                          ),
-                        ),
-                        child: const Icon(
-                          CupertinoIcons.camera,
-                          color: Colors.white,
-                          size: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(width: 16),
-              
-              // User info and create button
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      currentUser.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    GestureDetector(
-                      onTap: onCreateMoment,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF2F2F7),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'Share what\'s on your mind...',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF8E8E93),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          
-          // My recent moments preview
-          if (myMoments.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _buildMyMomentsPreview(context),
-          ],
+          _buildCoverPhoto(),
+          _buildProfileSection(),
+          _buildDivider(),
         ],
       ),
     );
   }
 
-  Widget _buildMyMomentsPreview(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'My Moments',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A1A1A),
-              ),
-            ),
-            GestureDetector(
-              onTap: onViewMyMoments,
-              child: const Text(
-                'View All',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF007AFF),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-        
-        const SizedBox(height: 12),
-        
-        // Horizontal scrollable moments preview
-        SizedBox(
-          height: 80,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: myMoments.take(10).length,
-            separatorBuilder: (context, index) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final moment = myMoments[index];
-              return _buildMomentPreviewItem(context, moment);
-            },
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildCoverPhoto() {
+    final latestMoment = _myMoments.isNotEmpty ? _myMoments.first : null;
+    final hasMedia = latestMoment?.hasMedia ?? false;
+    final mediaUrl = hasMedia ? latestMoment!.mediaUrls.first : '';
 
-  Widget _buildMomentPreviewItem(BuildContext context, MomentModel moment) {
-    return GestureDetector(
-      onTap: () {
-        // TODO: Navigate to moment detail
-      },
-      child: Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: const Color(0xFFF2F2F7),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (moment.hasMedia)
-                CachedNetworkImage(
-                  imageUrl: moment.mediaUrls.first,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: const Color(0xFFF2F2F7),
-                    child: const Center(
-                      child: CupertinoActivityIndicator(),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => _buildTextPreview(moment),
-                )
-              else
-                _buildTextPreview(moment),
-              
-              // Video indicator
-              if (moment.hasVideo)
-                const Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Icon(
-                    CupertinoIcons.videocam_fill,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-              
-              // Multiple media indicator
-              if (moment.hasMultipleMedia)
-                const Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: Icon(
-                    CupertinoIcons.rectangle_stack,
-                    color: Colors.white,
-                    size: 12,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextPreview(MomentModel moment) {
     return Container(
-      padding: const EdgeInsets.all(8),
+      height: 200,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFF007AFF).withOpacity(0.8),
-            const Color(0xFF5856D6).withOpacity(0.8),
+            const Color(0xFFF8F8F8),
+            const Color(0xFFF8F8F8).withOpacity(0.8),
           ],
         ),
       ),
-      child: Center(
-        child: Text(
-          moment.content.isEmpty ? '📝' : moment.content,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+      child: Stack(
+        children: [
+          // Background image or pattern
+          if (hasMedia && latestMoment!.hasImages)
+            Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: NetworkImage(mediaUrl),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(
+                    Colors.white.withOpacity(0.8),
+                    BlendMode.overlay,
+                  ),
+                ),
+              ),
+            )
+          else
+            Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8F8F8),
+              ),
+              child: CustomPaint(
+                painter: _GeometricPatternPainter(),
+                size: Size.infinite,
+              ),
+            ),
+          
+          // Content overlay
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.3),
+                ],
+              ),
+            ),
           ),
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
+          
+          // Profile content
+          Positioned(
+            bottom: 20,
+            left: 16,
+            right: 16,
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 3,
+                    ),
+                  ),
+                  child: userImageWidget(
+                    imageUrl: widget.user.image,
+                    radius: 30,
+                    onTap: () => _navigateToMyMoments(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.user.name,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1D1D1D),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (_isLoading)
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF1D1D1D),
+                          ),
+                        )
+                      else
+                        Text(
+                          _myMoments.isEmpty 
+                              ? 'Share your first moment'
+                              : '${_myMoments.length} moment${_myMoments.length != 1 ? 's' : ''}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF1D1D1D),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                _buildActionButton(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatsItem(
+              'Moments',
+              _myMoments.length.toString(),
+              () => _navigateToMyMoments(),
+            ),
+          ),
+          Expanded(
+            child: _buildStatsItem(
+              'Views',
+              _getTotalViews().toString(),
+              () => _navigateToMyMoments(),
+            ),
+          ),
+          Expanded(
+            child: _buildStatsItem(
+              'Likes',
+              _getTotalLikes().toString(),
+              () => _navigateToMyMoments(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsItem(String label, String value, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1D1D1D),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF9E9E9E),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _buildActionButton() {
+    return GestureDetector(
+      onTap: () => _navigateToCreateMoment(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1D1D1D),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          'Share',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(
+      height: 8,
+      color: const Color(0xFFF8F8F8),
+    );
+  }
+
+  int _getTotalViews() {
+    return _myMoments.fold(0, (total, moment) => total + moment.viewsCount);
+  }
+
+  int _getTotalLikes() {
+    return _myMoments.fold(0, (total, moment) => total + moment.likesCount);
+  }
+
+  void _navigateToCreateMoment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CreateMomentScreen(),
+      ),
+    ).then((_) => _loadMyMoments()); // Refresh moments after creating
+  }
+
+  void _navigateToMyMoments() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MyMomentsScreen(user: widget.user),
+      ),
+    );
+  }
+}
+
+// Custom painter for geometric background pattern
+class _GeometricPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF1D1D1D).withOpacity(0.05)
+      ..style = PaintingStyle.fill;
+
+    // Draw some geometric shapes for a modern pattern
+    final random = [0.2, 0.4, 0.6, 0.8, 0.3, 0.7, 0.1, 0.9, 0.5];
+    
+    for (int i = 0; i < 6; i++) {
+      final x = size.width * random[i];
+      final y = size.height * random[i + 1];
+      final radius = 20 + (random[i + 2] * 30);
+      
+      canvas.drawCircle(
+        Offset(x, y),
+        radius,
+        paint,
+      );
+    }
+
+    // Draw some triangular shapes
+    final trianglePaint = Paint()
+      ..color = const Color(0xFF1D1D1D).withOpacity(0.03)
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < 4; i++) {
+      final path = Path();
+      final centerX = size.width * random[i * 2];
+      final centerY = size.height * random[i * 2 + 1];
+      final size1 = 15 + (random[i] * 25);
+
+      path.moveTo(centerX, centerY - size1);
+      path.lineTo(centerX - size1, centerY + size1);
+      path.lineTo(centerX + size1, centerY + size1);
+      path.close();
+
+      canvas.drawPath(path, trianglePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

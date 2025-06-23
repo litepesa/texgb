@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
+import 'package:textgb/features/public_groups/screens/public_groups_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -58,6 +59,22 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           ),
           
           _buildListItem(
+            icon: Icons.campaign_outlined,
+            title: 'Public Groups',
+            subtitle: 'Join and discover communities',
+            iconColor: Colors.orange,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PublicGroupsScreen(),
+                ),
+              );
+            },
+            modernTheme: modernTheme,
+          ),
+          
+          _buildListItem(
             icon: Icons.add_box_outlined,
             title: 'Create Post',
             subtitle: 'Share content on your channel',
@@ -88,9 +105,6 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             },
             modernTheme: modernTheme,
           ),
-          
-          // Divider
-          _buildDivider(modernTheme),
           
           _buildComingSoonItem(
             icon: CupertinoIcons.square_grid_2x2,

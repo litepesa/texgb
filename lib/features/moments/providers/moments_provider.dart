@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/authentication_provider.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -13,44 +14,36 @@ part 'moments_provider.g.dart';
 
 class MomentsState {
   final bool isLoading;
-  final bool isPosting;
+  final bool isSuccessful;
   final List<MomentModel> moments;
-  final List<MomentModel> myMoments;
   final String? error;
   final bool hasMore;
   final DocumentSnapshot? lastDocument;
-  final bool isLoadingMore;
 
   const MomentsState({
     this.isLoading = false,
-    this.isPosting = false,
+    this.isSuccessful = false,
     this.moments = const [],
-    this.myMoments = const [],
     this.error,
     this.hasMore = true,
     this.lastDocument,
-    this.isLoadingMore = false,
   });
 
   MomentsState copyWith({
     bool? isLoading,
-    bool? isPosting,
+    bool? isSuccessful,
     List<MomentModel>? moments,
-    List<MomentModel>? myMoments,
     String? error,
     bool? hasMore,
     DocumentSnapshot? lastDocument,
-    bool? isLoadingMore,
   }) {
     return MomentsState(
       isLoading: isLoading ?? this.isLoading,
-      isPosting: isPosting ?? this.isPosting,
+      isSuccessful: isSuccessful ?? this.isSuccessful,
       moments: moments ?? this.moments,
-      myMoments: myMoments ?? this.myMoments,
       error: error,
       hasMore: hasMore ?? this.hasMore,
       lastDocument: lastDocument ?? this.lastDocument,
-      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     );
   }
 }
@@ -65,167 +58,39 @@ class MomentsNotifier extends _$MomentsNotifier {
     return const MomentsState();
   }
 
-  // Load moments feed with pagination
-  Future<void> loadMomentsFeed({bool refresh = false}) async {
+  // Create a new moment
+  Future<void> createMoment({
+    required String content,
+    required List<File> mediaFiles,
+    required MessageEnum mediaType,
+    required MomentPrivacy privacy,
+    Map<String, dynamic>? location,
+    List<String>? taggedUsers,
+  }) async {
     if (!state.hasValue) return;
-
-    final currentState = state.value!;
     
-    // Don't load if already loading or no more data (unless refreshing)
-    if ((currentState.isLoading || currentState.isLoadingMore) && !refresh) return;
-    if (!currentState.hasMore && !refresh) return;
-
-    // Set loading state
-    if (refresh) {
-      state = AsyncValue.data(currentState.copyWith(
-        isLoading: true,
-        error: null,
-      ));
-    } else {
-      state = AsyncValue.data(currentState.copyWith(
-        isLoadingMore: true,
-        error: null,
-      ));
-    }
-
-    try {
-      final authState = await ref.read(authenticationProvider.future);
-      final currentUser = authState.userModel;
-      
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
-      }
-
-      // Build query
-      Query query = _firestore
-          .collection(Constants.statusPosts)
-          .orderBy('createdAt', descending: true)
-          .limit(_pageSize);
-
-      // Add pagination if not refreshing
-      if (!refresh && currentState.lastDocument != null) {
-        query = query.startAfterDocument(currentState.lastDocument!);
-      }
-
-      final querySnapshot = await query.get();
-      final documents = querySnapshot.docs;
-
-      // Parse moments with privacy filtering
-      List<MomentModel> newMoments = [];
-      for (var doc in documents) {
-        try {
-          final moment = MomentModel.fromMap(doc.data() as Map<String, dynamic>);
-          
-          // Apply privacy filtering
-          if (_canViewMoment(moment, currentUser.uid, currentUser.contactsUIDs)) {
-            newMoments.add(moment);
-          }
-        } catch (e) {
-          debugPrint('Error parsing moment: $e');
-        }
-      }
-
-      // Update state
-      final updatedMoments = refresh 
-          ? newMoments 
-          : [...currentState.moments, ...newMoments];
-
-      state = AsyncValue.data(currentState.copyWith(
-        isLoading: false,
-        isLoadingMore: false,
-        moments: updatedMoments,
-        hasMore: documents.length == _pageSize,
-        lastDocument: documents.isNotEmpty ? documents.last : null,
-      ));
-
-    } catch (e) {
-      state = AsyncValue.data(currentState.copyWith(
-        isLoading: false,
-        isLoadingMore: false,
-        error: e.toString(),
-      ));
-    }
-  }
-
-  // Load user's own moments
-  Future<void> loadMyMoments() async {
-    if (!state.hasValue) return;
-
-    final currentState = state.value!;
-    
-    state = AsyncValue.data(currentState.copyWith(
+    state = AsyncValue.data(state.value!.copyWith(
       isLoading: true,
       error: null,
     ));
 
     try {
       final authState = await ref.read(authenticationProvider.future);
-      final currentUser = authState.userModel;
-      
-      if (currentUser == null) {
+      if (authState.userModel == null) {
         throw Exception('User not authenticated');
       }
 
-      final querySnapshot = await _firestore
-          .collection(Constants.statusPosts)
-          .where('authorUID', isEqualTo: currentUser.uid)
-          .orderBy('createdAt', descending: true)
-          .get();
+      final user = authState.userModel!;
+      final momentId = DateTime.now().millisecondsSinceEpoch.toString();
 
-      final myMoments = querySnapshot.docs
-          .map((doc) => MomentModel.fromMap(doc.data()))
-          .toList();
-
-      state = AsyncValue.data(currentState.copyWith(
-        isLoading: false,
-        myMoments: myMoments,
-      ));
-
-    } catch (e) {
-      state = AsyncValue.data(currentState.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      ));
-    }
-  }
-
-  // Post a new moment
-  Future<void> postMoment({
-    required String content,
-    required List<File> mediaFiles,
-    required MomentPrivacy privacy,
-    required List<String> visibleTo,
-    required List<String> hiddenFrom,
-    String? location,
-  }) async {
-    if (!state.hasValue) return;
-
-    final currentState = state.value!;
-    
-    state = AsyncValue.data(currentState.copyWith(
-      isPosting: true,
-      error: null,
-    ));
-
-    try {
-      final authState = await ref.read(authenticationProvider.future);
-      final currentUser = authState.userModel;
-      
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
-      }
-
-      final momentId = _firestore.collection(Constants.statusPosts).doc().id;
-      
       // Upload media files
       List<String> mediaUrls = [];
-      String mediaType = 'text';
-      
       if (mediaFiles.isNotEmpty) {
         for (int i = 0; i < mediaFiles.length; i++) {
           final file = mediaFiles[i];
-          final fileName = '${momentId}_$i.${file.path.split('.').last}';
-          final reference = '${Constants.statusFiles}/$momentId/$fileName';
+          final extension = file.path.split('.').last;
+          final fileName = '${momentId}_$i.$extension';
+          final reference = 'moments/${user.uid}/$fileName';
           
           final downloadUrl = await storeFileToStorage(
             file: file,
@@ -233,46 +98,23 @@ class MomentsNotifier extends _$MomentsNotifier {
           );
           mediaUrls.add(downloadUrl);
         }
-        
-        // Determine media type
-        final hasImages = mediaFiles.any((f) => 
-            f.path.toLowerCase().endsWith('.jpg') ||
-            f.path.toLowerCase().endsWith('.jpeg') ||
-            f.path.toLowerCase().endsWith('.png') ||
-            f.path.toLowerCase().endsWith('.gif'));
-        
-        final hasVideos = mediaFiles.any((f) => 
-            f.path.toLowerCase().endsWith('.mp4') ||
-            f.path.toLowerCase().endsWith('.mov') ||
-            f.path.toLowerCase().endsWith('.avi'));
-        
-        if (hasImages && hasVideos) {
-          mediaType = 'mixed';
-        } else if (hasVideos) {
-          mediaType = 'video';
-        } else if (hasImages) {
-          mediaType = 'image';
-        }
       }
 
       // Create moment model
       final moment = MomentModel(
         momentId: momentId,
-        authorUID: currentUser.uid,
-        authorName: currentUser.name,
-        authorImage: currentUser.image,
+        authorUID: user.uid,
+        authorName: user.name,
+        authorImage: user.image,
         content: content,
         mediaUrls: mediaUrls,
         mediaType: mediaType,
         createdAt: DateTime.now(),
         likedBy: [],
-        likesCount: 0,
-        commentsCount: 0,
-        location: location,
+        viewedBy: [],
+        location: location ?? {},
+        taggedUsers: taggedUsers ?? [],
         privacy: privacy,
-        visibleTo: visibleTo,
-        hiddenFrom: hiddenFrom,
-        isEdited: false,
       );
 
       // Save to Firestore
@@ -281,22 +123,83 @@ class MomentsNotifier extends _$MomentsNotifier {
           .doc(momentId)
           .set(moment.toMap());
 
-      // Add to local state (optimistic update)
-      final updatedMoments = [moment, ...currentState.moments];
-      final updatedMyMoments = [moment, ...currentState.myMoments];
-
-      state = AsyncValue.data(currentState.copyWith(
-        isPosting: false,
+      // Add to local state
+      final updatedMoments = [moment, ...state.value!.moments];
+      
+      state = AsyncValue.data(state.value!.copyWith(
         moments: updatedMoments,
-        myMoments: updatedMyMoments,
+        isLoading: false,
+        isSuccessful: true,
       ));
-
     } catch (e) {
-      state = AsyncValue.data(currentState.copyWith(
-        isPosting: false,
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
         error: e.toString(),
       ));
-      throw e;
+    }
+  }
+
+  // Load moments feed
+  Future<void> loadMomentsFeed({bool refresh = false}) async {
+    if (!state.hasValue) return;
+    
+    // Don't load if already loading and not refreshing
+    if (state.value!.isLoading && !refresh) return;
+    
+    // Reset state if refreshing
+    if (refresh) {
+      state = AsyncValue.data(const MomentsState(isLoading: true));
+    } else {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: true,
+        error: null,
+      ));
+    }
+
+    try {
+      final authState = await ref.read(authenticationProvider.future);
+      if (authState.userModel == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final user = authState.userModel!;
+      final contactUIDs = user.contactsUIDs;
+      final allUIDs = [user.uid, ...contactUIDs];
+
+      // Build query
+      Query query = _firestore
+          .collection(Constants.statusPosts)
+          .where('authorUID', whereIn: allUIDs.take(10).toList()) // Firestore limit
+          .orderBy('createdAt', descending: true)
+          .limit(_pageSize);
+
+      // Add pagination if not refreshing
+      if (!refresh && state.value!.lastDocument != null) {
+        query = query.startAfterDocument(state.value!.lastDocument!);
+      }
+
+      final snapshot = await query.get();
+      
+      final moments = snapshot.docs
+          .map((doc) => MomentModel.fromMap(doc.data() as Map<String, dynamic>))
+          .toList();
+
+      // Update state
+      final currentMoments = refresh ? <MomentModel>[] : state.value!.moments;
+      final updatedMoments = [...currentMoments, ...moments];
+      
+      state = AsyncValue.data(state.value!.copyWith(
+        moments: updatedMoments,
+        isLoading: false,
+        isSuccessful: true,
+        hasMore: snapshot.docs.length == _pageSize,
+        lastDocument: snapshot.docs.isNotEmpty ? snapshot.docs.last : null,
+      ));
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      ));
     }
   }
 
@@ -306,45 +209,81 @@ class MomentsNotifier extends _$MomentsNotifier {
 
     try {
       final authState = await ref.read(authenticationProvider.future);
-      final currentUser = authState.userModel;
-      
-      if (currentUser == null) return;
+      if (authState.userModel == null) return;
 
+      final userId = authState.userModel!.uid;
       final momentRef = _firestore.collection(Constants.statusPosts).doc(momentId);
-      
-      await _firestore.runTransaction((transaction) async {
-        final momentDoc = await transaction.get(momentRef);
-        
-        if (!momentDoc.exists) return;
-        
-        final moment = MomentModel.fromMap(momentDoc.data()!);
-        final isLiked = moment.likedBy.contains(currentUser.uid);
-        
-        List<String> updatedLikedBy = List.from(moment.likedBy);
-        int updatedLikesCount = moment.likesCount;
-        
-        if (isLiked) {
-          updatedLikedBy.remove(currentUser.uid);
-          updatedLikesCount = (updatedLikesCount - 1).clamp(0, double.infinity).toInt();
-        } else {
-          updatedLikedBy.add(currentUser.uid);
-          updatedLikesCount += 1;
-        }
-        
-        transaction.update(momentRef, {
-          'likedBy': updatedLikedBy,
-          'likesCount': updatedLikesCount,
-        });
-        
-        // Update local state
-        _updateLocalMoment(momentId, (moment) => moment.copyWith(
-          likedBy: updatedLikedBy,
-          likesCount: updatedLikesCount,
-        ));
-      });
 
+      // Find the moment in local state
+      final momentIndex = state.value!.moments.indexWhere((m) => m.momentId == momentId);
+      if (momentIndex == -1) return;
+
+      final moment = state.value!.moments[momentIndex];
+      final isLiked = moment.likedBy.contains(userId);
+
+      // Update Firestore
+      if (isLiked) {
+        await momentRef.update({
+          'likedBy': FieldValue.arrayRemove([userId]),
+        });
+      } else {
+        await momentRef.update({
+          'likedBy': FieldValue.arrayUnion([userId]),
+        });
+      }
+
+      // Update local state
+      final updatedLikedBy = List<String>.from(moment.likedBy);
+      if (isLiked) {
+        updatedLikedBy.remove(userId);
+      } else {
+        updatedLikedBy.add(userId);
+      }
+
+      final updatedMoment = moment.copyWith(likedBy: updatedLikedBy);
+      final updatedMoments = List<MomentModel>.from(state.value!.moments);
+      updatedMoments[momentIndex] = updatedMoment;
+
+      state = AsyncValue.data(state.value!.copyWith(moments: updatedMoments));
     } catch (e) {
       debugPrint('Error toggling like: $e');
+    }
+  }
+
+  // Add view to moment
+  Future<void> addViewToMoment(String momentId) async {
+    if (!state.hasValue) return;
+
+    try {
+      final authState = await ref.read(authenticationProvider.future);
+      if (authState.userModel == null) return;
+
+      final userId = authState.userModel!.uid;
+      final momentRef = _firestore.collection(Constants.statusPosts).doc(momentId);
+
+      // Find the moment in local state
+      final momentIndex = state.value!.moments.indexWhere((m) => m.momentId == momentId);
+      if (momentIndex == -1) return;
+
+      final moment = state.value!.moments[momentIndex];
+      
+      // Don't add view if already viewed
+      if (moment.viewedBy.contains(userId)) return;
+
+      // Update Firestore
+      await momentRef.update({
+        'viewedBy': FieldValue.arrayUnion([userId]),
+      });
+
+      // Update local state
+      final updatedViewedBy = [...moment.viewedBy, userId];
+      final updatedMoment = moment.copyWith(viewedBy: updatedViewedBy);
+      final updatedMoments = List<MomentModel>.from(state.value!.moments);
+      updatedMoments[momentIndex] = updatedMoment;
+
+      state = AsyncValue.data(state.value!.copyWith(moments: updatedMoments));
+    } catch (e) {
+      debugPrint('Error adding view: $e');
     }
   }
 
@@ -353,42 +292,35 @@ class MomentsNotifier extends _$MomentsNotifier {
     if (!state.hasValue) return;
 
     try {
-      final authState = await ref.read(authenticationProvider.future);
-      final currentUser = authState.userModel;
-      
-      if (currentUser == null) return;
-
       // Delete from Firestore
       await _firestore.collection(Constants.statusPosts).doc(momentId).delete();
-      
-      // Delete comments
-      final commentsSnapshot = await _firestore
-          .collection(Constants.statusComments)
-          .where('momentId', isEqualTo: momentId)
-          .get();
-      
-      final batch = _firestore.batch();
-      for (var doc in commentsSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
-      await batch.commit();
 
-      // Update local state
-      final currentState = state.value!;
-      final updatedMoments = currentState.moments
-          .where((m) => m.momentId != momentId)
-          .toList();
-      final updatedMyMoments = currentState.myMoments
-          .where((m) => m.momentId != momentId)
+      // Remove from local state
+      final updatedMoments = state.value!.moments
+          .where((moment) => moment.momentId != momentId)
           .toList();
 
-      state = AsyncValue.data(currentState.copyWith(
-        moments: updatedMoments,
-        myMoments: updatedMyMoments,
-      ));
-
+      state = AsyncValue.data(state.value!.copyWith(moments: updatedMoments));
     } catch (e) {
       debugPrint('Error deleting moment: $e');
+    }
+  }
+
+  // Get moments by user
+  Future<List<MomentModel>> getUserMoments(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection(Constants.statusPosts)
+          .where('authorUID', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => MomentModel.fromMap(doc.data()))
+          .toList();
+    } catch (e) {
+      debugPrint('Error getting user moments: $e');
+      return [];
     }
   }
 
@@ -401,112 +333,46 @@ class MomentsNotifier extends _$MomentsNotifier {
   }) async {
     try {
       final authState = await ref.read(authenticationProvider.future);
-      final currentUser = authState.userModel;
-      
-      if (currentUser == null) return;
+      if (authState.userModel == null) return;
 
-      final commentId = _firestore.collection(Constants.statusComments).doc().id;
-      
-      final comment = MomentCommentModel(
+      final user = authState.userModel!;
+      final commentId = DateTime.now().millisecondsSinceEpoch.toString();
+
+      final comment = MomentComment(
         commentId: commentId,
         momentId: momentId,
-        authorUID: currentUser.uid,
-        authorName: currentUser.name,
-        authorImage: currentUser.image,
+        authorUID: user.uid,
+        authorName: user.name,
+        authorImage: user.image,
         content: content,
         createdAt: DateTime.now(),
         replyToUID: replyToUID,
         replyToName: replyToName,
-        likedBy: [],
-        likesCount: 0,
       );
 
-      // Add comment to Firestore
       await _firestore
           .collection(Constants.statusComments)
           .doc(commentId)
           .set(comment.toMap());
-
-      // Update moment's comment count
-      await _firestore
-          .collection(Constants.statusPosts)
-          .doc(momentId)
-          .update({
-        'commentsCount': FieldValue.increment(1),
-      });
-
-      // Update local state
-      _updateLocalMoment(momentId, (moment) => moment.copyWith(
-        commentsCount: moment.commentsCount + 1,
-      ));
-
     } catch (e) {
       debugPrint('Error adding comment: $e');
     }
   }
 
   // Get comments for a moment
-  Stream<List<MomentCommentModel>> getCommentsStream(String momentId) {
+  Stream<List<MomentComment>> getMomentComments(String momentId) {
     return _firestore
         .collection(Constants.statusComments)
         .where('momentId', isEqualTo: momentId)
         .orderBy('createdAt', descending: false)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => MomentCommentModel.fromMap(doc.data()))
+            .map((doc) => MomentComment.fromMap(doc.data()))
             .toList());
   }
 
-  // Privacy check helper
-  bool _canViewMoment(MomentModel moment, String viewerUID, List<String> viewerContacts) {
-    // Author can always see their own moments
-    if (moment.authorUID == viewerUID) return true;
-
-    switch (moment.privacy) {
-      case MomentPrivacy.public:
-        return true;
-      
-      case MomentPrivacy.allContacts:
-        return viewerContacts.contains(moment.authorUID);
-      
-      case MomentPrivacy.except:
-        return viewerContacts.contains(moment.authorUID) && 
-               !moment.hiddenFrom.contains(viewerUID);
-      
-      case MomentPrivacy.only:
-        return moment.visibleTo.contains(viewerUID);
-    }
-  }
-
-  // Update local moment helper
-  void _updateLocalMoment(String momentId, MomentModel Function(MomentModel) updater) {
-    if (!state.hasValue) return;
-
-    final currentState = state.value!;
-    
-    final updatedMoments = currentState.moments.map((moment) {
-      if (moment.momentId == momentId) {
-        return updater(moment);
-      }
-      return moment;
-    }).toList();
-
-    final updatedMyMoments = currentState.myMoments.map((moment) {
-      if (moment.momentId == momentId) {
-        return updater(moment);
-      }
-      return moment;
-    }).toList();
-
-    state = AsyncValue.data(currentState.copyWith(
-      moments: updatedMoments,
-      myMoments: updatedMyMoments,
-    ));
-  }
-
-  // Clear error
-  void clearError() {
-    if (!state.hasValue) return;
-    state = AsyncValue.data(state.value!.copyWith(error: null));
+  // Clear state
+  void clearState() {
+    state = AsyncValue.data(const MomentsState());
   }
 }

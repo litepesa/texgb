@@ -36,7 +36,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Chats',
     'Groups',
     'Discover',
-    'Profile'
+    'Me'
   ];
   
   final List<IconData> _tabIcons = [

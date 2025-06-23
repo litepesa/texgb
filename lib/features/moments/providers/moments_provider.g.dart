@@ -7,7 +7,7 @@ part of 'moments_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$momentsNotifierHash() => r'8a9c4e2f1b3d5a7c9e1f3a5b7c9d1e3f5a7b9c1e';
+String _$momentsNotifierHash() => r'7e8b4f2a3c9d1a6e8f5b2c4d9e1a3f7b8c5d2a6e';
 
 /// See also [MomentsNotifier].
 @ProviderFor(MomentsNotifier)
