@@ -92,6 +92,7 @@ dependencies:
   device_info_plus: ^11.3.0
   video_thumbnail: ^0.5.6
   ffmpeg_kit_flutter_new_gpl: ^1.6.5
+  image: ^4.5.4
 
 
 
