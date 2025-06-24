@@ -1,5 +1,6 @@
-// lib/features/moments/widgets/my_moment_header.dart
+// lib/features/moments/widgets/my_moments_header.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/providers/moments_provider.dart';
@@ -17,14 +18,52 @@ class MyMomentHeader extends ConsumerStatefulWidget {
   ConsumerState<MyMomentHeader> createState() => _MyMomentHeaderState();
 }
 
-class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
+class _MyMomentHeaderState extends ConsumerState<MyMomentHeader>
+    with SingleTickerProviderStateMixin {
   List<MomentModel> _myMoments = [];
   bool _isLoading = true;
+  late AnimationController _animationController;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  // Premium color palette - Sophisticated blues and greens
+  static const Color primaryWhite = Color(0xFFFFFFFF);
+  static const Color backgroundGray = Color(0xFFF7F8FC);
+  static const Color softGray = Color(0xFFEFF1F6);
+  static const Color textPrimary = Color(0xFF1A1D29);
+  static const Color textSecondary = Color(0xFF5A6175);
+  static const Color textTertiary = Color(0xFF9BA3B4);
+  static const Color premiumBlue = Color(0xFF2563EB);
+  static const Color accentBlue = Color(0xFF3B82F6);
+  static const Color premiumGreen = Color(0xFF059669);
+  static const Color accentGreen = Color(0xFF10B981);
+  static const Color shadowColor = Color(0x08000000);
 
   @override
   void initState() {
     super.initState();
+    
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    
     _loadMyMoments();
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMyMoments() async {
@@ -47,38 +86,49 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          _buildCoverPhoto(),
-          _buildProfileSection(),
-          _buildDivider(),
-        ],
-      ),
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _slideAnimation.value),
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Container(
+              color: primaryWhite,
+              child: Column(
+                children: [
+                  _buildCoverSection(),
+                  _buildStatsSection(),
+                  _buildDivider(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildCoverPhoto() {
+  Widget _buildCoverSection() {
     final latestMoment = _myMoments.isNotEmpty ? _myMoments.first : null;
     final hasMedia = latestMoment?.hasMedia ?? false;
     final mediaUrl = hasMedia ? latestMoment!.mediaUrls.first : '';
 
     return Container(
-      height: 200,
+      height: 240,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFFF8F8F8),
-            const Color(0xFFF8F8F8).withOpacity(0.8),
+            softGray,
+            softGray.withOpacity(0.5),
           ],
         ),
       ),
       child: Stack(
         children: [
-          // Background image or pattern
+          // Background pattern or image
           if (hasMedia && latestMoment!.hasImages)
             Container(
               decoration: BoxDecoration(
@@ -86,7 +136,7 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
                   image: NetworkImage(mediaUrl),
                   fit: BoxFit.cover,
                   colorFilter: ColorFilter.mode(
-                    Colors.white.withOpacity(0.8),
+                    primaryWhite.withOpacity(0.85),
                     BlendMode.overlay,
                   ),
                 ),
@@ -94,11 +144,18 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
             )
           else
             Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8F8F8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    premiumBlue.withOpacity(0.06),
+                    premiumGreen.withOpacity(0.06),
+                  ],
+                ),
               ),
               child: CustomPaint(
-                painter: _GeometricPatternPainter(),
+                painter: _ModernPatternPainter(),
                 size: Size.infinite,
               ),
             ),
@@ -111,7 +168,7 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.transparent,
-                  Colors.black.withOpacity(0.3),
+                  Colors.black.withOpacity(0.1),
                 ],
               ),
             ),
@@ -119,26 +176,13 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
           
           // Profile content
           Positioned(
-            bottom: 20,
-            left: 16,
-            right: 16,
+            bottom: 24,
+            left: 20,
+            right: 20,
             child: Row(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 3,
-                    ),
-                  ),
-                  child: userImageWidget(
-                    imageUrl: widget.user.image,
-                    radius: 30,
-                    onTap: () => _navigateToMyMoments(),
-                  ),
-                ),
-                const SizedBox(width: 12),
+                _buildProfileImage(),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,29 +190,46 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
                       Text(
                         widget.user.name,
                         style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1D1D1D),
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       if (_isLoading)
-                        const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
+                        Container(
+                          width: 20,
+                          height: 20,
+                          padding: const EdgeInsets.all(2),
+                          child: const CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Color(0xFF1D1D1D),
+                            color: textSecondary,
                           ),
                         )
                       else
-                        Text(
-                          _myMoments.isEmpty 
-                              ? 'Share your first moment'
-                              : '${_myMoments.length} moment${_myMoments.length != 1 ? 's' : ''}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF1D1D1D),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: primaryWhite,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: shadowColor,
+                                offset: const Offset(0, 2),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            _myMoments.isEmpty 
+                                ? 'Share your first moment'
+                                : '${_myMoments.length} moment${_myMoments.length != 1 ? 's' : ''}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                     ],
@@ -183,58 +244,76 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
     );
   }
 
-  Widget _buildProfileSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatsItem(
-              'Moments',
-              _myMoments.length.toString(),
-              () => _navigateToMyMoments(),
-            ),
+  Widget _buildProfileImage() {
+    return GestureDetector(
+      onTap: () => _navigateToMyMoments(),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: primaryWhite,
+            width: 4,
           ),
-          Expanded(
-            child: _buildStatsItem(
-              'Views',
-              _getTotalViews().toString(),
-              () => _navigateToMyMoments(),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              offset: const Offset(0, 4),
+              blurRadius: 12,
             ),
-          ),
-          Expanded(
-            child: _buildStatsItem(
-              'Likes',
-              _getTotalLikes().toString(),
-              () => _navigateToMyMoments(),
-            ),
-          ),
-        ],
+          ],
+        ),
+        child: userImageWidget(
+          imageUrl: widget.user.image,
+          radius: 32,
+          onTap: () => _navigateToMyMoments(),
+        ),
       ),
     );
   }
 
-  Widget _buildStatsItem(String label, String value, VoidCallback onTap) {
+  Widget _buildActionButton() {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        _navigateToCreateMoment();
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1D1D1D),
-              ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [premiumBlue, accentBlue],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: premiumBlue.withOpacity(0.4),
+              offset: const Offset(0, 4),
+              blurRadius: 16,
             ),
-            const SizedBox(height: 4),
+            BoxShadow(
+              color: premiumBlue.withOpacity(0.1),
+              offset: const Offset(0, 2),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.add_rounded,
+              color: primaryWhite,
+              size: 18,
+            ),
+            SizedBox(width: 6),
             Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF9E9E9E),
+              'Share',
+              style: TextStyle(
+                color: primaryWhite,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
               ),
             ),
           ],
@@ -243,22 +322,101 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
     );
   }
 
-  Widget _buildActionButton() {
-    return GestureDetector(
-      onTap: () => _navigateToCreateMoment(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1D1D1D),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Text(
-          'Share',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+  Widget _buildStatsSection() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child:             _buildStatsItem(
+              'Moments',
+              _myMoments.length.toString(),
+              Icons.photo_camera_rounded,
+              premiumBlue,
+              () => _navigateToMyMoments(),
+            ),
           ),
+          Container(
+            width: 1,
+            height: 40,
+            color: softGray,
+          ),
+          Expanded(
+            child:             _buildStatsItem(
+              'Views',
+              _getTotalViews().toString(),
+              Icons.visibility_rounded,
+              premiumGreen,
+              () => _navigateToMyMoments(),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 40,
+            color: softGray,
+          ),
+          Expanded(
+            child: _buildStatsItem(
+              'Likes',
+              _getTotalLikes().toString(),
+              Icons.favorite_rounded,
+              const Color(0xFFEF4444),
+              () => _navigateToMyMoments(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsItem(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -267,7 +425,7 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
   Widget _buildDivider() {
     return Container(
       height: 8,
-      color: const Color(0xFFF8F8F8),
+      color: backgroundGray,
     );
   }
 
@@ -282,10 +440,25 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
   void _navigateToCreateMoment() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const CreateMomentScreen(),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const CreateMomentScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 1.0);
+          const end = Offset.zero;
+          const curve = Curves.easeOutCubic;
+
+          var tween = Tween(begin: begin, end: end).chain(
+            CurveTween(curve: curve),
+          );
+
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 400),
       ),
-    ).then((_) => _loadMyMoments()); // Refresh moments after creating
+    ).then((_) => _loadMyMoments());
   }
 
   void _navigateToMyMoments() {
@@ -298,49 +471,91 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader> {
   }
 }
 
-// Custom painter for geometric background pattern
-class _GeometricPatternPainter extends CustomPainter {
+// Modern pattern painter for background
+class _ModernPatternPainter extends CustomPainter {
+  get premiumGreen => null;
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF1D1D1D).withOpacity(0.05)
+      ..color = const Color(0xFF4F46E5).withOpacity(0.03)
       ..style = PaintingStyle.fill;
 
-    // Draw some geometric shapes for a modern pattern
-    final random = [0.2, 0.4, 0.6, 0.8, 0.3, 0.7, 0.1, 0.9, 0.5];
+    // Draw modern geometric patterns
+    final patterns = [
+      _Pattern(0.15, 0.25, 25, PatternType.circle),
+      _Pattern(0.75, 0.15, 30, PatternType.circle),
+      _Pattern(0.25, 0.65, 20, PatternType.circle),
+      _Pattern(0.85, 0.75, 35, PatternType.circle),
+      _Pattern(0.45, 0.45, 15, PatternType.circle),
+    ];
     
-    for (int i = 0; i < 6; i++) {
-      final x = size.width * random[i];
-      final y = size.height * random[i + 1];
-      final radius = 20 + (random[i + 2] * 30);
+    for (final pattern in patterns) {
+      final x = size.width * pattern.x;
+      final y = size.height * pattern.y;
       
-      canvas.drawCircle(
-        Offset(x, y),
-        radius,
-        paint,
-      );
+      switch (pattern.type) {
+        case PatternType.circle:
+          canvas.drawCircle(
+            Offset(x, y),
+            pattern.size,
+            paint,
+          );
+          break;
+        case PatternType.square:
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                center: Offset(x, y),
+                width: pattern.size * 2,
+                height: pattern.size * 2,
+              ),
+              Radius.circular(pattern.size * 0.3),
+            ),
+            paint,
+          );
+          break;
+      }
     }
 
-    // Draw some triangular shapes
-    final trianglePaint = Paint()
-      ..color = const Color(0xFF1D1D1D).withOpacity(0.03)
-      ..style = PaintingStyle.fill;
+    // Add some subtle lines
+    final linePaint = Paint()
+      ..color = premiumGreen.withOpacity(0.03)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
 
-    for (int i = 0; i < 4; i++) {
-      final path = Path();
-      final centerX = size.width * random[i * 2];
-      final centerY = size.height * random[i * 2 + 1];
-      final size1 = 15 + (random[i] * 25);
+    final path = Path();
+    path.moveTo(0, size.height * 0.3);
+    path.quadraticBezierTo(
+      size.width * 0.5,
+      size.height * 0.1,
+      size.width,
+      size.height * 0.4,
+    );
+    canvas.drawPath(path, linePaint);
 
-      path.moveTo(centerX, centerY - size1);
-      path.lineTo(centerX - size1, centerY + size1);
-      path.lineTo(centerX + size1, centerY + size1);
-      path.close();
-
-      canvas.drawPath(path, trianglePaint);
-    }
+    final path2 = Path();
+    path2.moveTo(0, size.height * 0.7);
+    path2.quadraticBezierTo(
+      size.width * 0.3,
+      size.height * 0.9,
+      size.width,
+      size.height * 0.6,
+    );
+    canvas.drawPath(path2, linePaint);
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+class _Pattern {
+  final double x;
+  final double y;
+  final double size;
+  final PatternType type;
+
+  _Pattern(this.x, this.y, this.size, this.type);
+}
+
+enum PatternType { circle, square }
