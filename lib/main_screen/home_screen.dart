@@ -10,6 +10,7 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
+import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
@@ -32,19 +33,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
   
+  // Updated tab configuration for TikTok-style layout
   final List<String> _tabNames = [
-    'Chats',
-    'Groups',
-    'Discover',
-    'Profile'
+    'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
+    'Wallet',    // Index 1 - Wallet
+    '',          // Index 2 - Post (no label, special design)
+    'Chats',     // Index 3 - Chats (moved from index 0)
+    'Me'         // Index 4 - Profile (moved from index 3)
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.chat_bubble_text,
-    Icons.group_outlined,
-    CupertinoIcons.compass,
-    Icons.person_outline
+    Icons.home,              // Home
+    Icons.account_balance_wallet_outlined,       // Wallet
+    Icons.add,                         // Post (will be styled specially)
+    CupertinoIcons.chat_bubble_text,   // Chats
+    Icons.person_outline               // Me/Profile
   ];
+
+  // Feed screen controller for lifecycle management
+  final GlobalKey<ChannelsFeedScreenState> _feedScreenKey = GlobalKey<ChannelsFeedScreenState>();
 
   @override
   void initState() {
@@ -62,13 +69,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _onTabTapped(int index) {
+    // Handle special post button
+    if (index == 2) {
+      _navigateToCreatePost();
+      return;
+    }
+
     // Store previous index for navigation management
     _previousIndex = _currentIndex;
     
+    // Handle feed screen lifecycle
+    if (_currentIndex == 0) {
+      // Leaving feed screen
+      _feedScreenKey.currentState?.onScreenBecameInactive();
+    }
+    
     setState(() {
       _currentIndex = index;
-      _updateSystemUI(); // Force immediate update
+      _updateSystemUI();
     });
+
+    // Handle feed screen lifecycle
+    if (_currentIndex == 0) {
+      // Entering feed screen
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _feedScreenKey.currentState?.onScreenBecameActive();
+      });
+    }
 
     // Use jumpToPage to avoid showing intermediate pages
     _isPageAnimating = true;
@@ -80,17 +107,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   void _updateSystemUI() {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-    ));
+    if (_currentIndex == 0) {
+      // Home/Feed screen - black background with light status bar
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    } else {
+      // Other screens - use theme-appropriate colors
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    }
   }
   
   void _onPageChanged(int index) {
     // Only process page changes that aren't from programmatic jumps
     if (_isPageAnimating) return;
+    
+    // Handle feed screen lifecycle
+    if (_currentIndex == 0) {
+      // Leaving feed screen
+      _feedScreenKey.currentState?.onScreenBecameInactive();
+    }
     
     // Store previous index before updating
     _previousIndex = _currentIndex;
@@ -99,6 +148,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _currentIndex = index;
       _updateSystemUI();
     });
+
+    // Handle feed screen lifecycle
+    if (_currentIndex == 0) {
+      // Entering feed screen
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _feedScreenKey.currentState?.onScreenBecameActive();
+      });
+    }
+  }
+
+  void _navigateToCreatePost() async {
+    // Pause feed if active
+    if (_currentIndex == 0) {
+      _feedScreenKey.currentState?.onScreenBecameInactive();
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CreatePostScreen(),
+      ),
+    );
+
+    // Resume feed if returning to it
+    if (result == true && _currentIndex == 0) {
+      _feedScreenKey.currentState?.onScreenBecameActive();
+    }
   }
 
   @override
@@ -106,240 +182,326 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
-    final isProfileTab = _currentIndex == 3; // Profile tab at index 3
+    final isHomeTab = _currentIndex == 0;
+    final isProfileTab = _currentIndex == 4;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isProfileTab,
-      backgroundColor: modernTheme.backgroundColor,
+      extendBodyBehindAppBar: isHomeTab || isProfileTab,
+      backgroundColor: isHomeTab ? Colors.black : modernTheme.backgroundColor,
       
-      // Hide AppBar for profile tab only
-      appBar: isProfileTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      // Hide AppBar for home and profile tabs
+      appBar: (isHomeTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Chats tab (index 0)
+          // Home tab (index 0) - Channels Feed with black background
+          Container(
+            color: Colors.black,
+            child: ChannelsFeedScreen(
+              key: _feedScreenKey,
+            ),
+          ),
+          // Wallet tab (index 1)
+          Container(
+            color: modernTheme.backgroundColor,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: const WalletScreen(),
+          ),
+          // Post tab (index 2) - This should never be shown as we navigate directly
+          Container(
+            color: modernTheme.backgroundColor,
+            child: const Center(
+              child: Text('Create Post'),
+            ),
+          ),
+          // Chats tab (index 3) - moved from index 0
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const ChatsTab(),
           ),
-          // Groups tab (index 1) - moved from index 3
-          Container(
-            color: modernTheme.backgroundColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const GroupsTab(),
-          ),
-          // Discover tab (index 2) - new discover screen instead of channels feed
-          Container(
-            color: modernTheme.backgroundColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const DiscoverScreen(),
-          ),
-          // Profile tab (index 3) - moved from dropdown menu
+          // Profile tab (index 4) - moved from index 3
           const MyProfileScreen(),
         ],
       ),
       
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: modernTheme.surfaceColor,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 1,
-              width: double.infinity,
-              color: modernTheme.dividerColor,
-            ),
-            SafeArea(
-              top: false,
-              bottom: false,
-              child: Theme(
-                data: Theme.of(context).copyWith(
-                  splashFactory: NoSplash.splashFactory,
-                  highlightColor: Colors.transparent,
-                ),
-                child: BottomNavigationBar(
-                  currentIndex: _currentIndex,
-                  onTap: _onTabTapped,
-                  backgroundColor: Colors.transparent,
-                  selectedItemColor: modernTheme.primaryColor,
-                  unselectedItemColor: modernTheme.textSecondaryColor,
-                  type: BottomNavigationBarType.fixed,
-                  elevation: 0,
-                  selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
-                  items: List.generate(
-                    _tabNames.length,
-                    (index) => _buildBottomNavItem(index, modernTheme, chatsAsyncValue),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      bottomNavigationBar: _buildTikTokBottomNav(modernTheme, chatsAsyncValue),
       
-      floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
+      // Remove FAB since we have dedicated post button
+      floatingActionButton: null,
     );
   }
-  
-  BottomNavigationBarItem _buildBottomNavItem(
-    int index, 
+
+  // TikTok-style bottom navigation
+  Widget _buildTikTokBottomNav(
     ModernThemeExtension modernTheme,
     AsyncValue<List<ChatModel>> chatsAsyncValue,
   ) {
-    final isSelected = _currentIndex == index;
+    final isHomeTab = _currentIndex == 0;
     
-    // Chats tab is at index 0 - show unread count for direct chats only
-    if (index == 0) {
-      return chatsAsyncValue.when(
-        data: (chats) {
-          // Calculate unread count from direct chats only
-          final directChats = chats.where((chat) => !chat.isGroup).toList();
-          final chatUnreadCount = directChats.fold<int>(
-            0, 
-            (sum, chat) => sum + chat.getDisplayUnreadCount()
-          );
-          
-          return _buildNavItemWithBadge(
-            index, 
-            isSelected, 
-            modernTheme, 
-            chatUnreadCount
-          );
-        },
-        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-      );
-    }
-    
-    // Groups tab is at index 1 - show unread count for group chats only
-    if (index == 1) {
-      return chatsAsyncValue.when(
-        data: (chats) {
-          // Calculate unread count from group chats only
-          final groupChats = chats.where((chat) => chat.isGroup).toList();
-          final groupUnreadCount = groupChats.fold<int>(
-            0, 
-            (sum, chat) => sum + chat.getDisplayUnreadCount()
-          );
-          
-          return _buildNavItemWithBadge(
-            index, 
-            isSelected, 
-            modernTheme, 
-            groupUnreadCount
-          );
-        },
-        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-      );
-    }
-    
-    // For other tabs (Discover, Profile), no badge needed
-    return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
-  }
-  
-  BottomNavigationBarItem _buildNavItemWithBadge(
-    int index,
-    bool isSelected,
-    ModernThemeExtension modernTheme,
-    int unreadCount,
-  ) {
-    return BottomNavigationBarItem(
-      icon: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isSelected 
-                ? modernTheme.primaryColor!.withOpacity(0.2) 
-                : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(_tabIcons[index]),
+    return Container(
+      decoration: BoxDecoration(
+        color: isHomeTab ? Colors.black : modernTheme.surfaceColor,
+        border: isHomeTab ? null : Border(
+          top: BorderSide(
+            color: modernTheme.dividerColor ?? Colors.grey.withOpacity(0.2),
+            width: 0.5,
           ),
-          if (unreadCount > 0)
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          height: 60,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(5, (index) {
+              if (index == 2) {
+                // Special post button
+                return _buildPostButton(modernTheme, isHomeTab);
+              }
+              
+              return _buildNavItem(
+                index,
+                modernTheme,
+                chatsAsyncValue,
+                isHomeTab,
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPostButton(ModernThemeExtension modernTheme, bool isHomeTab) {
+    return GestureDetector(
+      onTap: () => _navigateToCreatePost(),
+      child: Container(
+        width: 45,
+        height: 32,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          gradient: LinearGradient(
+            colors: [
+              Colors.red.shade400,
+              Colors.pink.shade400,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.red.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Left background icon
             Positioned(
-              top: -5,
-              right: -5,
+              left: 6,
+              top: 6,
               child: Container(
-                padding: const EdgeInsets.all(4),
+                width: 16,
+                height: 16,
                 decoration: BoxDecoration(
-                  color: modernTheme.primaryColor,
-                  shape: unreadCount > 99 
-                      ? BoxShape.rectangle 
-                      : BoxShape.circle,
-                  borderRadius: unreadCount > 99 
-                      ? BorderRadius.circular(10) 
-                      : null,
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(3),
                 ),
-                constraints: const BoxConstraints(
-                  minWidth: 18,
-                  minHeight: 18,
-                ),
-                child: Center(
-                  child: Text(
-                    unreadCount > 99 ? '99+' : unreadCount.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                child: const Icon(
+                  Icons.add,
+                  color: Colors.white,
+                  size: 12,
                 ),
               ),
             ),
-        ],
-      ),
-      label: _tabNames[index],
-    );
-  }
-  
-  BottomNavigationBarItem _buildDefaultBottomNavItem(
-    int index, 
-    bool isSelected, 
-    ModernThemeExtension modernTheme
-  ) {
-    return BottomNavigationBarItem(
-      icon: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isSelected 
-            ? modernTheme.primaryColor!.withOpacity(0.2) 
-            : Colors.transparent,
-          shape: BoxShape.circle,
+            // Right background icon
+            Positioned(
+              right: 6,
+              top: 10,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade400,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: const Icon(
+                  Icons.add,
+                  color: Colors.white,
+                  size: 12,
+                ),
+              ),
+            ),
+            // Removed the main center plus icon
+          ],
         ),
-        child: Icon(_tabIcons[index]),
       ),
-      label: _tabNames[index],
     );
   }
-  
-  // Show FAB on Chats and Groups tabs only
-  bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1;
+
+  Widget _buildNavItem(
+    int index,
+    ModernThemeExtension modernTheme,
+    AsyncValue<List<ChatModel>> chatsAsyncValue,
+    bool isHomeTab,
+  ) {
+    final isSelected = _currentIndex == index;
+    final iconColor = isHomeTab 
+        ? (isSelected ? Colors.white : Colors.white.withOpacity(0.6))
+        : (isSelected ? modernTheme.primaryColor : modernTheme.textSecondaryColor);
+    final textColor = isHomeTab 
+        ? (isSelected ? Colors.white : Colors.white.withOpacity(0.6))
+        : (isSelected ? modernTheme.primaryColor : modernTheme.textSecondaryColor);
+    
+    // Handle badges for chats tab (index 3)
+    int unreadCount = 0;
+    if (index == 3) {
+      unreadCount = chatsAsyncValue.when(
+        data: (chats) => chats.fold<int>(
+          0, 
+          (sum, chat) => sum + chat.getDisplayUnreadCount()
+        ),
+        loading: () => 0,
+        error: (_, __) => 0,
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => _onTabTapped(index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  _tabIcons[index],
+                  color: iconColor,
+                  size: 24,
+                ),
+                if (unreadCount > 0)
+                  Positioned(
+                    top: -5,
+                    right: -8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: unreadCount > 99 
+                            ? BoxShape.rectangle 
+                            : BoxShape.circle,
+                        borderRadius: unreadCount > 99 
+                            ? BorderRadius.circular(10) 
+                            : null,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Center(
+                        child: Text(
+                          unreadCount > 99 ? '99+' : unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (_tabNames[index].isNotEmpty)
+              Text(
+                _tabNames[index],
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
+    String title = 'WeiBao';
+    
+    // Set title based on current tab
+    switch (_currentIndex) {
+      case 1:
+        title = 'Wallet';
+        break;
+      case 3:
+        title = 'Chats';
+        break;
+      default:
+        title = 'WeiBao';
+    }
+
     return AppBar(
-      backgroundColor: _currentIndex == 2 ? modernTheme.surfaceColor : modernTheme.backgroundColor,
+      backgroundColor: modernTheme.backgroundColor,
       elevation: 0,
       scrolledUnderElevation: 0,
-      centerTitle: true, // Center the title
-      title: _buildAppBarTitle(modernTheme),
-      actions: [
-        _buildThreeDotMenu(modernTheme),
-        const SizedBox(width: 16),
-      ],
+      centerTitle: true,
+      title: _currentIndex == 1 || _currentIndex == 3
+          ? Text(
+              title,
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                letterSpacing: -0.3,
+              ),
+            )
+          : RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: "Wei",
+                    style: TextStyle(
+                      color: modernTheme.textColor,          
+                      fontWeight: FontWeight.w500,
+                      fontSize: 22,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  TextSpan(
+                    text: "Bao",
+                    style: TextStyle(
+                      color: modernTheme.primaryColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 24,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      actions: _currentIndex == 3 ? [
+        // Add chat action for chats tab
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline),
+          onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
+        ),
+        const SizedBox(width: 8),
+      ] : null,
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
@@ -349,179 +511,5 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
-  }
-
-  Widget _buildAppBarTitle(ModernThemeExtension modernTheme) {
-    // Dynamic title based on current tab
-    if (_currentIndex == 2) {
-      // Discover tab
-      return Text(
-        'Discover',
-        style: TextStyle(
-          color: modernTheme.textColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 22,
-          letterSpacing: -0.3,
-        ),
-      );
-    }
-    
-    // Default WeiBao title for other tabs
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: "Wei",
-            style: TextStyle(
-              color: modernTheme.textColor,          
-              fontWeight: FontWeight.w500,
-              fontSize: 22,
-              letterSpacing: -0.3,
-            ),
-          ),
-          TextSpan(
-            text: "Bao",
-            style: TextStyle(
-              color: modernTheme.primaryColor,
-              fontWeight: FontWeight.w700,
-              fontSize: 24,
-              letterSpacing: -0.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildThreeDotMenu(ModernThemeExtension modernTheme) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final menuBgColor = isDark 
-      ? modernTheme.surfaceColor!.withOpacity(0.98)
-      : modernTheme.surfaceColor!.withOpacity(0.96);
-
-    return PopupMenuButton<String>(
-      icon: Icon(
-        Icons.more_vert,
-        color: modernTheme.textColor,
-      ),
-      color: menuBgColor,
-      elevation: 8,
-      surfaceTintColor: modernTheme.primaryColor?.withOpacity(0.1),
-      shadowColor: Colors.black.withOpacity(0.2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      position: PopupMenuPosition.under,
-      offset: const Offset(0, 8),
-      onSelected: (String value) {
-        if (value == 'post') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreatePostScreen(),
-            ),
-          );
-        } else if (value == 'wallet') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const WalletScreen(),
-            ),
-          );
-        }
-      },
-      itemBuilder: (BuildContext context) => [
-        PopupMenuItem<String>(
-          value: 'post',
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor?.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.add_box_outlined,
-                  color: modernTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Post',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'wallet',
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor?.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.account_balance_wallet_outlined,
-                  color: modernTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Wallet',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildFab(ModernThemeExtension modernTheme) {
-    if (_currentIndex == 0) {
-      // Chats tab - New chat FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
-        child: const Icon(CupertinoIcons.chat_bubble_text),
-      );
-    } else if (_currentIndex == 1) {
-      // Groups tab - Create group FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
-        child: const Icon(Icons.group_add),
-      );
-    }
-    
-    return const SizedBox.shrink();
   }
 }

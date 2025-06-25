@@ -318,7 +318,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final modernTheme = context.modernTheme;
     
     return Container(
       width: double.infinity,
@@ -331,17 +330,17 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           fit: StackFit.expand,
           children: [
             // Media content with proper full-screen coverage
-            _buildMediaContent(modernTheme),
+            _buildMediaContent(),
             
             // Loading indicator
             if (widget.isLoading || _isInitializing)
-              _buildLoadingIndicator(modernTheme),
+              _buildLoadingIndicator(),
             
             // Error state
             if (widget.hasFailed)
-              _buildErrorState(modernTheme),
+              _buildErrorState(),
             
-            // Play indicator for paused videos
+            // Play indicator for paused videos (TikTok style)
             if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying)
               _buildTikTokPlayIndicator(),
             
@@ -349,14 +348,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             if (_showLikeAnimation)
               _buildLikeAnimation(),
             
-            // Top header with user info and actions
-            _buildTopHeader(modernTheme),
-            
-            // Gradient overlay for better text readability
-            _buildGradientOverlay(),
-            
-            // Content overlay
-            _buildContentOverlay(modernTheme),
+            // Bottom content overlay (TikTok style)
+            _buildBottomContentOverlay(),
             
             // Image carousel indicators
             if (widget.video.isMultipleImages && widget.video.imageUrls.length > 1)
@@ -381,13 +374,13 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                   builder: (context, child) {
                     return Transform.scale(
                       scale: _heartScaleAnimation.value,
-                      child: Icon(
+                      child: const Icon(
                         Icons.favorite,
-                        color: const Color(0xFFFF3040),
+                        color: Colors.red,
                         size: 80,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black,
                             blurRadius: 8,
                           ),
                         ],
@@ -432,7 +425,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                 opacity: opacity,
                 child: Icon(
                   Icons.favorite,
-                  color: const Color(0xFFFF3040),
+                  color: Colors.red,
                   size: 20 + (index % 3) * 10.0,
                   shadows: [
                     Shadow(
@@ -449,17 +442,17 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     });
   }
   
-  Widget _buildMediaContent(ModernThemeExtension modernTheme) {
+  Widget _buildMediaContent() {
     if (widget.video.isMultipleImages) {
-      return _buildImageCarousel(modernTheme);
+      return _buildImageCarousel();
     } else {
-      return _buildVideoPlayer(modernTheme);
+      return _buildVideoPlayer();
     }
   }
 
-  Widget _buildImageCarousel(ModernThemeExtension modernTheme) {
+  Widget _buildImageCarousel() {
     if (widget.video.imageUrls.isEmpty) {
-      return _buildPlaceholder(modernTheme, Icons.broken_image);
+      return _buildPlaceholder(Icons.broken_image);
     }
     
     return CarouselSlider(
@@ -478,40 +471,42 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         },
       ),
       items: widget.video.imageUrls.map((imageUrl) {
-        return _buildFullScreenImage(imageUrl, modernTheme);
+        return _buildFullScreenImage(imageUrl);
       }).toList(),
     );
   }
 
-  Widget _buildFullScreenImage(String imageUrl, ModernThemeExtension modernTheme) {
+  Widget _buildFullScreenImage(String imageUrl) {
     return Container(
       width: double.infinity,
       height: double.infinity,
       color: Colors.black,
-      child: Image.network(
-        imageUrl,
-        fit: BoxFit.contain,
-        width: double.infinity,
-        height: double.infinity,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return _buildLoadingIndicator(modernTheme);
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return _buildPlaceholder(modernTheme, Icons.broken_image);
-        },
+      child: Center(
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.contain, // Maintain aspect ratio, no stretching
+          width: double.infinity,
+          height: double.infinity,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return _buildLoadingIndicator();
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return _buildPlaceholder(Icons.broken_image);
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildVideoPlayer(ModernThemeExtension modernTheme) {
+  Widget _buildVideoPlayer() {
     if (!_isInitialized) {
       return Container(
         width: double.infinity,
         height: double.infinity,
         color: Colors.black,
         child: widget.isLoading || _isInitializing 
-            ? _buildLoadingIndicator(modernTheme)
+            ? _buildLoadingIndicator()
             : null,
       );
     }
@@ -519,7 +514,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     return _buildFullScreenVideo();
   }
 
-  // Updated method to fill screen width while maintaining aspect ratio (no side black bars)
+  // TikTok-style full screen video (maintains aspect ratio, no stretching)
   Widget _buildFullScreenVideo() {
     final controller = _videoPlayerController!;
     final videoSize = controller.value.size;
@@ -538,10 +533,51 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         final screenWidth = constraints.maxWidth;
         final screenHeight = constraints.maxHeight;
         final videoAspectRatio = videoSize.width / videoSize.height;
+        final screenAspectRatio = screenWidth / screenHeight;
         
-        // Always fill the screen width to avoid horizontal black bars
-        final width = screenWidth;
-        final height = screenWidth / videoAspectRatio;
+        double width, height;
+        double scale = 1.0;
+        
+        // Calculate the size that fits the video without stretching
+        if (videoAspectRatio > screenAspectRatio) {
+          // Video is wider than screen (like 16:9 on a tall phone)
+          // Fit to screen width, center vertically with black bars if needed
+          width = screenWidth;
+          height = screenWidth / videoAspectRatio;
+          
+          // If the video is too short for the screen, we can scale it up slightly
+          // to reduce black bars while maintaining aspect ratio
+          if (height < screenHeight * 0.7) {
+            scale = (screenHeight * 0.8) / height;
+            height = height * scale;
+            width = width * scale;
+          }
+        } else {
+          // Video is taller than screen (like 9:16 or square)
+          // Fit to screen height, center horizontally
+          height = screenHeight;
+          width = screenHeight * videoAspectRatio;
+          
+          // For very narrow videos, scale up slightly to fill more screen
+          if (width < screenWidth * 0.7) {
+            scale = (screenWidth * 0.8) / width;
+            width = width * scale;
+            height = height * scale;
+          }
+        }
+        
+        // Ensure we don't exceed screen bounds even after scaling
+        if (width > screenWidth) {
+          final scaleDown = screenWidth / width;
+          width = screenWidth;
+          height = height * scaleDown;
+        }
+        
+        if (height > screenHeight) {
+          final scaleDown = screenHeight / height;
+          height = screenHeight;
+          width = width * scaleDown;
+        }
         
         return Container(
           width: screenWidth,
@@ -559,10 +595,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  Widget _buildLoadingIndicator(ModernThemeExtension modernTheme) {
+  Widget _buildLoadingIndicator() {
     return Container(
       color: Colors.black.withOpacity(0.3),
-      child: Center(
+      child: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -570,15 +606,15 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               width: 32,
               height: 32,
               child: CircularProgressIndicator(
-                color: modernTheme.primaryColor,
+                color: Colors.white,
                 strokeWidth: 3,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               'Loading...',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white,
                 fontSize: 14,
               ),
             ),
@@ -588,23 +624,23 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  Widget _buildErrorState(ModernThemeExtension modernTheme) {
+  Widget _buildErrorState() {
     return Container(
       color: Colors.black.withOpacity(0.8),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline,
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white,
               size: 48,
             ),
             const SizedBox(height: 12),
-            Text(
+            const Text(
               'Failed to load video',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white,
                 fontSize: 16,
               ),
             ),
@@ -616,10 +652,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                 });
                 _initializeMedia();
               },
-              child: Text(
+              child: const Text(
                 'Retry',
                 style: TextStyle(
-                  color: modernTheme.primaryColor,
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -630,7 +666,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  Widget _buildPlaceholder(ModernThemeExtension modernTheme, IconData icon) {
+  Widget _buildPlaceholder(IconData icon) {
     return Container(
       color: Colors.black,
       child: Center(
@@ -644,14 +680,14 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   Widget _buildTikTokPlayIndicator() {
-    return Center(
+    return const Center(
       child: Icon(
         Icons.play_arrow_rounded,
         color: Colors.white,
         size: 100,
         shadows: [
           Shadow(
-            color: Colors.black.withOpacity(0.8),
+            color: Colors.black,
             blurRadius: 8,
           ),
         ],
@@ -659,78 +695,63 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  Widget _buildGradientOverlay() {
+  // TikTok-style bottom content overlay
+  Widget _buildBottomContentOverlay() {
     return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        height: 250, // Increased for better readability
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [
-              Colors.black.withOpacity(0.9),
-              Colors.black.withOpacity(0.6),
-              Colors.black.withOpacity(0.3),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.3, 0.7, 1.0],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContentOverlay(ModernThemeExtension modernTheme) {
-    return Positioned(
-      bottom: 20,
+      bottom: 100, // Above bottom nav
       left: 16,
-      right: 70,
+      right: 80, // Leave space for right side menu
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Channel info - username only for cleaner look
-          GestureDetector(
-            onTap: () => _navigateToChannelProfile(),
-            child: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    widget.video.channelName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                    overflow: TextOverflow.ellipsis,
+          // Username with follow button
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  '@${widget.video.channelName}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white, width: 1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Follow',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.verified,
-                  color: Colors.blue,
-                  size: 14,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           
-          // Caption with better shadows for readability
+          // Caption with expandable text
           Text(
             widget.video.caption,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 14,
               height: 1.3,
               shadows: [
                 Shadow(
@@ -745,309 +766,64 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 8),
           
-          // Tags
+          // Tags (hashtags)
           if (widget.video.tags.isNotEmpty)
-            SizedBox(
-              height: 20,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: widget.video.tags.length,
-                itemBuilder: (context, index) {
-                  return Container(
-                    margin: const EdgeInsets.only(right: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
+            Wrap(
+              spacing: 4,
+              runSpacing: 2,
+              children: widget.video.tags.take(3).map((tag) => Text(
+                '#$tag',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
                     ),
-                    child: Text(
-                      '#${widget.video.tags[index]}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+                  ],
+                ),
+              )).toList(),
             ),
+          
+          const SizedBox(height: 12),
+          
+          // Music info (TikTok style)
+          Row(
+            children: [
+              const Icon(
+                Icons.music_note,
+                color: Colors.white,
+                size: 16,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  'Original sound - ${widget.video.channelName}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTopHeader(ModernThemeExtension modernTheme) {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 8,
-          left: 16,
-          right: 16,
-          bottom: 8,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withOpacity(0.7),
-              Colors.black.withOpacity(0.4),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.7, 1.0],
-          ),
-        ),
-        child: Row(
-          children: [
-            // Back button
-            GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-            
-            const SizedBox(width: 12),
-            
-            // User avatar
-            GestureDetector(
-              onTap: () => _navigateToChannelProfile(),
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.red, width: 2),
-                ),
-                child: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-                  backgroundImage: widget.video.channelImage.isNotEmpty
-                      ? NetworkImage(widget.video.channelImage)
-                      : null,
-                  child: widget.video.channelImage.isEmpty
-                      ? Text(
-                          widget.video.channelName.isNotEmpty
-                              ? widget.video.channelName[0].toUpperCase()
-                              : "C",
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-            ),
-            
-            const SizedBox(width: 12),
-            
-            // User info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          widget.video.channelName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.verified,
-                        color: Colors.blue,
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'Yesterday, 18:48', // You can make this dynamic based on video timestamp
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 12,
-                      shadows: const [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Three dots menu
-            GestureDetector(
-              onTap: () => _showVideoOptionsMenu(),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: const Icon(
-                  Icons.more_vert,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showVideoOptionsMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey[900]
-              : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Video Options',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 20),
-            
-            _buildMenuOption(
-              Icons.person_add_outlined,
-              'Follow ${widget.video.channelName}',
-              () {
-                Navigator.pop(context);
-                _followChannel();
-              },
-            ),
-            
-            const SizedBox(height: 16),
-            
-            _buildMenuOption(
-              Icons.bookmark_border,
-              'Bookmark Video',
-              () {
-                Navigator.pop(context);
-                _toggleBookmark();
-              },
-            ),
-            
-            const SizedBox(height: 16),
-            
-            _buildMenuOption(
-              Icons.share_outlined,
-              'Share Video',
-              () {
-                Navigator.pop(context);
-                _showShareOptions();
-              },
-            ),
-            
-            const SizedBox(height: 16),
-            
-            _buildMenuOption(
-              Icons.report_outlined,
-              'Report Video',
-              () {
-                Navigator.pop(context);
-                _reportVideo();
-              },
-            ),
-            
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuOption(IconData icon, String title, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black,
-              size: 24,
-            ),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : Colors.black,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _followChannel() {
-    debugPrint('Following channel: ${widget.video.channelId}');
-    // Add your follow logic here
-  }
-
-  void _reportVideo() {
-    debugPrint('Reporting video: ${widget.video.id}');
-    // Add your report logic here
-  }
-
   Widget _buildCarouselIndicators() {
     return Positioned(
-      top: 100,
+      top: 120, // Below top floating icons
       left: 0,
       right: 0,
       child: Row(
@@ -1072,94 +848,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             ),
           );
         }),
-      ),
-    );
-  }
-
-  void _toggleBookmark() {
-    debugPrint('Bookmarking video: ${widget.video.id}');
-  }
-
-  void _navigateToChannelProfile() {
-    Navigator.of(context).pushNamed(
-      Constants.channelProfileScreen,
-      arguments: widget.video.channelId,
-    );
-  }
-
-  void _showShareOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey[900]
-              : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Share Video',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildShareOption(Icons.copy, 'Copy Link', () {
-                  Navigator.pop(context);
-                }),
-                _buildShareOption(Icons.message, 'Message', () {
-                  Navigator.pop(context);
-                }),
-                _buildShareOption(Icons.more_horiz, 'More', () {
-                  Navigator.pop(context);
-                }),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShareOption(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.grey[700]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black,
-            ),
-          ),
-        ],
       ),
     );
   }

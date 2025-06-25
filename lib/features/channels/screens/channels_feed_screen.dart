@@ -21,10 +21,10 @@ class ChannelsFeedScreen extends ConsumerStatefulWidget {
   const ChannelsFeedScreen({Key? key}) : super(key: key);
 
   @override
-  ConsumerState<ChannelsFeedScreen> createState() => _ChannelsFeedScreenState();
+  ConsumerState<ChannelsFeedScreen> createState() => ChannelsFeedScreenState();
 }
 
-class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen> 
+class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen> 
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   
   // Core controllers
@@ -54,8 +54,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   
   static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
   static const Duration _cacheCleanupInterval = Duration(minutes: 10);
-  static const double _bottomNavContentHeight = 60.0;
-  static const double _progressBarHeight = 3.0;
 
   @override
   bool get wantKeepAlive => true;
@@ -162,10 +160,10 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _setupSystemUI() {
-    // This screen always has a black background, so status bar icons should always be light/white
+    // Always black background with light status bar for TikTok-style
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light, // Always light icons for black background
+      statusBarIconBrightness: Brightness.light,
       systemNavigationBarColor: Colors.black,
       systemNavigationBarIconBrightness: Brightness.light,
     ));
@@ -227,8 +225,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             });
             
             _progressNotifier.value = progress;
-            
-            debugPrint('Video Progress: ${(progress * 100).toStringAsFixed(1)}%');
           }
           
           // Trigger next batch preloading when halfway through
@@ -325,241 +321,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     ref.read(channelVideosProvider.notifier).incrementViewCount(videos[index].id);
   }
 
-  // Progress bar widget for the bottom nav divider
-  Widget _buildProgressBar(ModernThemeExtension modernTheme) {
-    return ValueListenableBuilder<double>(
-      valueListenable: _progressNotifier,
-      builder: (context, progress, child) {
-        return Container(
-          height: _progressBarHeight,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-          ),
-          child: Stack(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 100),
-                width: MediaQuery.of(context).size.width * progress.clamp(0.0, 1.0),
-                height: _progressBarHeight,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      modernTheme.primaryColor ?? Colors.blue,
-                      (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Bottom navigation bar widget
-  Widget _buildBottomNavigationBar(ModernThemeExtension modernTheme) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final totalHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
-    
-    // Get current video for likes and comments count
-    final videos = ref.watch(channelVideosProvider).videos;
-    final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
-        ? videos[_currentVideoIndex] 
-        : null;
-    
-    return Container(
-      height: totalHeight,
-      decoration: const BoxDecoration(
-        color: Colors.black,
-      ),
-      child: Column(
-        children: [
-          // Progress bar as divider
-          _buildProgressBar(modernTheme),
-          
-          // Navigation content
-          Container(
-            height: _bottomNavContentHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  icon: Icons.home,
-                  activeIcon: Icons.home,
-                  label: 'Home',
-                  isActive: true,
-                  onTap: () {},
-                  iconColor: Colors.white,
-                  labelColor: Colors.white,
-                ),
-                _buildNavItem(
-                  icon: Icons.search,
-                  activeIcon: Icons.search,
-                  label: 'Search',
-                  isActive: false,
-                  onTap: () {},
-                  iconColor: Colors.white,
-                  labelColor: Colors.white,
-                ),
-                _buildNavItem(
-                  icon: Icons.add_circle,
-                  activeIcon: Icons.add_circle,
-                  label: 'Post',
-                  isActive: false,
-                  onTap: _navigateToCreatePost,
-                  iconColor: Colors.white,
-                  labelColor: Colors.white,
-                ),
-                _buildNavItemWithBadge(
-                  icon: currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite,
-                  activeIcon: Icons.favorite,
-                  label: 'Likes',
-                  isActive: false,
-                  onTap: () => _likeCurrentVideo(currentVideo),
-                  iconColor: currentVideo?.isLiked == true ? const Color(0xFFFF3040) : Colors.white,
-                  labelColor: Colors.white,
-                  badgeCount: currentVideo?.likes ?? 0,
-                ),
-                _buildNavItemWithBadge(
-                  icon: CupertinoIcons.text_bubble_fill,
-                  activeIcon: CupertinoIcons.text_bubble_fill,
-                  label: 'Comments',
-                  isActive: false,
-                  onTap: () => _showCommentsForCurrentVideo(currentVideo),
-                  iconColor: Colors.white,
-                  labelColor: Colors.white,
-                  badgeCount: currentVideo?.comments ?? 0,
-                ),
-              ],
-            ),
-          ),
-          
-          // System navigation bar space
-          SizedBox(height: bottomPadding),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? labelColor,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isActive ? activeIcon : icon,
-              color: iconColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: labelColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItemWithBadge({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? labelColor,
-    required int badgeCount,
-  }) {
-    final modernTheme = context.modernTheme;
-    
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  isActive ? activeIcon : icon,
-                  color: iconColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
-                  size: 24,
-                ),
-                if (badgeCount > 0)
-                  Positioned(
-                    right: -8,
-                    top: -6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor ?? Colors.blue,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.black, width: 1),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      child: Text(
-                        _formatCount(badgeCount),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: labelColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _resetSystemUIOnExit() {
-    // Reset system UI to default transparent state when leaving this screen
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-    ));
-  }
-
   @override
   void dispose() {
     debugPrint('ChannelsFeedScreen: Disposing');
@@ -578,17 +339,7 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     WakelockPlus.disable();
     
-    // Reset system UI when disposing
-    _resetSystemUIOnExit();
-    
     super.dispose();
-  }
-
-  @override
-  void deactivate() {
-    // Reset system UI when screen becomes inactive (e.g., navigating away)
-    _resetSystemUIOnExit();
-    super.deactivate();
   }
 
   @override
@@ -600,11 +351,6 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     final channelVideosState = ref.watch(channelVideosProvider);
     final channelsState = ref.watch(channelsProvider);
-    final modernTheme = context.modernTheme;
-    
-    // Calculate total bottom nav height including system nav space
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final totalBottomNavHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
     
     if (_isFirstLoad && channelVideosState.isLoading) {
       return const Scaffold(
@@ -613,61 +359,49 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       );
     }
     
-    return WillPopScope(
-      onWillPop: () async {
-        // Reset system UI when user navigates back
-        _resetSystemUIOnExit();
-        return true;
-      },
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
-        extendBody: true,
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            // Main content
-            Positioned.fill(
-              bottom: totalBottomNavHeight,
-              child: _buildBody(channelVideosState, channelsState, modernTheme),
-            ),
-            
-            // Cache performance indicator (debug mode only)
-            if (kDebugMode)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 10,
-                left: 16,
-                child: _buildCacheDebugInfo(modernTheme),
-              ),
-            
-            // Inactive overlay
-            if (!_isScreenActive)
-              Positioned.fill(
-                bottom: totalBottomNavHeight,
-                child: _buildInactiveOverlay(modernTheme),
-              ),
-            
-            // Bottom navigation bar
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Main content - full screen
+          Positioned.fill(
+            child: _buildBody(channelVideosState, channelsState),
+          ),
+          
+          // TikTok-style top floating icons
+          _buildTopFloatingIcons(),
+          
+          // TikTok-style right side menu
+          _buildRightSideMenu(),
+          
+          // Cache performance indicator (debug mode only)
+          if (kDebugMode)
             Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _buildBottomNavigationBar(modernTheme),
+              top: MediaQuery.of(context).padding.top + 60,
+              left: 16,
+              child: _buildCacheDebugInfo(),
             ),
-          ],
-        ),
+          
+          // Inactive overlay
+          if (!_isScreenActive)
+            Positioned.fill(
+              child: _buildInactiveOverlay(),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildBody(ChannelVideosState videosState, ChannelsState channelsState, 
-                    ModernThemeExtension modernTheme) {
+  Widget _buildBody(ChannelVideosState videosState, ChannelsState channelsState) {
     
     if (!videosState.isLoading && channelsState.userChannel == null) {
-      return _buildCreateChannelPrompt(modernTheme);
+      return _buildCreateChannelPrompt();
     }
 
     if (!videosState.isLoading && videosState.videos.isEmpty) {
-      return _buildEmptyState(channelsState, modernTheme);
+      return _buildEmptyState(channelsState);
     }
 
     return PageView.builder(
@@ -688,7 +422,245 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  Widget _buildCacheDebugInfo(ModernThemeExtension modernTheme) {
+  // TikTok-style top floating icons
+  Widget _buildTopFloatingIcons() {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 16,
+      left: 20,
+      right: 20,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Live and Following buttons (TikTok style)
+          Row(
+            children: [
+              _buildTopButton('Live', false),
+              const SizedBox(width: 12),
+              _buildTopButton('Following', false),
+              const SizedBox(width: 12),
+              _buildTopButton('For You', true), // Active state
+            ],
+          ),
+          
+          // Search icon
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.3),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              CupertinoIcons.search,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopButton(String text, bool isActive) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isActive ? Colors.white : Colors.transparent,
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: isActive ? Colors.black : Colors.white,
+          fontSize: 16,
+          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
+  // TikTok-style right side menu (Douyin icons)
+  Widget _buildRightSideMenu() {
+    final videos = ref.watch(channelVideosProvider).videos;
+    final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
+        ? videos[_currentVideoIndex] 
+        : null;
+
+    return Positioned(
+      right: 12,
+      bottom: 120, // Above bottom nav
+      child: Column(
+        children: [
+          // Profile avatar
+          _buildRightMenuItem(
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: CircleAvatar(
+                backgroundImage: currentVideo?.channelImage.isNotEmpty == true
+                    ? NetworkImage(currentVideo!.channelImage)
+                    : null,
+                backgroundColor: Colors.grey,
+                child: currentVideo?.channelImage.isEmpty == true
+                    ? Text(
+                        currentVideo?.channelName.isNotEmpty == true
+                            ? currentVideo!.channelName[0].toUpperCase()
+                            : "U",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+            onTap: () => _navigateToChannelProfile(),
+          ),
+          
+          // Follow button
+          Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(top: 4, bottom: 20),
+            decoration: const BoxDecoration(
+              color: Colors.red,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.add,
+              color: Colors.white,
+              size: 14,
+            ),
+          ),
+          
+          // Like button
+          _buildRightMenuItem(
+            child: Icon(
+              currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite_border,
+              color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
+              size: 32,
+            ),
+            label: _formatCount(currentVideo?.likes ?? 0),
+            onTap: () => _likeCurrentVideo(currentVideo),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Comment button
+          _buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.chat_bubble,
+              color: Colors.white,
+              size: 32,
+            ),
+            label: _formatCount(currentVideo?.comments ?? 0),
+            onTap: () => _showCommentsForCurrentVideo(currentVideo),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Share button
+          _buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.paperplane,
+              color: Colors.white,
+              size: 32,
+            ),
+            label: 'Share',
+            onTap: () => _showShareOptions(),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // More button (three dots)
+          _buildRightMenuItem(
+            child: const Icon(
+              Icons.more_vert,
+              color: Colors.white,
+              size: 32,
+            ),
+            onTap: () => _showVideoOptionsMenu(),
+          ),
+          
+          const SizedBox(height: 40),
+          
+          // Music disc (rotating)
+          _buildMusicDisc(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRightMenuItem({
+    required Widget child,
+    String? label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            child: child,
+          ),
+          if (label != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMusicDisc() {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            Colors.grey.shade300,
+            Colors.grey.shade600,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.music_note,
+        color: Colors.white,
+        size: 24,
+      ),
+    );
+  }
+
+  Widget _buildCacheDebugInfo() {
     return FutureBuilder<Map<String, dynamic>>(
       future: _cacheService.getCacheStats(),
       builder: (context, snapshot) {
@@ -732,20 +704,20 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  Widget _buildInactiveOverlay(ModernThemeExtension modernTheme) {
+  Widget _buildInactiveOverlay() {
     return Container(
       color: Colors.black.withOpacity(0.7),
-      child: Center(
+      child: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.pause_circle_filled,
-              color: modernTheme.primaryColor,
+              color: Colors.white,
               size: 64,
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16),
+            Text(
               'Video Paused',
               style: TextStyle(
                 color: Colors.white,
@@ -759,103 +731,64 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  Widget _buildCreateChannelPrompt(ModernThemeExtension modernTheme) {
-    return Center(
+  Widget _buildCreateChannelPrompt() {
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.video_library,
-            color: modernTheme.primaryColor,
+            color: Colors.white,
             size: 80,
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           Text(
             'Create your Channel',
             style: TextStyle(
-              color: modernTheme.textColor,
+              color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: _navigateToCreateChannel,
-            icon: const Icon(Icons.add),
-            label: const Text('Create Channel'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-            ),
-          ),
+          SizedBox(height: 32),
+          // Add create channel button here
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState(ChannelsState channelsState, ModernThemeExtension modernTheme) {
-    return Center(
+  Widget _buildEmptyState(ChannelsState channelsState) {
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.videocam_off_outlined,
-            color: modernTheme.primaryColor,
+            color: Colors.white,
             size: 80,
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           Text(
             'No Videos Yet',
             style: TextStyle(
-              color: modernTheme.textColor,
+              color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 32),
-          if (channelsState.userChannel != null)
-            ElevatedButton.icon(
-              onPressed: _navigateToCreatePost,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Post'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              ),
-            ),
+          // Add create post button here
         ],
       ),
     );
   }
 
-  void _navigateToCreateChannel() async {
-    final result = await Navigator.pushNamed(context, Constants.createChannelScreen);
-    if (result == true) {
-      ref.read(channelsProvider.notifier).loadUserChannel();
-    }
-  }
-
-  void _navigateToCreatePost() async {
-    final result = await Navigator.pushNamed(context, Constants.createChannelPostScreen);
-    if (result == true) {
-      _pauseAllPlayback();
-      
-      ref.read(channelVideosProvider.notifier).loadVideos(forceRefresh: true);
-      
-      setState(() {
-        _videoProgress = 0.0;
-        _videoPosition = Duration.zero;
-        _videoDuration = Duration.zero;
-      });
-      _progressUpdateTimer?.cancel();
-      _progressController.reset();
-      if (_isScreenActive && _isAppInForeground) {
-        _progressController.forward();
-      }
+  void _navigateToChannelProfile() {
+    final videos = ref.read(channelVideosProvider).videos;
+    if (_currentVideoIndex < videos.length) {
+      Navigator.of(context).pushNamed(
+        Constants.channelProfileScreen,
+        arguments: videos[_currentVideoIndex].channelId,
+      );
     }
   }
 
@@ -871,6 +804,129 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     }
   }
 
+  void _showVideoOptionsMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Video Options',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildMenuOption(Icons.report_outlined, 'Report', () {
+              Navigator.pop(context);
+            }),
+            const SizedBox(height: 16),
+            _buildMenuOption(Icons.block, 'Not Interested', () {
+              Navigator.pop(context);
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuOption(IconData icon, String title, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 24),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showShareOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Share Video',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildShareOption(Icons.copy, 'Copy Link'),
+                _buildShareOption(Icons.message, 'Message'),
+                _buildShareOption(Icons.more_horiz, 'More'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShareOption(IconData icon, String label) {
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: const BoxDecoration(
+            color: Colors.grey,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.white),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
   String _formatCount(int count) {
     if (count == 0) return '0';
     if (count < 1000) {
@@ -883,9 +939,9 @@ class _ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 }
 
-// Extension for tab management (kept for potential future use)
-extension ChannelsFeedScreenExtension on _ChannelsFeedScreenState {
-  static void handleTabChanged(GlobalKey<_ChannelsFeedScreenState> feedScreenKey, bool isActive) {
+// Extension for tab management 
+extension ChannelsFeedScreenExtension on ChannelsFeedScreenState {
+  static void handleTabChanged(GlobalKey<ChannelsFeedScreenState> feedScreenKey, bool isActive) {
     final state = feedScreenKey.currentState;
     if (state != null) {
       if (isActive) {
@@ -898,7 +954,7 @@ extension ChannelsFeedScreenExtension on _ChannelsFeedScreenState {
 }
 
 class ChannelsFeedController {
-  final GlobalKey<_ChannelsFeedScreenState> _key;
+  final GlobalKey<ChannelsFeedScreenState> _key;
   
   ChannelsFeedController(this._key);
   
