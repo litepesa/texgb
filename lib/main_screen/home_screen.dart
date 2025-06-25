@@ -7,17 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
-import 'package:textgb/features/chat/models/chat_model.dart';
-import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+import 'package:textgb/features/shop/screens/shop_screen.dart';
 import 'package:textgb/main_screen/discover_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -33,20 +30,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
   
-  // Updated tab configuration for TikTok-style layout
+  // Updated tab configuration for TikTok-style layout with Shop instead of Chats
   final List<String> _tabNames = [
     'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
-    'Wallet',    // Index 1 - Wallet
+    'Shop',      // Index 1 - Shop (replaced Wallet)
     '',          // Index 2 - Post (no label, special design)
-    'Chats',     // Index 3 - Chats (moved from index 0)
-    'Me'         // Index 4 - Profile (moved from index 3)
+    'Wallet',    // Index 3 - Wallet (moved from index 1)
+    'Me'         // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home,              // Home
-    Icons.account_balance_wallet_outlined,       // Wallet
+    Icons.home,                        // Home
+    Icons.store_outlined,       // Shop
     Icons.add,                         // Post (will be styled specially)
-    CupertinoIcons.chat_bubble_text,   // Chats
+    Icons.account_balance_wallet_outlined, // Wallet
     Icons.person_outline               // Me/Profile
   ];
 
@@ -177,11 +174,119 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  // Handle shop dropdown menu actions
+  void _handleShopMenuAction(String action) {
+    switch (action) {
+      case 'categories':
+        // Navigate to categories or show categories bottom sheet
+        _showCategoriesBottomSheet();
+        break;
+      case 'orders':
+        // Navigate to orders screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigate to Orders')),
+        );
+        break;
+      case 'wishlist':
+        // Navigate to wishlist
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigate to Wishlist')),
+        );
+        break;
+      case 'my_shop':
+        // Navigate to my shop (seller dashboard)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigate to My Shop')),
+        );
+        break;
+      case 'settings':
+        // Navigate to shop settings
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigate to Shop Settings')),
+        );
+        break;
+    }
+  }
+
+  void _showCategoriesBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final modernTheme = context.modernTheme;
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          decoration: BoxDecoration(
+            color: modernTheme.surfaceColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: modernTheme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Title
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text(
+                  'Shop Categories',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: modernTheme.textColor,
+                  ),
+                ),
+              ),
+              // Categories list
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: [
+                    'Electronics',
+                    'Fashion',
+                    'Home & Garden',
+                    'Sports & Outdoors',
+                    'Books',
+                    'Beauty & Health',
+                    'Toys & Games',
+                    'Automotive',
+                  ].map((category) => ListTile(
+                    leading: Icon(
+                      Icons.category_outlined,
+                      color: modernTheme.primaryColor,
+                    ),
+                    title: Text(
+                      category,
+                      style: TextStyle(color: modernTheme.textColor),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Selected: $category')),
+                      );
+                    },
+                  )).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final chatsAsyncValue = ref.watch(chatStreamProvider);
     final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 4;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
@@ -206,11 +311,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               key: _feedScreenKey,
             ),
           ),
-          // Wallet tab (index 1)
+          // Shop tab (index 1) - New Shop Screen
           Container(
             color: modernTheme.backgroundColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const WalletScreen(),
+            child: const ShopScreen(),
           ),
           // Post tab (index 2) - This should never be shown as we navigate directly
           Container(
@@ -219,18 +323,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Text('Create Post'),
             ),
           ),
-          // Chats tab (index 3) - moved from index 0
+          // Wallet tab (index 3) - moved from index 1
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const ChatsTab(),
+            child: const WalletScreen(),
           ),
-          // Profile tab (index 4) - moved from index 3
+          // Profile tab (index 4)
           const MyProfileScreen(),
         ],
       ),
       
-      bottomNavigationBar: _buildTikTokBottomNav(modernTheme, chatsAsyncValue),
+      bottomNavigationBar: _buildTikTokBottomNav(modernTheme),
       
       // Remove FAB since we have dedicated post button
       floatingActionButton: null,
@@ -238,10 +342,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // TikTok-style bottom navigation
-  Widget _buildTikTokBottomNav(
-    ModernThemeExtension modernTheme,
-    AsyncValue<List<ChatModel>> chatsAsyncValue,
-  ) {
+  Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
     final isHomeTab = _currentIndex == 0;
     
     return Container(
@@ -270,7 +371,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               return _buildNavItem(
                 index,
                 modernTheme,
-                chatsAsyncValue,
                 isHomeTab,
               );
             }),
@@ -342,7 +442,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
             ),
-            // Removed the main center plus icon
           ],
         ),
       ),
@@ -352,7 +451,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildNavItem(
     int index,
     ModernThemeExtension modernTheme,
-    AsyncValue<List<ChatModel>> chatsAsyncValue,
     bool isHomeTab,
   ) {
     final isSelected = _currentIndex == index;
@@ -362,19 +460,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final textColor = isHomeTab 
         ? (isSelected ? Colors.white : Colors.white.withOpacity(0.6))
         : (isSelected ? modernTheme.primaryColor : modernTheme.textSecondaryColor);
-    
-    // Handle badges for chats tab (index 3)
-    int unreadCount = 0;
-    if (index == 3) {
-      unreadCount = chatsAsyncValue.when(
-        data: (chats) => chats.fold<int>(
-          0, 
-          (sum, chat) => sum + chat.getDisplayUnreadCount()
-        ),
-        loading: () => 0,
-        error: (_, __) => 0,
-      );
-    }
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
@@ -383,46 +468,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  _tabIcons[index],
-                  color: iconColor,
-                  size: 24,
-                ),
-                if (unreadCount > 0)
-                  Positioned(
-                    top: -5,
-                    right: -8,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: unreadCount > 99 
-                            ? BoxShape.rectangle 
-                            : BoxShape.circle,
-                        borderRadius: unreadCount > 99 
-                            ? BorderRadius.circular(10) 
-                            : null,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Center(
-                        child: Text(
-                          unreadCount > 99 ? '99+' : unreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            Icon(
+              _tabIcons[index],
+              color: iconColor,
+              size: 24,
             ),
             const SizedBox(height: 4),
             if (_tabNames[index].isNotEmpty)
@@ -446,10 +495,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Set title based on current tab
     switch (_currentIndex) {
       case 1:
-        title = 'Wallet';
+        title = 'Shop';
         break;
       case 3:
-        title = 'Chats';
+        title = 'Wallet';
         break;
       default:
         title = 'WeiBao';
@@ -494,11 +543,123 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
               ),
             ),
-      actions: _currentIndex == 3 ? [
-        // Add chat action for chats tab
+      actions: _currentIndex == 1 ? [
+        // Search icon for shop tab
         IconButton(
-          icon: const Icon(Icons.add_circle_outline),
-          onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
+          icon: const Icon(CupertinoIcons.search),
+          onPressed: () {
+            // Handle search action
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Search functionality')),
+            );
+          },
+        ),
+        // Shopping cart icon
+        IconButton(
+          icon: const Icon(CupertinoIcons.shopping_cart),
+          onPressed: () {
+            // Handle cart action
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Shopping cart')),
+            );
+          },
+        ),
+        // Dropdown menu with 3 dots
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: _handleShopMenuAction,
+          itemBuilder: (BuildContext context) => [
+            PopupMenuItem<String>(
+              value: 'categories',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.category_outlined,
+                    size: 20,
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Categories',
+                    style: TextStyle(color: modernTheme.textColor),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'orders',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 20,
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'My Orders',
+                    style: TextStyle(color: modernTheme.textColor),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'wishlist',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.favorite_outline,
+                    size: 20,
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Wishlist',
+                    style: TextStyle(color: modernTheme.textColor),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'my_shop',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.store_outlined,
+                    size: 20,
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'My Shop',
+                    style: TextStyle(color: modernTheme.textColor),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.settings_outlined,
+                    size: 20,
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Settings',
+                    style: TextStyle(color: modernTheme.textColor),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          color: modernTheme.surfaceColor,
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         const SizedBox(width: 8),
       ] : null,
