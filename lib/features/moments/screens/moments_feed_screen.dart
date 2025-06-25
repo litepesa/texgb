@@ -24,42 +24,47 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   late AnimationController _animationController;
   late Animation<double> _slideAnimation;
 
-  // Premium color palette - Sophisticated blues and greens
-  static const Color primaryWhite = Color(0xFFFFFFFF);
-  static const Color backgroundGray = Color(0xFFF7F8FC);
-  static const Color softGray = Color(0xFFEFF1F6);
-  static const Color textPrimary = Color(0xFF1A1D29);
-  static const Color textSecondary = Color(0xFF5A6175);
-  static const Color textTertiary = Color(0xFF9BA3B4);
-  static const Color premiumBlue = Color(0xFF2563EB); // Premium royal blue
-  static const Color accentBlue = Color(0xFF3B82F6); // Bright blue
-  static const Color premiumGreen = Color(0xFF059669); // Premium emerald green
-  static const Color accentGreen = Color(0xFF10B981); // Bright green
-  static const Color premiumPurple = Color(0xFF7C3AED); // Premium violet
-  static const Color dividerColor = Color(0xFFE2E5EA);
-  static const Color shadowColor = Color(0x0A1A1D29);
+  // Facebook 2025 Modern Design System
+  static const Color fbBlue = Color(0xFF1877F2);
+  static const Color fbBlueLight = Color(0xFF42A5F5);
+  static const Color fbGreen = Color(0xFF00A400);
+  static const Color fbRed = Color(0xFFE41E3F);
+  static const Color fbOrange = Color(0xFFFF7043);
+  
+  // Surface Colors
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color background = Color(0xFFF0F2F5);
+  static const Color surfaceVariant = Color(0xFFF7F8FA);
+  static const Color outline = Color(0xFFDADDE1);
+  static const Color outlineVariant = Color(0xFFE4E6EA);
+  
+  // Text Colors
+  static const Color onSurface = Color(0xFF1C1E21);
+  static const Color onSurfaceVariant = Color(0xFF65676B);
+  static const Color onSurfaceSecondary = Color(0xFF8A8D91);
+  static const Color onSurfaceTertiary = Color(0xFFBCC0C4);
 
   @override
   void initState() {
     super.initState();
     
-    // Set status bar style for white background - always black icons
+    // Set modern status bar style
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark, // Black icons
-        statusBarBrightness: Brightness.light, // Light status bar
-        systemNavigationBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: surface,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
     );
     
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    _slideAnimation = Tween<double>(begin: 20.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutQuart),
     );
     
     _scrollController.addListener(_onScroll);
@@ -104,70 +109,158 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     return Theme(
       data: ThemeData(
         brightness: Brightness.light,
-        scaffoldBackgroundColor: backgroundGray,
-        fontFamily: 'SF Pro Display',
-        colorScheme: ColorScheme.light(
-          primary: accentBlue,
-          surface: primaryWhite,
-          background: backgroundGray,
+        scaffoldBackgroundColor: background,
+        fontFamily: 'Roboto',
+        colorScheme: const ColorScheme.light(
+          primary: fbBlue,
+          secondary: fbBlueLight,
+          surface: surface,
+          background: background,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: surface,
+          elevation: 0,
+          iconTheme: IconThemeData(color: onSurface),
+          titleTextStyle: TextStyle(
+            color: onSurface,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       child: Scaffold(
-        backgroundColor: primaryWhite, // Changed to white instead of gray
-        extendBodyBehindAppBar: true, // Extend body behind status bar
-        body: Stack(
+        backgroundColor: background,
+        body: Column(
           children: [
-            Column(
-              children: [
-                Expanded(
-                  child: momentsState.when(
-                    loading: () => _buildLoadingState(),
-                    error: (error, stack) => _buildErrorState(error.toString()),
-                    data: (state) => _buildMomentsFeed(state, authState),
-                  ),
-                ),
-              ],
+            _buildModernAppBar(),
+            Expanded(
+              child: momentsState.when(
+                loading: () => _buildLoadingState(),
+                error: (error, stack) => _buildErrorState(error.toString()),
+                data: (state) => _buildMomentsFeed(state, authState),
+              ),
             ),
-            _buildBottomNavigation(),
           ],
         ),
+        floatingActionButton: _buildModernFAB(),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      ),
+    );
+  }
+
+  Widget _buildModernAppBar() {
+    return Container(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 12,
+        left: 20,
+        right: 20,
+        bottom: 12,
+      ),
+      decoration: const BoxDecoration(
+        color: surface,
+        border: Border(
+          bottom: BorderSide(color: outlineVariant, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Back button
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: onSurface,
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Title
+          const Expanded(
+            child: Text(
+              'Moments',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: onSurface,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+          // Search button
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.search_rounded,
+              color: onSurfaceVariant,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // More options
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.more_vert_rounded,
+              color: onSurfaceVariant,
+              size: 22,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: primaryWhite,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: shadowColor,
-                  offset: const Offset(0, 8),
-                  blurRadius: 24,
-                ),
-              ],
+    return Container(
+      color: background,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    offset: const Offset(0, 4),
+                    blurRadius: 16,
+                  ),
+                ],
+              ),
+              child: const CircularProgressIndicator(
+                color: fbBlue,
+                strokeWidth: 3,
+              ),
             ),
-            child: const CircularProgressIndicator(
-              color: accentBlue,
-              strokeWidth: 3,
+            const SizedBox(height: 24),
+            const Text(
+              'Loading moments...',
+              style: TextStyle(
+                fontSize: 16,
+                color: onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 32),
-          const Text(
-            'Loading moments...',
-            style: TextStyle(
-              fontSize: 16,
-              color: textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -188,15 +281,15 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           offset: Offset(0, _slideAnimation.value),
           child: RefreshIndicator(
             onRefresh: _refreshFeed,
-            color: accentBlue,
-            backgroundColor: primaryWhite,
+            color: fbBlue,
+            backgroundColor: surface,
             strokeWidth: 2.5,
             displacement: 60,
             child: CustomScrollView(
               controller: _scrollController,
               physics: const BouncingScrollPhysics(),
               slivers: [
-                // My Moment Header - no extra padding needed
+                // My Moment Header
                 SliverToBoxAdapter(
                   child: authState.when(
                     loading: () => const SizedBox.shrink(),
@@ -219,18 +312,18 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                                   child: Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: primaryWhite,
+                                      color: surface,
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: shadowColor,
-                                          offset: const Offset(0, 4),
-                                          blurRadius: 12,
+                                          color: Colors.black.withOpacity(0.08),
+                                          offset: const Offset(0, 2),
+                                          blurRadius: 8,
                                         ),
                                       ],
                                     ),
                                     child: const CircularProgressIndicator(
-                                      color: accentBlue,
+                                      color: fbBlue,
                                       strokeWidth: 2,
                                     ),
                                   ),
@@ -241,7 +334,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
 
                       final moment = state.moments[index];
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 2),
+                        margin: const EdgeInsets.only(bottom: 0),
                         child: MomentCard(
                           moment: moment,
                           onLike: () => _likeMoment(moment.momentId),
@@ -258,9 +351,9 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                   ),
                 ),
                 
-                // Bottom padding for floating navigation
-                SliverPadding(
-                  padding: const EdgeInsets.only(bottom: 120),
+                // Bottom padding
+                const SliverPadding(
+                  padding: EdgeInsets.only(bottom: 100),
                 ),
               ],
             ),
@@ -271,281 +364,61 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: softGray,
-                borderRadius: BorderRadius.circular(60),
-              ),
-              child: const Icon(
-                Icons.photo_camera_outlined,
-                size: 48,
-                color: textTertiary,
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'No moments yet',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: textPrimary,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Share your first moment with friends\nand start building memories',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: textSecondary,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 40),
-            _buildEmptyStateButton(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyStateButton() {
-    return GestureDetector(
-      onTap: _navigateToCreateMoment,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [premiumBlue, accentBlue],
-          ),
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: premiumBlue.withOpacity(0.4),
-              offset: const Offset(0, 8),
-              blurRadius: 24,
-            ),
-            BoxShadow(
-              color: premiumBlue.withOpacity(0.1),
-              offset: const Offset(0, 2),
-              blurRadius: 8,
-            ),
-          ],
-        ),
-        child: const Text(
-          'Create Your First Moment',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorState(String error) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(32),
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: primaryWhite,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: shadowColor,
-              offset: const Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(40),
-              ),
-              child: const Icon(
-                Icons.error_outline,
-                size: 40,
-                color: Colors.red,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Something went wrong',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: textSecondary,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 32),
-            GestureDetector(
-              onTap: _refreshFeed,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: accentBlue,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Try Again',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNavigation() {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          bottom: MediaQuery.of(context).padding.bottom + 20,
-          top: 20,
-        ),
-        child: _buildFloatingNavBar(),
-      ),
-    );
-  }
-
-  Widget _buildFloatingNavBar() {
     return Container(
-      height: 72,
-      decoration: BoxDecoration(
-        color: primaryWhite,
-        borderRadius: BorderRadius.circular(36),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            offset: const Offset(0, 8),
-            blurRadius: 32,
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            offset: const Offset(0, 2),
-            blurRadius: 8,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(36),
-        child: Row(
-          children: [
-            _buildNavItem(
-              icon: Icons.home_rounded,
-              label: 'Home',
-              isActive: true,
-              onTap: () {},
-            ),
-            _buildNavItem(
-              icon: Icons.chat_bubble_rounded,
-              label: 'Chats',
-              isActive: false,
-              onTap: () {
-                HapticFeedback.lightImpact();
-                Navigator.pop(context);
-              },
-            ),
-            _buildCenterFAB(),
-            _buildNavItem(
-              icon: Icons.people_rounded,
-              label: 'Friends',
-              isActive: false,
-              onTap: () {
-                HapticFeedback.lightImpact();
-              },
-            ),
-            _buildNavItem(
-              icon: Icons.person_rounded,
-              label: 'Profile',
-              isActive: false,
-              onTap: () {
-                HapticFeedback.lightImpact();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: double.infinity,
+      color: background,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 120,
+                height: 120,
                 decoration: BoxDecoration(
-                  color: isActive ? premiumBlue.withOpacity(0.1) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      fbBlue.withOpacity(0.1),
+                      fbBlueLight.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(30),
                 ),
-                child: Icon(
-                  icon,
-                  size: 22,
-                  color: isActive ? premiumBlue : textTertiary,
+                child: const Icon(
+                  Icons.photo_camera_rounded,
+                  size: 48,
+                  color: fbBlue,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                label,
+              const SizedBox(height: 32),
+              const Text(
+                'Welcome to Moments',
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                  color: isActive ? premiumBlue : textTertiary,
-                  letterSpacing: isActive ? 0.2 : 0,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: onSurface,
+                  letterSpacing: -0.8,
                 ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Share photos, videos, and thoughts\nwith your friends and family',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: onSurfaceVariant,
+                  height: 1.4,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 40),
+              _buildModernButton(
+                'Create your first moment',
+                fbBlue,
+                Icons.add_rounded,
+                () => _navigateToCreateMoment(),
               ),
             ],
           ),
@@ -554,57 +427,142 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
-  Widget _buildCenterFAB() {
-    return Container(
-      width: 80,
-      height: double.infinity,
-      child: Center(
-        child: GestureDetector(
-          onTap: () {
-            HapticFeedback.mediumImpact();
-            _navigateToCreateMoment();
-          },
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  premiumGreen,
-                  accentGreen,
-                ],
+  Widget _buildModernButton(
+    String text,
+    Color color,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              offset: const Offset(0, 4),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: surface, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              text,
+              style: const TextStyle(
+                color: surface,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
               ),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: premiumGreen.withOpacity(0.4),
-                  offset: const Offset(0, 8),
-                  blurRadius: 24,
-                  spreadRadius: 0,
-                ),
-                BoxShadow(
-                  color: premiumGreen.withOpacity(0.2),
-                  offset: const Offset(0, 2),
-                  blurRadius: 8,
-                  spreadRadius: 0,
-                ),
-              ],
             ),
-            child: const Icon(
-              Icons.add_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return Container(
+      color: background,
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                offset: const Offset(0, 4),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: fbRed.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  size: 40,
+                  color: fbRed,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Something went wrong',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                error,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 32),
+              _buildModernButton(
+                'Try Again',
+                fbBlue,
+                Icons.refresh_rounded,
+                _refreshFeed,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFloatingActionButton() {
-    return const SizedBox.shrink(); // No longer needed as FAB is integrated
+  Widget _buildModernFAB() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: fbBlue.withOpacity(0.3),
+            offset: const Offset(0, 4),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: FloatingActionButton(
+        onPressed: () {
+          HapticFeedback.mediumImpact();
+          _navigateToCreateMoment();
+        },
+        backgroundColor: fbBlue,
+        foregroundColor: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(
+          Icons.add_rounded,
+          size: 28,
+        ),
+      ),
+    );
   }
 
   void _navigateToCreateMoment() {
@@ -627,7 +585,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
             child: child,
           );
         },
-        transitionDuration: const Duration(milliseconds: 400),
+        transitionDuration: const Duration(milliseconds: 300),
       ),
     ).then((_) {
       _refreshFeed();
@@ -655,10 +613,10 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         maxChildSize: 0.95,
         builder: (context, scrollController) => Container(
           decoration: const BoxDecoration(
-            color: primaryWhite,
+            color: surface,
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(28),
-              topRight: Radius.circular(28),
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
             ),
           ),
           child: Column(
@@ -669,20 +627,17 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: dividerColor,
+                  color: outlineVariant,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               
               // Header
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(
-                      color: dividerColor,
-                      width: 1,
-                    ),
+                    bottom: BorderSide(color: outlineVariant),
                   ),
                 ),
                 child: Row(
@@ -692,8 +647,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: textPrimary,
-                        letterSpacing: -0.5,
+                        color: onSurface,
                       ),
                     ),
                     const Spacer(),
@@ -702,13 +656,13 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: softGray,
+                          color: surfaceVariant,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Icon(
                           Icons.close_rounded,
-                          color: textSecondary,
-                          size: 18,
+                          color: onSurfaceVariant,
+                          size: 20,
                         ),
                       ),
                     ),
@@ -724,9 +678,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
-                        child: CircularProgressIndicator(
-                          color: accentBlue,
-                        ),
+                        child: CircularProgressIndicator(color: fbBlue),
                       );
                     }
 
@@ -739,15 +691,15 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                           children: [
                             Icon(
                               Icons.chat_bubble_outline_rounded,
-                              size: 48,
-                              color: textTertiary,
+                              size: 64,
+                              color: onSurfaceSecondary,
                             ),
                             SizedBox(height: 16),
                             Text(
                               'No comments yet',
                               style: TextStyle(
                                 fontSize: 18,
-                                color: textSecondary,
+                                color: onSurfaceVariant,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -756,7 +708,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                               'Be the first to comment!',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: textTertiary,
+                                color: onSurfaceSecondary,
                               ),
                             ),
                           ],
@@ -773,7 +725,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                         final comment = comments[index];
                         return Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
+                            horizontal: 20,
                             vertical: 12,
                           ),
                           child: Row(
@@ -789,8 +741,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                                 child: Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: softGray,
-                                    borderRadius: BorderRadius.circular(16),
+                                    color: surfaceVariant,
+                                    borderRadius: BorderRadius.circular(18),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -799,17 +751,17 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                                         comment.authorName,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w600,
-                                          color: textPrimary,
-                                          fontSize: 15,
+                                          color: onSurface,
+                                          fontSize: 14,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         comment.content,
                                         style: const TextStyle(
-                                          color: textPrimary,
-                                          fontSize: 15,
-                                          height: 1.4,
+                                          color: onSurface,
+                                          fontSize: 14,
+                                          height: 1.3,
                                         ),
                                       ),
                                       const SizedBox(height: 8),
@@ -817,7 +769,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                                         _formatCommentTime(comment.createdAt),
                                         style: const TextStyle(
                                           fontSize: 12,
-                                          color: textSecondary,
+                                          color: onSurfaceSecondary,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                     ],
@@ -836,18 +789,15 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
               // Comment input
               Container(
                 padding: EdgeInsets.only(
-                  left: 24,
-                  right: 24,
+                  left: 20,
+                  right: 20,
                   top: 16,
                   bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                 ),
                 decoration: const BoxDecoration(
-                  color: primaryWhite,
+                  color: surface,
                   border: Border(
-                    top: BorderSide(
-                      color: dividerColor,
-                      width: 1,
-                    ),
+                    top: BorderSide(color: outlineVariant),
                   ),
                 ),
                 child: _buildCommentInput(moment.momentId),
@@ -867,28 +817,28 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: softGray,
-              borderRadius: BorderRadius.circular(24),
+              color: surfaceVariant,
+              borderRadius: BorderRadius.circular(25),
             ),
             child: TextField(
               controller: commentController,
               decoration: const InputDecoration(
-                hintText: 'Add a comment...',
+                hintText: 'Write a comment...',
                 hintStyle: TextStyle(
-                  color: textSecondary,
-                  fontSize: 16,
+                  color: onSurfaceSecondary,
+                  fontSize: 15,
                 ),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: 20,
-                  vertical: 14,
+                  vertical: 12,
                 ),
               ),
               style: const TextStyle(
-                fontSize: 16,
-                color: textPrimary,
+                fontSize: 15,
+                color: onSurface,
               ),
             ),
           ),
@@ -907,25 +857,14 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
             }
           },
           child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [premiumBlue, accentBlue],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: premiumBlue.withOpacity(0.3),
-                  offset: const Offset(0, 4),
-                  blurRadius: 12,
-                ),
-              ],
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              color: fbBlue,
+              shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.send_rounded,
-              color: Colors.white,
+              color: surface,
               size: 20,
             ),
           ),

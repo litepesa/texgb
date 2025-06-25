@@ -6,6 +6,7 @@ import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
 import 'package:textgb/features/public_groups/screens/public_groups_screen.dart';
+import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -36,6 +37,22 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 context,
                 CupertinoPageRoute(
                   builder: (context) => const MomentsFeedScreen(),
+                ),
+              );
+            },
+            modernTheme: modernTheme,
+          ),
+          
+          _buildListItem(
+            icon: CupertinoIcons.clock,
+            title: 'Status',
+            subtitle: 'View and share status updates',
+            iconColor: Colors.green,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const StatusOverviewScreen(),
                 ),
               );
             },

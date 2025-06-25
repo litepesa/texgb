@@ -1,12 +1,11 @@
 // lib/features/status/screens/status_viewer_screen.dart
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
-import 'package:textgb/features/status/widgets/status_progress_bar.dart';
-import 'package:textgb/features/status/widgets/status_reply_bar.dart';
 import 'package:video_player/video_player.dart';
 
 class StatusViewerScreen extends ConsumerStatefulWidget {
@@ -23,49 +22,69 @@ class StatusViewerScreen extends ConsumerStatefulWidget {
   ConsumerState<StatusViewerScreen> createState() => _StatusViewerScreenState();
 }
 
-class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with SingleTickerProviderStateMixin {
+class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> 
+    with TickerProviderStateMixin {
   late AnimationController _progressController;
+  late AnimationController _fadeController;
   VideoPlayerController? _videoController;
   TextEditingController _replyController = TextEditingController();
+  FocusNode _replyFocusNode = FocusNode();
+  
   bool _isLoading = true;
   bool _isPaused = false;
-  bool _isTapped = false;
+  bool _showUI = true;
+  bool _isReplying = false;
   int _currentIndex = 0;
   String _statusThumbnailUrl = '';
   
-  // Duration for each status view
-  final Duration _statusDuration = const Duration(seconds: 5); 
-  // Duration for videos will be the video length itself
+  final Duration _statusDuration = const Duration(seconds: 5);
+  final Duration _uiFadeDuration = const Duration(milliseconds: 300);
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialStatusIndex;
     
-    // Set up the progress controller for status progress bar
+    // Set up controllers
     _progressController = AnimationController(
       vsync: this,
       duration: _statusDuration,
     );
     
-    // Initialize the first status
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: _uiFadeDuration,
+      value: 1.0,
+    );
+    
+    // Initialize status
     _initializeStatus();
     _updateStatusThumbnailUrl();
     
-    // Mark status as viewed through the provider
+    // Mark status as viewed
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(statusNotifierProvider.notifier).viewStatus(
         widget.userStatus, 
         _currentIndex
       );
     });
+
+    // Listen for keyboard visibility
+    _replyFocusNode.addListener(() {
+      setState(() {
+        _isReplying = _replyFocusNode.hasFocus;
+      });
+    });
   }
 
   @override
   void dispose() {
     _progressController.dispose();
+    _fadeController.dispose();
     _videoController?.dispose();
     _replyController.dispose();
+    _replyFocusNode.dispose();
+    
     super.dispose();
   }
 
@@ -76,64 +95,63 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
     });
     
     final currentStatus = widget.userStatus.statuses[_currentIndex];
-    
-    // Reset progress controller
     _progressController.reset();
     
-    // Handle different status types
     if (currentStatus.type == StatusType.video) {
       _videoController?.dispose();
       _videoController = VideoPlayerController.network(currentStatus.content)
         ..initialize().then((_) {
-          setState(() {
-            _isLoading = false;
-          });
-          
-          // Set progress controller duration to match video duration
-          _progressController.duration = _videoController!.value.duration;
-          
-          // Start playing the video
-          _videoController!.play();
-          _progressController.forward();
-          
-          // When video ends, go to next status
-          _videoController!.addListener(() {
-            if (_videoController!.value.position >= _videoController!.value.duration) {
-              _goToNextStatus();
-            }
-          });
-        });
-    } else {
-      // For non-video types, just start the progress controller
-      Future.delayed(const Duration(milliseconds: 300), () {
-        setState(() {
-          _isLoading = false;
-        });
-        _progressController.forward().then((_) {
-          if (mounted && !_isPaused) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+            
+            _progressController.duration = _videoController!.value.duration;
+            _videoController!.play();
+            _progressController.forward();
+            
+            _videoController!.addListener(_videoListener);
+          }
+        }).catchError((error) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
             _goToNextStatus();
           }
         });
+    } else {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          _progressController.forward().then((_) {
+            if (mounted && !_isPaused) {
+              _goToNextStatus();
+            }
+          });
+        }
       });
+    }
+  }
+
+  void _videoListener() {
+    if (_videoController != null && 
+        _videoController!.value.isInitialized &&
+        _videoController!.value.position >= _videoController!.value.duration) {
+      _goToNextStatus();
     }
   }
 
   void _updateStatusThumbnailUrl() {
     final currentStatus = widget.userStatus.statuses[_currentIndex];
-    
-    // For image and video statuses, use the content URL directly
-    if (currentStatus.type == StatusType.image || currentStatus.type == StatusType.video) {
-      setState(() {
-        _statusThumbnailUrl = currentStatus.content;
-      });
-    } else {
-      // For text and link statuses, we don't have an image
-      // We'll just use an empty string, and the StatusReplyBar will handle displaying
-      // a preview based on the status type
-      setState(() {
-        _statusThumbnailUrl = '';
-      });
-    }
+    setState(() {
+      _statusThumbnailUrl = (currentStatus.type == StatusType.image || 
+                            currentStatus.type == StatusType.video) 
+          ? currentStatus.content 
+          : '';
+    });
   }
 
   void _goToNextStatus() {
@@ -144,13 +162,11 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
       _initializeStatus();
       _updateStatusThumbnailUrl();
       
-      // Mark new status as viewed
       ref.read(statusNotifierProvider.notifier).viewStatus(
         widget.userStatus, 
         _currentIndex
       );
     } else {
-      // We've reached the end of this user's statuses
       Navigator.pop(context);
     }
   }
@@ -163,82 +179,197 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
       _initializeStatus();
       _updateStatusThumbnailUrl();
     } else {
-      // We're already at the first status, close if user presses back
       Navigator.pop(context);
+    }
+  }
+
+  void _togglePlayPause() {
+    if (_isPaused) {
+      _resumeStatus();
+    } else {
+      _pauseStatus();
     }
   }
 
   void _pauseStatus() {
     if (_isPaused) return;
-    _isPaused = true;
+    setState(() {
+      _isPaused = true;
+    });
     _progressController.stop();
     _videoController?.pause();
   }
 
   void _resumeStatus() {
     if (!_isPaused) return;
-    _isPaused = false;
+    setState(() {
+      _isPaused = false;
+    });
     _progressController.forward();
     _videoController?.play();
+  }
+
+  void _toggleUI() {
+    setState(() {
+      _showUI = !_showUI;
+    });
+    
+    if (_showUI) {
+      _fadeController.forward();
+    } else {
+      _fadeController.reverse();
+    }
   }
 
   void _sendReply() async {
     if (_replyController.text.trim().isEmpty) return;
     
     final currentStatus = widget.userStatus.statuses[_currentIndex];
+    final replyText = _replyController.text.trim();
     
-    // Show loading indicator
-    setState(() {
-      _isLoading = true;
-    });
+    _replyController.clear();
+    _replyFocusNode.unfocus();
     
     try {
       await ref.read(statusNotifierProvider.notifier).sendStatusReply(
         statusId: currentStatus.statusId,
         receiverId: currentStatus.userId,
-        message: _replyController.text.trim(),
+        message: replyText,
         statusThumbnail: _statusThumbnailUrl,
         statusType: currentStatus.type,
       );
       
-      // Clear the input field before showing success
-      _replyController.clear();
-      
-      // Only update state and show snackbar if mounted
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        // Add this check to ensure we don't show a snackbar if we're navigating away
-        if (mounted && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Reply sent'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Reply sent'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
       }
     } catch (e) {
-      // Only update state and show error if mounted
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        // Add this check to ensure we don't show a snackbar if we're navigating away
-        if (mounted && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to send reply. Please try again.'),
-              duration: const Duration(seconds: 2),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to send reply'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
       }
     }
+  }
+
+  void _showStatusOptions() {
+    _pauseStatus();
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Status Info'),
+              onTap: () {
+                Navigator.pop(context);
+                _showStatusInfo();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.report_outlined),
+              title: const Text('Report Status'),
+              onTap: () {
+                Navigator.pop(context);
+                _resumeStatus();
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    ).then((_) => _resumeStatus());
+  }
+
+  void _showStatusInfo() {
+    final status = widget.userStatus.statuses[_currentIndex];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Status Info'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInfoRow('Posted by', status.userName),
+            _buildInfoRow('Type', status.type.name.toUpperCase()),
+            _buildInfoRow('Views', status.viewCount.toString()),
+            _buildInfoRow('Posted', _formatTimestamp(status.createdAt)),
+            _buildInfoRow('Expires', _formatTimestamp(status.expiresAt)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Close',
+              style: TextStyle(color: Theme.of(context).primaryColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w400),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -247,185 +378,72 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
     
     return Scaffold(
       backgroundColor: Colors.black,
+      resizeToAvoidBottomInset: true,
       body: GestureDetector(
-        onTapDown: (_) {
-          _pauseStatus();
-          setState(() => _isTapped = true);
-        },
-        onTapUp: (_) {
-          _resumeStatus();
-          setState(() => _isTapped = false);
-        },
-        onTapCancel: () {
-          _resumeStatus();
-          setState(() => _isTapped = false);
-        },
+        onTap: _toggleUI,
         onHorizontalDragEnd: (details) {
-          if (details.primaryVelocity! > 0) {
-            // Swipe right (previous)
+          if (details.primaryVelocity! > 300) {
             _goToPreviousStatus();
-          } else if (details.primaryVelocity! < 0) {
-            // Swipe left (next)
+          } else if (details.primaryVelocity! < -300) {
             _goToNextStatus();
           }
-        },
-        onLongPress: () {
-          // Show additional info or options on long press
-          _showStatusInfoDialog(currentStatus);
         },
         child: Stack(
           children: [
             // Status content
-            _buildStatusContent(currentStatus),
+            Positioned.fill(
+              child: _buildStatusContent(currentStatus),
+            ),
             
-            // Top bar with progress indicators
-            SafeArea(
-              child: Column(
-                children: [
-                  // Progress bars
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-                    child: Row(
-                      children: List.generate(
-                        widget.userStatus.statuses.length,
-                        (index) => Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                            child: StatusProgressBar(
-                              controller: index == _currentIndex ? _progressController : null,
-                              isPaused: _isPaused,
-                              isActive: index == _currentIndex,
-                              isCompleted: index < _currentIndex,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  // User info bar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundImage: CachedNetworkImageProvider(widget.userStatus.userImage),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.userStatus.userName,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                _formatTimestamp(currentStatus.createdAt),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            // Touch areas for navigation
+            _buildNavigationAreas(),
+            
+            // Top UI elements
+            AnimatedBuilder(
+              animation: _fadeController,
+              builder: (context, child) => Opacity(
+                opacity: _fadeController.value,
+                child: _buildTopUI(currentStatus),
+              ),
+            ),
+            
+            // Bottom UI elements
+            AnimatedBuilder(
+              animation: _fadeController,
+              builder: (context, child) => Opacity(
+                opacity: _fadeController.value,
+                child: _buildBottomUI(currentStatus),
               ),
             ),
             
             // Loading indicator
             if (_isLoading)
-              const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+              Container(
+                color: Colors.black54,
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                ),
               ),
             
-            // Caption text at bottom
-            if (currentStatus.caption.isNotEmpty)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
+            // Pause indicator
+            if (_isPaused && !_isLoading)
+              Center(
                 child: Container(
-                  padding: EdgeInsets.only(
-                    left: 16.0,
-                    right: 16.0,
-                    top: 16.0,
-                    bottom: 80.0, // Adjusted for floating reply bar
-                  ),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
-                    ),
+                    color: Colors.black38,
+                    borderRadius: BorderRadius.circular(50),
                   ),
-                  child: Text(
-                    currentStatus.caption,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 40,
                   ),
                 ),
               ),
-            
-            // Left/right navigation areas
-            Row(
-              children: [
-                // Left third of screen for previous
-                Expanded(
-                  flex: 1,
-                  child: GestureDetector(
-                    onTap: () => _goToPreviousStatus(),
-                    behavior: HitTestBehavior.translucent,
-                    child: Container(color: Colors.transparent),
-                  ),
-                ),
-                // Middle third - no action
-                const Expanded(
-                  flex: 1,
-                  child: SizedBox.expand(),
-                ),
-                // Right third of screen for next
-                Expanded(
-                  flex: 1,
-                  child: GestureDetector(
-                    onTap: () => _goToNextStatus(),
-                    behavior: HitTestBehavior.translucent,
-                    child: Container(color: Colors.transparent),
-                  ),
-                ),
-              ],
-            ),
-            
-            // Status reply bar at bottom
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: StatusReplyBar(
-                controller: _replyController,
-                onSend: _sendReply,
-                currentStatus: widget.userStatus.statuses[_currentIndex],
-                thumbnailUrl: _statusThumbnailUrl,
-                isLoading: _isLoading, // Pass the loading state
-              ),
-            ),
           ],
         ),
       ),
@@ -435,17 +453,33 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
   Widget _buildStatusContent(StatusModel status) {
     switch (status.type) {
       case StatusType.image:
-        return Container(
-          color: Colors.black,
-          child: Center(
-            child: CachedNetworkImage(
-              imageUrl: status.content,
-              fit: BoxFit.contain,
-              width: double.infinity,
-              height: double.infinity,
-              placeholder: (context, url) => Container(color: Colors.black),
-              errorWidget: (context, url, error) => const Center(
-                child: Icon(Icons.error, color: Colors.white, size: 48),
+        return Hero(
+          tag: 'status_${status.statusId}',
+          child: CachedNetworkImage(
+            imageUrl: status.content,
+            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
+            placeholder: (context, url) => Container(
+              color: Colors.black,
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              ),
+            ),
+            errorWidget: (context, url, error) => Container(
+              color: Colors.black,
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image_outlined, color: Colors.white54, size: 64),
+                    SizedBox(height: 16),
+                    Text(
+                      'Unable to load image',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -453,131 +487,337 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen> with Si
         
       case StatusType.video:
         if (_videoController != null && _videoController!.value.isInitialized) {
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                color: Colors.black,
-                child: AspectRatio(
-                  aspectRatio: _videoController!.value.aspectRatio,
-                  child: VideoPlayer(_videoController!),
-                ),
+          return Container(
+            color: Colors.black,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: _videoController!.value.aspectRatio,
+                child: VideoPlayer(_videoController!),
               ),
-              if (_isPaused)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.play_arrow,
-                    color: Colors.white,
-                    size: 50,
-                  ),
-                ),
-            ],
+            ),
           );
-        } else {
-          return Container(color: Colors.black);
         }
+        return Container(
+          color: Colors.black,
+          child: const Center(
+            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+          ),
+        );
         
       case StatusType.text:
         return Container(
           width: double.infinity,
           height: double.infinity,
-          color: Theme.of(context).primaryColor,
-          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).primaryColor,
+                Theme.of(context).primaryColor.withOpacity(0.8),
+              ],
+            ),
+          ),
           child: Center(
-            child: Text(
-              status.content,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                status.content,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
           ),
         );
         
       case StatusType.link:
         return Container(
+          width: double.infinity,
+          height: double.infinity,
           color: Colors.black87,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.link_rounded,
-                color: Colors.white,
-                size: 48,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.link_rounded,
+                      color: Colors.white,
+                      size: 48,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    status.content,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                status.content,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  decoration: TextDecoration.underline,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
         );
     }
   }
 
-  void _showStatusInfoDialog(StatusModel status) {
-    // Pause the status while dialog is showing
-    _pauseStatus();
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Status Info"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Posted by: ${status.userName}"),
-            const SizedBox(height: 8),
-            Text("Type: ${status.type.displayName}"),
-            const SizedBox(height: 8),
-            Text("Views: ${status.viewCount}"),
-            const SizedBox(height: 8),
-            Text("Posted: ${_formatTimestamp(status.createdAt)}"),
-            const SizedBox(height: 8),
-            Text("Expires: ${_formatTimestamp(status.expiresAt)}"),
-          ],
+  Widget _buildNavigationAreas() {
+    return Row(
+      children: [
+        // Left area (previous)
+        Expanded(
+          flex: 2,
+          child: GestureDetector(
+            onTap: _goToPreviousStatus,
+            behavior: HitTestBehavior.translucent,
+            child: Container(),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _resumeStatus();
-            },
-            child: const Text("Close"),
+        // Middle area (pause/play)
+        Expanded(
+          flex: 3,
+          child: GestureDetector(
+            onTap: _togglePlayPause,
+            behavior: HitTestBehavior.translucent,
+            child: Container(),
+          ),
+        ),
+        // Right area (next)
+        Expanded(
+          flex: 2,
+          child: GestureDetector(
+            onTap: _goToNextStatus,
+            behavior: HitTestBehavior.translucent,
+            child: Container(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopUI(StatusModel currentStatus) {
+    return SafeArea(
+      child: Column(
+        children: [
+          // Progress indicators
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: List.generate(
+                widget.userStatus.statuses.length,
+                (index) => Expanded(
+                  child: Container(
+                    height: 2,
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(1),
+                      color: Colors.white.withOpacity(0.3),
+                    ),
+                    child: AnimatedBuilder(
+                      animation: _progressController,
+                      builder: (context, child) {
+                        double progress = 0.0;
+                        if (index < _currentIndex) {
+                          progress = 1.0; // Completed
+                        } else if (index == _currentIndex) {
+                          progress = _progressController.value; // Current
+                        }
+                        
+                        return FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: progress,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(1),
+                              color: Colors.white,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Header with user info
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Hero(
+                  tag: 'avatar_${widget.userStatus.userId}',
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundImage: CachedNetworkImageProvider(
+                        widget.userStatus.userImage,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.userStatus.userName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        _formatTimestamp(currentStatus.createdAt),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: _showStatusOptions,
+                  icon: const Icon(
+                    Icons.more_vert,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildBottomUI(StatusModel currentStatus) {
+    return Column(
+      children: [
+        const Spacer(),
+        
+        // Caption
+        if (currentStatus.caption.isNotEmpty)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              currentStatus.caption,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                height: 1.3,
+              ),
+            ),
+          ),
+        
+        // Reply section
+        SafeArea(
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _replyController,
+                    focusNode: _replyFocusNode,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Reply to ${widget.userStatus.userName}...',
+                      hintStyle: const TextStyle(color: Colors.white70),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    maxLines: null,
+                    textInputAction: TextInputAction.send,
+                    onFieldSubmitted: (_) => _sendReply(),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _sendReply,
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   String _formatTimestamp(String timestamp) {
-    final date = DateTime.fromMillisecondsSinceEpoch(int.parse(timestamp));
-    final now = DateTime.now();
-    final difference = now.difference(date);
-    
-    if (difference.inDays > 0) {
-      return "${difference.inDays}d ago";
-    } else if (difference.inHours > 0) {
-      return "${difference.inHours}h ago";
-    } else if (difference.inMinutes > 0) {
-      return "${difference.inMinutes}m ago";
-    } else {
-      return "Just now";
+    try {
+      final date = DateTime.fromMillisecondsSinceEpoch(int.parse(timestamp));
+      final now = DateTime.now();
+      final difference = now.difference(date);
+      
+      if (difference.inDays > 0) {
+        return "${difference.inDays}d";
+      } else if (difference.inHours > 0) {
+        return "${difference.inHours}h";
+      } else if (difference.inMinutes > 0) {
+        return "${difference.inMinutes}m";
+      } else {
+        return "now";
+      }
+    } catch (e) {
+      return "now";
     }
   }
 }

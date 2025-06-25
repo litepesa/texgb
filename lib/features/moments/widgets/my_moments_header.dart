@@ -26,30 +26,41 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader>
   late Animation<double> _slideAnimation;
   late Animation<double> _fadeAnimation;
 
-  // Premium color palette - Sophisticated blues and greens
-  static const Color primaryWhite = Color(0xFFFFFFFF);
-  static const Color backgroundGray = Color(0xFFF7F8FC);
-  static const Color softGray = Color(0xFFEFF1F6);
-  static const Color textPrimary = Color(0xFF1A1D29);
-  static const Color textSecondary = Color(0xFF5A6175);
-  static const Color textTertiary = Color(0xFF9BA3B4);
-  static const Color premiumBlue = Color(0xFF2563EB);
-  static const Color accentBlue = Color(0xFF3B82F6);
-  static const Color premiumGreen = Color(0xFF059669);
-  static const Color accentGreen = Color(0xFF10B981);
+  // Modern Facebook-inspired color palette 2025
+  static const Color fbPrimary = Color(0xFF1877F2);
+  static const Color fbSecondary = Color(0xFF42A5F5);
+  static const Color fbSuccess = Color(0xFF00C851);
+  static const Color fbDanger = Color(0xFFFF3547);
+  static const Color fbWarning = Color(0xFFFF8C00);
+  
+  // Neutral colors
+  static const Color surfaceWhite = Color(0xFFFFFFFF);
+  static const Color surfaceGray = Color(0xFFF8F9FA);
+  static const Color surfaceCard = Color(0xFFFFFFFF);
+  static const Color borderLight = Color(0xFFE4E6EA);
+  static const Color borderMedium = Color(0xFFCED0D4);
+  
+  // Text colors
+  static const Color textPrimary = Color(0xFF1C1E21);
+  static const Color textSecondary = Color(0xFF65676B);
+  static const Color textTertiary = Color(0xFF8A8D91);
+  static const Color textDisabled = Color(0xFFBCC0C4);
+  
+  // Shadows
   static const Color shadowColor = Color(0x08000000);
+  static const Color shadowMedium = Color(0x12000000);
 
   @override
   void initState() {
     super.initState();
     
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
     
     _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutQuart),
     );
     
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -94,12 +105,23 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader>
           child: FadeTransition(
             opacity: _fadeAnimation,
             child: Container(
-              color: primaryWhite,
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: surfaceCard,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: shadowColor,
+                    offset: const Offset(0, 2),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
               child: Column(
                 children: [
-                  _buildCoverSection(),
-                  _buildStatsSection(),
-                  _buildDivider(),
+                  _buildHeaderSection(),
+                  const Divider(color: borderLight, height: 1),
+                  _buildCreateMomentSection(),
                 ],
               ),
             ),
@@ -109,136 +131,51 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader>
     );
   }
 
-  Widget _buildCoverSection() {
-    final latestMoment = _myMoments.isNotEmpty ? _myMoments.first : null;
-    final hasMedia = latestMoment?.hasMedia ?? false;
-    final mediaUrl = hasMedia ? latestMoment!.mediaUrls.first : '';
-
-    return Container(
-      height: 240,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            softGray,
-            softGray.withOpacity(0.5),
-          ],
-        ),
-      ),
-      child: Stack(
+  Widget _buildHeaderSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
         children: [
-          // Background pattern or image
-          if (hasMedia && latestMoment!.hasImages)
-            Container(
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: NetworkImage(mediaUrl),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    primaryWhite.withOpacity(0.85),
-                    BlendMode.overlay,
-                  ),
-                ),
-              ),
-            )
-          else
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    premiumBlue.withOpacity(0.06),
-                    premiumGreen.withOpacity(0.06),
-                  ],
-                ),
-              ),
-              child: CustomPaint(
-                painter: _ModernPatternPainter(),
-                size: Size.infinite,
-              ),
-            ),
-          
-          // Content overlay
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.1),
-                ],
-              ),
-            ),
-          ),
-          
-          // Profile content
-          Positioned(
-            bottom: 24,
-            left: 20,
-            right: 20,
-            child: Row(
+          _buildProfileImage(),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildProfileImage(),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.user.name,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: textPrimary,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      if (_isLoading)
-                        Container(
-                          width: 20,
-                          height: 20,
-                          padding: const EdgeInsets.all(2),
-                          child: const CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: textSecondary,
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: primaryWhite,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: shadowColor,
-                                offset: const Offset(0, 2),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            _myMoments.isEmpty 
-                                ? 'Share your first moment'
-                                : '${_myMoments.length} moment${_myMoments.length != 1 ? 's' : ''}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: textSecondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
+                Text(
+                  widget.user.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
                   ),
                 ),
-                _buildActionButton(),
+                const SizedBox(height: 4),
+                if (_isLoading)
+                  Container(
+                    width: 20,
+                    height: 20,
+                    padding: const EdgeInsets.all(2),
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: textSecondary,
+                    ),
+                  )
+                else
+                  Text(
+                    _myMoments.isEmpty 
+                        ? 'Share your first moment'
+                        : '${_myMoments.length} moment${_myMoments.length != 1 ? 's' : ''}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
               ],
             ),
           ),
+          _buildStatsSection(),
         ],
       ),
     );
@@ -251,117 +188,74 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader>
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: primaryWhite,
-            width: 4,
+            color: fbPrimary.withOpacity(0.2),
+            width: 2,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: shadowColor,
-              offset: const Offset(0, 4),
-              blurRadius: 12,
-            ),
-          ],
         ),
         child: userImageWidget(
           imageUrl: widget.user.image,
-          radius: 32,
+          radius: 24,
           onTap: () => _navigateToMyMoments(),
         ),
       ),
     );
   }
 
-  Widget _buildActionButton() {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        _navigateToCreateMoment();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [premiumBlue, accentBlue],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: premiumBlue.withOpacity(0.4),
-              offset: const Offset(0, 4),
-              blurRadius: 16,
-            ),
-            BoxShadow(
-              color: premiumBlue.withOpacity(0.1),
-              offset: const Offset(0, 2),
-              blurRadius: 8,
-            ),
-          ],
+  Widget _buildStatsSection() {
+    if (_isLoading) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: fbPrimary,
         ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.add_rounded,
-              color: primaryWhite,
-              size: 18,
-            ),
-            SizedBox(width: 6),
-            Text(
-              'Share',
-              style: TextStyle(
-                color: primaryWhite,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
-            ),
-          ],
+      );
+    }
+
+    return Row(
+      children: [
+        _buildStatItem(
+          'Moments',
+          _myMoments.length.toString(),
+          fbPrimary,
         ),
-      ),
+        const SizedBox(width: 16),
+        _buildStatItem(
+          'Likes',
+          _getTotalLikes().toString(),
+          fbDanger,
+        ),
+        const SizedBox(width: 16),
+        _buildStatItem(
+          'Views',
+          _getTotalViews().toString(),
+          fbSuccess,
+        ),
+      ],
     );
   }
 
-  Widget _buildStatsSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Row(
+  Widget _buildStatItem(String label, String value, Color color) {
+    return GestureDetector(
+      onTap: () => _navigateToMyMoments(),
+      child: Column(
         children: [
-          Expanded(
-            child:             _buildStatsItem(
-              'Moments',
-              _myMoments.length.toString(),
-              Icons.photo_camera_rounded,
-              premiumBlue,
-              () => _navigateToMyMoments(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
-          Container(
-            width: 1,
-            height: 40,
-            color: softGray,
-          ),
-          Expanded(
-            child:             _buildStatsItem(
-              'Views',
-              _getTotalViews().toString(),
-              Icons.visibility_rounded,
-              premiumGreen,
-              () => _navigateToMyMoments(),
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: softGray,
-          ),
-          Expanded(
-            child: _buildStatsItem(
-              'Likes',
-              _getTotalLikes().toString(),
-              Icons.favorite_rounded,
-              const Color(0xFFEF4444),
-              () => _navigateToMyMoments(),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: textSecondary,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -369,63 +263,80 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader>
     );
   }
 
-  Widget _buildStatsItem(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 20,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: textPrimary,
-                letterSpacing: -0.5,
+  Widget _buildCreateMomentSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          userImageWidget(
+            imageUrl: widget.user.image,
+            radius: 18,
+            onTap: () {},
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _navigateToCreateMoment(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: surfaceGray,
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: borderLight),
+                ),
+                child: const Text(
+                  "What's on your mind?",
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: textSecondary,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          _buildQuickActions(),
+        ],
       ),
     );
   }
 
-  Widget _buildDivider() {
-    return Container(
-      height: 8,
-      color: backgroundGray,
+  Widget _buildQuickActions() {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () => _navigateToCreateMoment(),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: fbSuccess.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.photo_library_rounded,
+              color: fbSuccess,
+              size: 20,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () => _navigateToCreateMoment(),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: fbDanger.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.videocam_rounded,
+              color: fbDanger,
+              size: 20,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -438,6 +349,7 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader>
   }
 
   void _navigateToCreateMoment() {
+    HapticFeedback.lightImpact();
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -456,12 +368,13 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader>
             child: child,
           );
         },
-        transitionDuration: const Duration(milliseconds: 400),
+        transitionDuration: const Duration(milliseconds: 300),
       ),
     ).then((_) => _loadMyMoments());
   }
 
   void _navigateToMyMoments() {
+    HapticFeedback.lightImpact();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -470,92 +383,3 @@ class _MyMomentHeaderState extends ConsumerState<MyMomentHeader>
     );
   }
 }
-
-// Modern pattern painter for background
-class _ModernPatternPainter extends CustomPainter {
-  get premiumGreen => null;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF4F46E5).withOpacity(0.03)
-      ..style = PaintingStyle.fill;
-
-    // Draw modern geometric patterns
-    final patterns = [
-      _Pattern(0.15, 0.25, 25, PatternType.circle),
-      _Pattern(0.75, 0.15, 30, PatternType.circle),
-      _Pattern(0.25, 0.65, 20, PatternType.circle),
-      _Pattern(0.85, 0.75, 35, PatternType.circle),
-      _Pattern(0.45, 0.45, 15, PatternType.circle),
-    ];
-    
-    for (final pattern in patterns) {
-      final x = size.width * pattern.x;
-      final y = size.height * pattern.y;
-      
-      switch (pattern.type) {
-        case PatternType.circle:
-          canvas.drawCircle(
-            Offset(x, y),
-            pattern.size,
-            paint,
-          );
-          break;
-        case PatternType.square:
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromCenter(
-                center: Offset(x, y),
-                width: pattern.size * 2,
-                height: pattern.size * 2,
-              ),
-              Radius.circular(pattern.size * 0.3),
-            ),
-            paint,
-          );
-          break;
-      }
-    }
-
-    // Add some subtle lines
-    final linePaint = Paint()
-      ..color = premiumGreen.withOpacity(0.03)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    final path = Path();
-    path.moveTo(0, size.height * 0.3);
-    path.quadraticBezierTo(
-      size.width * 0.5,
-      size.height * 0.1,
-      size.width,
-      size.height * 0.4,
-    );
-    canvas.drawPath(path, linePaint);
-
-    final path2 = Path();
-    path2.moveTo(0, size.height * 0.7);
-    path2.quadraticBezierTo(
-      size.width * 0.3,
-      size.height * 0.9,
-      size.width,
-      size.height * 0.6,
-    );
-    canvas.drawPath(path2, linePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _Pattern {
-  final double x;
-  final double y;
-  final double size;
-  final PatternType type;
-
-  _Pattern(this.x, this.y, this.size, this.type);
-}
-
-enum PatternType { circle, square }
