@@ -36,6 +36,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ThemeOption? _originalTheme;
   bool _isShopModeActive = false;
   
+  // Video progress tracking
+  final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
+  
   // Updated tab configuration for TikTok-style layout with Shop instead of Chats
   final List<String> _tabNames = [
     'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
@@ -73,6 +76,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       themeManager.setTheme(_originalTheme!);
     }
     _pageController.dispose();
+    _videoProgressNotifier.dispose();
     super.dispose();
   }
 
@@ -354,6 +358,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             color: Colors.black,
             child: ChannelsFeedScreen(
               key: _feedScreenKey,
+              onVideoProgressChanged: (progress) {
+                _videoProgressNotifier.value = progress;
+              },
             ),
           ),
           // Shop tab (index 1) - Always uses light theme
@@ -390,7 +397,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // TikTok-style bottom navigation
+  // TikTok-style bottom navigation with video progress indicator
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
     final isHomeTab = _currentIndex == 0;
     final isShopTab = _currentIndex == 1;
@@ -421,29 +428,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Container(
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(5, (index) {
-              if (index == 2) {
-                // Special post button
-                return _buildPostButton(modernTheme, isHomeTab);
-              }
-              
-              return _buildNavItem(
-                index,
-                modernTheme,
-                isHomeTab,
-                isShopTab,
-              );
-            }),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Video progress indicator for home tab only
+          if (isHomeTab)
+            _buildVideoProgressIndicator(),
+          
+          // Bottom navigation content
+          SafeArea(
+            top: false,
+            child: Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(5, (index) {
+                  if (index == 2) {
+                    // Special post button
+                    return _buildPostButton(modernTheme, isHomeTab);
+                  }
+                  
+                  return _buildNavItem(
+                    index,
+                    modernTheme,
+                    isHomeTab,
+                    isShopTab,
+                  );
+                }),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  // Video progress indicator widget
+  Widget _buildVideoProgressIndicator() {
+    return ValueListenableBuilder<double>(
+      valueListenable: _videoProgressNotifier,
+      builder: (context, progress, child) {
+        return Container(
+          height: 1, // Thin progress bar
+          width: double.infinity,
+          color: Colors.grey.withOpacity(0.3), // Background track
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              height: 2,
+              width: MediaQuery.of(context).size.width * progress.clamp(0.0, 1.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.5),
+                    blurRadius: 4,
+                    offset: const Offset(0, 0),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -43,6 +43,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   bool _isPlaying = false;
   int _currentImageIndex = 0;
   bool _isInitializing = false;
+  bool _showFullCaption = false;
   
   // Animation controllers for like effect
   late AnimationController _likeAnimationController;
@@ -95,6 +96,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     if (_shouldReinitializeMedia(oldWidget)) {
       _cleanupCurrentController(oldWidget);
       _initializeMedia();
+    }
+
+    // Reset caption state if video changes
+    if (widget.video.id != oldWidget.video.id) {
+      _showFullCaption = false;
     }
   }
 
@@ -305,6 +311,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   void _handleFollowToggle() {
     // Toggle follow for the channel
     ref.read(channelsProvider.notifier).toggleFollowChannel(widget.video.channelId);
+  }
+
+  void _toggleCaptionExpansion() {
+    setState(() {
+      _showFullCaption = !_showFullCaption;
+    });
   }
 
   @override
@@ -701,6 +713,155 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
+  // Smart caption widget that shows truncated or full text
+  Widget _buildSmartCaption() {
+    if (widget.video.caption.isEmpty) return const SizedBox.shrink();
+
+    final captionStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 14,
+      height: 1.3,
+      shadows: [
+        Shadow(
+          color: Colors.black.withOpacity(0.7),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    );
+
+    final moreStyle = captionStyle.copyWith(
+      color: Colors.white.withOpacity(0.7),
+      fontWeight: FontWeight.w500,
+    );
+
+    // Check if caption is long enough to need truncation
+    final textPainter = TextPainter(
+      text: TextSpan(text: widget.video.caption, style: captionStyle),
+      maxLines: 2,
+      textDirection: TextDirection.ltr,
+    );
+    
+    textPainter.layout(maxWidth: MediaQuery.of(context).size.width - 120); // Account for side menu
+    final isTextTruncated = textPainter.didExceedMaxLines;
+
+    return GestureDetector(
+      onTap: isTextTruncated ? _toggleCaptionExpansion : null,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        child: _showFullCaption 
+          ? _buildExpandedCaption(captionStyle, moreStyle, isTextTruncated)
+          : _buildTruncatedCaption(captionStyle, moreStyle, isTextTruncated),
+      ),
+    );
+  }
+
+  Widget _buildExpandedCaption(TextStyle captionStyle, TextStyle moreStyle, bool isTextTruncated) {
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: widget.video.caption,
+            style: captionStyle,
+          ),
+          if (isTextTruncated)
+            TextSpan(
+              text: ' less',
+              style: moreStyle,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTruncatedCaption(TextStyle captionStyle, TextStyle moreStyle, bool isTextTruncated) {
+    if (!isTextTruncated) {
+      // Caption is short enough, show it fully
+      return Text(
+        widget.video.caption,
+        style: captionStyle,
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        
+        // Split the caption into words
+        final words = widget.video.caption.split(' ');
+        
+        if (words.length <= 3) {
+          // Too few words, just show as is
+          return Text(widget.video.caption, style: captionStyle);
+        }
+        
+        // Find maximum words that fit in first line
+        int maxWordsInFirstLine = 1;
+        
+        // Test adding words one by one until we exceed the line
+        for (int i = 1; i < words.length; i++) {
+          final testText = words.take(i + 1).join(' ');
+          
+          final testPainter = TextPainter(
+            text: TextSpan(text: testText, style: captionStyle),
+            maxLines: 1,
+            textDirection: TextDirection.ltr,
+          );
+          testPainter.layout(maxWidth: maxWidth);
+          
+          if (testPainter.didExceedMaxLines) {
+            // This would exceed, so the previous count was max
+            maxWordsInFirstLine = i;
+            break;
+          } else if (i == words.length - 1) {
+            // We reached the end without exceeding
+            maxWordsInFirstLine = i + 1;
+          }
+        }
+        
+        // Build first line with exact words that fit
+        final firstLineWords = words.take(maxWordsInFirstLine).toList();
+        final firstLineText = firstLineWords.join(' ');
+        
+        // Build second line with the NEXT words (ensuring continuity)
+        final remainingWords = words.skip(maxWordsInFirstLine).toList();
+        
+        // Take 2-3 words for second line to keep it shorter than first
+        final secondLineWordCount = remainingWords.length >= 3 ? 3 : remainingWords.length;
+        final secondLineWords = remainingWords.take(secondLineWordCount).toList();
+        final secondLineText = secondLineWords.join(' ');
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // First line - words that fit exactly
+            Text(
+              firstLineText,
+              style: captionStyle,
+              maxLines: 1,
+            ),
+            // Second line - immediate continuation
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: secondLineText,
+                    style: captionStyle,
+                  ),
+                  TextSpan(
+                    text: '... more',
+                    style: moreStyle,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // TikTok-style bottom content overlay
   Widget _buildBottomContentOverlay() {
     final channelsState = ref.watch(channelsProvider);
@@ -789,27 +950,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 8),
           
-          // Caption with expandable text
-          Text(
-            widget.video.caption,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              height: 1.3,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 2,
-                ),
-              ],
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
+          // Smart caption with truncation
+          _buildSmartCaption(),
           
           const SizedBox(height: 8),
           
-          // Tags (hashtags)
+          // Tags (hashtags) - show only first 3
           if (widget.video.tags.isNotEmpty)
             Wrap(
               spacing: 4,

@@ -18,7 +18,12 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class ChannelsFeedScreen extends ConsumerStatefulWidget {
-  const ChannelsFeedScreen({Key? key}) : super(key: key);
+  final Function(double)? onVideoProgressChanged;
+
+  const ChannelsFeedScreen({
+    Key? key,
+    this.onVideoProgressChanged,
+  }) : super(key: key);
 
   @override
   ConsumerState<ChannelsFeedScreen> createState() => ChannelsFeedScreenState();
@@ -77,14 +82,14 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
         if (_isScreenActive) {
-          _resumePlayback();
+          _startFreshPlayback();
         }
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
         _isAppInForeground = false;
-        _pauseAllPlayback();
+        _stopPlayback();
         break;
       case AppLifecycleState.hidden:
         break;
@@ -98,7 +103,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _isScreenActive = true;
     
     if (_isAppInForeground) {
-      _resumePlayback();
+      _startFreshPlayback();
       _startIntelligentPreloading();
       WakelockPlus.enable();
     }
@@ -109,15 +114,16 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     debugPrint('ChannelsFeedScreen: Screen became inactive');
     _isScreenActive = false;
-    _pauseAllPlayback();
+    _stopPlayback();
     WakelockPlus.disable();
   }
 
-  void _resumePlayback() {
+  void _startFreshPlayback() {
     if (!mounted || !_isScreenActive || !_isAppInForeground) return;
     
-    debugPrint('ChannelsFeedScreen: Resuming playback');
+    debugPrint('ChannelsFeedScreen: Starting fresh playback');
     
+    // Always start from the beginning for a fresh experience
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.seekTo(Duration.zero);
       _currentVideoController!.play();
@@ -134,11 +140,13 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     WakelockPlus.enable();
   }
 
-  void _pauseAllPlayback() {
-    debugPrint('ChannelsFeedScreen: Pausing all playback');
+  void _stopPlayback() {
+    debugPrint('ChannelsFeedScreen: Stopping playback');
     
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
+      // Seek to beginning for fresh start next time
+      _currentVideoController!.seekTo(Duration.zero);
     }
     
     // Stop music disc animation safely
@@ -147,6 +155,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     }
     
     _progressUpdateTimer?.cancel();
+    
+    // Reset progress for fresh start
+    _updateProgress(0.0);
   }
 
   void _initializeControllers() {
@@ -169,10 +180,19 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     // Update progress for images or fallback
     if (_currentVideoController == null || !_currentVideoController!.value.isInitialized) {
+      final progress = _progressController.value;
       setState(() {
-        _videoProgress = _progressController.value;
+        _videoProgress = progress;
       });
-      _progressNotifier.value = _progressController.value;
+      _progressNotifier.value = progress;
+      _updateProgress(progress);
+    }
+  }
+
+  void _updateProgress(double progress) {
+    // Call the callback to update the home screen progress indicator
+    if (widget.onVideoProgressChanged != null && _isScreenActive) {
+      widget.onVideoProgressChanged!(progress);
     }
   }
 
@@ -242,6 +262,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             });
             
             _progressNotifier.value = progress;
+            _updateProgress(progress);
           }
           
           // Trigger next batch preloading when halfway through
@@ -252,10 +273,12 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       } else {
         // For images or when video is not ready, use animation controller
         if (mounted) {
+          final progress = _progressController.value;
           setState(() {
-            _videoProgress = _progressController.value;
+            _videoProgress = progress;
           });
-          _progressNotifier.value = _progressController.value;
+          _progressNotifier.value = progress;
+          _updateProgress(progress);
         }
       }
     });
@@ -281,13 +304,14 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   void _onVideoControllerReady(VideoPlayerController controller) {
     if (!mounted || !_isScreenActive || !_isAppInForeground) return;
     
-    debugPrint('Video controller ready, setting up progress tracking');
+    debugPrint('Video controller ready, setting up fresh playback');
     
     setState(() {
       _currentVideoController = controller;
       _videoProgress = 0.0;
     });
-    
+
+    // Always start fresh from the beginning
     controller.seekTo(Duration.zero);
     _setupVideoProgressTracking();
     
@@ -318,6 +342,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     });
 
     _progressNotifier.value = 0.0;
+    _updateProgress(0.0);
 
     _progressUpdateTimer?.cancel();
     _progressController.reset();
@@ -356,7 +381,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _pageController.dispose();
     _progressNotifier.dispose();
     
-    _pauseAllPlayback();
+    _stopPlayback();
     _cacheService.dispose();
     
     WakelockPlus.disable();
@@ -404,12 +429,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               top: MediaQuery.of(context).padding.top + 60,
               left: 16,
               child: _buildCacheDebugInfo(),
-            ),
-          
-          // Inactive overlay
-          if (!_isScreenActive)
-            Positioned.fill(
-              child: _buildInactiveOverlay(),
             ),
         ],
       ),
@@ -755,33 +774,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildInactiveOverlay() {
-    return Container(
-      color: Colors.black.withOpacity(0.7),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.pause_circle_filled,
-              color: Colors.white,
-              size: 64,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Video Paused',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
