@@ -713,7 +713,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // Smart caption widget that shows truncated or full text
+  // Smart caption widget that shows truncated or full text with hashtags
   Widget _buildSmartCaption() {
     if (widget.video.caption.isEmpty) return const SizedBox.shrink();
 
@@ -735,128 +735,103 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       fontWeight: FontWeight.w500,
     );
 
-    // Check if caption is long enough to need truncation
-    final textPainter = TextPainter(
-      text: TextSpan(text: widget.video.caption, style: captionStyle),
-      maxLines: 2,
-      textDirection: TextDirection.ltr,
+    final hashtagStyle = captionStyle.copyWith(
+      fontWeight: FontWeight.w500,
     );
-    
-    textPainter.layout(maxWidth: MediaQuery.of(context).size.width - 120); // Account for side menu
-    final isTextTruncated = textPainter.didExceedMaxLines;
+
+    // Combine caption with hashtags on new line
+    String fullText = widget.video.caption;
+    if (widget.video.tags.isNotEmpty) {
+      final hashtags = widget.video.tags.map((tag) => '#$tag').join(' ');
+      fullText += '\n$hashtags';
+    }
 
     return GestureDetector(
-      onTap: isTextTruncated ? _toggleCaptionExpansion : null,
+      onTap: _toggleCaptionExpansion,
       child: AnimatedSize(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
         child: _showFullCaption 
-          ? _buildExpandedCaption(captionStyle, moreStyle, isTextTruncated)
-          : _buildTruncatedCaption(captionStyle, moreStyle, isTextTruncated),
+          ? _buildExpandedText(fullText, captionStyle, moreStyle)
+          : _buildTruncatedText(fullText, captionStyle, moreStyle),
       ),
     );
   }
 
-  Widget _buildExpandedCaption(TextStyle captionStyle, TextStyle moreStyle, bool isTextTruncated) {
+  Widget _buildExpandedText(String fullText, TextStyle captionStyle, TextStyle moreStyle) {
     return RichText(
       text: TextSpan(
         children: [
           TextSpan(
-            text: widget.video.caption,
+            text: fullText,
             style: captionStyle,
           ),
-          if (isTextTruncated)
-            TextSpan(
-              text: ' less',
-              style: moreStyle,
-            ),
+          TextSpan(
+            text: ' less',
+            style: moreStyle,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTruncatedCaption(TextStyle captionStyle, TextStyle moreStyle, bool isTextTruncated) {
-    if (!isTextTruncated) {
-      // Caption is short enough, show it fully
-      return Text(
-        widget.video.caption,
-        style: captionStyle,
-      );
-    }
-
+  Widget _buildTruncatedText(String fullText, TextStyle captionStyle, TextStyle moreStyle) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth;
         
-        // Split the caption into words
-        final words = widget.video.caption.split(' ');
+        // SIMPLE APPROACH: Use TextPainter to find exact character position
+        final textPainter = TextPainter(
+          text: TextSpan(text: fullText, style: captionStyle),
+          textDirection: TextDirection.ltr,
+          maxLines: 2,
+        );
+        textPainter.layout(maxWidth: maxWidth);
         
-        if (words.length <= 3) {
-          // Too few words, just show as is
-          return Text(widget.video.caption, style: captionStyle);
+        // If text doesn't exceed 2 lines, show it fully
+        if (!textPainter.didExceedMaxLines) {
+          return Text(fullText, style: captionStyle);
         }
         
-        // Find maximum words that fit in first line
-        int maxWordsInFirstLine = 1;
+        // Find where the text should be cut for 1.5 lines
+        // Get position at end of first line
+        final firstLineHeight = textPainter.preferredLineHeight;
+        final oneAndHalfLineHeight = firstLineHeight * 1.5;
         
-        // Test adding words one by one until we exceed the line
-        for (int i = 1; i < words.length; i++) {
-          final testText = words.take(i + 1).join(' ');
-          
-          final testPainter = TextPainter(
-            text: TextSpan(text: testText, style: captionStyle),
-            maxLines: 1,
-            textDirection: TextDirection.ltr,
-          );
-          testPainter.layout(maxWidth: maxWidth);
-          
-          if (testPainter.didExceedMaxLines) {
-            // This would exceed, so the previous count was max
-            maxWordsInFirstLine = i;
-            break;
-          } else if (i == words.length - 1) {
-            // We reached the end without exceeding
-            maxWordsInFirstLine = i + 1;
-          }
+        // Find the character position at 1.5 lines
+        final cutPosition = textPainter.getPositionForOffset(
+          Offset(maxWidth * 0.7, oneAndHalfLineHeight) // 70% of width at 1.5 line height
+        );
+        
+        var cutIndex = cutPosition.offset;
+        
+        // Find the last space before cut position to avoid cutting words
+        while (cutIndex > 0 && fullText[cutIndex] != ' ') {
+          cutIndex--;
         }
         
-        // Build first line with exact words that fit
-        final firstLineWords = words.take(maxWordsInFirstLine).toList();
-        final firstLineText = firstLineWords.join(' ');
+        // Ensure we have some text to show
+        if (cutIndex < 10) {
+          // If cut position is too early, find first space after 10 characters
+          cutIndex = fullText.indexOf(' ', 10);
+          if (cutIndex == -1) cutIndex = fullText.length ~/ 3;
+        }
         
-        // Build second line with the NEXT words (ensuring continuity)
-        final remainingWords = words.skip(maxWordsInFirstLine).toList();
+        final truncatedText = fullText.substring(0, cutIndex);
         
-        // Take 2-3 words for second line to keep it shorter than first
-        final secondLineWordCount = remainingWords.length >= 3 ? 3 : remainingWords.length;
-        final secondLineWords = remainingWords.take(secondLineWordCount).toList();
-        final secondLineText = secondLineWords.join(' ');
-        
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // First line - words that fit exactly
-            Text(
-              firstLineText,
-              style: captionStyle,
-              maxLines: 1,
-            ),
-            // Second line - immediate continuation
-            RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: secondLineText,
-                    style: captionStyle,
-                  ),
-                  TextSpan(
-                    text: '... more',
-                    style: moreStyle,
-                  ),
-                ],
+        return RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: truncatedText,
+                style: captionStyle,
               ),
-            ),
-          ],
+              TextSpan(
+                text: '... more',
+                style: moreStyle,
+              ),
+            ],
+          ),
         );
       },
     );
@@ -950,31 +925,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 8),
           
-          // Smart caption with truncation
+          // Smart caption with hashtags (combined)
           _buildSmartCaption(),
-          
-          const SizedBox(height: 8),
-          
-          // Tags (hashtags) - show only first 3
-          if (widget.video.tags.isNotEmpty)
-            Wrap(
-              spacing: 4,
-              runSpacing: 2,
-              children: widget.video.tags.take(3).map((tag) => Text(
-                '#$tag',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-              )).toList(),
-            ),
           
           const SizedBox(height: 12),
           
