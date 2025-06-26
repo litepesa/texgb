@@ -8,6 +8,7 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
+import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/constants.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -299,6 +300,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     if (mounted) {
       setState(() {});
     }
+  }
+
+  void _handleFollowToggle() {
+    // Toggle follow for the channel
+    ref.read(channelsProvider.notifier).toggleFollowChannel(widget.video.channelId);
   }
 
   @override
@@ -697,6 +703,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
 
   // TikTok-style bottom content overlay
   Widget _buildBottomContentOverlay() {
+    final channelsState = ref.watch(channelsProvider);
+    final isFollowing = channelsState.followedChannels.contains(widget.video.channelId);
+    
     return Positioned(
       bottom: 100, // Above bottom nav
       left: 16,
@@ -705,39 +714,73 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Username with follow button
+          // Channel name with verified badge and follow button
           Row(
             children: [
               Flexible(
-                child: Text(
-                  '@${widget.video.channelName}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 2,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        widget.video.channelName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 2,
+                            ),
+                          ],
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                    ),
+                    // Get channel info to check if verified
+                    FutureBuilder(
+                      future: ref.read(channelsProvider.notifier).getChannelById(widget.video.channelId),
+                      builder: (context, snapshot) {
+                        final channel = snapshot.data;
+                        if (channel?.isVerified == true) {
+                          return Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            child: const Icon(
+                              Icons.verified,
+                              color: Colors.blue,
+                              size: 16,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black,
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'Follow',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+              GestureDetector(
+                onTap: _handleFollowToggle,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white, width: 1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    isFollowing ? 'Following' : 'Follow',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),

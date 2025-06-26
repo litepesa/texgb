@@ -30,6 +30,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   // Core controllers
   final PageController _pageController = PageController();
   late AnimationController _progressController;
+  late AnimationController _musicDiscController; // Add music disc animation controller
   
   // Cache service
   final VideoCacheService _cacheService = VideoCacheService();
@@ -125,6 +126,11 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _setupVideoProgressTracking();
     _startIntelligentPreloading();
     
+    // Start music disc animation only if controller is initialized
+    if (_musicDiscController.isAnimating != true) {
+      _musicDiscController.repeat();
+    }
+    
     WakelockPlus.enable();
   }
 
@@ -135,6 +141,11 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _currentVideoController!.pause();
     }
     
+    // Stop music disc animation safely
+    if (_musicDiscController.isAnimating) {
+      _musicDiscController.stop();
+    }
+    
     _progressUpdateTimer?.cancel();
   }
 
@@ -142,6 +153,12 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _progressController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 15),
+    );
+    
+    // Initialize music disc rotation controller
+    _musicDiscController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8), // Slow, hypnotic rotation
     );
     
     _progressController.addListener(_onProgressControllerUpdate);
@@ -315,6 +332,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
 
     if (_isScreenActive && _isAppInForeground) {
       _startIntelligentPreloading();
+      // Restart music disc animation for new video - check if controller is ready
+      if (!_musicDiscController.isAnimating) {
+        _musicDiscController.repeat();
+      }
       WakelockPlus.enable();
     }
     
@@ -331,6 +352,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _cacheCleanupTimer?.cancel();
     
     _progressController.dispose();
+    _musicDiscController.dispose(); // Dispose music disc controller
     _pageController.dispose();
     _progressNotifier.dispose();
     
@@ -435,26 +457,25 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           Row(
             children: [
               _buildTopButton('Live', false),
-              const SizedBox(width: 12),
+              const SizedBox(width: 20),
               _buildTopButton('Following', false),
-              const SizedBox(width: 12),
+              const SizedBox(width: 20),
               _buildTopButton('For You', true), // Active state
             ],
           ),
           
-          // Search icon
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              CupertinoIcons.search,
-              color: Colors.white,
-              size: 20,
-            ),
+          // Search icon - clean and bold
+          Icon(
+            CupertinoIcons.search,
+            color: Colors.white,
+            size: 26,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.7),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
           ),
         ],
       ),
@@ -462,19 +483,19 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   Widget _buildTopButton(String text, bool isActive) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isActive ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: isActive ? Colors.black : Colors.white,
-          fontSize: 16,
-          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-        ),
+    return Text(
+      text,
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 17,
+        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+        shadows: [
+          Shadow(
+            color: Colors.black.withOpacity(0.7),
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
+        ],
       ),
     );
   }
@@ -487,18 +508,18 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         : null;
 
     return Positioned(
-      right: 12,
+      right: 4, // Much closer to edge
       bottom: 120, // Above bottom nav
       child: Column(
         children: [
-          // Profile avatar
+          // Profile avatar with red ring
           _buildRightMenuItem(
             child: Container(
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                border: Border.all(color: Colors.red, width: 2),
               ),
               child: CircleAvatar(
                 backgroundImage: currentVideo?.channelImage.isNotEmpty == true
@@ -513,6 +534,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
+                          fontSize: 14,
                         ),
                       )
                     : null,
@@ -521,72 +543,58 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             onTap: () => _navigateToChannelProfile(),
           ),
           
-          // Follow button
-          Container(
-            width: 20,
-            height: 20,
-            margin: const EdgeInsets.only(top: 4, bottom: 20),
-            decoration: const BoxDecoration(
-              color: Colors.red,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.add,
-              color: Colors.white,
-              size: 14,
-            ),
-          ),
+          const SizedBox(height: 10),
           
           // Like button
           _buildRightMenuItem(
             child: Icon(
               currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite_border,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
-              size: 32,
+              size: 26,
             ),
             label: _formatCount(currentVideo?.likes ?? 0),
             onTap: () => _likeCurrentVideo(currentVideo),
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           
           // Comment button
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.chat_bubble,
               color: Colors.white,
-              size: 32,
+              size: 26,
             ),
             label: _formatCount(currentVideo?.comments ?? 0),
             onTap: () => _showCommentsForCurrentVideo(currentVideo),
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           
           // Share button
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.paperplane,
               color: Colors.white,
-              size: 32,
+              size: 26,
             ),
             label: 'Share',
             onTap: () => _showShareOptions(),
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           
-          // More button (three dots)
+          // More button (three dots horizontal)
           _buildRightMenuItem(
             child: const Icon(
-              Icons.more_vert,
+              Icons.more_horiz,
               color: Colors.white,
-              size: 32,
+              size: 26,
             ),
             onTap: () => _showVideoOptionsMenu(),
           ),
           
-          const SizedBox(height: 40),
+          const SizedBox(height: 16),
           
           // Music disc (rotating)
           _buildMusicDisc(),
@@ -605,16 +613,16 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(4), // Reduced padding
             child: child,
           ),
           if (label != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 2), // Reduced spacing
             Text(
               label,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: 11, // Slightly smaller text
                 fontWeight: FontWeight.w500,
                 shadows: [
                   Shadow(
@@ -631,32 +639,78 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   Widget _buildMusicDisc() {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [
-            Colors.grey.shade300,
-            Colors.grey.shade600,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return AnimatedBuilder(
+      animation: _musicDiscController,
+      builder: (context, child) {
+        return Transform.rotate(
+          angle: _musicDiscController.value * 2 * 3.14159, // Full rotation
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  Colors.grey.shade300,
+                  Colors.grey.shade600,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              // Add animated ring border like TikTok
+              border: Border.all(
+                color: Colors.white.withOpacity(0.8),
+                width: 2,
+              ),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Outer rotating ring (dotted pattern like TikTok)
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.6),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                // Inner disc with music note
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.grey.shade400,
+                        Colors.grey.shade700,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.music_note,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
-      child: const Icon(
-        Icons.music_note,
-        color: Colors.white,
-        size: 24,
-      ),
+        );
+      },
     );
   }
 

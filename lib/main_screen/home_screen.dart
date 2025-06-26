@@ -544,8 +544,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
+      behavior: HitTestBehavior.translucent,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        // Expand the tap area while keeping the content centered
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -608,15 +610,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       centerTitle: true,
       iconTheme: IconThemeData(color: iconColor),
       title: _currentIndex == 1 || _currentIndex == 3
-          ? Text(
-              title,
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-                letterSpacing: -0.3,
-              ),
-            )
+          ? _currentIndex == 1
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00A884), Color(0xFF00C49A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00A884).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                )
+              : Text(
+                  title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    letterSpacing: -0.3,
+                  ),
+                )
           : RichText(
               text: TextSpan(
                 children: [

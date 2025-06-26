@@ -333,7 +333,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     return filters.join(',');
   }
 
-  // Enhanced Premium Loud Audio Processing with Adaptive Video Quality
+  // TEMPORARILY MODIFIED: Audio Processing Only (Video processing commented out)
   Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
@@ -344,54 +344,52 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       setState(() {
         _isOptimizing = true;
-        _optimizationStatus = 'Optimizing video...';
+        _optimizationStatus = 'Processing audio...';
         _optimizationProgress = 0.0;
       });
 
       setState(() {
-        _optimizationStatus = 'Analyzing video quality...';
+        _optimizationStatus = 'Enhancing audio quality...';
         _optimizationProgress = 0.3;
       });
 
-      // Use fixed CRF 23 and determine other optimal settings
-      int fixedCRF = _getFixedCRF(); // Always 23 - excellent for all content
-      String preset = _getOptimalPreset(info);
-      String profile = _getOptimalProfile(info);
-      String videoFilters = _buildVideoFilters(info);
-      
-      print('DEBUG: Using fixed CRF: $fixedCRF, Preset: $preset, Profile: $profile');
+      // TEMPORARY CHANGE: Only copy video without re-encoding, but enhance audio
+      print('DEBUG: Temporarily processing audio only - video copied as-is');
 
-      // Enhanced command with fixed CRF 23 and preserved audio processing
-      final enhancedCommand = '-y -i "${inputFile.path}" '
-          // Video encoding with fixed CRF 23 - excellent quality for all content
-          '-c:v libx264 '
-          '-crf $fixedCRF '                      // Fixed CRF 23 - high quality, works great
-          '-preset slow '                     // Adaptive preset for quality/speed balance
-          '-profile:v $profile '                 // Optimal profile for device compatibility
-          '-level 4.1 '                         // Ensures broad device compatibility
-          '-pix_fmt yuv420p '                    // Ensures compatibility with all players
-          '-g 30 '                               // Keyframe interval (2x framerate assumed)
-          '-keyint_min 15 '                      // Minimum keyframe interval
-          '-sc_threshold 40 '                    // Scene change detection threshold
-          '-refs 3 '                             // Reference frames for better compression
-          '-bf 3 '                               // B-frames for better compression
-          '-b_strategy 2 '                       // Optimal B-frame strategy
-          '-coder 1 '                            // CABAC entropy encoding
-          '-me_method hex '                      // Motion estimation method
-          '-subq 7 '                             // Subpixel motion estimation quality
-          '-cmp chroma '                         // Comparison function
-          '-partitions parti8x8+parti4x4+partp8x8+partb8x8 ' // Partition types
-          '-me_range 16 '                        // Motion estimation range
-          '-trellis 1 '                          // Trellis quantization
-          '-8x8dct 1 '                           // 8x8 DCT transform
-          '-fast-pskip 1 '                       // Fast P-skip
-          '-mixed-refs 1 '                       // Mixed references
-          '-wpredp 2 '                           // Weighted prediction for P-frames
-          '-aq-mode 1 '                          // Adaptive quantization mode
-          '-aq-strength 0.8 '                    // Adaptive quantization strength
-          // Video filters for enhancement (if any)
-          '${videoFilters.isNotEmpty ? '-vf "$videoFilters" ' : ''}'
-          // Premium loud audio - preserved exactly as original
+      // Simple command with video copy and audio processing only
+      final audioOnlyCommand = '-y -i "${inputFile.path}" '
+          // TEMPORARILY COMMENTED OUT: Video encoding
+          // '-c:v libx264 '
+          // '-crf $fixedCRF '
+          // '-preset slow '
+          // '-profile:v $profile '
+          // '-level 4.1 '
+          // '-pix_fmt yuv420p '
+          // '-g 30 '
+          // '-keyint_min 15 '
+          // '-sc_threshold 40 '
+          // '-refs 3 '
+          // '-bf 3 '
+          // '-b_strategy 2 '
+          // '-coder 1 '
+          // '-me_method hex '
+          // '-subq 7 '
+          // '-cmp chroma '
+          // '-partitions parti8x8+parti4x4+partp8x8+partb8x8 '
+          // '-me_range 16 '
+          // '-trellis 1 '
+          // '-8x8dct 1 '
+          // '-fast-pskip 1 '
+          // '-mixed-refs 1 '
+          // '-wpredp 2 '
+          // '-aq-mode 1 '
+          // '-aq-strength 0.8 '
+          // '${videoFilters.isNotEmpty ? '-vf "$videoFilters" ' : ''}'
+          
+          // TEMPORARY: Copy video stream without processing
+          '-c:v copy '
+          
+          // PRESERVED: Premium loud audio processing - exactly as original
           '-c:a aac '                    // AAC audio
           '-b:a 128k '                   // High quality audio
           '-ar 48000 '                   // 48kHz sample rate
@@ -400,10 +398,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           '-movflags +faststart '        // Optimize for streaming
           '-f mp4 "$outputPath"';
 
-      print('DEBUG: Enhanced FFmpeg command: ffmpeg $enhancedCommand');
+      print('DEBUG: TEMPORARY - Audio-only processing command: ffmpeg $audioOnlyCommand');
 
       setState(() {
-        _optimizationStatus = 'Encoding with enhanced quality...';
+        _optimizationStatus = 'Processing audio enhancement...';
         _optimizationProgress = 0.6;
       });
 
@@ -416,10 +414,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       // Execute with real progress tracking using async
       FFmpegKit.executeAsync(
-        enhancedCommand,
+        audioOnlyCommand,
         (session) async {
           // Completion callback - this is when processing actually finishes
-          print('DEBUG: Enhanced FFmpeg execution completed');
+          print('DEBUG: Audio-only processing completed');
           final returnCode = await session.getReturnCode();
           
           if (mounted) {
@@ -427,8 +425,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               _isOptimizing = false;
               _optimizationProgress = 1.0;
               _optimizationStatus = ReturnCode.isSuccess(returnCode) 
-                  ? 'Video optimized with enhanced quality!'
-                  : 'Optimization failed';
+                  ? 'Audio enhanced! (Video copied as-is)'
+                  : 'Audio processing failed';
             });
           }
           
@@ -456,7 +454,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             setState(() {
               _optimizationProgress = totalProgress.clamp(0.0, 1.0);
             });
-            print('DEBUG: Enhanced encoding progress: ${(totalProgress * 100).toStringAsFixed(1)}%');
+            print('DEBUG: Audio processing progress: ${(totalProgress * 100).toStringAsFixed(1)}%');
           }
         },
       );
@@ -469,17 +467,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       if (await outputFile.exists()) {
         final originalSizeMB = info.fileSizeMB;
         final newSizeMB = await outputFile.length() / (1024 * 1024);
-        final compressionRatio = ((originalSizeMB - newSizeMB) / originalSizeMB * 100);
         
-        print('DEBUG: Enhanced video optimization successful!');
+        print('DEBUG: Audio-only processing successful!');
         print('DEBUG: Original: ${originalSizeMB.toStringAsFixed(1)}MB → New: ${newSizeMB.toStringAsFixed(1)}MB');
-        print('DEBUG: Compression: ${compressionRatio.toStringAsFixed(1)}% smaller');
-        //print('DEBUG: Used CRF: $optimalCRF for optimal quality');
-        
-        // Validate quality hasn't degraded too much
-        if (compressionRatio > 95) {
-          print('DEBUG: Warning: Compression ratio very high, quality may be affected');
-        }
+        print('DEBUG: Video copied as-is, audio enhanced');
         
         // Hide processing status after a delay
         Future.delayed(const Duration(seconds: 3), () {
@@ -494,17 +485,17 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         return outputFile;
       }
       
-      print('DEBUG: Enhanced video optimization failed - output file not found');
+      print('DEBUG: Audio processing failed - output file not found');
       await _disableWakelock(); // Disable on failure
       return null;
       
     } catch (e) {
-      print('DEBUG: Enhanced video optimization error: $e');
+      print('DEBUG: Audio processing error: $e');
       if (mounted) {
         setState(() {
           _isOptimizing = false;
           _optimizationProgress = 0.0;
-          _optimizationStatus = 'Optimization failed';
+          _optimizationStatus = 'Audio processing failed';
         });
         
         // Hide error status after a delay
@@ -852,12 +843,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         File videoToUpload = _videoFile!;
         
         if (_videoInfo != null) {
-          print('DEBUG: Optimizing video before upload...');
-          final optimizedVideo = await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
+          print('DEBUG: Processing audio before upload...');
+          final processedVideo = await _optimizeVideoQualitySize(_videoFile!, _videoInfo!);
           
-          if (optimizedVideo != null) {
-            videoToUpload = optimizedVideo;
-            print('DEBUG: Using optimized video for upload');
+          if (processedVideo != null) {
+            videoToUpload = processedVideo;
+            print('DEBUG: Using audio-processed video for upload');
           } else {
             print('DEBUG: Using original video for upload');
           }
@@ -964,7 +955,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             TextButton(
               onPressed: (channelVideosState.isUploading || _isOptimizing) ? null : _submitForm,
               child: Text(
-                _isOptimizing ? 'Optimizing...' : (channelVideosState.isUploading ? 'Uploading...' : 'Post'),
+                _isOptimizing ? 'Processing...' : (channelVideosState.isUploading ? 'Uploading...' : 'Post'),
                 style: TextStyle(
                   color: (channelVideosState.isUploading || _isOptimizing) 
                       ? modernTheme.textSecondaryColor 
@@ -1103,7 +1094,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           Row(
                             children: [
                               Icon(
-                                Icons.settings,
+                                Icons.audiotrack,
                                 color: modernTheme.primaryColor,
                                 size: 20,
                               ),
@@ -1111,7 +1102,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                               Expanded(
                                 child: Text(
                                   _optimizationStatus.isEmpty 
-                                      ? 'Optimizing video...'
+                                      ? 'Processing audio...'
                                       : _optimizationStatus,
                                   style: TextStyle(
                                     color: modernTheme.textColor,
@@ -1223,7 +1214,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
                   ),
                   child: _isOptimizing
-                      ? const Text('Optimizing...')
+                      ? const Text('Processing Audio...')
                       : (channelVideosState.isUploading
                           ? const Text('Uploading...')
                           : const Text('Post Content')),
