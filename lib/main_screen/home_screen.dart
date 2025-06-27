@@ -11,9 +11,11 @@ import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
+import 'package:textgb/features/live/screens/go_live_screen';
+import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
-import 'package:textgb/main_screen/discover_screen.dart';
+import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
@@ -36,16 +38,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Chats',
     'Groups',
     '',         // Empty label for custom post button
-    'Discover',
-    'Profile'
+    'Status',
+    'Live'
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_text,
     Icons.group_outlined,
     Icons.add,  // This will be replaced with custom design
-    CupertinoIcons.compass,
-    Icons.person_outline
+    Icons.donut_large,
+    Icons.radio_button_checked
   ];
 
   @override
@@ -64,12 +66,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _onTabTapped(int index) {
-    // Handle special post button at index 2 - do nothing for now
-    if (index == 2) {
-      // TODO: Add functionality later
-      return;
-    }
-
     // Store previous index for navigation management
     _previousIndex = _currentIndex;
     
@@ -114,16 +110,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
-    final isProfileTab = _currentIndex == 4; // Profile tab at index 4
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isProfileTab,
+      extendBodyBehindAppBar: false,
       backgroundColor: _currentIndex == 0 ? modernTheme.surfaceColor : modernTheme.backgroundColor,
       
-      // Hide AppBar for profile tab only
-      appBar: isProfileTab ? null : _buildAppBar(modernTheme, isDarkMode),
+      appBar: _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
@@ -142,21 +136,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const GroupsTab(),
           ),
-          // Post tab (index 2) - This should never be shown as we handle tap directly
-          Container(
-            color: modernTheme.backgroundColor,
-            child: const Center(
-              child: Text('Post Tab - Not Implemented'),
-            ),
-          ),
-          // Discover tab (index 3)
+          // Go Live tab (index 2)
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const DiscoverScreen(),
+            child: const GoLiveScreen(),
           ),
-          // Profile tab (index 4)
-          const MyProfileScreen(),
+          // Status tab (index 3) - Use surfaceColor for seamless look with appbar
+          Container(
+            color: modernTheme.surfaceColor,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: const StatusOverviewScreen(),
+          ),
+          // Live tab (index 4)
+          Container(
+            color: modernTheme.backgroundColor,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: const LiveScreen(),
+          ),
         ],
       ),
       
@@ -204,7 +201,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildPostButton(ModernThemeExtension modernTheme) {
     return GestureDetector(
-      onTap: () => _onTabTapped(2), // This will do nothing for now
+      onTap: () => _onTabTapped(2), // Navigate to Go Live screen
       child: Container(
         width: 45,
         height: 32,
@@ -323,7 +320,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // For other tabs (Discover, Profile), no badge needed
+    // For other tabs (Go Live, Status, Live), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
 
@@ -462,22 +459,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats and Groups tabs only
+  // Show FAB on Chats, Groups, and Status tabs
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1;
+    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 3;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    // Use surfaceColor for chats tab (index 0) and discover tab (index 3) for seamless look
-    Color appBarColor;
-    if (_currentIndex == 0 || _currentIndex == 3) {
-      appBarColor = modernTheme.surfaceColor!;
-    } else {
-      appBarColor = modernTheme.backgroundColor!;
-    }
-
+    // Use surfaceColor for all tabs for consistency
     return AppBar(
-      backgroundColor: appBarColor,
+      backgroundColor: modernTheme.surfaceColor,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true, // Center the title
@@ -498,21 +488,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildAppBarTitle(ModernThemeExtension modernTheme) {
-    // Dynamic title based on current tab
-    if (_currentIndex == 3) {
-      // Discover tab
-      return Text(
-        'Discover',
-        style: TextStyle(
-          color: modernTheme.textColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 22,
-          letterSpacing: -0.3,
-        ),
-      );
-    }
-    
-    // Default WeiBao title for other tabs
+    // Always show WeiBao title consistently across all tabs
     return RichText(
       text: TextSpan(
         children: [
@@ -564,11 +540,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       position: PopupMenuPosition.under,
       offset: const Offset(0, 8),
       onSelected: (String value) {
-        if (value == 'post') {
+        if (value == 'profile') {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const CreatePostScreen(),
+              builder: (context) => const MyProfileScreen(),
             ),
           );
         } else if (value == 'wallet') {
@@ -582,7 +558,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       },
       itemBuilder: (BuildContext context) => [
         PopupMenuItem<String>(
-          value: 'post',
+          value: 'profile',
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -595,14 +571,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.add_box_outlined,
+                  Icons.person_outline,
                   color: modernTheme.primaryColor,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 16),
               Text(
-                'Post',
+                'My Profile',
                 style: TextStyle(
                   color: modernTheme.textColor,
                   fontSize: 15,
@@ -665,6 +641,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         elevation: 4,
         onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
         child: const Icon(Icons.group_add),
+      );
+    } else if (_currentIndex == 3) {
+      // Status tab - Create status FAB
+      return FloatingActionButton(
+        backgroundColor: modernTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        onPressed: () => Navigator.pushNamed(context, Constants.createStatusScreen),
+        child: const Icon(Icons.add),
       );
     }
     

@@ -7,7 +7,6 @@ import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/status/screens/status_viewer_screen.dart';
 import 'package:textgb/features/status/widgets/status_circle.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class StatusOverviewScreen extends ConsumerWidget {
@@ -21,48 +20,22 @@ class StatusOverviewScreen extends ConsumerWidget {
     final modernTheme = context.modernTheme;
 
     return Scaffold(
-      backgroundColor: modernTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: modernTheme.backgroundColor,
-        elevation: 0,
-        leading: AppBarBackButton(
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Updates',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
+      backgroundColor: modernTheme.surfaceColor, // Use surfaceColor to match seamless design
       body: RefreshIndicator(
         onRefresh: () async {
-          // Add refresh logic here
           ref.refresh(contactsStatusesStreamProvider);
           ref.refresh(myStatusesStreamProvider);
         },
         child: CustomScrollView(
           slivers: [
-            // My Status section
+            // My Status section - exactly like WhatsApp
             SliverToBoxAdapter(
-              child: _buildMyStatusCard(context, myStatusesAsyncValue, hasActiveStatus, modernTheme),
+              child: _buildMyStatusSection(context, myStatusesAsyncValue, hasActiveStatus, modernTheme),
             ),
 
-            // Recent updates header
-            SliverPadding(
-              padding: const EdgeInsets.only(top: 24, left: 16, right: 16),
-              sliver: SliverToBoxAdapter(
-                child: Text(
-                  "Recent Updates",
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+            // Recent updates header - exactly like WhatsApp
+            SliverToBoxAdapter(
+              child: _buildSectionHeader("Recent updates", modernTheme),
             ),
 
             // Contact Status List
@@ -114,92 +87,113 @@ class StatusOverviewScreen extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, Constants.createStatusScreen);
-        },
-        backgroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Icon(Icons.add, size: 28),
-      ),
     );
   }
 
-  Widget _buildMyStatusCard(
+  Widget _buildMyStatusSection(
     BuildContext context, 
     AsyncValue<List<StatusModel>> myStatusesAsyncValue, 
     bool hasActiveStatus,
     ModernThemeExtension modernTheme,
   ) {
-    return Card(
-      margin: const EdgeInsets.all(16),
-      elevation: 0,
+    return Container(
       color: modernTheme.surfaceColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          if (hasActiveStatus && myStatusesAsyncValue.hasValue && myStatusesAsyncValue.value!.isNotEmpty) {
-            Navigator.pushNamed(
-              context,
-              Constants.myStatusesScreen,
-            );
-          } else {
-            Navigator.pushNamed(context, Constants.createStatusScreen);
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              StatusCircle(
-                imageUrl: hasActiveStatus 
-                    ? myStatusesAsyncValue.value?.firstOrNull?.userImage ?? ''
-                    : '',
-                radius: 36,
-                hasStatus: hasActiveStatus,
-                isMine: true,
-                isViewed: false,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Your Status",
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      hasActiveStatus 
-                          ? "Tap to view your update" 
-                          : "Share what's on your mind",
-                      style: TextStyle(
-                        color: modernTheme.textSecondaryColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
+      child: Column(
+        children: [
+          // My status item
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Stack(
+              children: [
+                StatusCircle(
+                  imageUrl: hasActiveStatus 
+                      ? myStatusesAsyncValue.value?.firstOrNull?.userImage ?? ''
+                      : '',
+                  radius: 28,
+                  hasStatus: hasActiveStatus,
+                  isMine: true,
+                  isViewed: false,
                 ),
+                if (!hasActiveStatus)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: modernTheme.surfaceColor!,
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 12,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            title: Text(
+              "My status",
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
-              Icon(
-                Icons.chevron_right,
+            ),
+            subtitle: Text(
+              hasActiveStatus 
+                  ? "Tap to view your status" 
+                  : "Tap to add status update",
+              style: TextStyle(
                 color: modernTheme.textSecondaryColor,
-                size: 24,
+                fontSize: 14,
               ),
-            ],
+            ),
+            onTap: () {
+              if (hasActiveStatus && myStatusesAsyncValue.hasValue && myStatusesAsyncValue.value!.isNotEmpty) {
+                Navigator.pushNamed(
+                  context,
+                  Constants.myStatusesScreen,
+                );
+              } else {
+                Navigator.pushNamed(context, Constants.createStatusScreen);
+              }
+            },
           ),
-        ),
+          
+          // Divider
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: modernTheme.dividerColor,
+            indent: 72,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, ModernThemeExtension modernTheme) {
+    return Container(
+      color: modernTheme.surfaceColor,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: modernTheme.textSecondaryColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -210,15 +204,31 @@ class StatusOverviewScreen extends ConsumerWidget {
     String timeAgo,
     ModernThemeExtension modernTheme,
   ) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 0,
+    return Container(
       color: modernTheme.surfaceColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: StatusCircle(
+          imageUrl: userStatus.userImage,
+          radius: 28,
+          hasStatus: true,
+          isViewed: !userStatus.hasUnviewed,
+        ),
+        title: Text(
+          userStatus.userName,
+          style: TextStyle(
+            color: modernTheme.textColor,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          timeAgo,
+          style: TextStyle(
+            color: modernTheme.textSecondaryColor,
+            fontSize: 14,
+          ),
+        ),
         onTap: () {
           Navigator.push(
             context,
@@ -229,111 +239,46 @@ class StatusOverviewScreen extends ConsumerWidget {
             ),
           );
         },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              StatusCircle(
-                imageUrl: userStatus.userImage,
-                radius: 32,
-                hasStatus: true,
-                isViewed: !userStatus.hasUnviewed,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      userStatus.userName,
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      timeAgo,
-                      style: TextStyle(
-                        color: modernTheme.textSecondaryColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: !userStatus.hasUnviewed 
-                      ? modernTheme.backgroundColor
-                      : modernTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  !userStatus.hasUnviewed ? "Viewed" : "New",
-                  style: TextStyle(
-                    color: !userStatus.hasUnviewed 
-                        ? modernTheme.textSecondaryColor
-                        : modernTheme.primaryColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildEmptyState(ModernThemeExtension modernTheme) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.update_rounded,
-          size: 72,
-          color: modernTheme.textSecondaryColor!.withOpacity(0.3),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          "No updates yet",
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 48),
-          child: Text(
-            "Be the first to share an update with your contacts",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 15,
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.update_rounded,
+              size: 72,
+              color: modernTheme.textSecondaryColor!.withOpacity(0.3),
             ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        ElevatedButton(
-          onPressed: () {
-            // Handle create status
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: modernTheme.primaryColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 24),
+            Text(
+              "No recent updates",
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          ),
-          child: const Text("Create Update"),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48),
+              child: Text(
+                "Status updates from your contacts will appear here",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

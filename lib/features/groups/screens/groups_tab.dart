@@ -72,39 +72,58 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
     // Watch group chats stream
     final groupChatsAsync = ref.watch(groupChatStreamProvider);
     
-    return Column(
-      children: [
-        // Search bar
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search groups...',
-              prefixIcon: Icon(Icons.search, color: theme.textSecondaryColor),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: theme.borderColor!),
+    return Container(
+      color: theme.surfaceColor, // Use surfaceColor for entire background
+      child: Column(
+        children: [
+          // Search bar - WhatsApp style
+          Container(
+            color: theme.surfaceColor,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.backgroundColor,
+                borderRadius: BorderRadius.circular(25),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: theme.borderColor!),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search groups...',
+                  hintStyle: TextStyle(
+                    color: theme.textSecondaryColor,
+                    fontSize: 16,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: theme.textSecondaryColor,
+                    size: 22,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                style: TextStyle(
+                  color: theme.textColor,
+                  fontSize: 16,
+                ),
+                onChanged: _performSearch,
               ),
-              filled: true,
-              fillColor: theme.surfaceColor,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
             ),
-            onChanged: _performSearch,
           ),
-        ),
-        
-        // Main content
-        Expanded(
-          child: _searchController.text.isNotEmpty
-              ? _buildSearchResults()
-              : _buildGroupsContent(userGroupsAsync, groupChatsAsync),
-        ),
-      ],
+          
+          // Main content
+          Expanded(
+            child: Container(
+              color: theme.surfaceColor,
+              child: _searchController.text.isNotEmpty
+                  ? _buildSearchResults()
+                  : _buildGroupsContent(userGroupsAsync, groupChatsAsync),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -190,7 +209,7 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
               return int.parse(b.lastMessageTime).compareTo(int.parse(a.lastMessageTime));
             });
             
-            // Show a single unified list
+            // Show a single unified list - WhatsApp style
             return ListView.builder(
               padding: const EdgeInsets.only(bottom: 80),
               itemCount: allGroups.length,
@@ -240,40 +259,6 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
           style: TextStyle(color: context.modernTheme.textColor),
         ),
       ),
-    );
-  }
-  
-  // Helper method to build a group chat tile from a chat model
-  Widget _buildGroupChatTile(ChatModel chat) {
-    // Convert chat model to group model for display consistency
-    final group = GroupModel(
-      groupId: chat.id,
-      groupName: chat.contactName,
-      groupDescription: '',
-      groupImage: chat.contactImage,
-      creatorUID: '',
-      isPrivate: true,
-      editSettings: false,
-      approveMembers: false,
-      lockMessages: false,
-      requestToJoin: false,
-      // For group chats, we'll use empty members list since we don't have participants field
-      membersUIDs: const [],
-      adminsUIDs: const [],
-      awaitingApprovalUIDs: const [],
-      lastMessage: chat.lastMessage,
-      lastMessageSender: chat.lastMessageSender,
-      lastMessageTime: chat.lastMessageTime,
-      unreadCount: chat.unreadCount,
-      unreadCountByUser: Map<String, int>.from(chat.unreadCountByUser),
-      createdAt: '',
-    );
-    
-    return GroupTile(
-      group: group,
-      onTap: () {
-        _openGroupChat(chat);
-      },
     );
   }
 
@@ -334,82 +319,110 @@ class _GroupsTabState extends ConsumerState<GroupsTab> {
     }
   }
 
-  // Empty state widget
+  // Empty state widget - WhatsApp style
   Widget _buildEmptyState() {
     final theme = context.modernTheme;
     
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.group_outlined, size: 80, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            'No groups yet',
-            style: TextStyle(
-              color: theme.textColor,
-              fontSize: 18,
+    return Container(
+      color: theme.surfaceColor,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.group_outlined,
+              size: 80,
+              color: theme.textSecondaryColor!.withOpacity(0.5),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create a new group or join an existing one',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: theme.textSecondaryColor,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pushNamed(context, Constants.createGroupScreen);
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Create Group'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
+            const SizedBox(height: 24),
+            Text(
+              'No groups yet',
+              style: TextStyle(
+                color: theme.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48),
+              child: Text(
+                'Groups let you chat with multiple people at once. Create one to get started.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: theme.textSecondaryColor,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // Search results widget
+  // Search results widget - WhatsApp style
   Widget _buildSearchResults() {
     final theme = context.modernTheme;
     
     if (_isSearching) {
-      return const Center(child: CircularProgressIndicator());
+      return Container(
+        color: theme.surfaceColor,
+        child: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (_searchResults.isEmpty) {
-      return Center(
-        child: Text(
-          'No groups found',
-          style: TextStyle(color: theme.textColor),
+      return Container(
+        color: theme.surfaceColor,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.search_off,
+                size: 64,
+                color: theme.textSecondaryColor!.withOpacity(0.5),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No groups found',
+                style: TextStyle(
+                  color: theme.textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Try searching with different keywords',
+                style: TextStyle(
+                  color: theme.textSecondaryColor,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
-      itemCount: _searchResults.length,
-      itemBuilder: (context, index) {
-        final group = _searchResults[index];
-        return GroupTile(
-          group: group,
-          onTap: () {
-            // Open group
-            ref.read(groupProvider.notifier).openGroupChat(group, context);
-          },
-        );
-      },
+    return Container(
+      color: theme.surfaceColor,
+      child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: 80),
+        itemCount: _searchResults.length,
+        itemBuilder: (context, index) {
+          final group = _searchResults[index];
+          return GroupTile(
+            group: group,
+            onTap: () {
+              // Open group
+              ref.read(groupProvider.notifier).openGroupChat(group, context);
+            },
+          );
+        },
+      ),
     );
   }
 }
