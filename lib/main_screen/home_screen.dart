@@ -136,9 +136,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const GroupsTab(),
           ),
-          // Go Live tab (index 2)
+          // Go Live tab (index 2) - Use surfaceColor for seamless look
           Container(
-            color: modernTheme.backgroundColor,
+            color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const GoLiveScreen(),
           ),

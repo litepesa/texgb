@@ -40,7 +40,7 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
     final modernTheme = context.modernTheme;
     
     return Scaffold(
-      backgroundColor: modernTheme.backgroundColor,
+      backgroundColor: modernTheme.surfaceColor, // Changed from backgroundColor to surfaceColor
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
@@ -166,29 +166,24 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
     required ModernThemeExtension modernTheme,
     int maxLines = 1,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: modernTheme.dividerColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.3),
-        ),
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      style: TextStyle(
+        color: modernTheme.textColor,
+        fontSize: 16,
       ),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        style: TextStyle(
-          color: modernTheme.textColor,
-          fontSize: 16,
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color: modernTheme.textSecondaryColor,
         ),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: TextStyle(
-            color: modernTheme.textSecondaryColor,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.all(16),
-        ),
+        filled: true,
+        fillColor: modernTheme.backgroundColor,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        contentPadding: const EdgeInsets.all(16),
       ),
     );
   }
@@ -197,7 +192,7 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
+        color: modernTheme.backgroundColor, // Use backgroundColor for contrast against surfaceColor
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: modernTheme.dividerColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.3),
@@ -211,7 +206,7 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
           color: modernTheme.textColor,
           fontSize: 16,
         ),
-        dropdownColor: modernTheme.surfaceColor,
+        dropdownColor: modernTheme.backgroundColor, // Use backgroundColor for dropdown
         icon: Icon(
           Icons.keyboard_arrow_down,
           color: modernTheme.textSecondaryColor,
@@ -237,7 +232,7 @@ class _GoLiveScreenState extends ConsumerState<GoLiveScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
+        color: modernTheme.backgroundColor, // Use backgroundColor for contrast against surfaceColor
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: modernTheme.dividerColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.3),
