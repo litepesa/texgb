@@ -10,16 +10,33 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_post_screen.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
-import 'package:textgb/features/channels/screens/channel_comments_screen.dart';
 import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
 import 'package:textgb/features/channels/screens/channel_video_detail_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_screen.dart';
+import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
+import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
+import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+import 'package:textgb/features/groups/models/group_model.dart';
+import 'package:textgb/features/groups/screens/create_group_screen.dart';
+import 'package:textgb/features/groups/screens/group_chat_screen.dart';
+import 'package:textgb/features/groups/screens/group_information_screen.dart';
+import 'package:textgb/features/groups/screens/group_settings_screen.dart';
+import 'package:textgb/features/groups/screens/groups_tab.dart';
+import 'package:textgb/features/groups/screens/pending_requests_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
+import 'package:textgb/features/status/models/status_model.dart';
+import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/my_statuses_screen.dart';
+import 'package:textgb/features/status/screens/status_detail_screen.dart';
+import 'package:textgb/features/status/screens/status_overview_screen.dart';
+import 'package:textgb/features/status/screens/status_viewer_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
@@ -27,6 +44,10 @@ import 'package:textgb/models/user_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
+
+
+
+// Moments imports (NEW)
 
 
 // Create a route observer to monitor route changes
@@ -120,8 +141,73 @@ class AppRoot extends ConsumerWidget {
           Constants.myProfileScreen: (context) => const MyProfileScreen(),
           Constants.editProfileScreen: (context) => const EditProfileScreen(),
           Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
+          Constants.contactsScreen: (context) => const ContactsScreen(),
+          Constants.addContactScreen: (context) => const AddContactScreen(),
+          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
+          Constants.contactProfileScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
+            return ContactProfileScreen(contact: args);
+          },
           
-          // Channels routes 
+          // Chat screen route
+          Constants.chatScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return ChatScreen(
+              chatId: args['chatId'] as String,
+              contact: args['contact'] as UserModel,
+              isGroup: args['isGroup'] as bool? ?? false,
+              group: args['group'] as GroupModel?,
+            );
+          },
+          
+          // Private Group routes
+          Constants.groupsScreen: (context) => const GroupsTab(),
+          Constants.createGroupScreen: (context) => const CreateGroupScreen(),
+          Constants.groupInformationScreen: (context) {
+            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
+            return GroupInformationScreen(group: group);
+          },
+          Constants.groupSettingsScreen: (context) {
+            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
+            return GroupSettingsScreen(group: group);
+          },
+          Constants.pendingRequestsScreen: (context) {
+            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
+            return PendingRequestsScreen(group: group);
+          },
+          Constants.groupChatScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return GroupChatScreen(
+              groupId: args['groupId'] as String,
+              group: args['group'] as GroupModel,
+            );
+          },
+
+          // Public Groups routes (NEW)
+
+          
+          // Status routes
+          Constants.statusOverviewScreen: (context) => const StatusOverviewScreen(),
+          Constants.createStatusScreen: (context) => const CreateStatusScreen(),
+          Constants.myStatusesScreen: (context) => const MyStatusesScreen(),
+          Constants.statusViewerScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as UserStatusSummary;
+            return StatusViewerScreen(userStatus: args);
+          },
+          Constants.statusDetailScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as StatusModel;
+            return StatusDetailScreen(status: args);
+          },
+
+          // Moments routes (NEW)
+
+          Constants.myMomentsScreen: (context) => const Scaffold(
+            body: Center(
+              child: Text('My Moments Screen - To be implemented'),
+            ),
+          ), // Placeholder for MyMomentsScreen
+          
+          // Channels routes (replacing Marketplace routes)
           Constants.channelsFeedScreen: (context) => const ChannelsFeedScreen(),
           Constants.createChannelScreen: (context) => const CreateChannelScreen(),
           Constants.myChannelScreen: (context) => const MyChannelScreen(),
@@ -130,10 +216,7 @@ class AppRoot extends ConsumerWidget {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
             return ChannelVideoDetailScreen(videoId: videoId);
           },
-          Constants.channelCommentsScreen: (context) {
-            final videoId = ModalRoute.of(context)!.settings.arguments as String;
-            return ChannelCommentsScreen(videoId: videoId);
-          },
+          
           Constants.channelProfileScreen: (context) {
             final channelId = ModalRoute.of(context)!.settings.arguments as String;
             return ChannelProfileScreen(channelId: channelId);
