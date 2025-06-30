@@ -230,44 +230,50 @@ class Authentication extends _$Authentication {
 
   // Save user data to firestore
   Future<void> saveUserDataToFireStore({
-    required UserModel userModel,
-    required File? fileImage,
-    required Function onSuccess,
-    required Function onFail,
-  }) async {
-    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+  required UserModel userModel,
+  required File? fileImage,
+  required Function onSuccess,
+  required Function onFail,
+}) async {
+  state = AsyncValue.data(const AuthenticationState(isLoading: true));
 
-    try {
-      if (fileImage != null) {
-        // Upload image to storage
-        String imageUrl = await storeFileToStorage(
-            file: fileImage,
-            reference: '${Constants.userImages}/${userModel.uid}');
+  try {
+    // Start with the original user model
+    UserModel updatedUserModel = userModel;
 
-        userModel.image = imageUrl;
-      }
+    // Upload image if provided and update the model
+    if (fileImage != null) {
+      String imageUrl = await storeFileToStorage(
+          file: fileImage,
+          reference: '${Constants.userImages}/${userModel.uid}');
 
-      userModel.lastSeen = DateTime.now().microsecondsSinceEpoch.toString();
-      userModel.createdAt = DateTime.now().microsecondsSinceEpoch.toString();
-
-      // Save user data to firestore
-      await _firestore
-          .collection(Constants.users)
-          .doc(userModel.uid)
-          .set(userModel.toMap());
-
-      state = AsyncValue.data(AuthenticationState(
-        isSuccessful: true,
-        userModel: userModel,
-        uid: userModel.uid,
-      ));
-      
-      onSuccess();
-    } on FirebaseException catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
-      onFail(e.toString());
+      updatedUserModel = updatedUserModel.copyWith(image: imageUrl);
     }
+
+    // Update timestamps - create final model with all updates
+    final finalUserModel = updatedUserModel.copyWith(
+      lastSeen: DateTime.now().microsecondsSinceEpoch.toString(),
+      createdAt: DateTime.now().microsecondsSinceEpoch.toString(),
+    );
+
+    // Save user data to firestore
+    await _firestore
+        .collection(Constants.users)
+        .doc(finalUserModel.uid)
+        .set(finalUserModel.toMap());
+
+    state = AsyncValue.data(AuthenticationState(
+      isSuccessful: true,
+      userModel: finalUserModel,
+      uid: finalUserModel.uid,
+    ));
+    
+    onSuccess();
+  } on FirebaseException catch (e) {
+    state = AsyncValue.error(e, StackTrace.current);
+    onFail(e.toString());
   }
+}
 
   // Get user stream
   Stream<DocumentSnapshot> userStream({required String userID}) {

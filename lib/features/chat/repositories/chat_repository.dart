@@ -37,6 +37,20 @@ abstract class IChatRepository {
   Future<void> togglePinChat(String chatId);
   Future<void> deleteChat(String chatId);
   String generateChatId(String userId, String contactId);
+  
+  // New methods
+  Future<void> deleteMessageForEveryone({required String chatId, required String messageId});
+  Future<void> markMessageAsDelivered({required String chatId, required String messageId});
+  Future<void> sendGroupMessage({
+    required String chatId,
+    required String message,
+    required MessageEnum messageType,
+    required UserModel senderUser,
+    String? repliedMessage,
+    String? repliedTo,
+    MessageEnum? repliedMessageType,
+    File? file,
+  });
 }
 
 // Privacy service for message permission checking
@@ -133,6 +147,12 @@ class FirebaseChatRepository implements IChatRepository {
   }) : _firestore = firestore,
        _auth = auth,
        _privacyService = MessagePrivacyService(firestore: firestore, auth: auth);
+
+  // Getter for firestore (needed by GroupSecurityService)
+  FirebaseFirestore get firestore => _firestore;
+  
+  // Getter for auth (needed by GroupSecurityService)
+  FirebaseAuth get auth => _auth;
 
   @override
   Stream<List<ChatModel>> getChats() {
@@ -315,6 +335,82 @@ class FirebaseChatRepository implements IChatRepository {
   }
 
   @override
+  Future<void> sendGroupMessage({
+    required String chatId,
+    required String message,
+    required MessageEnum messageType,
+    required UserModel senderUser,
+    String? repliedMessage,
+    String? repliedTo,
+    MessageEnum? repliedMessageType,
+    File? file,
+  }) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Generate message ID and timestamp
+      final messageId = const Uuid().v4();
+      final timeSent = DateTime.now().millisecondsSinceEpoch.toString();
+
+      // Create message model
+      var messageModel = MessageModel(
+        messageId: messageId,
+        senderUID: currentUser.uid,
+        senderName: senderUser.name,
+        senderImage: senderUser.image,
+        message: message,
+        messageType: messageType,
+        timeSent: timeSent,
+        messageStatus: MessageStatus.sending,
+        repliedMessage: repliedMessage,
+        repliedTo: repliedTo,
+        repliedMessageType: repliedMessageType,
+      );
+
+      // Upload file if present
+      if (file != null && messageType.isMedia) {
+        final fileRef = '${Constants.chatFiles}/$chatId/$messageId';
+        String fileUrl = await storeFileToStorage(file: file, reference: fileRef);
+        messageModel = messageModel.copyWith(message: fileUrl);
+        debugPrint("Uploaded file: $fileUrl");
+      }
+
+      // Use transaction for atomicity
+      await _firestore.runTransaction((transaction) async {
+        // Get chat document
+        final chatDoc = await transaction.get(_firestore.collection(Constants.chats).doc(chatId));
+        
+        if (chatDoc.exists) {
+          // Update existing group chat
+          transaction.update(_firestore.collection(Constants.chats).doc(chatId), {
+            Constants.lastMessage: message,
+            Constants.messageType: messageType.name,
+            Constants.timeSent: timeSent,
+            'lastMessageSender': currentUser.uid,
+          });
+        }
+
+        // Update message status and save
+        messageModel = messageModel.copyWith(messageStatus: MessageStatus.sent);
+        
+        transaction.set(
+          _firestore.collection(Constants.chats).doc(chatId).collection(Constants.messages).doc(messageId),
+          messageModel.toMap(),
+        );
+      });
+      
+      debugPrint("Group message sent successfully");
+      
+    } catch (e) {
+      debugPrint("Error sending group message: $e");
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> resetUnreadCounter(String chatId) async {
     try {
       final currentUser = _auth.currentUser;
@@ -378,6 +474,41 @@ class FirebaseChatRepository implements IChatRepository {
   }
 
   @override
+  Future<void> markMessageAsDelivered({required String chatId, required String messageId}) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      final messageDoc = await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .get();
+          
+      if (messageDoc.exists) {
+        final senderUID = messageDoc.data()?['senderUID'] as String?;
+        final currentStatus = messageDoc.data()?['messageStatus'] as String?;
+        
+        // Only update if message is not from current user and status is 'sent'
+        if (senderUID != currentUser.uid && currentStatus == MessageStatus.sent.name) {
+          await _firestore
+              .collection(Constants.chats)
+              .doc(chatId)
+              .collection(Constants.messages)
+              .doc(messageId)
+              .update({
+                'messageStatus': MessageStatus.delivered.name,
+              });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error marking message as delivered: $e');
+      // Don't rethrow for delivery status updates
+    }
+  }
+
+  @override
   Future<void> deleteMessage({required String chatId, required String messageId}) async {
     try {
       final currentUser = _auth.currentUser;
@@ -406,6 +537,55 @@ class FirebaseChatRepository implements IChatRepository {
       }
     } catch (e) {
       debugPrint('Error deleting message: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteMessageForEveryone({required String chatId, required String messageId}) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+
+      final messageDoc = await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .get();
+
+      if (messageDoc.exists) {
+        // Check if the current user is the sender
+        final senderUID = messageDoc.data()?['senderUID'] as String?;
+        if (senderUID != currentUser.uid) {
+          throw Exception('You can only delete your own messages for everyone');
+        }
+        
+        await _firestore
+            .collection(Constants.chats)
+            .doc(chatId)
+            .collection(Constants.messages)
+            .doc(messageId)
+            .update({
+              'isDeletedForEveryone': true,
+              'message': 'This message was deleted',
+              'deletedAt': DateTime.now().millisecondsSinceEpoch.toString(),
+            });
+            
+        // Update chat's last message if this was the latest
+        final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
+        if (chatDoc.exists) {
+          final lastMessage = chatDoc.data()?[Constants.lastMessage] as String?;
+          final messageContent = messageDoc.data()?[Constants.message] as String?;
+          if (lastMessage == messageContent) {
+            await _firestore.collection(Constants.chats).doc(chatId).update({
+              Constants.lastMessage: 'This message was deleted',
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error deleting message for everyone: $e');
       rethrow;
     }
   }

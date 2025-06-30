@@ -20,10 +20,12 @@ class ChatState {
   final List<MessageModel> messages;
   final String? currentChatId;
   final UserModel? currentChatContact;
+  final List<UserModel> currentGroupMembers;
   final MessageModel? replyingTo;
   final MessageModel? editingMessage;
   final String? error;
   final Map<String, bool> loadingStates; // Track specific operation loading states
+  final bool isGroupChat;
 
   const ChatState({
     this.isLoading = false,
@@ -31,10 +33,12 @@ class ChatState {
     this.messages = const [],
     this.currentChatId,
     this.currentChatContact,
+    this.currentGroupMembers = const [],
     this.replyingTo,
     this.editingMessage,
     this.error,
     this.loadingStates = const {},
+    this.isGroupChat = false,
   });
 
   ChatState copyWith({
@@ -43,10 +47,12 @@ class ChatState {
     List<MessageModel>? messages,
     String? currentChatId,
     UserModel? currentChatContact,
+    List<UserModel>? currentGroupMembers,
     MessageModel? replyingTo,
     MessageModel? editingMessage,
     String? error,
     Map<String, bool>? loadingStates,
+    bool? isGroupChat,
   }) {
     return ChatState(
       isLoading: isLoading ?? this.isLoading,
@@ -54,10 +60,12 @@ class ChatState {
       messages: messages ?? this.messages,
       currentChatId: currentChatId ?? this.currentChatId,
       currentChatContact: currentChatContact ?? this.currentChatContact,
+      currentGroupMembers: currentGroupMembers ?? this.currentGroupMembers,
       replyingTo: replyingTo ?? this.replyingTo,
       editingMessage: editingMessage ?? this.editingMessage,
       error: error,
       loadingStates: loadingStates ?? this.loadingStates,
+      isGroupChat: isGroupChat ?? this.isGroupChat,
     );
   }
 
@@ -118,12 +126,16 @@ class ChatNotifier extends _$ChatNotifier {
     ref.listen(currentUserProvider, (previous, next) {
       if (next != null && state.value?.currentChatId != null) {
         // Refresh current chat if user changes
-        openChat(state.value!.currentChatId!, state.value!.currentChatContact!);
+        if (state.value!.isGroupChat) {
+          openGroupChat(state.value!.currentChatId!, state.value!.currentGroupMembers);
+        } else if (state.value!.currentChatContact != null) {
+          openChat(state.value!.currentChatId!, state.value!.currentChatContact!);
+        }
       }
     });
   }
 
-  // Open a chat and load its messages
+  // Open a direct chat and load its messages
   Future<void> openChat(String chatId, UserModel contact) async {
     if (!state.hasValue) return;
 
@@ -131,8 +143,10 @@ class ChatNotifier extends _$ChatNotifier {
       isLoading: true,
       currentChatId: chatId,
       currentChatContact: contact,
+      currentGroupMembers: [],
       messages: [],
       error: null,
+      isGroupChat: false,
     ));
     
     try {
@@ -151,12 +165,42 @@ class ChatNotifier extends _$ChatNotifier {
     }
   }
 
+  // Open a group chat and load its messages
+  Future<void> openGroupChat(String chatId, List<UserModel> members) async {
+    if (!state.hasValue) return;
+
+    state = AsyncValue.data(state.value!.copyWith(
+      isLoading: true,
+      currentChatId: chatId,
+      currentChatContact: null,
+      currentGroupMembers: members,
+      messages: [],
+      error: null,
+      isGroupChat: true,
+    ));
+    
+    try {
+      // Mark messages as delivered when opening chat
+      await _chatRepository.markChatAsDelivered(chatId);
+      
+      // Reset unread counter
+      await _chatRepository.resetUnreadCounter(chatId);
+      
+      state = AsyncValue.data(state.value!.copyWith(isLoading: false));
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: 'Error opening group chat: $e',
+      ));
+    }
+  }
+
   // Send a text message with privacy validation
   Future<void> sendTextMessage(String message) async {
     if (message.trim().isEmpty || !state.hasValue) return;
     
     final currentState = state.value!;
-    if (currentState.currentChatId == null || currentState.currentChatContact == null) {
+    if (currentState.currentChatId == null) {
       _setError('No chat selected');
       return;
     }
@@ -168,7 +212,6 @@ class ChatNotifier extends _$ChatNotifier {
     }
     
     final chatId = currentState.currentChatId!;
-    final contact = currentState.currentChatContact!;
     final replyingTo = currentState.replyingTo;
     final editingMessage = currentState.editingMessage;
     
@@ -188,18 +231,37 @@ class ChatNotifier extends _$ChatNotifier {
           editingMessage: null,
         ).withLoadingState('sendMessage', false));
       } else {
-        // Send new message
-        await _chatRepository.sendMessage(
-          chatId: chatId,
-          receiverUID: contact.uid,
-          message: message,
-          messageType: MessageEnum.text,
-          senderUser: currentUser,
-          receiverUser: contact,
-          repliedMessage: replyingTo?.message,
-          repliedTo: replyingTo?.senderUID,
-          repliedMessageType: replyingTo?.messageType,
-        );
+        if (currentState.isGroupChat) {
+          // Send group message
+          await _chatRepository.sendGroupMessage(
+            chatId: chatId,
+            message: message,
+            messageType: MessageEnum.text,
+            senderUser: currentUser,
+            repliedMessage: replyingTo?.message,
+            repliedTo: replyingTo?.senderUID,
+            repliedMessageType: replyingTo?.messageType,
+          );
+        } else {
+          // Send direct message
+          final contact = currentState.currentChatContact;
+          if (contact == null) {
+            _setError('No contact selected');
+            return;
+          }
+          
+          await _chatRepository.sendMessage(
+            chatId: chatId,
+            receiverUID: contact.uid,
+            message: message,
+            messageType: MessageEnum.text,
+            senderUser: currentUser,
+            receiverUser: contact,
+            repliedMessage: replyingTo?.message,
+            repliedTo: replyingTo?.senderUID,
+            repliedMessageType: replyingTo?.messageType,
+          );
+        }
         
         // Clear reply state
         state = AsyncValue.data(state.value!.copyWith(
@@ -222,7 +284,7 @@ class ChatNotifier extends _$ChatNotifier {
     if (!state.hasValue) return;
     
     final currentState = state.value!;
-    if (currentState.currentChatId == null || currentState.currentChatContact == null) {
+    if (currentState.currentChatId == null) {
       _setError('No chat selected');
       return;
     }
@@ -234,24 +296,44 @@ class ChatNotifier extends _$ChatNotifier {
     }
     
     final chatId = currentState.currentChatId!;
-    final contact = currentState.currentChatContact!;
     final replyingTo = currentState.replyingTo;
     
     state = AsyncValue.data(currentState.withLoadingState('sendMedia', true));
     
     try {
-      await _chatRepository.sendMessage(
-        chatId: chatId,
-        receiverUID: contact.uid,
-        message: caption ?? '',
-        messageType: messageType,
-        senderUser: currentUser,
-        receiverUser: contact,
-        repliedMessage: replyingTo?.message,
-        repliedTo: replyingTo?.senderUID,
-        repliedMessageType: replyingTo?.messageType,
-        file: file,
-      );
+      if (currentState.isGroupChat) {
+        // Send group media message
+        await _chatRepository.sendGroupMessage(
+          chatId: chatId,
+          message: caption ?? '',
+          messageType: messageType,
+          senderUser: currentUser,
+          repliedMessage: replyingTo?.message,
+          repliedTo: replyingTo?.senderUID,
+          repliedMessageType: replyingTo?.messageType,
+          file: file,
+        );
+      } else {
+        // Send direct media message
+        final contact = currentState.currentChatContact;
+        if (contact == null) {
+          _setError('No contact selected');
+          return;
+        }
+        
+        await _chatRepository.sendMessage(
+          chatId: chatId,
+          receiverUID: contact.uid,
+          message: caption ?? '',
+          messageType: messageType,
+          senderUser: currentUser,
+          receiverUser: contact,
+          repliedMessage: replyingTo?.message,
+          repliedTo: replyingTo?.senderUID,
+          repliedMessageType: replyingTo?.messageType,
+          file: file,
+        );
+      }
       
       // Clear reply state
       state = AsyncValue.data(state.value!.copyWith(
@@ -261,6 +343,116 @@ class ChatNotifier extends _$ChatNotifier {
       state = AsyncValue.data(state.value!.copyWith(
         error: e.toString(),
       ).withLoadingState('sendMedia', false));
+    }
+  }
+
+  // Send group message
+  Future<void> sendGroupMessage({
+    required String message,
+    required MessageEnum messageType,
+  }) async {
+    if (message.trim().isEmpty || !state.hasValue) return;
+    
+    final currentState = state.value!;
+    if (currentState.currentChatId == null) {
+      _setError('No chat selected');
+      return;
+    }
+    
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      _setError('User not authenticated');
+      return;
+    }
+    
+    final chatId = currentState.currentChatId!;
+    final replyingTo = currentState.replyingTo;
+    final editingMessage = currentState.editingMessage;
+    
+    state = AsyncValue.data(currentState.withLoadingState('sendGroupMessage', true));
+    
+    try {
+      if (editingMessage != null) {
+        // Edit existing message
+        await _chatRepository.editMessage(
+          chatId: chatId,
+          messageId: editingMessage.messageId,
+          newMessage: message,
+        );
+        
+        // Clear edit state
+        state = AsyncValue.data(state.value!.copyWith(
+          editingMessage: null,
+        ).withLoadingState('sendGroupMessage', false));
+      } else {
+        // Send new group message
+        await _chatRepository.sendGroupMessage(
+          chatId: chatId,
+          message: message,
+          messageType: messageType,
+          senderUser: currentUser,
+          repliedMessage: replyingTo?.message,
+          repliedTo: replyingTo?.senderUID,
+          repliedMessageType: replyingTo?.messageType,
+        );
+        
+        // Clear reply state
+        state = AsyncValue.data(state.value!.copyWith(
+          replyingTo: null,
+        ).withLoadingState('sendGroupMessage', false));
+      }
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        error: e.toString(),
+      ).withLoadingState('sendGroupMessage', false));
+    }
+  }
+
+  // Send group media message
+  Future<void> sendGroupMediaMessage({
+    required File file,
+    required MessageEnum messageType,
+    String? caption,
+  }) async {
+    if (!state.hasValue) return;
+    
+    final currentState = state.value!;
+    if (currentState.currentChatId == null) {
+      _setError('No chat selected');
+      return;
+    }
+    
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      _setError('User not authenticated');
+      return;
+    }
+    
+    final chatId = currentState.currentChatId!;
+    final replyingTo = currentState.replyingTo;
+    
+    state = AsyncValue.data(currentState.withLoadingState('sendGroupMedia', true));
+    
+    try {
+      await _chatRepository.sendGroupMessage(
+        chatId: chatId,
+        message: caption ?? '',
+        messageType: messageType,
+        senderUser: currentUser,
+        repliedMessage: replyingTo?.message,
+        repliedTo: replyingTo?.senderUID,
+        repliedMessageType: replyingTo?.messageType,
+        file: file,
+      );
+      
+      // Clear reply state
+      state = AsyncValue.data(state.value!.copyWith(
+        replyingTo: null,
+      ).withLoadingState('sendGroupMedia', false));
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        error: e.toString(),
+      ).withLoadingState('sendGroupMedia', false));
     }
   }
 
@@ -315,6 +507,41 @@ class ChatNotifier extends _$ChatNotifier {
       state = AsyncValue.data(state.value!.copyWith(
         error: 'Error deleting message: $e',
       ).withLoadingState('deleteMessage', false));
+    }
+  }
+
+  // Delete message for everyone
+  Future<void> deleteMessageForEveryone(String messageId) async {
+    if (!state.hasValue || state.value!.currentChatId == null) return;
+    
+    state = AsyncValue.data(state.value!.withLoadingState('deleteMessageForEveryone', true));
+    
+    try {
+      await _chatRepository.deleteMessageForEveryone(
+        chatId: state.value!.currentChatId!,
+        messageId: messageId,
+      );
+      
+      state = AsyncValue.data(state.value!.withLoadingState('deleteMessageForEveryone', false));
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        error: 'Error deleting message for everyone: $e',
+      ).withLoadingState('deleteMessageForEveryone', false));
+    }
+  }
+
+  // Mark message as delivered
+  Future<void> markMessageAsDelivered(String messageId) async {
+    if (!state.hasValue || state.value!.currentChatId == null) return;
+    
+    try {
+      await _chatRepository.markMessageAsDelivered(
+        chatId: state.value!.currentChatId!,
+        messageId: messageId,
+      );
+    } catch (e) {
+      // Silently fail for delivery status updates
+      debugPrint('Error marking message as delivered: $e');
     }
   }
   
@@ -377,7 +604,9 @@ class ChatNotifier extends _$ChatNotifier {
         state = AsyncValue.data(state.value!.copyWith(
           currentChatId: null,
           currentChatContact: null,
+          currentGroupMembers: [],
           messages: [],
+          isGroupChat: false,
         ).withLoadingState('deleteChat', false));
       } else {
         state = AsyncValue.data(state.value!.withLoadingState('deleteChat', false));
