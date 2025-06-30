@@ -106,6 +106,8 @@ class GroupModel {
     }
   }
 
+  get name => null;
+
   Map<String, dynamic> toMap() {
     return {
       Constants.groupId: groupId,

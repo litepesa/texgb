@@ -1,6 +1,7 @@
 // lib/features/groups/screens/group_chat_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
@@ -10,6 +11,8 @@ import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/chat_input.dart';
 import 'package:textgb/features/chat/widgets/message_bubble.dart';
+import 'package:textgb/features/chat/widgets/swipe_to_reply.dart';
+import 'package:textgb/features/chat/widgets/attachment_picker.dart';
 import 'package:textgb/features/chat/widgets/reaction_picker.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/features/groups/providers/group_provider.dart';
@@ -35,16 +38,26 @@ class GroupChatScreen extends ConsumerStatefulWidget {
 }
 
 class _GroupChatScreenState extends ConsumerState<GroupChatScreen> 
-    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
   
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isAttachmentVisible = false;
+  
+  // Modern UI state
+  bool _isAttachmentPickerVisible = false;
+  bool _showScrollToBottom = false;
+  bool _isRecording = false;
+  
+  // Permissions state
   bool _canSendMessages = false;
   bool _canViewMessages = false;
   bool _isLoading = true;
   String? _permissionError;
   late GroupSecurityService _securityService;
+
+  // Animation controllers for modern UI
+  late AnimationController _typingController;
+  late Animation<double> _typingAnimation;
 
   @override
   bool get wantKeepAlive => true;
@@ -60,8 +73,25 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       auth: repository.auth,
     );
     
+    // Initialize typing animation
+    _typingController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _typingAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _typingController,
+      curve: Curves.easeInOut,
+    ));
+    
     // Add observer for app lifecycle changes
     WidgetsBinding.instance.addObserver(this);
+    
+    // Listen to scroll events for modern scroll-to-bottom button
+    _scrollController.addListener(_onScroll);
     
     // Initialize chat permissions and load data
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -69,11 +99,20 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     });
   }
 
+  void _onScroll() {
+    final shouldShow = _scrollController.offset > 200;
+    if (shouldShow != _showScrollToBottom) {
+      setState(() => _showScrollToBottom = shouldShow);
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _typingController.dispose();
     super.dispose();
   }
 
@@ -154,7 +193,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     }
   }
 
-  /// Send message with permission validation
+  /// Send message with permission validation and haptic feedback
   void _sendMessage() async {
     if (!_canSendMessages) {
       showSnackBar(context, 'You do not have permission to send messages in this group');
@@ -163,12 +202,14 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
 
     if (_messageController.text.trim().isNotEmpty) {
       try {
+        HapticFeedback.lightImpact();
         // Use sendGroupMessage for group chats
         await ref.read(chatProvider.notifier).sendGroupMessage(
           message: _messageController.text,
           messageType: MessageEnum.text,
         );
         _messageController.clear();
+        _scrollToBottom();
       } catch (e) {
         if (mounted) {
           showSnackBar(context, 'Failed to send message: $e');
@@ -177,25 +218,60 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     }
   }
 
-  /// Toggle attachment menu
-  void _toggleAttachmentMenu() {
+  /// Scroll to bottom with animation
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  /// Toggle modern attachment picker
+  void _toggleAttachmentPicker() {
     if (!_canSendMessages) {
       showSnackBar(context, 'You do not have permission to send media in this group');
       return;
     }
     
-    setState(() {
-      _isAttachmentVisible = !_isAttachmentVisible;
-    });
+    setState(() => _isAttachmentPickerVisible = !_isAttachmentPickerVisible);
+  }
+
+  /// Handle modern attachment selection
+  void _handleAttachmentSelection(AttachmentType type) async {
+    setState(() => _isAttachmentPickerVisible = false);
+    
+    if (!_canSendMessages) {
+      showSnackBar(context, 'You do not have permission to send media in this group');
+      return;
+    }
+    
+    switch (type) {
+      case AttachmentType.gallery:
+        await _pickImage(fromCamera: false);
+        break;
+      case AttachmentType.camera:
+        await _pickImage(fromCamera: true);
+        break;
+      case AttachmentType.video:
+        await _pickVideo(fromCamera: false);
+        break;
+      case AttachmentType.document:
+        _showComingSoon('Document sharing');
+        break;
+      case AttachmentType.location:
+        _showComingSoon('Location sharing');
+        break;
+      case AttachmentType.contact:
+        _showComingSoon('Contact sharing');
+        break;
+    }
   }
 
   /// Pick and send image
   Future<void> _pickImage({required bool fromCamera}) async {
-    if (!_canSendMessages) {
-      showSnackBar(context, 'You do not have permission to send images in this group');
-      return;
-    }
-
     try {
       final image = await pickImage(
         fromCamera: fromCamera,
@@ -213,19 +289,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         showSnackBar(context, 'Failed to send image: $e');
       }
     }
-    
-    setState(() {
-      _isAttachmentVisible = false;
-    });
   }
 
   /// Pick and send video
   Future<void> _pickVideo({required bool fromCamera}) async {
-    if (!_canSendMessages) {
-      showSnackBar(context, 'You do not have permission to send videos in this group');
-      return;
-    }
-
     try {
       final video = fromCamera 
           ? await pickVideoFromCamera(onFail: (error) => showSnackBar(context, error))
@@ -242,89 +309,116 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         showSnackBar(context, 'Failed to send video: $e');
       }
     }
-    
-    setState(() {
-      _isAttachmentVisible = false;
-    });
   }
 
-  /// Handle message tap
+  /// Show coming soon message
+  void _showComingSoon(String feature) {
+    showSnackBar(context, '$feature feature coming soon');
+  }
+
+  /// Handle message tap with enhanced navigation
   void _handleMessageTap(MessageModel message) {
     if (!_canViewMessages) return;
     
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-    
     if (message.messageType == MessageEnum.image || message.messageType == MessageEnum.video) {
-      // Navigate to media viewer
       Navigator.pushNamed(
         context,
         '/mediaViewerScreen',
         arguments: {
           'message': message,
-          'sender': message.senderUID == currentUser.uid
-              ? currentUser
-              : UserModel(
-                  uid: message.senderUID,
-                  name: message.senderName,
-                  phoneNumber: '',
-                  image: message.senderImage,
-                  aboutMe: '',
-                  lastSeen: '',
-                  token: '',
-                  createdAt: '',
-                  contactsUIDs: [],
-                  blockedUIDs: [],
-                ),
+          'sender': _getSenderFromMessage(message),
         },
       );
     }
   }
+
+  /// Get sender user model from message
+  UserModel _getSenderFromMessage(MessageModel message) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser != null && message.senderUID == currentUser.uid) {
+      return currentUser;
+    }
+
+    final groupState = ref.read(groupProvider);
+    final groupMembers = groupState.valueOrNull?.currentGroupMembers ?? [];
+    
+    return groupMembers.firstWhere(
+      (member) => member.uid == message.senderUID,
+      orElse: () => UserModel(
+        uid: message.senderUID,
+        name: message.senderName,
+        phoneNumber: '',
+        image: message.senderImage,
+        aboutMe: '',
+        lastSeen: '',
+        token: '',
+        createdAt: '',
+        contactsUIDs: [],
+        blockedUIDs: [],
+      ),
+    );
+  }
   
-  /// Show message options with permission checks
+  /// Show modern message options with permission checks
   void _showMessageOptions(MessageModel message) {
     if (!_canViewMessages) return;
     
     final chatNotifier = ref.read(chatProvider.notifier);
     final currentUser = ref.read(currentUserProvider);
+    final modernTheme = context.modernTheme;
     
-    // Check if the message is from the current user
     final isFromMe = currentUser != null && message.senderUID == currentUser.uid;
     
     showModalBottomSheet(
       context: context,
+      backgroundColor: modernTheme.surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Reply option (only if user can send messages)
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(
+                  color: modernTheme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Reply option
               if (_canSendMessages)
-                ListTile(
-                  leading: const Icon(Icons.reply),
-                  title: const Text('Reply'),
+                _buildOptionTile(
+                  icon: Icons.reply_rounded,
+                  label: 'Reply',
                   onTap: () {
                     Navigator.pop(context);
                     chatNotifier.setReplyingTo(message);
                   },
                 ),
               
-              // React option (only if user can send messages)
+              // React option
               if (_canSendMessages)
-                ListTile(
-                  leading: const Icon(Icons.emoji_emotions),
-                  title: const Text('React'),
+                _buildOptionTile(
+                  icon: Icons.emoji_emotions_rounded,
+                  label: 'Add Reaction',
                   onTap: () {
                     Navigator.pop(context);
                     _showReactionPicker(message);
                   },
                 ),
               
-              // Edit option (only for text messages from current user)
+              // Edit option
               if (isFromMe && message.messageType == MessageEnum.text && _canSendMessages)
-                ListTile(
-                  leading: const Icon(Icons.edit),
-                  title: const Text('Edit'),
+                _buildOptionTile(
+                  icon: Icons.edit_rounded,
+                  label: 'Edit',
                   onTap: () {
                     Navigator.pop(context);
                     chatNotifier.setEditingMessage(message);
@@ -332,75 +426,128 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                     _messageController.selection = TextSelection.fromPosition(
                       TextPosition(offset: _messageController.text.length),
                     );
-                    FocusScope.of(context).requestFocus(FocusNode());
                   },
                 ),
               
-              // Copy option for text messages
+              // Copy option
               if (message.messageType == MessageEnum.text)
-                ListTile(
-                  leading: const Icon(Icons.content_copy),
-                  title: const Text('Copy'),
+                _buildOptionTile(
+                  icon: Icons.content_copy_rounded,
+                  label: 'Copy',
                   onTap: () {
                     Navigator.pop(context);
-                    // Copy to clipboard implementation
+                    Clipboard.setData(ClipboardData(text: message.message));
+                    showSnackBar(context, 'Message copied');
                   },
                 ),
               
-              // Delete for me option
-              ListTile(
-                leading: const Icon(Icons.delete),
-                title: const Text('Delete for me'),
+              // Forward option
+              _buildOptionTile(
+                icon: Icons.share_rounded,
+                label: 'Forward',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showComingSoon('Forward message');
+                },
+              ),
+              
+              // Delete for me
+              _buildOptionTile(
+                icon: Icons.delete_outline_rounded,
+                label: 'Delete for me',
                 onTap: () {
                   Navigator.pop(context);
                   chatNotifier.deleteMessage(message.messageId);
                 },
               ),
               
-              // Delete for everyone option (only for messages from current user)
+              // Delete for everyone
               if (isFromMe)
-                ListTile(
-                  leading: const Icon(Icons.delete_forever),
-                  title: const Text('Delete for everyone'),
+                _buildOptionTile(
+                  icon: Icons.delete_forever_rounded,
+                  label: 'Delete for everyone',
+                  textColor: Colors.red,
                   onTap: () {
                     Navigator.pop(context);
                     _showDeleteForEveryoneConfirmation(message);
                   },
                 ),
+              
+              const SizedBox(height: 16),
             ],
           ),
         );
       },
     );
   }
+
+  Widget _buildOptionTile({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? textColor,
+  }) {
+    final modernTheme = context.modernTheme;
+    
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: textColor ?? modernTheme.textColor,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: textColor ?? modernTheme.textColor,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
   
   /// Show confirmation dialog for delete for everyone
   void _showDeleteForEveryoneConfirmation(MessageModel message) {
+    final modernTheme = context.modernTheme;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete for everyone?'),
-        content: const Text(
-          'This message will be deleted for everyone in this group. This action cannot be undone.'
+        backgroundColor: modernTheme.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Delete for everyone?',
+          style: TextStyle(color: modernTheme.textColor),
+        ),
+        content: Text(
+          'This message will be deleted for everyone in this group. This action cannot be undone.',
+          style: TextStyle(color: modernTheme.textSecondaryColor),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: modernTheme.textSecondaryColor),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               ref.read(chatProvider.notifier).deleteMessageForEveryone(message.messageId);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
     );
   }
   
-  /// Show reaction picker
+  /// Show modern reaction picker
   void _showReactionPicker(MessageModel message) {
     if (!_canSendMessages) {
       showSnackBar(context, 'You do not have permission to react in this group');
@@ -413,7 +560,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         onReactionSelected: (emoji) {
           Navigator.pop(context);
           
-          // Check if the user already has this reaction
           final currentUser = ref.read(currentUserProvider);
           if (currentUser == null) return;
           
@@ -422,10 +568,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
               message.reactions[currentUser.uid]?['emoji'] == emoji;
           
           if (hasSameReaction) {
-            // Remove reaction if it's the same
             ref.read(chatProvider.notifier).removeReaction(message.messageId);
           } else {
-            // Add or update reaction
             ref.read(chatProvider.notifier).addReaction(message.messageId, emoji);
           }
         },
@@ -433,7 +577,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
   
-  /// Handle swipe to reply
+  /// Handle modern swipe to reply
   void _handleSwipeToReply(MessageModel message) {
     if (!_canSendMessages) {
       showSnackBar(context, 'You do not have permission to reply in this group');
@@ -441,6 +585,25 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     }
     
     ref.read(chatProvider.notifier).setReplyingTo(message);
+    HapticFeedback.lightImpact();
+  }
+
+  /// Voice recording methods
+  void _startRecording() {
+    if (!_canSendMessages) {
+      showSnackBar(context, 'You do not have permission to send voice messages in this group');
+      return;
+    }
+    
+    setState(() => _isRecording = true);
+    HapticFeedback.mediumImpact();
+    // TODO: Implement voice recording
+  }
+
+  void _stopRecording() {
+    setState(() => _isRecording = false);
+    HapticFeedback.lightImpact();
+    // TODO: Implement voice recording
   }
 
   /// Build enhanced group app bar
@@ -463,19 +626,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       return Scaffold(
         backgroundColor: chatTheme.chatBackgroundColor,
         appBar: _buildGroupAppBar(context, widget.group),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: modernTheme.primaryColor),
-              const SizedBox(height: 16),
-              Text(
-                'Loading group...',
-                style: TextStyle(color: modernTheme.textSecondaryColor),
-              ),
-            ],
-          ),
-        ),
+        body: _buildLoadingState(),
       );
     }
 
@@ -484,49 +635,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       return Scaffold(
         backgroundColor: chatTheme.chatBackgroundColor,
         appBar: _buildGroupAppBar(context, widget.group),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.lock_outline,
-                  size: 64,
-                  color: modernTheme.textSecondaryColor,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Access Denied',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: modernTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _permissionError!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: modernTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Go Back'),
-                ),
-              ],
-            ),
-          ),
-        ),
+        body: _buildPermissionErrorState(),
       );
     }
 
@@ -538,406 +647,418 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     // Watch messages stream for current group
     final messagesStream = ref.watch(messageStreamProvider(widget.groupId));
     final chatState = ref.watch(chatProvider);
-    
-    // Check if we're editing a message
-    final bool isEditing = chatState.valueOrNull?.editingMessage != null;
 
     return Scaffold(
       backgroundColor: chatTheme.chatBackgroundColor,
       appBar: _buildGroupAppBar(context, group),
-      body: Column(
+      body: Stack(
         children: [
-          // Permission warning banner
-          if (_canViewMessages && !_canSendMessages)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.amber.withOpacity(0.2),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    size: 16,
-                    color: Colors.amber[700],
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'You can view messages but cannot send messages in this group',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.amber[700],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // Editing indicator
-          if (isEditing && _canSendMessages)
-            _buildEditingContainer(chatState.valueOrNull!.editingMessage!),
+          // Chat background with subtle pattern
+          _buildChatBackground(),
           
-          // Reply UI if replying to a message
-          if (!isEditing && chatState.valueOrNull?.replyingTo != null && _canSendMessages)
-            _buildReplyContainer(chatState.valueOrNull!.replyingTo!),
+          // Main content
+          Column(
+            children: [
+              // Permission warning banner
+              if (_canViewMessages && !_canSendMessages)
+                _buildPermissionBanner(),
 
-          // Messages list
-          Expanded(
-            child: messagesStream.when(
-              data: (messages) {
-                if (messages.isEmpty) {
-                  return Center(
-                    child: Text(
-                      _canSendMessages 
-                          ? 'Send a message to start the group chat'
-                          : 'No messages in this group yet',
-                      style: TextStyle(
-                        color: modernTheme.textSecondaryColor,
-                      ),
-                    ),
-                  );
-                }
-                
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  itemCount: messages.length,
-                  padding: const EdgeInsets.only(bottom: 8),
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    
-                    // Get sender info for display
-                    final messageSender = groupMembers.firstWhere(
-                      (member) => member.uid == message.senderUID,
-                      orElse: () => UserModel(
-                        uid: message.senderUID,
-                        name: message.senderName,
-                        phoneNumber: '',
-                        image: message.senderImage,
-                        aboutMe: '',
-                        lastSeen: '',
-                        token: '',
-                        createdAt: '',
-                        contactsUIDs: [],
-                        blockedUIDs: [],
-                      ),
-                    );
-                    
-                    // Mark message as delivered if it's received and not already delivered
-                    final currentUser = ref.read(currentUserProvider);
-                    if (currentUser != null && 
-                        message.senderUID != currentUser.uid && 
-                        message.messageStatus == MessageStatus.sent) {
-                      ref.read(chatProvider.notifier).markMessageAsDelivered(message.messageId);
-                    }
-                    
-                    // Add date header if needed
-                    final showDateHeader = _shouldShowDateHeader(messages, index);
-                    
-                    return Column(
-                      children: [
-                        if (showDateHeader) _buildDateHeader(message),
-                        MessageBubble(
-                          message: message,
-                          contact: messageSender,
-                          onTap: () => _handleMessageTap(message),
-                          onLongPress: () => _showMessageOptions(message),
-                          onSwipe: _canSendMessages ? _handleSwipeToReply : null,
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              error: (error, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: modernTheme.textSecondaryColor,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error loading messages',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      error.toString(),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: modernTheme.textSecondaryColor,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        _initializeChatPermissions();
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
+              // Messages list
+              Expanded(
+                child: messagesStream.when(
+                  data: (messages) => _buildMessagesList(messages, groupMembers, chatState),
+                  loading: () => _buildMessagesLoadingState(),
+                  error: (error, stack) => _buildMessagesErrorState(error),
                 ),
               ),
-            ),
+
+              // Chat input (only show if user can send messages)
+              if (_canSendMessages)
+                ChatInput(
+                  controller: _messageController,
+                  onSend: _sendMessage,
+                  onAttachmentTap: _toggleAttachmentPicker,
+                  isEditing: chatState.valueOrNull?.editingMessage != null,
+                  editingMessage: chatState.valueOrNull?.editingMessage,
+                  replyingTo: chatState.valueOrNull?.replyingTo,
+                  onCancelEditing: () {
+                    ref.read(chatProvider.notifier).cancelEditing();
+                    _messageController.clear();
+                  },
+                  onCancelReply: () {
+                    ref.read(chatProvider.notifier).cancelReply();
+                  },
+                  isRecording: _isRecording,
+                  onStartRecording: _startRecording,
+                  onStopRecording: _stopRecording,
+                ),
+            ],
           ),
 
-          // Attachment menu
-          if (_isAttachmentVisible && _canSendMessages) 
-            _buildAttachmentMenu(),
+          // Scroll to bottom button
+          if (_showScrollToBottom)
+            Positioned(
+              bottom: _canSendMessages ? 100 : 20,
+              right: 16,
+              child: _buildScrollToBottomButton(modernTheme),
+            ),
 
-          // Chat input (only show if user can send messages)
-          if (_canSendMessages)
-            ChatInput(
-              controller: _messageController,
-              onSend: _sendMessage,
-              onAttachmentTap: _toggleAttachmentMenu,
-              isEditing: isEditing,
-              onCancelEditing: isEditing 
-                  ? () {
-                      ref.read(chatProvider.notifier).cancelEditing();
-                      _messageController.clear();
-                    }
-                  : null,
+          // Modern attachment picker overlay
+          if (_isAttachmentPickerVisible)
+            AttachmentPicker(
+              onAttachmentSelected: _handleAttachmentSelection,
+              onClose: () => setState(() => _isAttachmentPickerVisible = false),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildEditingContainer(MessageModel editingMessage) {
-    final modernTheme = context.modernTheme;
+  Widget _buildChatBackground() {
+    final chatTheme = context.chatTheme;
     
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.blue.withOpacity(0.1),
-      child: Row(
+      decoration: BoxDecoration(
+        color: chatTheme.chatBackgroundColor,
+        // Optional: Add subtle pattern or gradient
+        image: const DecorationImage(
+          image: AssetImage('assets/images/chat_background_pattern.png'),
+          fit: BoxFit.cover,
+          opacity: 0.03,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    final modernTheme = context.modernTheme;
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.blue,
-              borderRadius: BorderRadius.circular(2),
-            ),
+          CircularProgressIndicator(
+            color: modernTheme.primaryColor,
+            strokeWidth: 3,
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Editing message',
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  editingMessage.message,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.close,
-              color: modernTheme.textSecondaryColor,
-              size: 20,
-            ),
-            onPressed: () {
-              ref.read(chatProvider.notifier).cancelEditing();
-              _messageController.clear();
-            },
+          const SizedBox(height: 16),
+          Text(
+            'Loading group...',
+            style: TextStyle(color: modernTheme.textSecondaryColor),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildReplyContainer(MessageModel replyMessage) {
+  Widget _buildPermissionErrorState() {
     final modernTheme = context.modernTheme;
     
-    // Find the sender's name for display
-    final groupState = ref.watch(groupProvider);
-    final groupMembers = groupState.valueOrNull?.currentGroupMembers ?? [];
-    final currentUser = ref.read(currentUserProvider);
-    
-    String senderName = replyMessage.senderName;
-    if (currentUser != null && replyMessage.senderUID == currentUser.uid) {
-      senderName = 'yourself';
-    } else if (groupMembers.isNotEmpty) {
-      final sender = groupMembers.firstWhere(
-        (member) => member.uid == replyMessage.senderUID,
-        orElse: () => UserModel(
-          uid: replyMessage.senderUID,
-          name: replyMessage.senderName,
-          phoneNumber: '',
-          image: replyMessage.senderImage,
-          aboutMe: '',
-          lastSeen: '',
-          token: '',
-          createdAt: '',
-          contactsUIDs: [],
-          blockedUIDs: [],
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: modernTheme.surfaceColor?.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.lock_outline,
+                size: 48,
+                color: modernTheme.textSecondaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Access Denied',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: modernTheme.textColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _permissionError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Go Back'),
+            ),
+          ],
         ),
-      );
-      senderName = sender.name;
+      ),
+    );
+  }
+
+  Widget _buildPermissionBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.amber.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 20,
+            color: Colors.amber[700],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'You can view messages but cannot send messages in this group',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.amber[800],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessagesList(List<MessageModel> messages, List<UserModel> groupMembers, AsyncValue<ChatState> chatState) {
+    if (messages.isEmpty) {
+      return _buildEmptyMessagesState();
     }
     
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: modernTheme.surfaceColor,
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: modernTheme.primaryColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
+    return ListView.builder(
+      controller: _scrollController,
+      reverse: true,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        final previousMessage = index < messages.length - 1 ? messages[index + 1] : null;
+        final nextMessage = index > 0 ? messages[index - 1] : null;
+        
+        // Get sender info for display
+        final messageSender = groupMembers.firstWhere(
+          (member) => member.uid == message.senderUID,
+          orElse: () => UserModel(
+            uid: message.senderUID,
+            name: message.senderName,
+            phoneNumber: '',
+            image: message.senderImage,
+            aboutMe: '',
+            lastSeen: '',
+            token: '',
+            createdAt: '',
+            contactsUIDs: [],
+            blockedUIDs: [],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Replying to $senderName',
-                  style: TextStyle(
-                    color: modernTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  replyMessage.messageType == MessageEnum.text 
-                      ? replyMessage.message 
-                      : '${replyMessage.messageType.displayName}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+        );
+        
+        // Mark message as delivered if needed
+        final currentUser = ref.read(currentUserProvider);
+        if (currentUser != null && 
+            message.senderUID != currentUser.uid && 
+            message.messageStatus == MessageStatus.sent) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(chatProvider.notifier).markMessageAsDelivered(message.messageId);
+          });
+        }
+        
+        // Check if we should show date header
+        final showDateHeader = _shouldShowDateHeader(messages, index);
+        
+        return Column(
+          children: [
+            // Date header
+            if (showDateHeader) 
+              _buildDateHeader(message),
+            
+            // Message with modern swipe-to-reply
+            SwipeToReply(
+              message: message,
+              onReply: _handleSwipeToReply,
+              isMyMessage: currentUser?.uid == message.senderUID,
+              child: MessageBubble(
+                message: message,
+                previousMessage: previousMessage,
+                nextMessage: nextMessage,
+                contact: messageSender,
+                onTap: () => _handleMessageTap(message),
+                onLongPress: () => _showMessageOptions(message),
+                onSwipeToReply: _canSendMessages ? _handleSwipeToReply : null,
+              ),
             ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.close,
-              color: modernTheme.textSecondaryColor,
-              size: 20,
-            ),
-            onPressed: () {
-              ref.read(chatProvider.notifier).cancelReply();
-            },
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildAttachmentMenu() {
+  Widget _buildEmptyMessagesState() {
     final modernTheme = context.modernTheme;
     
-    return Container(
-      color: modernTheme.surfaceColor,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildAttachmentOption(
-            icon: Icons.photo,
-            label: 'Gallery',
-            onTap: () => _pickImage(fromCamera: false),
-            color: Colors.purple,
-          ),
-          _buildAttachmentOption(
-            icon: Icons.camera_alt,
-            label: 'Camera',
-            onTap: () => _pickImage(fromCamera: true),
-            color: Colors.red,
-          ),
-          _buildAttachmentOption(
-            icon: Icons.videocam,
-            label: 'Video',
-            onTap: () => _pickVideo(fromCamera: false),
-            color: Colors.blue,
-          ),
-          _buildAttachmentOption(
-            icon: Icons.insert_drive_file,
-            label: 'Document',
-            onTap: () {
-              showSnackBar(context, 'Document sharing coming soon');
-              setState(() {
-                _isAttachmentVisible = false;
-              });
-            },
-            color: Colors.orange,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAttachmentOption({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required Color color,
-  }) {
-    return InkWell(
-      onTap: onTap,
+    return Center(
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: color,
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor?.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
             child: Icon(
-              icon,
-              color: Colors.white,
+              Icons.group_outlined,
+              size: 48,
+              color: modernTheme.textSecondaryColor?.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _canSendMessages 
+                ? 'Start the group conversation'
+                : 'No messages yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: modernTheme.textColor,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            label,
+            _canSendMessages 
+                ? 'Send the first message to ${widget.group.name}'
+                : 'Waiting for messages in ${widget.group.name}',
             style: TextStyle(
-              fontSize: 12,
-              color: context.modernTheme.textSecondaryColor,
+              fontSize: 14,
+              color: modernTheme.textSecondaryColor,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessagesLoadingState() {
+    final modernTheme = context.modernTheme;
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: modernTheme.primaryColor,
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading messages...',
+            style: TextStyle(
+              color: modernTheme.textSecondaryColor,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMessagesErrorState(dynamic error) {
+    final modernTheme = context.modernTheme;
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: 48,
+            color: Colors.red.withOpacity(0.7),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Failed to load messages',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: modernTheme.textColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            error.toString(),
+            style: TextStyle(
+              fontSize: 14,
+              color: modernTheme.textSecondaryColor,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => _initializeChatPermissions(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScrollToBottomButton(ModernThemeExtension modernTheme) {
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(28),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: _scrollToBottom,
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                modernTheme.primaryColor ?? Colors.blue,
+                (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.white,
+            size: 28,
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildDateHeader(MessageModel message) {
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(
-      int.parse(message.timeSent),
-    );
+    final modernTheme = context.modernTheme;
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(int.parse(message.timeSent));
     final today = DateTime.now();
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
     
@@ -956,16 +1077,28 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: context.modernTheme.surfaceColor?.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        dateText,
-        style: TextStyle(
-          fontSize: 12,
-          color: context.modernTheme.textSecondaryColor,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: modernTheme.surfaceVariantColor?.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            dateText,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: modernTheme.textSecondaryColor,
+            ),
+          ),
         ),
       ),
     );
@@ -974,12 +1107,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   bool _shouldShowDateHeader(List<MessageModel> messages, int index) {
     if (index == messages.length - 1) return true;
     
-    final currentDate = DateTime.fromMillisecondsSinceEpoch(
-      int.parse(messages[index].timeSent),
-    );
-    final previousDate = DateTime.fromMillisecondsSinceEpoch(
-      int.parse(messages[index + 1].timeSent),
-    );
+    final currentDate = DateTime.fromMillisecondsSinceEpoch(int.parse(messages[index].timeSent));
+    final previousDate = DateTime.fromMillisecondsSinceEpoch(int.parse(messages[index + 1].timeSent));
     
     return currentDate.year != previousDate.year ||
            currentDate.month != previousDate.month ||
