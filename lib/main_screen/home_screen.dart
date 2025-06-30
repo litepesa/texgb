@@ -11,6 +11,7 @@ import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
+import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/live/screens/go_live_screen';
 import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
@@ -33,6 +34,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   int _previousIndex = 0;
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
+  
+  // Global key for ChannelsFeedScreen to control video playback
+  final GlobalKey<ChannelsFeedScreenState> _channelsFeedKey = GlobalKey<ChannelsFeedScreenState>();
   
   final List<String> _tabNames = [
     'Chats',
@@ -69,6 +73,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Store previous index for navigation management
     _previousIndex = _currentIndex;
     
+    // Handle video playback control when switching tabs
+    _handleVideoPlaybackControl(_currentIndex, index);
+    
     setState(() {
       _currentIndex = index;
       _updateSystemUI(); // Force immediate update
@@ -99,10 +106,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Store previous index before updating
     _previousIndex = _currentIndex;
     
+    // Handle video playback control when page changes
+    _handleVideoPlaybackControl(_currentIndex, index);
+    
     setState(() {
       _currentIndex = index;
       _updateSystemUI();
     });
+  }
+
+  // Handle video playback control when switching between tabs
+  void _handleVideoPlaybackControl(int fromIndex, int toIndex) {
+    // Stop videos when leaving Channels Feed tab (index 4)
+    if (fromIndex == 4 && toIndex != 4) {
+      _channelsFeedKey.currentState?.onScreenBecameInactive();
+    }
+    
+    // Start videos when entering Channels Feed tab (index 4)
+    if (toIndex == 4 && fromIndex != 4) {
+      // Small delay to ensure the screen is fully loaded
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _channelsFeedKey.currentState?.onScreenBecameActive();
+      });
+    }
   }
 
   @override
@@ -117,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       extendBodyBehindAppBar: false,
       backgroundColor: _currentIndex == 0 ? modernTheme.surfaceColor : modernTheme.backgroundColor,
       
-      appBar: _buildAppBar(modernTheme, isDarkMode),
+      appBar: _shouldShowAppBar() ? _buildAppBar(modernTheme, isDarkMode) : null,
       
       body: PageView(
         controller: _pageController,
@@ -136,11 +162,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const GroupsTab(),
           ),
-          // Go Live tab (index 2) - Use surfaceColor for seamless look
+          // Create Post tab (index 2) - Hide app bar
           Container(
-            color: modernTheme.surfaceColor,
+            color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const GoLiveScreen(),
+            child: const CreatePostScreen(),
           ),
           // Status tab (index 3) - Use surfaceColor for seamless look with appbar
           Container(
@@ -148,11 +174,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const StatusOverviewScreen(),
           ),
-          // Live tab (index 4)
+          // Channels Feed tab (index 4) - Hide app bar
           Container(
-            color: modernTheme.backgroundColor,
+            color: Colors.black, // Black background for channels feed
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const LiveScreen(),
+            child: ChannelsFeedScreen(key: _channelsFeedKey),
           ),
         ],
       ),
@@ -163,10 +189,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  // Hide app bar for Create Post (index 2) and Channels Feed (index 4)
+  bool _shouldShowAppBar() {
+    return _currentIndex != 2 && _currentIndex != 4;
+  }
+
   Widget _buildCustomBottomNav(ModernThemeExtension modernTheme, AsyncValue<List<ChatModel>> chatsAsyncValue) {
+    // Use black background for bottom nav when on Channels Feed tab (index 4)
+    final bottomNavColor = _currentIndex == 4 ? Colors.black : modernTheme.surfaceColor;
+    final dividerColor = _currentIndex == 4 ? Colors.grey.shade800 : modernTheme.dividerColor;
+    
     return Container(
       decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
+        color: bottomNavColor,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -174,7 +209,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Container(
             height: 1,
             width: double.infinity,
-            color: modernTheme.dividerColor,
+            color: dividerColor,
           ),
           SafeArea(
             top: false,
@@ -201,7 +236,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildPostButton(ModernThemeExtension modernTheme) {
     return GestureDetector(
-      onTap: () => _onTabTapped(2), // Navigate to Go Live screen
+      onTap: () => _onTabTapped(2), // Navigate to Create Post screen
       child: Container(
         width: 45,
         height: 32,
@@ -320,7 +355,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // For other tabs (Go Live, Status, Live), no badge needed
+    // For other tabs (Status, Live), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
 
@@ -330,8 +365,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ModernThemeExtension modernTheme,
     int unreadCount,
   ) {
-    Color iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
-    Color textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+    // Adjust colors when on Channels Feed tab (index 4) for black background
+    Color iconColor;
+    Color textColor;
+    
+    if (_currentIndex == 4) {
+      // White icons/text on black background for Channels Feed tab
+      iconColor = isSelected ? Colors.white : Colors.grey.shade400;
+      textColor = isSelected ? Colors.white : Colors.grey.shade400;
+    } else {
+      // Normal colors for other tabs
+      iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+      textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+    }
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
@@ -349,7 +395,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: isSelected 
-                      ? modernTheme.primaryColor!.withOpacity(0.2) 
+                      ? (_currentIndex == 4 ? Colors.white.withOpacity(0.2) : modernTheme.primaryColor!.withOpacity(0.2))
                       : Colors.transparent,
                     shape: BoxShape.circle,
                   ),
@@ -366,7 +412,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: modernTheme.primaryColor,
+                        color: _currentIndex == 4 ? Colors.red : modernTheme.primaryColor,
                         shape: unreadCount > 99 
                             ? BoxShape.rectangle 
                             : BoxShape.circle,
@@ -415,8 +461,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isSelected, 
     ModernThemeExtension modernTheme
   ) {
-    Color iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
-    Color textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+    // Adjust colors when on Channels Feed tab (index 4) for black background
+    Color iconColor;
+    Color textColor;
+    
+    if (_currentIndex == 4) {
+      // White icons/text on black background for Channels Feed tab
+      iconColor = isSelected ? Colors.white : Colors.grey.shade400;
+      textColor = isSelected ? Colors.white : Colors.grey.shade400;
+    } else {
+      // Normal colors for other tabs
+      iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+      textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+    }
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
@@ -431,7 +488,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: isSelected 
-                  ? modernTheme.primaryColor!.withOpacity(0.2) 
+                  ? (_currentIndex == 4 ? Colors.white.withOpacity(0.2) : modernTheme.primaryColor!.withOpacity(0.2))
                   : Colors.transparent,
                 shape: BoxShape.circle,
               ),

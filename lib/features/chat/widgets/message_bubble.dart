@@ -1,4 +1,6 @@
+// Enhanced Message Bubble with WhatsApp-like Status Reply UI
 // lib/features/chat/widgets/message_bubble.dart
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,8 +100,12 @@ class MessageBubble extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Reply message if present
-                  if (message.repliedMessage != null)
+                  // Status reply preview if present
+                  if (message.isStatusReply)
+                    _buildStatusReplyPreview(context, isMe),
+                  
+                  // Regular reply message if present and not status reply
+                  if (message.repliedMessage != null && !message.isStatusReply)
                     _buildReplyPreview(context, isMe),
                   
                   // Message content
@@ -125,6 +131,217 @@ class MessageBubble extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusReplyPreview(BuildContext context, bool isMe) {
+    final modernTheme = context.modernTheme;
+    final chatTheme = context.chatTheme;
+    
+    // Determine status type icon and preview text
+    IconData statusIcon;
+    String statusPreview;
+    Color statusIconColor = modernTheme.primaryColor!;
+    
+    switch (message.statusType!) {
+      case StatusType.text:
+        statusIcon = Icons.text_fields;
+        statusPreview = message.repliedMessage ?? 'Text status';
+        break;
+      case StatusType.image:
+        statusIcon = Icons.image;
+        statusPreview = 'Photo';
+        statusIconColor = Colors.green;
+        break;
+      case StatusType.video:
+        statusIcon = Icons.videocam;
+        statusPreview = 'Video';
+        statusIconColor = Colors.red;
+        break;
+      case StatusType.link:
+        statusIcon = Icons.link;
+        statusPreview = 'Link';
+        statusIconColor = Colors.blue;
+        break;
+    }
+    
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      decoration: BoxDecoration(
+        color: isMe 
+            ? Colors.black.withOpacity(0.1) 
+            : Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isMe 
+              ? Colors.black.withOpacity(0.1) 
+              : Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with "Replied to status" label
+          Container(
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.reply,
+                  size: 14,
+                  color: modernTheme.primaryColor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Replied to status',
+                  style: TextStyle(
+                    color: modernTheme.primaryColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Status content preview
+          Container(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Status thumbnail or icon
+                if (message.statusThumbnailUrl != null && 
+                    message.statusThumbnailUrl!.isNotEmpty &&
+                    (message.statusType == StatusType.image || 
+                     message.statusType == StatusType.video))
+                  Container(
+                    width: 40,
+                    height: 40,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isMe 
+                            ? Colors.black.withOpacity(0.1) 
+                            : Colors.white.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CachedNetworkImage(
+                          imageUrl: message.statusThumbnailUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: modernTheme.surfaceColor!.withOpacity(0.3),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: modernTheme.surfaceColor!.withOpacity(0.3),
+                            child: Icon(
+                              statusIcon,
+                              color: statusIconColor,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        // Video play icon overlay
+                        if (message.statusType == StatusType.video)
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  )
+                else
+                  // Icon for text/link status
+                  Container(
+                    width: 40,
+                    height: 40,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: statusIconColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: statusIconColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      statusIcon,
+                      color: statusIconColor,
+                      size: 20,
+                    ),
+                  ),
+                
+                // Status content text
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Status type and preview
+                      Text(
+                        statusPreview,
+                        maxLines: message.statusType == StatusType.text ? 2 : 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isMe 
+                              ? chatTheme.senderTextColor 
+                              : chatTheme.receiverTextColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      
+                      // Status caption if available
+                      if (message.statusCaption != null && 
+                          message.statusCaption!.isNotEmpty &&
+                          message.statusType != StatusType.text) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          message.statusCaption!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isMe 
+                                ? chatTheme.senderTextColor?.withOpacity(0.7) 
+                                : chatTheme.receiverTextColor?.withOpacity(0.7),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -192,11 +409,6 @@ class MessageBubble extends ConsumerWidget {
   Widget _buildReplyPreview(BuildContext context, bool isMe) {
     final modernTheme = context.modernTheme;
     
-    // Check if this is a status reply
-    final bool isStatusReply = message.repliedMessage != null && 
-                              message.repliedMessage!.contains("status") &&
-                              message.statusContext != null;
-    
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       margin: const EdgeInsets.only(bottom: 4),
@@ -209,72 +421,35 @@ class MessageBubble extends ConsumerWidget {
           topRight: Radius.circular(12),
         ),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Status thumbnail (only if this is a status reply with a thumbnail)
-          if (isStatusReply && message.statusContext != null && message.statusContext!.isNotEmpty)
-            Container(
-              width: 40,
-              height: 40,
-              margin: const EdgeInsets.only(right: 8, bottom: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: isMe 
-                      ? Colors.black.withOpacity(0.1) 
-                      : Colors.white.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: CachedNetworkImage(
-                imageUrl: message.statusContext!,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: modernTheme.primaryColor!.withOpacity(0.2),
-                ),
-                errorWidget: (context, url, error) => Icon(
-                  Icons.image_not_supported,
-                  color: modernTheme.textSecondaryColor,
-                  size: 16,
-                ),
-              ),
+          Text(
+            'Replying to ${message.repliedTo == contact.uid ? contact.name : 'yourself'}',
+            style: TextStyle(
+              color: modernTheme.primaryColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
             ),
-          
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Replying to ${message.repliedTo == contact.uid ? contact.name : 'yourself'}',
-                  style: TextStyle(
-                    color: modernTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  message.repliedMessage ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isMe 
-                        ? context.chatTheme.senderTextColor 
-                        : context.chatTheme.receiverTextColor,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  height: 1,
-                  color: isMe
-                      ? Colors.black.withOpacity(0.1)
-                      : Colors.white.withOpacity(0.1),
-                ),
-              ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            message.repliedMessage ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isMe 
+                  ? context.chatTheme.senderTextColor 
+                  : context.chatTheme.receiverTextColor,
+              fontSize: 14,
             ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 1,
+            color: isMe
+                ? Colors.black.withOpacity(0.1)
+                : Colors.white.withOpacity(0.1),
           ),
         ],
       ),

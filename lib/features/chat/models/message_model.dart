@@ -1,3 +1,4 @@
+// Enhanced Message Model with Status Reply Support
 // lib/features/chat/models/message_model.dart
 
 import 'package:textgb/constants.dart';
@@ -11,7 +12,7 @@ class MessageModel {
   final String message;
   final MessageEnum messageType;
   final String timeSent;
-  final MessageStatus messageStatus; // For enhanced status tracking
+  final MessageStatus messageStatus;
   final String? repliedMessage;
   final String? repliedTo;
   final MessageEnum? repliedMessageType;
@@ -20,10 +21,17 @@ class MessageModel {
   final bool isDeletedForEveryone;
   final bool isEdited;
   final String? originalMessage;
-  final String? editedAt; // Track when message was edited
+  final String? editedAt;
   final Map<String, Map<String, String>> reactions;
+  
+  // Enhanced status reply fields
+  final bool isStatusReply;
+  final String? statusThumbnailUrl;
+  final StatusType? statusType;
+  final String? statusId;
+  final String? statusCaption;
 
-  // Add compatibility properties for backward compatibility
+  // Compatibility properties
   bool get isDelivered => messageStatus.isDelivered;
   bool get isRead => messageStatus.isRead;
   bool get isSent => messageStatus.isSent;
@@ -48,6 +56,11 @@ class MessageModel {
     this.originalMessage,
     this.editedAt,
     Map<String, Map<String, String>>? reactions,
+    this.isStatusReply = false,
+    this.statusThumbnailUrl,
+    this.statusType,
+    this.statusId,
+    this.statusCaption,
   }) : this.reactions = reactions ?? {};
 
   factory MessageModel.fromMap(Map<String, dynamic> map) {
@@ -72,7 +85,6 @@ class MessageModel {
             ? (map[Constants.repliedMessageType].toString()).toMessageEnum()
             : null,
         statusContext: map[Constants.statusContext]?.toString(),
-        // Safe conversion for deletedBy list
         deletedBy: (map[Constants.deletedBy] as List?)
             ?.map((item) => item.toString())
             .toList()
@@ -81,10 +93,17 @@ class MessageModel {
         isEdited: map['isEdited'] == true,
         originalMessage: map['originalMessage']?.toString(),
         editedAt: map['editedAt']?.toString(),
-        // Improved reactions map handling
         reactions: map['reactions'] != null
             ? _parseReactionsMap(map['reactions'])
             : {},
+        // Enhanced status reply fields
+        isStatusReply: map['isStatusReply'] == true,
+        statusThumbnailUrl: map['statusThumbnailUrl']?.toString(),
+        statusType: map['statusType'] != null 
+            ? StatusTypeExtension.fromString(map['statusType'].toString())
+            : null,
+        statusId: map['statusId']?.toString(),
+        statusCaption: map['statusCaption']?.toString(),
       );
     } catch (e, stackTrace) {
       print('Error parsing MessageModel: $e');
@@ -94,7 +113,6 @@ class MessageModel {
     }
   }
 
-  // Helper to safely parse the reactions map
   static Map<String, Map<String, String>> _parseReactionsMap(dynamic reactions) {
     if (reactions is! Map) {
       return {};
@@ -140,9 +158,14 @@ class MessageModel {
       'originalMessage': originalMessage,
       'editedAt': editedAt,
       'reactions': reactions,
+      // Enhanced status reply fields
+      'isStatusReply': isStatusReply,
+      'statusThumbnailUrl': statusThumbnailUrl,
+      'statusType': statusType?.name,
+      'statusId': statusId,
+      'statusCaption': statusCaption,
     };
 
-    // Only add statusContext if it exists
     if (statusContext != null) {
       result[Constants.statusContext] = statusContext;
     }
@@ -169,6 +192,11 @@ class MessageModel {
     String? originalMessage,
     String? editedAt,
     Map<String, Map<String, String>>? reactions,
+    bool? isStatusReply,
+    String? statusThumbnailUrl,
+    StatusType? statusType,
+    String? statusId,
+    String? statusCaption,
   }) {
     return MessageModel(
       messageId: messageId ?? this.messageId,
@@ -189,10 +217,15 @@ class MessageModel {
       originalMessage: originalMessage ?? this.originalMessage,
       editedAt: editedAt ?? this.editedAt,
       reactions: reactions ?? Map.from(this.reactions),
+      isStatusReply: isStatusReply ?? this.isStatusReply,
+      statusThumbnailUrl: statusThumbnailUrl ?? this.statusThumbnailUrl,
+      statusType: statusType ?? this.statusType,
+      statusId: statusId ?? this.statusId,
+      statusCaption: statusCaption ?? this.statusCaption,
     );
   }
   
-  // Helper method to add a reaction
+  // Helper methods remain the same...
   MessageModel addReaction(String userId, String emoji) {
     final newReactions = Map<String, Map<String, String>>.from(reactions);
     newReactions[userId] = {
@@ -203,7 +236,6 @@ class MessageModel {
     return copyWith(reactions: newReactions);
   }
   
-  // Helper method to remove a reaction
   MessageModel removeReaction(String userId) {
     final newReactions = Map<String, Map<String, String>>.from(reactions);
     newReactions.remove(userId);
@@ -211,12 +243,10 @@ class MessageModel {
     return copyWith(reactions: newReactions);
   }
   
-  // Helper method to update message status
   MessageModel updateStatus(MessageStatus newStatus) {
     return copyWith(messageStatus: newStatus);
   }
   
-  // Helper method to mark message as edited
   MessageModel markAsEdited(String newMessage) {
     return copyWith(
       message: newMessage,
@@ -226,7 +256,6 @@ class MessageModel {
     );
   }
   
-  // Helper method to mark message as deleted for a user
   MessageModel markAsDeletedFor(String userId) {
     if (deletedBy.contains(userId)) {
       return this;
@@ -238,17 +267,14 @@ class MessageModel {
     return copyWith(deletedBy: newDeletedBy);
   }
   
-  // Helper method to mark message as deleted for everyone
   MessageModel markAsDeletedForEveryone() {
     return copyWith(isDeletedForEveryone: true);
   }
   
-  // Helper method to check if message is deleted for a user
   bool isDeletedFor(String userId) {
     return deletedBy.contains(userId) || isDeletedForEveryone;
   }
   
-  // Helper method to check if message should be shown in UI
   bool shouldShowFor(String userId) {
     return !isDeletedFor(userId);
   }
