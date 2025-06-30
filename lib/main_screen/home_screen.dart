@@ -17,7 +17,6 @@ import 'package:textgb/features/live/screens/go_live_screen';
 import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
-import 'package:textgb/features/status/screens/status_overview_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
@@ -145,7 +144,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
@@ -159,41 +157,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Chats tab (index 0) - Use surfaceColor for seamless look
+          // Chats tab (index 0) - Remove bottom padding
           Container(
             color: modernTheme.surfaceColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
             child: const ChatsTab(),
           ),
-          // Groups tab (index 1)
+          // Groups tab (index 1) - Remove bottom padding
           Container(
             color: modernTheme.backgroundColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
             child: const GroupsTab(),
           ),
-          // Create Post tab (index 2) - Hide app bar
+          // Create Post tab (index 2) - Remove bottom padding
           Container(
             color: modernTheme.backgroundColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
             child: const CreatePostScreen(),
           ),
-          // Live tab (index 3) - Hide app bar
+          // Live tab (index 3) - Remove bottom padding, this eliminates the gap
           Container(
-            color: Colors.black, // Black background for live feed
-            padding: EdgeInsets.only(bottom: bottomPadding),
+            color: Colors.black,
             child: ChannelsFeedScreen(
               key: _channelsFeedKey,
               onVideoProgressChanged: (progress) {
-                setState(() {
-                  _currentVideoProgress = progress;
-                });
+                if (mounted && _currentIndex == 3) {
+                  setState(() {
+                    _currentVideoProgress = progress;
+                  });
+                }
               },
             ),
           ),
-          // Short Dramas tab (index 4) - Use surfaceColor for seamless look with appbar
+          // Short Dramas tab (index 4) - Remove bottom padding
           Container(
             color: modernTheme.surfaceColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
             child: const ShortDramasScreen(),
           ),
         ],
@@ -231,9 +226,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
+                  duration: const Duration(milliseconds: 200),
                   height: 2,
-                  width: MediaQuery.of(context).size.width * _currentVideoProgress,
+                  width: MediaQuery.of(context).size.width * _currentVideoProgress.clamp(0.0, 1.0),
                   color: Colors.white,
                 ),
               ),
@@ -245,22 +240,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color: dividerColor,
             ),
           ],
-          SafeArea(
-            top: false,
-            bottom: true,
-            child: SizedBox(
-              height: 60,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(5, (index) {
-                  if (index == 2) {
-                    // Special post button at index 2
-                    return _buildPostButton(modernTheme);
-                  }
-                  
-                  return _buildBottomNavItem(index, modernTheme, chatsAsyncValue);
-                }),
-              ),
+          // Remove the SafeArea wrapper and use padding instead
+          Container(
+            height: 60 + MediaQuery.of(context).padding.bottom, // Fixed height + safe area
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(5, (index) {
+                if (index == 2) {
+                  // Special post button at index 2
+                  return _buildPostButton(modernTheme);
+                }
+                
+                return _buildBottomNavItem(index, modernTheme, chatsAsyncValue);
+              }),
             ),
           ),
         ],

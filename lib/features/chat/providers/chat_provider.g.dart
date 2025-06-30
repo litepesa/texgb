@@ -40,24 +40,6 @@ final directChatStreamProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef DirectChatStreamRef = AutoDisposeStreamProviderRef<List<ChatModel>>;
-String _$groupChatStreamHash() => r'd049c3612106f2f65f279a2a887afba6bcb8a05b';
-
-/// See also [groupChatStream].
-@ProviderFor(groupChatStream)
-final groupChatStreamProvider =
-    AutoDisposeStreamProvider<List<ChatModel>>.internal(
-  groupChatStream,
-  name: r'groupChatStreamProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$groupChatStreamHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef GroupChatStreamRef = AutoDisposeStreamProviderRef<List<ChatModel>>;
 String _$messageStreamHash() => r'847f85c7e03489f282037b21494cedcc68bfa642';
 
 /// Copied from Dart SDK
@@ -211,7 +193,25 @@ class _MessageStreamProviderElement
   String get chatId => (origin as MessageStreamProvider).chatId;
 }
 
-String _$chatNotifierHash() => r'515fbf97f35b7fb0556724369890beb9d85fbbe7';
+String _$unreadMessageCountHash() =>
+    r'cb386c0f4213627dc607f71c3b5b1c2135fdbd1f';
+
+/// See also [unreadMessageCount].
+@ProviderFor(unreadMessageCount)
+final unreadMessageCountProvider = AutoDisposeFutureProvider<int>.internal(
+  unreadMessageCount,
+  name: r'unreadMessageCountProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$unreadMessageCountHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef UnreadMessageCountRef = AutoDisposeFutureProviderRef<int>;
+String _$chatNotifierHash() => r'47222660801a2a6d9d77470ae7648680f912d4e5';
 
 /// See also [ChatNotifier].
 @ProviderFor(ChatNotifier)

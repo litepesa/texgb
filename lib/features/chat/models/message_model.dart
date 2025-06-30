@@ -1,6 +1,4 @@
-// Enhanced Message Model with Status Reply Support
 // lib/features/chat/models/message_model.dart
-
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 
@@ -16,20 +14,12 @@ class MessageModel {
   final String? repliedMessage;
   final String? repliedTo;
   final MessageEnum? repliedMessageType;
-  final String? statusContext;
   final List<String> deletedBy;
   final bool isDeletedForEveryone;
   final bool isEdited;
   final String? originalMessage;
   final String? editedAt;
   final Map<String, Map<String, String>> reactions;
-  
-  // Enhanced status reply fields
-  final bool isStatusReply;
-  final String? statusThumbnailUrl;
-  final StatusType? statusType;
-  final String? statusId;
-  final String? statusCaption;
 
   // Compatibility properties
   bool get isDelivered => messageStatus.isDelivered;
@@ -37,7 +27,7 @@ class MessageModel {
   bool get isSent => messageStatus.isSent;
   bool get isFailed => messageStatus.isFailed;
 
-  MessageModel({
+  const MessageModel({
     required this.messageId,
     required this.senderUID,
     required this.senderName,
@@ -49,19 +39,13 @@ class MessageModel {
     this.repliedMessage,
     this.repliedTo,
     this.repliedMessageType,
-    this.statusContext,
-    required this.deletedBy,
+    this.deletedBy = const [],
     this.isDeletedForEveryone = false,
     this.isEdited = false,
     this.originalMessage,
     this.editedAt,
-    Map<String, Map<String, String>>? reactions,
-    this.isStatusReply = false,
-    this.statusThumbnailUrl,
-    this.statusType,
-    this.statusId,
-    this.statusCaption,
-  }) : this.reactions = reactions ?? {};
+    this.reactions = const {},
+  });
 
   factory MessageModel.fromMap(Map<String, dynamic> map) {
     try {
@@ -71,50 +55,63 @@ class MessageModel {
         senderName: map[Constants.senderName]?.toString() ?? '',
         senderImage: map[Constants.senderImage]?.toString() ?? '',
         message: map[Constants.message]?.toString() ?? '',
-        messageType: ((map[Constants.messageType] as String?) ?? 'text').toMessageEnum(),
+        messageType: _parseMessageType(map[Constants.messageType]?.toString()),
         timeSent: map[Constants.timeSent]?.toString() ?? 
           DateTime.now().millisecondsSinceEpoch.toString(),
-        messageStatus: map['messageStatus'] != null 
-            ? MessageStatus.fromString(map['messageStatus'].toString()) 
-            : (map['isDelivered'] == true 
-                ? MessageStatus.delivered 
-                : (map['isSent'] == true ? MessageStatus.sent : MessageStatus.sending)),
+        messageStatus: _parseMessageStatus(map['messageStatus']?.toString()),
         repliedMessage: map[Constants.repliedMessage]?.toString(),
         repliedTo: map[Constants.repliedTo]?.toString(),
         repliedMessageType: map[Constants.repliedMessageType] != null
-            ? (map[Constants.repliedMessageType].toString()).toMessageEnum()
+            ? _parseMessageType(map[Constants.repliedMessageType].toString())
             : null,
-        statusContext: map[Constants.statusContext]?.toString(),
-        deletedBy: (map[Constants.deletedBy] as List?)
-            ?.map((item) => item.toString())
-            .toList()
-            .cast<String>() ?? [],
+        deletedBy: _parseStringList(map[Constants.deletedBy]),
         isDeletedForEveryone: map['isDeletedForEveryone'] == true,
         isEdited: map['isEdited'] == true,
         originalMessage: map['originalMessage']?.toString(),
         editedAt: map['editedAt']?.toString(),
-        reactions: map['reactions'] != null
-            ? _parseReactionsMap(map['reactions'])
-            : {},
-        // Enhanced status reply fields
-        isStatusReply: map['isStatusReply'] == true,
-        statusThumbnailUrl: map['statusThumbnailUrl']?.toString(),
-        statusType: map['statusType'] != null 
-            ? StatusTypeExtension.fromString(map['statusType'].toString())
-            : null,
-        statusId: map['statusId']?.toString(),
-        statusCaption: map['statusCaption']?.toString(),
+        reactions: _parseReactionsMap(map['reactions']),
       );
     } catch (e, stackTrace) {
-      print('Error parsing MessageModel: $e');
-      print('Map data: $map');
-      print('Stack trace: $stackTrace');
-      rethrow;
+      throw FormatException('Error parsing MessageModel: $e\nStack trace: $stackTrace');
     }
   }
 
+  static MessageEnum _parseMessageType(String? type) {
+    if (type == null) return MessageEnum.text;
+    
+    switch (type.toLowerCase()) {
+      case 'image': return MessageEnum.image;
+      case 'video': return MessageEnum.video;
+      case 'audio': return MessageEnum.audio;
+      case 'file': return MessageEnum.file;
+      case 'location': return MessageEnum.location;
+      case 'contact': return MessageEnum.contact;
+      default: return MessageEnum.text;
+    }
+  }
+
+  static MessageStatus _parseMessageStatus(String? status) {
+    if (status == null) return MessageStatus.sending;
+    
+    switch (status.toLowerCase()) {
+      case 'sent': return MessageStatus.sent;
+      case 'delivered': return MessageStatus.delivered;
+      case 'read': return MessageStatus.read;
+      case 'failed': return MessageStatus.failed;
+      default: return MessageStatus.sending;
+    }
+  }
+
+  static List<String> _parseStringList(dynamic list) {
+    if (list == null) return [];
+    if (list is List) {
+      return list.map((item) => item.toString()).toList();
+    }
+    return [];
+  }
+
   static Map<String, Map<String, String>> _parseReactionsMap(dynamic reactions) {
-    if (reactions is! Map) {
+    if (reactions == null || reactions is! Map) {
       return {};
     }
 
@@ -134,13 +131,12 @@ class MessageModel {
         }),
       );
     } catch (e) {
-      print('Error parsing reactions map: $e');
       return {};
     }
   }
 
   Map<String, dynamic> toMap() {
-    final Map<String, dynamic> result = {
+    return {
       Constants.messageId: messageId,
       Constants.senderUID: senderUID,
       Constants.senderName: senderName,
@@ -158,19 +154,7 @@ class MessageModel {
       'originalMessage': originalMessage,
       'editedAt': editedAt,
       'reactions': reactions,
-      // Enhanced status reply fields
-      'isStatusReply': isStatusReply,
-      'statusThumbnailUrl': statusThumbnailUrl,
-      'statusType': statusType?.name,
-      'statusId': statusId,
-      'statusCaption': statusCaption,
     };
-
-    if (statusContext != null) {
-      result[Constants.statusContext] = statusContext;
-    }
-
-    return result;
   }
 
   MessageModel copyWith({
@@ -185,18 +169,12 @@ class MessageModel {
     String? repliedMessage,
     String? repliedTo,
     MessageEnum? repliedMessageType,
-    String? statusContext,
     List<String>? deletedBy,
     bool? isDeletedForEveryone,
     bool? isEdited,
     String? originalMessage,
     String? editedAt,
     Map<String, Map<String, String>>? reactions,
-    bool? isStatusReply,
-    String? statusThumbnailUrl,
-    StatusType? statusType,
-    String? statusId,
-    String? statusCaption,
   }) {
     return MessageModel(
       messageId: messageId ?? this.messageId,
@@ -210,22 +188,16 @@ class MessageModel {
       repliedMessage: repliedMessage ?? this.repliedMessage,
       repliedTo: repliedTo ?? this.repliedTo,
       repliedMessageType: repliedMessageType ?? this.repliedMessageType,
-      statusContext: statusContext ?? this.statusContext,
-      deletedBy: deletedBy ?? List.from(this.deletedBy),
+      deletedBy: deletedBy ?? List<String>.from(this.deletedBy),
       isDeletedForEveryone: isDeletedForEveryone ?? this.isDeletedForEveryone,
       isEdited: isEdited ?? this.isEdited,
       originalMessage: originalMessage ?? this.originalMessage,
       editedAt: editedAt ?? this.editedAt,
-      reactions: reactions ?? Map.from(this.reactions),
-      isStatusReply: isStatusReply ?? this.isStatusReply,
-      statusThumbnailUrl: statusThumbnailUrl ?? this.statusThumbnailUrl,
-      statusType: statusType ?? this.statusType,
-      statusId: statusId ?? this.statusId,
-      statusCaption: statusCaption ?? this.statusCaption,
+      reactions: reactions ?? Map<String, Map<String, String>>.from(this.reactions),
     );
   }
   
-  // Helper methods remain the same...
+  // Helper methods
   MessageModel addReaction(String userId, String emoji) {
     final newReactions = Map<String, Map<String, String>>.from(reactions);
     newReactions[userId] = {
@@ -277,5 +249,25 @@ class MessageModel {
   
   bool shouldShowFor(String userId) {
     return !isDeletedFor(userId);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is MessageModel && 
+           other.messageId == messageId &&
+           other.senderUID == senderUID &&
+           other.message == message &&
+           other.timeSent == timeSent;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(messageId, senderUID, message, timeSent);
+  }
+
+  @override
+  String toString() {
+    return 'MessageModel(id: $messageId, sender: $senderUID, type: $messageType, status: $messageStatus)';
   }
 }

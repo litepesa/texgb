@@ -1,5 +1,5 @@
+// lib/features/chat/providers/chat_provider.dart
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -13,7 +13,7 @@ import 'package:uuid/uuid.dart';
 
 part 'chat_provider.g.dart';
 
-// State class for chat management with added features
+// Enhanced state class for chat management
 class ChatState {
   final bool isLoading;
   final List<ChatModel> chats;
@@ -21,8 +21,9 @@ class ChatState {
   final String? currentChatId;
   final UserModel? currentChatContact;
   final MessageModel? replyingTo;
-  final MessageModel? editingMessage; // For message editing
+  final MessageModel? editingMessage;
   final String? error;
+  final Map<String, bool> loadingStates; // Track specific operation loading states
 
   const ChatState({
     this.isLoading = false,
@@ -33,6 +34,7 @@ class ChatState {
     this.replyingTo,
     this.editingMessage,
     this.error,
+    this.loadingStates = const {},
   });
 
   ChatState copyWith({
@@ -44,6 +46,7 @@ class ChatState {
     MessageModel? replyingTo,
     MessageModel? editingMessage,
     String? error,
+    Map<String, bool>? loadingStates,
   }) {
     return ChatState(
       isLoading: isLoading ?? this.isLoading,
@@ -54,13 +57,44 @@ class ChatState {
       replyingTo: replyingTo ?? this.replyingTo,
       editingMessage: editingMessage ?? this.editingMessage,
       error: error,
+      loadingStates: loadingStates ?? this.loadingStates,
     );
+  }
+
+  // Helper methods for checking specific loading states
+  bool isOperationLoading(String operation) {
+    return loadingStates[operation] ?? false;
+  }
+
+  ChatState withLoadingState(String operation, bool loading) {
+    final newLoadingStates = Map<String, bool>.from(loadingStates);
+    if (loading) {
+      newLoadingStates[operation] = true;
+    } else {
+      newLoadingStates.remove(operation);
+    }
+    return copyWith(loadingStates: newLoadingStates);
+  }
+
+  // Get filtered chats (only 1-to-1 chats, no groups)
+  List<ChatModel> get directChats {
+    return chats.where((chat) => !chat.isGroup).toList();
+  }
+
+  // Get total unread count for direct chats only
+  int get totalUnreadCount {
+    return directChats.fold(0, (sum, chat) => sum + chat.getDisplayUnreadCount());
+  }
+
+  // Check if any chat has unread messages
+  bool get hasUnreadMessages {
+    return directChats.any((chat) => chat.hasUnreadMessages());
   }
 }
 
 @riverpod
 class ChatNotifier extends _$ChatNotifier {
-  late ChatRepository _chatRepository;
+  late IChatRepository _chatRepository;
 
   @override
   FutureOr<ChatState> build() {
@@ -75,14 +109,15 @@ class ChatNotifier extends _$ChatNotifier {
   void _initChatListeners() {
     // Listen to the chats stream
     ref.listen(chatStreamProvider, (previous, next) {
-      if (next.hasValue) {
+      if (next.hasValue && state.hasValue) {
         state = AsyncValue.data(state.value!.copyWith(chats: next.value!));
       }
     });
     
-    // Listen to the current user to update chat if needed
+    // Listen to current user changes
     ref.listen(currentUserProvider, (previous, next) {
       if (next != null && state.value?.currentChatId != null) {
+        // Refresh current chat if user changes
         openChat(state.value!.currentChatId!, state.value!.currentChatContact!);
       }
     });
@@ -90,26 +125,24 @@ class ChatNotifier extends _$ChatNotifier {
 
   // Open a chat and load its messages
   Future<void> openChat(String chatId, UserModel contact) async {
+    if (!state.hasValue) return;
+
     state = AsyncValue.data(state.value!.copyWith(
       isLoading: true,
       currentChatId: chatId,
       currentChatContact: contact,
       messages: [],
+      error: null,
     ));
     
     try {
-      // Cancel previous listener and listen to the new chat's messages
-      ref.read(messageStreamProvider(chatId));
-      
-      // Mark messages as delivered when opening a chat
+      // Mark messages as delivered when opening chat
       await _chatRepository.markChatAsDelivered(chatId);
       
-      // Reset unread counter in Firestore for current user
+      // Reset unread counter
       await _chatRepository.resetUnreadCounter(chatId);
       
-      state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-      ));
+      state = AsyncValue.data(state.value!.copyWith(isLoading: false));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         isLoading: false,
@@ -118,41 +151,44 @@ class ChatNotifier extends _$ChatNotifier {
     }
   }
 
-  // Send a text message
+  // Send a text message with privacy validation
   Future<void> sendTextMessage(String message) async {
-    if (message.trim().isEmpty) return;
-    if (state.value?.currentChatId == null || state.value?.currentChatContact == null) return;
+    if (message.trim().isEmpty || !state.hasValue) return;
+    
+    final currentState = state.value!;
+    if (currentState.currentChatId == null || currentState.currentChatContact == null) {
+      _setError('No chat selected');
+      return;
+    }
     
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
+    if (currentUser == null) {
+      _setError('User not authenticated');
+      return;
+    }
     
-    final chatId = state.value!.currentChatId!;
-    final contact = state.value!.currentChatContact!;
-    final replyingTo = state.value!.replyingTo;
+    final chatId = currentState.currentChatId!;
+    final contact = currentState.currentChatContact!;
+    final replyingTo = currentState.replyingTo;
+    final editingMessage = currentState.editingMessage;
     
-    // Check if we're editing a message
-    final editingMessage = state.value!.editingMessage;
+    state = AsyncValue.data(currentState.withLoadingState('sendMessage', true));
     
-    if (editingMessage != null) {
-      try {
+    try {
+      if (editingMessage != null) {
+        // Edit existing message
         await _chatRepository.editMessage(
           chatId: chatId,
           messageId: editingMessage.messageId,
           newMessage: message,
         );
         
-        // Clear edit state after sending
+        // Clear edit state
         state = AsyncValue.data(state.value!.copyWith(
           editingMessage: null,
-        ));
-      } catch (e) {
-        state = AsyncValue.data(state.value!.copyWith(
-          error: 'Error editing message: $e',
-        ));
-      }
-    } else {
-      // Send new message
-      try {
+        ).withLoadingState('sendMessage', false));
+      } else {
+        // Send new message
         await _chatRepository.sendMessage(
           chatId: chatId,
           receiverUID: contact.uid,
@@ -165,36 +201,43 @@ class ChatNotifier extends _$ChatNotifier {
           repliedMessageType: replyingTo?.messageType,
         );
         
-        // Clear reply state after sending
-        if (replyingTo != null) {
-          cancelReply();
-        }
-      } catch (e) {
+        // Clear reply state
         state = AsyncValue.data(state.value!.copyWith(
-          error: 'Error sending message: $e',
-        ));
+          replyingTo: null,
+        ).withLoadingState('sendMessage', false));
       }
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        error: e.toString(),
+      ).withLoadingState('sendMessage', false));
     }
   }
 
-  // Send a media message (image, video, audio)
+  // Send a media message
   Future<void> sendMediaMessage({
     required File file,
     required MessageEnum messageType,
     String? caption,
   }) async {
-    if (state.value?.currentChatId == null || state.value?.currentChatContact == null) return;
+    if (!state.hasValue) return;
+    
+    final currentState = state.value!;
+    if (currentState.currentChatId == null || currentState.currentChatContact == null) {
+      _setError('No chat selected');
+      return;
+    }
     
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
+    if (currentUser == null) {
+      _setError('User not authenticated');
+      return;
+    }
     
-    final chatId = state.value!.currentChatId!;
-    final contact = state.value!.currentChatContact!;
-    final replyingTo = state.value!.replyingTo;
+    final chatId = currentState.currentChatId!;
+    final contact = currentState.currentChatContact!;
+    final replyingTo = currentState.replyingTo;
     
-    state = AsyncValue.data(state.value!.copyWith(
-      isLoading: true,
-    ));
+    state = AsyncValue.data(currentState.withLoadingState('sendMedia', true));
     
     try {
       await _chatRepository.sendMessage(
@@ -210,99 +253,74 @@ class ChatNotifier extends _$ChatNotifier {
         file: file,
       );
       
-      // Clear reply state after sending
-      if (replyingTo != null) {
-        cancelReply();
-      }
-      
+      // Clear reply state
       state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-      ));
+        replyingTo: null,
+      ).withLoadingState('sendMedia', false));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-        error: 'Error sending media: $e',
-      ));
+        error: e.toString(),
+      ).withLoadingState('sendMedia', false));
     }
   }
 
-  // Set a message to reply to
+  // Set message to reply to
   void setReplyingTo(MessageModel message) {
+    if (!state.hasValue) return;
+    
     state = AsyncValue.data(state.value!.copyWith(
       replyingTo: message,
+      editingMessage: null, // Clear editing if replying
     ));
   }
 
   // Cancel reply
   void cancelReply() {
-    state = AsyncValue.data(state.value!.copyWith(
-      replyingTo: null,
-    ));
+    if (!state.hasValue) return;
+    
+    state = AsyncValue.data(state.value!.copyWith(replyingTo: null));
   }
   
-  // Set a message to edit
+  // Set message to edit
   void setEditingMessage(MessageModel message) {
+    if (!state.hasValue) return;
+    
     state = AsyncValue.data(state.value!.copyWith(
       editingMessage: message,
+      replyingTo: null, // Clear reply if editing
     ));
   }
   
   // Cancel editing
   void cancelEditing() {
-    state = AsyncValue.data(state.value!.copyWith(
-      editingMessage: null,
-    ));
-  }
-
-  // Mark a message as delivered
-  Future<void> markMessageAsDelivered(String messageId) async {
-    if (state.value?.currentChatId == null) return;
+    if (!state.hasValue) return;
     
-    try {
-      await _chatRepository.markMessageAsDelivered(
-        chatId: state.value!.currentChatId!,
-        messageId: messageId,
-      );
-    } catch (e) {
-      debugPrint('Error marking message as delivered: $e');
-    }
+    state = AsyncValue.data(state.value!.copyWith(editingMessage: null));
   }
 
   // Delete a message (for current user only)
   Future<void> deleteMessage(String messageId) async {
-    if (state.value?.currentChatId == null) return;
+    if (!state.hasValue || state.value!.currentChatId == null) return;
+    
+    state = AsyncValue.data(state.value!.withLoadingState('deleteMessage', true));
     
     try {
       await _chatRepository.deleteMessage(
         chatId: state.value!.currentChatId!,
         messageId: messageId,
       );
+      
+      state = AsyncValue.data(state.value!.withLoadingState('deleteMessage', false));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         error: 'Error deleting message: $e',
-      ));
-    }
-  }
-  
-  // Delete message for everyone
-  Future<void> deleteMessageForEveryone(String messageId) async {
-    if (state.value?.currentChatId == null) return;
-    
-    try {
-      await _chatRepository.deleteMessageForEveryone(
-        chatId: state.value!.currentChatId!,
-        messageId: messageId,
-      );
-    } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(
-        error: 'Error deleting message for everyone: $e',
-      ));
+      ).withLoadingState('deleteMessage', false));
     }
   }
   
   // Add reaction to message
   Future<void> addReaction(String messageId, String emoji) async {
-    if (state.value?.currentChatId == null) return;
+    if (!state.hasValue || state.value!.currentChatId == null) return;
     
     try {
       await _chatRepository.addReaction(
@@ -311,139 +329,13 @@ class ChatNotifier extends _$ChatNotifier {
         emoji: emoji,
       );
     } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(
-        error: 'Error adding reaction: $e',
-      ));
+      _setError('Error adding reaction: $e');
     }
   }
 
-  // Open a group chat
-  Future<void> openGroupChat(String groupId, List<UserModel> members) async {
-    state = AsyncValue.data(state.value!.copyWith(
-      isLoading: true,
-      currentChatId: groupId,
-      messages: [],
-    ));
-    
-    try {
-      // Listen to the group chat's messages
-      ref.read(messageStreamProvider(groupId));
-      
-      // Mark messages as delivered
-      await _chatRepository.markChatAsDelivered(groupId);
-      
-      // Reset unread counter
-      await _chatRepository.resetUnreadCounter(groupId);
-      
-      state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-      ));
-    } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-        error: 'Error opening group chat: $e',
-      ));
-    }
-  }
-  
-  // Send a group message
-  Future<void> sendGroupMessage({
-    required String message,
-    MessageEnum messageType = MessageEnum.text,
-    File? file,
-  }) async {
-    if (message.trim().isEmpty && file == null) return;
-    if (state.value?.currentChatId == null) return;
-    
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-    
-    final chatId = state.value!.currentChatId!;
-    final replyingTo = state.value!.replyingTo;
-    
-    // Check if we're editing a message
-    final editingMessage = state.value!.editingMessage;
-    
-    if (editingMessage != null) {
-      try {
-        await _chatRepository.editMessage(
-          chatId: chatId,
-          messageId: editingMessage.messageId,
-          newMessage: message,
-        );
-        
-        // Clear edit state after sending
-        state = AsyncValue.data(state.value!.copyWith(
-          editingMessage: null,
-        ));
-      } catch (e) {
-        state = AsyncValue.data(state.value!.copyWith(
-          error: 'Error editing message: $e',
-        ));
-      }
-    } else {
-      try {
-        await _chatRepository.sendGroupMessage(
-          groupId: chatId,
-          message: message,
-          messageType: messageType,
-          senderUser: currentUser,
-          repliedMessage: replyingTo?.message,
-          repliedTo: replyingTo?.senderUID,
-          repliedMessageType: replyingTo?.messageType,
-          file: file,
-        );
-        
-        // Clear reply state after sending
-        if (replyingTo != null) {
-          cancelReply();
-        }
-      } catch (e) {
-        state = AsyncValue.data(state.value!.copyWith(
-          error: 'Error sending group message: $e',
-        ));
-      }
-    }
-  }
-  
-  // Send a group media message
-  Future<void> sendGroupMediaMessage({
-    required File file,
-    required MessageEnum messageType,
-    String? caption,
-  }) async {
-    if (state.value?.currentChatId == null) return;
-    
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-    
-    final chatId = state.value!.currentChatId!;
-    
-    state = AsyncValue.data(state.value!.copyWith(
-      isLoading: true,
-    ));
-    
-    try {
-      await sendGroupMessage(
-        message: caption ?? '',
-        messageType: messageType,
-        file: file,
-      );
-      
-      state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-      ));
-    } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-        error: 'Error sending group media: $e',
-      ));
-    }
-  }
-  
   // Remove reaction from message
   Future<void> removeReaction(String messageId) async {
-    if (state.value?.currentChatId == null) return;
+    if (!state.hasValue || state.value!.currentChatId == null) return;
     
     try {
       await _chatRepository.removeReaction(
@@ -451,9 +343,49 @@ class ChatNotifier extends _$ChatNotifier {
         messageId: messageId,
       );
     } catch (e) {
+      _setError('Error removing reaction: $e');
+    }
+  }
+
+  // Toggle pin status of a chat
+  Future<void> togglePinChat(String chatId) async {
+    if (!state.hasValue) return;
+    
+    state = AsyncValue.data(state.value!.withLoadingState('togglePin', true));
+    
+    try {
+      await _chatRepository.togglePinChat(chatId);
+      state = AsyncValue.data(state.value!.withLoadingState('togglePin', false));
+    } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
-        error: 'Error removing reaction: $e',
-      ));
+        error: 'Error toggling pin: $e',
+      ).withLoadingState('togglePin', false));
+    }
+  }
+
+  // Delete entire chat
+  Future<void> deleteChat(String chatId) async {
+    if (!state.hasValue) return;
+    
+    state = AsyncValue.data(state.value!.withLoadingState('deleteChat', true));
+    
+    try {
+      await _chatRepository.deleteChat(chatId);
+      
+      // If we're deleting the current chat, clear it
+      if (state.value!.currentChatId == chatId) {
+        state = AsyncValue.data(state.value!.copyWith(
+          currentChatId: null,
+          currentChatContact: null,
+          messages: [],
+        ).withLoadingState('deleteChat', false));
+      } else {
+        state = AsyncValue.data(state.value!.withLoadingState('deleteChat', false));
+      }
+    } catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        error: 'Error deleting chat: $e',
+      ).withLoadingState('deleteChat', false));
     }
   }
 
@@ -463,9 +395,7 @@ class ChatNotifier extends _$ChatNotifier {
     if (currentUser == null) return;
     
     final chatId = _chatRepository.generateChatId(currentUser.uid, contact.uid);
-    
-    // Open the chat screen
-    openChat(chatId, contact);
+    await openChat(chatId, contact);
   }
 
   // Get chat ID for a contact
@@ -475,8 +405,35 @@ class ChatNotifier extends _$ChatNotifier {
     
     return _chatRepository.generateChatId(currentUser.uid, contactId);
   }
-}
 
+  // Clear error state
+  void clearError() {
+    if (!state.hasValue) return;
+    
+    state = AsyncValue.data(state.value!.copyWith(error: null));
+  }
+
+  // Private helper method to set error
+  void _setError(String error) {
+    if (!state.hasValue) return;
+    
+    state = AsyncValue.data(state.value!.copyWith(error: error));
+  }
+
+  // Get total unread count across all chats
+  Future<int> getTotalUnreadCount() async {
+    if (_chatRepository is FirebaseChatRepository) {
+      return await (_chatRepository as FirebaseChatRepository).getTotalUnreadCount();
+    }
+    
+    // Fallback for other implementations
+    if (state.hasValue) {
+      return state.value!.totalUnreadCount;
+    }
+    
+    return 0;
+  }
+}
 
 // Stream provider for all chats
 @riverpod
@@ -485,19 +442,11 @@ Stream<List<ChatModel>> chatStream(ChatStreamRef ref) {
   return repository.getChats();
 }
 
-// Stream provider for direct chats only (non-group chats)
+// Stream provider for direct chats only (excluding groups)
 @riverpod
 Stream<List<ChatModel>> directChatStream(DirectChatStreamRef ref) {
   return ref.watch(chatStreamProvider.stream).map(
     (chats) => chats.where((chat) => !chat.isGroup).toList()
-  );
-}
-
-// Stream provider for group chats only
-@riverpod
-Stream<List<ChatModel>> groupChatStream(GroupChatStreamRef ref) {
-  return ref.watch(chatStreamProvider.stream).map(
-    (chats) => chats.where((chat) => chat.isGroup).toList()
   );
 }
 
@@ -506,6 +455,13 @@ Stream<List<ChatModel>> groupChatStream(GroupChatStreamRef ref) {
 Stream<List<MessageModel>> messageStream(MessageStreamRef ref, String chatId) {
   final repository = ref.watch(chatRepositoryProvider);
   return repository.getMessages(chatId);
+}
+
+// Provider for unread message count
+@riverpod
+Future<int> unreadMessageCount(UnreadMessageCountRef ref) async {
+  final chatNotifier = ref.watch(chatNotifierProvider.notifier);
+  return await chatNotifier.getTotalUnreadCount();
 }
 
 // Use the auto-generated provider for ChatNotifier
