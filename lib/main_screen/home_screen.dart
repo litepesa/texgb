@@ -9,6 +9,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
+import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
@@ -34,6 +35,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   int _previousIndex = 0;
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
+  double _currentVideoProgress = 0.0;
   
   // Global key for ChannelsFeedScreen to control video playback
   final GlobalKey<ChannelsFeedScreenState> _channelsFeedKey = GlobalKey<ChannelsFeedScreenState>();
@@ -42,15 +44,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Chats',
     'Groups',
     '',         // Empty label for custom post button
-    'Status',
-    'Live'
+    'Discover',
+    'Duanju'
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_text,
     Icons.group_outlined,
-    Icons.add,  // This will be replaced with custom design
-    Icons.donut_large,
+    Icons.add,
+    CupertinoIcons.compass,
     Icons.radio_button_checked
   ];
 
@@ -75,6 +77,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     // Handle video playback control when switching tabs
     _handleVideoPlaybackControl(_currentIndex, index);
+    
+    // Reset video progress when switching away from Live tab
+    if (_currentIndex == 3 && index != 3) {
+      setState(() {
+        _currentVideoProgress = 0.0;
+      });
+    }
     
     setState(() {
       _currentIndex = index;
@@ -117,13 +126,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // Handle video playback control when switching between tabs
   void _handleVideoPlaybackControl(int fromIndex, int toIndex) {
-    // Stop videos when leaving Channels Feed tab (index 4)
-    if (fromIndex == 4 && toIndex != 4) {
+    // Stop videos when leaving Live tab (index 3)
+    if (fromIndex == 3 && toIndex != 3) {
       _channelsFeedKey.currentState?.onScreenBecameInactive();
     }
     
-    // Start videos when entering Channels Feed tab (index 4)
-    if (toIndex == 4 && fromIndex != 4) {
+    // Start videos when entering Live tab (index 3)
+    if (toIndex == 3 && fromIndex != 3) {
       // Small delay to ensure the screen is fully loaded
       Future.delayed(const Duration(milliseconds: 100), () {
         _channelsFeedKey.currentState?.onScreenBecameActive();
@@ -168,17 +177,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const CreatePostScreen(),
           ),
-          // Status tab (index 3) - Use surfaceColor for seamless look with appbar
+          // Live tab (index 3) - Hide app bar
+          Container(
+            color: Colors.black, // Black background for live feed
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: ChannelsFeedScreen(
+              key: _channelsFeedKey,
+              onVideoProgressChanged: (progress) {
+                setState(() {
+                  _currentVideoProgress = progress;
+                });
+              },
+            ),
+          ),
+          // Short Dramas tab (index 4) - Use surfaceColor for seamless look with appbar
           Container(
             color: modernTheme.surfaceColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const StatusOverviewScreen(),
-          ),
-          // Channels Feed tab (index 4) - Hide app bar
-          Container(
-            color: Colors.black, // Black background for channels feed
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: ChannelsFeedScreen(key: _channelsFeedKey),
+            child: const ShortDramasScreen(),
           ),
         ],
       ),
@@ -189,15 +205,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Hide app bar for Create Post (index 2) and Channels Feed (index 4)
+  // Hide app bar for Create Post (index 2) and Live (index 3)
   bool _shouldShowAppBar() {
-    return _currentIndex != 2 && _currentIndex != 4;
+    return _currentIndex != 2 && _currentIndex != 3;
   }
 
   Widget _buildCustomBottomNav(ModernThemeExtension modernTheme, AsyncValue<List<ChatModel>> chatsAsyncValue) {
-    // Use black background for bottom nav when on Channels Feed tab (index 4)
-    final bottomNavColor = _currentIndex == 4 ? Colors.black : modernTheme.surfaceColor;
-    final dividerColor = _currentIndex == 4 ? Colors.grey.shade800 : modernTheme.dividerColor;
+    // Use black background for bottom nav when on Live tab (index 3)
+    final bottomNavColor = _currentIndex == 3 ? Colors.black : modernTheme.surfaceColor;
+    final dividerColor = _currentIndex == 3 ? Colors.grey.shade800 : modernTheme.dividerColor;
     
     return Container(
       decoration: BoxDecoration(
@@ -206,11 +222,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            height: 1,
-            width: double.infinity,
-            color: dividerColor,
-          ),
+          // Progress bar for Live tab (index 3) - thin white bar on top of divider
+          if (_currentIndex == 3) ...[
+            Container(
+              height: 1,
+              width: double.infinity,
+              color: Colors.grey.shade800,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 100),
+                  height: 2,
+                  width: MediaQuery.of(context).size.width * _currentVideoProgress,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ] else ...[
+            Container(
+              height: 1,
+              width: double.infinity,
+              color: dividerColor,
+            ),
+          ],
           SafeArea(
             top: false,
             bottom: true,
@@ -355,7 +389,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // For other tabs (Status, Live), no badge needed
+    // For other tabs (Live, Dramas), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
 
@@ -365,12 +399,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ModernThemeExtension modernTheme,
     int unreadCount,
   ) {
-    // Adjust colors when on Channels Feed tab (index 4) for black background
+    // Adjust colors when on Live tab (index 3) for black background
     Color iconColor;
     Color textColor;
     
-    if (_currentIndex == 4) {
-      // White icons/text on black background for Channels Feed tab
+    if (_currentIndex == 3) {
+      // White icons/text on black background for Live tab
       iconColor = isSelected ? Colors.white : Colors.grey.shade400;
       textColor = isSelected ? Colors.white : Colors.grey.shade400;
     } else {
@@ -395,7 +429,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: isSelected 
-                      ? (_currentIndex == 4 ? Colors.white.withOpacity(0.2) : modernTheme.primaryColor!.withOpacity(0.2))
+                      ? (_currentIndex == 3 ? Colors.white.withOpacity(0.2) : modernTheme.primaryColor!.withOpacity(0.2))
                       : Colors.transparent,
                     shape: BoxShape.circle,
                   ),
@@ -412,7 +446,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: _currentIndex == 4 ? Colors.red : modernTheme.primaryColor,
+                        color: _currentIndex == 3 ? Colors.red : modernTheme.primaryColor,
                         shape: unreadCount > 99 
                             ? BoxShape.rectangle 
                             : BoxShape.circle,
@@ -461,12 +495,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isSelected, 
     ModernThemeExtension modernTheme
   ) {
-    // Adjust colors when on Channels Feed tab (index 4) for black background
+    // Adjust colors when on Live tab (index 3) for black background
     Color iconColor;
     Color textColor;
     
-    if (_currentIndex == 4) {
-      // White icons/text on black background for Channels Feed tab
+    if (_currentIndex == 3) {
+      // White icons/text on black background for Live tab
       iconColor = isSelected ? Colors.white : Colors.grey.shade400;
       textColor = isSelected ? Colors.white : Colors.grey.shade400;
     } else {
@@ -488,7 +522,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: isSelected 
-                  ? (_currentIndex == 4 ? Colors.white.withOpacity(0.2) : modernTheme.primaryColor!.withOpacity(0.2))
+                  ? (_currentIndex == 3 ? Colors.white.withOpacity(0.2) : modernTheme.primaryColor!.withOpacity(0.2))
                   : Colors.transparent,
                 shape: BoxShape.circle,
               ),
@@ -516,9 +550,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats, Groups, and Status tabs
+  // Show FAB on Chats, Groups, and Dramas tabs
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 3;
+    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 4;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -699,14 +733,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
         child: const Icon(Icons.group_add),
       );
-    } else if (_currentIndex == 3) {
-      // Status tab - Create status FAB
+    } else if (_currentIndex == 4) {
+      // Dramas tab - Browse dramas FAB
       return FloatingActionButton(
         backgroundColor: modernTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.createStatusScreen),
-        child: const Icon(Icons.add),
+        onPressed: () {
+          // Navigate to search or browse dramas screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Browse Dramas feature coming soon!')),
+          );
+        },
+        child: const Icon(Icons.search),
       );
     }
     
