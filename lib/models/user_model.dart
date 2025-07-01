@@ -317,10 +317,6 @@ class UserModel {
       blockedUIDs: List<String>.from(map[Constants.blockedUIDs] ?? []),
       followedChannels: List<String>.from(map['followedChannels'] ?? []),
       followingCount: map['followingCount']?.toInt() ?? 0,
-      isAccountActivated: map[Constants.isAccountActivated] ?? false,
-      paymentTransactionId: map[Constants.paymentTransactionId]?.toString(),
-      paymentDate: map[Constants.paymentDate]?.toString(),
-      amountPaid: map[Constants.amountPaid]?.toDouble(),
       privacySettings: UserPrivacySettings.fromMap(
         map['privacySettings'] ?? <String, dynamic>{},
       ),
@@ -341,10 +337,6 @@ class UserModel {
       Constants.blockedUIDs: blockedUIDs,
       'followedChannels': followedChannels,
       'followingCount': followingCount,
-      Constants.isAccountActivated: isAccountActivated,
-      Constants.paymentTransactionId: paymentTransactionId,
-      Constants.paymentDate: paymentDate,
-      Constants.amountPaid: amountPaid,
       'privacySettings': privacySettings.toMap(),
     };
   }

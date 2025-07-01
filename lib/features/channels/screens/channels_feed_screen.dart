@@ -475,9 +475,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           // Live and Following buttons (TikTok style)
           Row(
             children: [
-              _buildTopButton('Today', false),
+              //_buildTopButton('Live', false),
               const SizedBox(width: 20),
-              _buildTopButton('Trending', false),
+              _buildTopButton('Following', false),
               const SizedBox(width: 20),
               _buildTopButton('For You', true), // Active state
             ],

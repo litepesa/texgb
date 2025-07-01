@@ -7,19 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
-import 'package:textgb/features/chat/models/chat_model.dart';
-import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
-import 'package:textgb/features/groups/screens/groups_tab.dart';
-import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
-import 'package:textgb/features/live/screens/go_live_screen';
-import 'package:textgb/features/live/screens/live_screen.dart';
+import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+import 'package:textgb/features/shop/screens/shops_list_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/theme/theme_manager.dart';
+import 'package:textgb/shared/theme/light_theme.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -34,26 +30,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   int _previousIndex = 0;
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
-  double _currentVideoProgress = 0.0;
   
-  // Global key for ChannelsFeedScreen to control video playback
-  final GlobalKey<ChannelsFeedScreenState> _channelsFeedKey = GlobalKey<ChannelsFeedScreenState>();
+  // Store the original theme when switching to shop
+  ThemeOption? _originalTheme;
+  bool _isShopModeActive = false;
   
+  // Video progress tracking
+  final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
+  
+  // Updated tab configuration for TikTok-style layout with Shop instead of Chats
   final List<String> _tabNames = [
-    'Chats',
-    'Groups',
-    '',         // Empty label for custom post button
-    'Discover',
-    'Duanju'
+    'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
+    'Shop',      // Index 1 - Shop (replaced Wallet)
+    '',          // Index 2 - Post (no label, special design)
+    'Wallet',    // Index 3 - Wallet (moved from index 1)
+    'Me'         // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.chat_bubble_text,
-    Icons.group_outlined,
-    Icons.add,
-    CupertinoIcons.compass,
-    Icons.radio_button_checked
+    Icons.home,                        // Home
+    Icons.store_outlined,       // Shop
+    Icons.add,                         // Post (will be styled specially)
+    Icons.account_balance_wallet_outlined, // Wallet
+    Icons.person_outline               // Me/Profile
   ];
+
+  // Feed screen controller for lifecycle management
+  final GlobalKey<ChannelsFeedScreenState> _feedScreenKey = GlobalKey<ChannelsFeedScreenState>();
 
   @override
   void initState() {
@@ -66,28 +69,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
+    // Restore original theme if shop mode was active
+    if (_isShopModeActive && _originalTheme != null) {
+      final themeManager = ref.read(themeManagerNotifierProvider.notifier);
+      themeManager.setTheme(_originalTheme!);
+    }
     _pageController.dispose();
+    _videoProgressNotifier.dispose();
     super.dispose();
   }
 
   void _onTabTapped(int index) {
+    // Handle special post button
+    if (index == 2) {
+      _navigateToCreatePost();
+      return;
+    }
+
     // Store previous index for navigation management
     _previousIndex = _currentIndex;
     
-    // Handle video playback control when switching tabs
-    _handleVideoPlaybackControl(_currentIndex, index);
+    // Handle theme switching for shop tab
+    _handleThemeForTab(index);
     
-    // Reset video progress when switching away from Live tab
-    if (_currentIndex == 3 && index != 3) {
-      setState(() {
-        _currentVideoProgress = 0.0;
-      });
+    // Handle feed screen lifecycle
+    if (_currentIndex == 0) {
+      // Leaving feed screen
+      _feedScreenKey.currentState?.onScreenBecameInactive();
     }
     
     setState(() {
       _currentIndex = index;
-      _updateSystemUI(); // Force immediate update
+      _updateSystemUI();
     });
+
+    // Handle feed screen lifecycle
+    if (_currentIndex == 0) {
+      // Entering feed screen
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _feedScreenKey.currentState?.onScreenBecameActive();
+      });
+    }
 
     // Use jumpToPage to avoid showing intermediate pages
     _isPageAnimating = true;
@@ -98,162 +120,342 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
   
+  /// Handle theme switching when entering/leaving shop tab
+  void _handleThemeForTab(int newIndex) {
+    final themeManager = ref.read(themeManagerNotifierProvider.notifier);
+    final currentThemeState = ref.read(themeManagerNotifierProvider).valueOrNull;
+    
+    if (currentThemeState == null) return;
+    
+    // Entering shop tab (index 1)
+    if (newIndex == 1 && !_isShopModeActive) {
+      // Store original theme only if not already in light mode
+      if (currentThemeState.currentTheme != ThemeOption.light) {
+        _originalTheme = currentThemeState.currentTheme;
+        themeManager.setTheme(ThemeOption.light);
+        _isShopModeActive = true;
+      }
+    }
+    // Leaving shop tab
+    else if (_currentIndex == 1 && newIndex != 1 && _isShopModeActive) {
+      // Restore original theme if we had stored one
+      if (_originalTheme != null) {
+        themeManager.setTheme(_originalTheme!);
+        _originalTheme = null;
+        _isShopModeActive = false;
+      }
+    }
+  }
+  
   void _updateSystemUI() {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-    ));
+    if (_currentIndex == 0) {
+      // Home/Feed screen - black background with light status bar
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    } else {
+      // Other screens - use theme-appropriate colors
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    }
   }
   
   void _onPageChanged(int index) {
     // Only process page changes that aren't from programmatic jumps
     if (_isPageAnimating) return;
     
+    // Handle theme switching for shop tab
+    _handleThemeForTab(index);
+    
+    // Handle feed screen lifecycle
+    if (_currentIndex == 0) {
+      // Leaving feed screen
+      _feedScreenKey.currentState?.onScreenBecameInactive();
+    }
+    
     // Store previous index before updating
     _previousIndex = _currentIndex;
-    
-    // Handle video playback control when page changes
-    _handleVideoPlaybackControl(_currentIndex, index);
     
     setState(() {
       _currentIndex = index;
       _updateSystemUI();
     });
-  }
 
-  // Handle video playback control when switching between tabs
-  void _handleVideoPlaybackControl(int fromIndex, int toIndex) {
-    // Stop videos when leaving Live tab (index 3)
-    if (fromIndex == 3 && toIndex != 3) {
-      _channelsFeedKey.currentState?.onScreenBecameInactive();
-    }
-    
-    // Start videos when entering Live tab (index 3)
-    if (toIndex == 3 && fromIndex != 3) {
-      // Small delay to ensure the screen is fully loaded
+    // Handle feed screen lifecycle
+    if (_currentIndex == 0) {
+      // Entering feed screen
       Future.delayed(const Duration(milliseconds: 100), () {
-        _channelsFeedKey.currentState?.onScreenBecameActive();
+        _feedScreenKey.currentState?.onScreenBecameActive();
       });
     }
+  }
+
+  void _navigateToCreatePost() async {
+    // Pause feed if active
+    if (_currentIndex == 0) {
+      _feedScreenKey.currentState?.onScreenBecameInactive();
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CreatePostScreen(),
+      ),
+    );
+
+    // Resume feed if returning to it
+    if (result == true && _currentIndex == 0) {
+      _feedScreenKey.currentState?.onScreenBecameActive();
+    }
+  }
+
+  // Handle shop dropdown menu actions
+  void _handleShopMenuAction(String action) {
+    switch (action) {
+      case 'categories':
+        // Navigate to categories or show categories bottom sheet
+        _showCategoriesBottomSheet();
+        break;
+      case 'orders':
+        // Navigate to orders screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigate to Orders')),
+        );
+        break;
+      case 'wishlist':
+        // Navigate to wishlist
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigate to Wishlist')),
+        );
+        break;
+      case 'my_shop':
+        // Navigate to my shop (seller dashboard)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigate to My Shop')),
+        );
+        break;
+      case 'settings':
+        // Navigate to shop settings
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Navigate to Shop Settings')),
+        );
+        break;
+    }
+  }
+
+  void _showCategoriesBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final modernTheme = context.modernTheme;
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          decoration: BoxDecoration(
+            color: modernTheme.surfaceColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: modernTheme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Title
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text(
+                  'Shop Categories',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: modernTheme.textColor,
+                  ),
+                ),
+              ),
+              // Categories list
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: [
+                    'Electronics',
+                    'Fashion',
+                    'Home & Garden',
+                    'Sports & Outdoors',
+                    'Books',
+                    'Beauty & Health',
+                    'Toys & Games',
+                    'Automotive',
+                  ].map((category) => ListTile(
+                    leading: Icon(
+                      Icons.category_outlined,
+                      color: modernTheme.primaryColor,
+                    ),
+                    title: Text(
+                      category,
+                      style: TextStyle(color: modernTheme.textColor),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Selected: $category')),
+                      );
+                    },
+                  )).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final chatsAsyncValue = ref.watch(chatStreamProvider);
+    final isHomeTab = _currentIndex == 0;
+    final isProfileTab = _currentIndex == 4;
+    final isShopTab = _currentIndex == 1;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: false,
-      backgroundColor: _currentIndex == 0 ? modernTheme.surfaceColor : modernTheme.backgroundColor,
+      extendBodyBehindAppBar: isHomeTab || isProfileTab,
+      backgroundColor: isHomeTab ? Colors.black : modernTheme.backgroundColor,
       
-      appBar: _shouldShowAppBar() ? _buildAppBar(modernTheme, isDarkMode) : null,
+      // Hide AppBar for home and profile tabs
+      appBar: (isHomeTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Chats tab (index 0) - Remove bottom padding
-          Container(
-            color: modernTheme.surfaceColor,
-            child: const ChatsTab(),
-          ),
-          // Groups tab (index 1) - Remove bottom padding
-          Container(
-            color: modernTheme.backgroundColor,
-            child: const GroupsTab(),
-          ),
-          // Create Post tab (index 2) - Remove bottom padding
-          Container(
-            color: modernTheme.backgroundColor,
-            child: const CreatePostScreen(),
-          ),
-          // Live tab (index 3) - Remove bottom padding, this eliminates the gap
+          // Home tab (index 0) - Channels Feed with black background
           Container(
             color: Colors.black,
             child: ChannelsFeedScreen(
-              key: _channelsFeedKey,
+              key: _feedScreenKey,
               onVideoProgressChanged: (progress) {
-                if (mounted && _currentIndex == 3) {
-                  setState(() {
-                    _currentVideoProgress = progress;
-                  });
-                }
+                _videoProgressNotifier.value = progress;
               },
             ),
           ),
-          // Short Dramas tab (index 4) - Remove bottom padding
+          // Shop tab (index 1) - Always uses light theme
           Container(
-            color: modernTheme.surfaceColor,
-            child: const ShortDramasScreen(),
+            color: modernTheme.backgroundColor,
+            child: Theme(
+              // Force light theme for shop screen
+              data: modernLightTheme(),
+              child: const ShopsListScreen(),
+            ),
           ),
+          // Post tab (index 2) - This should never be shown as we navigate directly
+          Container(
+            color: modernTheme.backgroundColor,
+            child: const Center(
+              child: Text('Create Post'),
+            ),
+          ),
+          // Wallet tab (index 3) - moved from index 1
+          Container(
+            color: modernTheme.backgroundColor,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: const WalletScreen(),
+          ),
+          // Profile tab (index 4)
+          const MyProfileScreen(),
         ],
       ),
       
-      bottomNavigationBar: _buildCustomBottomNav(modernTheme, chatsAsyncValue),
+      bottomNavigationBar: _buildTikTokBottomNav(modernTheme),
       
-      floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
+      // Remove FAB since we have dedicated post button
+      floatingActionButton: null,
     );
   }
 
-  // Hide app bar for Create Post (index 2) and Live (index 3)
-  bool _shouldShowAppBar() {
-    return _currentIndex != 2 && _currentIndex != 3;
-  }
-
-  Widget _buildCustomBottomNav(ModernThemeExtension modernTheme, AsyncValue<List<ChatModel>> chatsAsyncValue) {
-    // Use black background for bottom nav when on Live tab (index 3)
-    final bottomNavColor = _currentIndex == 3 ? Colors.black : modernTheme.surfaceColor;
-    final dividerColor = _currentIndex == 3 ? Colors.grey.shade800 : modernTheme.dividerColor;
+  // TikTok-style bottom navigation with video progress indicator
+  Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
+    final isHomeTab = _currentIndex == 0;
+    final isShopTab = _currentIndex == 1;
+    
+    // For shop tab, use light theme colors for bottom nav
+    Color backgroundColor;
+    Color? borderColor;
+    
+    if (isHomeTab) {
+      backgroundColor = Colors.black;
+      borderColor = null;
+    } else if (isShopTab) {
+      // Light theme colors for shop tab
+      backgroundColor = const Color(0xFFFFFFFF); // Light surface
+      borderColor = const Color(0xFFE0E0E0); // Light border
+    } else {
+      backgroundColor = modernTheme.surfaceColor!;
+      borderColor = modernTheme.dividerColor;
+    }
     
     return Container(
       decoration: BoxDecoration(
-        color: bottomNavColor,
+        color: backgroundColor,
+        border: (isHomeTab || borderColor == null) ? null : Border(
+          top: BorderSide(
+            color: borderColor,
+            width: 0.5,
+          ),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Progress bar for Live tab (index 3) - thin white bar on top of divider
-          if (_currentIndex == 3) ...[
-            Container(
-              height: 1,
-              width: double.infinity,
-              color: Colors.grey.shade800,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  height: 2,
-                  width: MediaQuery.of(context).size.width * _currentVideoProgress.clamp(0.0, 1.0),
-                  color: Colors.white,
-                ),
+          // Video progress indicator for home tab only
+          if (isHomeTab)
+            _buildVideoProgressIndicator(),
+          
+          // Bottom navigation content
+          SafeArea(
+            top: false,
+            child: Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(5, (index) {
+                  if (index == 2) {
+                    // Special post button
+                    return _buildPostButton(modernTheme, isHomeTab);
+                  }
+                  
+                  return _buildNavItem(
+                    index,
+                    modernTheme,
+                    isHomeTab,
+                    isShopTab,
+                  );
+                }),
               ),
-            ),
-          ] else ...[
-            Container(
-              height: 1,
-              width: double.infinity,
-              color: dividerColor,
-            ),
-          ],
-          // Remove the SafeArea wrapper and use padding instead
-          Container(
-            height: 60 + MediaQuery.of(context).padding.bottom, // Fixed height + safe area
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(5, (index) {
-                if (index == 2) {
-                  // Special post button at index 2
-                  return _buildPostButton(modernTheme);
-                }
-                
-                return _buildBottomNavItem(index, modernTheme, chatsAsyncValue);
-              }),
             ),
           ),
         ],
@@ -261,9 +463,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildPostButton(ModernThemeExtension modernTheme) {
+  // Video progress indicator widget
+  Widget _buildVideoProgressIndicator() {
+    return ValueListenableBuilder<double>(
+      valueListenable: _videoProgressNotifier,
+      builder: (context, progress, child) {
+        return Container(
+          height: 1, // Thin progress bar
+          width: double.infinity,
+          color: Colors.grey.withOpacity(0.3), // Background track
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              height: 2,
+              width: MediaQuery.of(context).size.width * progress.clamp(0.0, 1.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.5),
+                    blurRadius: 4,
+                    offset: const Offset(0, 0),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPostButton(ModernThemeExtension modernTheme, bool isHomeTab) {
     return GestureDetector(
-      onTap: () => _onTabTapped(2), // Navigate to Create Post screen
+      onTap: () => _navigateToCreatePost(),
       child: Container(
         width: 45,
         height: 32,
@@ -328,80 +562,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     );
   }
-  
-  Widget _buildBottomNavItem(
-    int index, 
+
+  Widget _buildNavItem(
+    int index,
     ModernThemeExtension modernTheme,
-    AsyncValue<List<ChatModel>> chatsAsyncValue,
+    bool isHomeTab,
+    bool isShopTab,
   ) {
     final isSelected = _currentIndex == index;
     
-    // Chats tab is at index 0 - show unread count for direct chats only
-    if (index == 0) {
-      return chatsAsyncValue.when(
-        data: (chats) {
-          // Calculate unread count from direct chats only
-          final directChats = chats.where((chat) => !chat.isGroup).toList();
-          final chatUnreadCount = directChats.fold<int>(
-            0, 
-            (sum, chat) => sum + chat.getDisplayUnreadCount()
-          );
-          
-          return _buildNavItemWithBadge(
-            index, 
-            isSelected, 
-            modernTheme, 
-            chatUnreadCount
-          );
-        },
-        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-      );
-    }
-    
-    // Groups tab is at index 1 - show unread count for group chats only
-    if (index == 1) {
-      return chatsAsyncValue.when(
-        data: (chats) {
-          // Calculate unread count from group chats only
-          final groupChats = chats.where((chat) => chat.isGroup).toList();
-          final groupUnreadCount = groupChats.fold<int>(
-            0, 
-            (sum, chat) => sum + chat.getDisplayUnreadCount()
-          );
-          
-          return _buildNavItemWithBadge(
-            index, 
-            isSelected, 
-            modernTheme, 
-            groupUnreadCount
-          );
-        },
-        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-      );
-    }
-    
-    // For other tabs (Live, Dramas), no badge needed
-    return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
-  }
-
-  Widget _buildNavItemWithBadge(
-    int index,
-    bool isSelected,
-    ModernThemeExtension modernTheme,
-    int unreadCount,
-  ) {
-    // Adjust colors when on Live tab (index 3) for black background
     Color iconColor;
     Color textColor;
     
-    if (_currentIndex == 3) {
-      // White icons/text on black background for Live tab
-      iconColor = isSelected ? Colors.white : Colors.grey.shade400;
-      textColor = isSelected ? Colors.white : Colors.grey.shade400;
+    if (isHomeTab) {
+      // Home tab colors
+      iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
+      textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
+    } else if (isShopTab) {
+      // Shop tab - use light theme colors
+      const lightPrimary = Color(0xFF00A884);
+      const lightSecondary = Color(0xFF6A6A6A);
+      iconColor = isSelected ? lightPrimary : lightSecondary;
+      textColor = isSelected ? lightPrimary : lightSecondary;
     } else {
-      // Normal colors for other tabs
+      // Other tabs - use current theme
       iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
       textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
     }
@@ -409,63 +593,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return GestureDetector(
       onTap: () => _onTabTapped(index),
       behavior: HitTestBehavior.translucent,
-      child: SizedBox(
-        width: 60,
+      child: Container(
+        // Expand the tap area while keeping the content centered
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                      ? (_currentIndex == 3 ? Colors.white.withOpacity(0.2) : modernTheme.primaryColor!.withOpacity(0.2))
-                      : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _tabIcons[index],
-                    color: iconColor,
-                    size: 24,
-                  ),
-                ),
-                if (unreadCount > 0)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: _currentIndex == 3 ? Colors.red : modernTheme.primaryColor,
-                        shape: unreadCount > 99 
-                            ? BoxShape.rectangle 
-                            : BoxShape.circle,
-                        borderRadius: unreadCount > 99 
-                            ? BorderRadius.circular(8) 
-                            : null,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Center(
-                        child: Text(
-                          unreadCount > 99 ? '99+' : unreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            Icon(
+              _tabIcons[index],
+              color: iconColor,
+              size: 24,
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             if (_tabNames[index].isNotEmpty)
               Text(
                 _tabNames[index],
@@ -474,274 +613,250 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
           ],
         ),
       ),
     );
-  }
-  
-  Widget _buildDefaultBottomNavItem(
-    int index, 
-    bool isSelected, 
-    ModernThemeExtension modernTheme
-  ) {
-    // Adjust colors when on Live tab (index 3) for black background
-    Color iconColor;
-    Color textColor;
-    
-    if (_currentIndex == 3) {
-      // White icons/text on black background for Live tab
-      iconColor = isSelected ? Colors.white : Colors.grey.shade400;
-      textColor = isSelected ? Colors.white : Colors.grey.shade400;
-    } else {
-      // Normal colors for other tabs
-      iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
-      textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
-    }
-
-    return GestureDetector(
-      onTap: () => _onTabTapped(index),
-      behavior: HitTestBehavior.translucent,
-      child: SizedBox(
-        width: 60,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: isSelected 
-                  ? (_currentIndex == 3 ? Colors.white.withOpacity(0.2) : modernTheme.primaryColor!.withOpacity(0.2))
-                  : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _tabIcons[index],
-                color: iconColor,
-                size: 24,
-              ),
-            ),
-            const SizedBox(height: 2),
-            if (_tabNames[index].isNotEmpty)
-              Text(
-                _tabNames[index],
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  // Show FAB on Chats, Groups, and Dramas tabs
-  bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 4;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    // Use surfaceColor for all tabs for consistency
+    String title = 'WeiBao';
+    final isShopTab = _currentIndex == 1;
+    
+    // Set title based on current tab
+    switch (_currentIndex) {
+      case 1:
+        title = 'Shop';
+        break;
+      case 3:
+        title = 'Wallet';
+        break;
+      default:
+        title = 'WeiBao';
+    }
+
+    // For shop tab, use light theme colors for app bar
+    Color appBarColor;
+    Color textColor;
+    Color iconColor;
+    
+    if (isShopTab) {
+      appBarColor = const Color(0xFFFFFFFF); // Light surface
+      textColor = const Color(0xFF121212); // Dark text
+      iconColor = const Color(0xFF00A884); // Light theme primary
+    } else {
+      appBarColor = modernTheme.backgroundColor!;
+      textColor = modernTheme.textColor!;
+      iconColor = modernTheme.primaryColor!;
+    }
+
     return AppBar(
-      backgroundColor: modernTheme.surfaceColor,
+      backgroundColor: appBarColor,
       elevation: 0,
       scrolledUnderElevation: 0,
-      centerTitle: true, // Center the title
-      title: _buildAppBarTitle(modernTheme),
-      actions: [
-        _buildThreeDotMenu(modernTheme),
-        const SizedBox(width: 16),
-      ],
+      centerTitle: true,
+      iconTheme: IconThemeData(color: iconColor),
+      title: _currentIndex == 1 || _currentIndex == 3
+          ? _currentIndex == 1
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00A884), Color(0xFF00C49A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00A884).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                )
+              : Text(
+                  title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    letterSpacing: -0.3,
+                  ),
+                )
+          : RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: "Wei",
+                    style: TextStyle(
+                      color: textColor,          
+                      fontWeight: FontWeight.w500,
+                      fontSize: 22,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  TextSpan(
+                    text: "Bao",
+                    style: TextStyle(
+                      color: iconColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 24,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      actions: _currentIndex == 1 ? [
+        // Search icon for shop tab
+        IconButton(
+          icon: Icon(CupertinoIcons.search, color: iconColor),
+          onPressed: () {
+            // Handle search action
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Search functionality')),
+            );
+          },
+        ),
+        // Shopping cart icon
+        IconButton(
+          icon: Icon(CupertinoIcons.shopping_cart, color: iconColor),
+          onPressed: () {
+            // Handle cart action
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Shopping cart')),
+            );
+          },
+        ),
+        // Dropdown menu with 3 dots
+        PopupMenuButton<String>(
+          icon: Icon(Icons.more_vert, color: iconColor),
+          onSelected: _handleShopMenuAction,
+          itemBuilder: (BuildContext context) => [
+            PopupMenuItem<String>(
+              value: 'categories',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.category_outlined,
+                    size: 20,
+                    color: isShopTab ? const Color(0xFF6A6A6A) : modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Categories',
+                    style: TextStyle(
+                      color: isShopTab ? const Color(0xFF121212) : modernTheme.textColor
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'orders',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 20,
+                    color: isShopTab ? const Color(0xFF6A6A6A) : modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'My Orders',
+                    style: TextStyle(
+                      color: isShopTab ? const Color(0xFF121212) : modernTheme.textColor
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'wishlist',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.favorite_outline,
+                    size: 20,
+                    color: isShopTab ? const Color(0xFF6A6A6A) : modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Wishlist',
+                    style: TextStyle(
+                      color: isShopTab ? const Color(0xFF121212) : modernTheme.textColor
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'my_shop',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.store_outlined,
+                    size: 20,
+                    color: isShopTab ? const Color(0xFF6A6A6A) : modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'My Shop',
+                    style: TextStyle(
+                      color: isShopTab ? const Color(0xFF121212) : modernTheme.textColor
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.settings_outlined,
+                    size: 20,
+                    color: isShopTab ? const Color(0xFF6A6A6A) : modernTheme.textSecondaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Settings',
+                    style: TextStyle(
+                      color: isShopTab ? const Color(0xFF121212) : modernTheme.textColor
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          color: isShopTab ? const Color(0xFFFFFFFF) : modernTheme.surfaceColor,
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        const SizedBox(width: 8),
+      ] : null,
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
           height: 0.5,
           width: double.infinity,
-          color: modernTheme.dividerColor,
+          color: isShopTab ? const Color(0xFFE0E0E0) : modernTheme.dividerColor,
         ),
       ),
     );
-  }
-
-  Widget _buildAppBarTitle(ModernThemeExtension modernTheme) {
-    // Always show WeiBao title consistently across all tabs
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: "Wei",
-            style: TextStyle(
-              color: modernTheme.textColor,          
-              fontWeight: FontWeight.w500,
-              fontSize: 22,
-              letterSpacing: -0.3,
-            ),
-          ),
-          TextSpan(
-            text: "Bao",
-            style: TextStyle(
-              color: modernTheme.primaryColor,
-              fontWeight: FontWeight.w700,
-              fontSize: 24,
-              letterSpacing: -0.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildThreeDotMenu(ModernThemeExtension modernTheme) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final menuBgColor = isDark 
-      ? modernTheme.surfaceColor!.withOpacity(0.98)
-      : modernTheme.surfaceColor!.withOpacity(0.96);
-
-    return PopupMenuButton<String>(
-      icon: Icon(
-        Icons.more_vert,
-        color: modernTheme.textColor,
-      ),
-      color: menuBgColor,
-      elevation: 8,
-      surfaceTintColor: modernTheme.primaryColor?.withOpacity(0.1),
-      shadowColor: Colors.black.withOpacity(0.2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      position: PopupMenuPosition.under,
-      offset: const Offset(0, 8),
-      onSelected: (String value) {
-        if (value == 'profile') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const MyProfileScreen(),
-            ),
-          );
-        } else if (value == 'wallet') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const WalletScreen(),
-            ),
-          );
-        }
-      },
-      itemBuilder: (BuildContext context) => [
-        PopupMenuItem<String>(
-          value: 'profile',
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor?.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.person_outline,
-                  color: modernTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'My Profile',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'wallet',
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor?.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.account_balance_wallet_outlined,
-                  color: modernTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Wallet',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildFab(ModernThemeExtension modernTheme) {
-    if (_currentIndex == 0) {
-      // Chats tab - New chat FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
-        child: const Icon(CupertinoIcons.chat_bubble_text),
-      );
-    } else if (_currentIndex == 1) {
-      // Groups tab - Create group FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
-        child: const Icon(Icons.group_add),
-      );
-    } else if (_currentIndex == 4) {
-      // Dramas tab - Browse dramas FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        onPressed: () {
-          // Navigate to search or browse dramas screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Browse Dramas feature coming soon!')),
-          );
-        },
-        child: const Icon(Icons.search),
-      );
-    }
-    
-    return const SizedBox.shrink();
   }
 }
