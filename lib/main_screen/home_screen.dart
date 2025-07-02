@@ -41,10 +41,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // Updated tab configuration for TikTok-style layout with Shop instead of Chats
   final List<String> _tabNames = [
     'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
-    'Shop',      // Index 1 - Shop (replaced Wallet)
+    'Shops',      // Index 1 - Shop (replaced Wallet)
     '',          // Index 2 - Post (no label, special design)
     'Wallet',    // Index 3 - Wallet (moved from index 1)
-    'Me'         // Index 4 - Profile
+    'Profile'         // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
