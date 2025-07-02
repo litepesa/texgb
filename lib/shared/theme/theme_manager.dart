@@ -16,15 +16,25 @@ enum ThemeOption {
 class ThemeState {
   final ThemeOption currentTheme;
   final ThemeData activeTheme;
+  final bool isTemporaryOverride; // For shop mode
 
-  ThemeState({required this.currentTheme, required this.activeTheme});
+  ThemeState({
+    required this.currentTheme, 
+    required this.activeTheme,
+    this.isTemporaryOverride = false,
+  });
 
   bool get isDarkMode => activeTheme.brightness == Brightness.dark;
 
-  ThemeState copyWith({ThemeOption? currentTheme, ThemeData? activeTheme}) {
+  ThemeState copyWith({
+    ThemeOption? currentTheme, 
+    ThemeData? activeTheme,
+    bool? isTemporaryOverride,
+  }) {
     return ThemeState(
       currentTheme: currentTheme ?? this.currentTheme,
       activeTheme: activeTheme ?? this.activeTheme,
+      isTemporaryOverride: isTemporaryOverride ?? this.isTemporaryOverride,
     );
   }
 }
@@ -32,6 +42,9 @@ class ThemeState {
 // Create the AsyncNotifier to manage theme state
 class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
   static const String _themePreferenceKey = 'app_theme';
+  
+  // Store the user's actual theme preference (separate from temporary overrides)
+  ThemeOption? _userThemePreference;
   
   @override
   Future<ThemeState> build() async {
@@ -46,9 +59,12 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       
       // If no saved preference, use system default
       if (savedThemeString == null) {
+        _userThemePreference = ThemeOption.system;
+        
         final initialState = ThemeState(
           currentTheme: ThemeOption.system,
           activeTheme: initialTheme,
+          isTemporaryOverride: false,
         );
         
         // Update system UI
@@ -59,6 +75,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       
       // Use saved preference
       final savedTheme = _parseThemeOption(savedThemeString);
+      _userThemePreference = savedTheme;
       
       // Determine the active theme based on the saved preference
       ThemeData activeTheme;
@@ -78,6 +95,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       final themeState = ThemeState(
         currentTheme: savedTheme,
         activeTheme: activeTheme,
+        isTemporaryOverride: false,
       );
       
       // Update system UI
@@ -88,9 +106,12 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       debugPrint('Error loading theme preference: $e');
       
       // Return default state on error
+      _userThemePreference = ThemeOption.system;
+      
       final defaultState = ThemeState(
         currentTheme: ThemeOption.system,
         activeTheme: initialTheme,
+        isTemporaryOverride: false,
       );
       
       // Update system UI
@@ -140,7 +161,92 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
     });
   }
   
-  // Change theme and save preference
+  // Set theme temporarily (for shop mode) without saving to preferences
+  Future<void> setTemporaryTheme(ThemeOption theme) async {
+    // Don't do anything if state is loading or has error
+    if (state.isLoading || state.hasError) return;
+    
+    // Get current state value with null safety
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+    
+    // Update state with temporary override
+    await update((currentState) async {
+      ThemeData newTheme;
+      
+      switch (theme) {
+        case ThemeOption.light:
+          newTheme = modernLightTheme();
+          break;
+        case ThemeOption.dark:
+          newTheme = modernDarkTheme();
+          break;
+        case ThemeOption.system:
+          final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+          newTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+          break;
+      }
+      
+      final newState = ThemeState(
+        currentTheme: theme,
+        activeTheme: newTheme,
+        isTemporaryOverride: true,
+      );
+      
+      // Update system UI
+      _updateSystemNavigation(newState.isDarkMode);
+      
+      debugPrint('Set temporary theme: $theme');
+      
+      return newState;
+    });
+  }
+  
+  // Restore user's original theme preference
+  Future<void> restoreUserTheme() async {
+    // Don't do anything if state is loading or has error
+    if (state.isLoading || state.hasError) return;
+    
+    // Get current state value with null safety
+    final currentState = state.valueOrNull;
+    if (currentState == null || _userThemePreference == null) return;
+    
+    // Only restore if we're currently in a temporary override
+    if (!currentState.isTemporaryOverride) return;
+    
+    debugPrint('Restoring user theme: $_userThemePreference');
+    
+    // Update state back to user's preference
+    await update((currentState) async {
+      ThemeData newTheme;
+      
+      switch (_userThemePreference!) {
+        case ThemeOption.light:
+          newTheme = modernLightTheme();
+          break;
+        case ThemeOption.dark:
+          newTheme = modernDarkTheme();
+          break;
+        case ThemeOption.system:
+          final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+          newTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
+          break;
+      }
+      
+      final newState = ThemeState(
+        currentTheme: _userThemePreference!,
+        activeTheme: newTheme,
+        isTemporaryOverride: false,
+      );
+      
+      // Update system UI
+      _updateSystemNavigation(newState.isDarkMode);
+      
+      return newState;
+    });
+  }
+  
+  // Change theme and save preference (for permanent changes)
   Future<void> setTheme(ThemeOption theme) async {
     // Don't do anything if state is loading or has error
     if (state.isLoading || state.hasError) return;
@@ -149,8 +255,11 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
     final currentState = state.valueOrNull;
     if (currentState == null) return;
     
-    // Don't do anything if the theme is the same
-    if (currentState.currentTheme == theme) return;
+    // Update user preference
+    _userThemePreference = theme;
+    
+    // Don't do anything if the theme is the same and not a temporary override
+    if (currentState.currentTheme == theme && !currentState.isTemporaryOverride) return;
     
     // Update state based on the new theme option
     await update((currentState) async {
@@ -173,6 +282,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_themePreferenceKey, theme.toString());
+        debugPrint('Saved theme preference: $theme');
       } catch (e) {
         debugPrint('Error saving theme preference: $e');
         // Continue even if save fails
@@ -181,6 +291,7 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       final newState = ThemeState(
         currentTheme: theme,
         activeTheme: newTheme,
+        isTemporaryOverride: false,
       );
       
       // Update system UI
@@ -196,11 +307,14 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       final currentState = state.value!;
       ThemeOption newTheme;
       
+      // Use the actual user preference for toggle logic, not temporary overrides
+      final baseTheme = _userThemePreference ?? currentState.currentTheme;
+      
       // If system theme is active, check the current brightness
-      if (currentState.currentTheme == ThemeOption.system) {
+      if (baseTheme == ThemeOption.system) {
         final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
         newTheme = isPlatformDark ? ThemeOption.light : ThemeOption.dark;
-      } else if (currentState.currentTheme == ThemeOption.light) {
+      } else if (baseTheme == ThemeOption.light) {
         newTheme = ThemeOption.dark;
       } else {
         newTheme = ThemeOption.light;
@@ -215,7 +329,8 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
     final currentState = state.valueOrNull;
     if (currentState == null) return;
     
-    if (currentState.currentTheme == ThemeOption.system) {
+    // Only update if user preference is system and we're not in temporary override
+    if (_userThemePreference == ThemeOption.system && !currentState.isTemporaryOverride) {
       await update((currentState) async {
         final isPlatformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
         final newTheme = isPlatformDark ? modernDarkTheme() : modernLightTheme();
@@ -229,6 +344,9 @@ class ThemeManagerNotifier extends AsyncNotifier<ThemeState> {
       });
     }
   }
+  
+  // Get user's actual theme preference (ignoring temporary overrides)
+  ThemeOption? get userThemePreference => _userThemePreference;
 }
 
 // Create a provider for the ThemeManagerNotifier

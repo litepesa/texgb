@@ -31,9 +31,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
   
-  // Store the original theme when switching to shop
-  ThemeOption? _originalTheme;
-  bool _isShopModeActive = false;
+  // Enhanced theme management for shop tab
+  ThemeOption? _originalThemeBeforeShop;
+  bool _wasInShopMode = false;
   
   // Video progress tracking
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
@@ -64,16 +64,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateSystemUI();
+      // Store the initial theme state
+      _initializeThemeState();
     });
+  }
+
+  void _initializeThemeState() {
+    final currentThemeState = ref.read(themeManagerNotifierProvider).valueOrNull;
+    if (currentThemeState != null) {
+      // Reset any shop mode flags on app start
+      _originalThemeBeforeShop = null;
+      _wasInShopMode = false;
+    }
   }
 
   @override
   void dispose() {
-    // Restore original theme if shop mode was active
-    if (_isShopModeActive && _originalTheme != null) {
-      final themeManager = ref.read(themeManagerNotifierProvider.notifier);
-      themeManager.setTheme(_originalTheme!);
-    }
+    // Clean up theme state when disposing
+    _restoreOriginalThemeIfNeeded();
     _pageController.dispose();
     _videoProgressNotifier.dispose();
     super.dispose();
@@ -120,7 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
   
-  /// Handle theme switching when entering/leaving shop tab
+  /// Enhanced theme handling when entering/leaving shop tab
   void _handleThemeForTab(int newIndex) {
     final themeManager = ref.read(themeManagerNotifierProvider.notifier);
     final currentThemeState = ref.read(themeManagerNotifierProvider).valueOrNull;
@@ -128,22 +136,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (currentThemeState == null) return;
     
     // Entering shop tab (index 1)
-    if (newIndex == 1 && !_isShopModeActive) {
-      // Store original theme only if not already in light mode
-      if (currentThemeState.currentTheme != ThemeOption.light) {
-        _originalTheme = currentThemeState.currentTheme;
-        themeManager.setTheme(ThemeOption.light);
-        _isShopModeActive = true;
-      }
+    if (newIndex == 1 && _currentIndex != 1) {
+      _enterShopMode(themeManager, currentThemeState);
     }
     // Leaving shop tab
-    else if (_currentIndex == 1 && newIndex != 1 && _isShopModeActive) {
-      // Restore original theme if we had stored one
-      if (_originalTheme != null) {
-        themeManager.setTheme(_originalTheme!);
-        _originalTheme = null;
-        _isShopModeActive = false;
-      }
+    else if (_currentIndex == 1 && newIndex != 1) {
+      _exitShopMode(themeManager);
+    }
+  }
+  
+  void _enterShopMode(ThemeManagerNotifier themeManager, ThemeState currentThemeState) {
+    // Only change theme if not already in light mode or if it's a temporary override
+    if (currentThemeState.currentTheme != ThemeOption.light || currentThemeState.isTemporaryOverride) {
+      // Store the user's actual theme preference before switching
+      _originalThemeBeforeShop = themeManager.userThemePreference ?? currentThemeState.currentTheme;
+      _wasInShopMode = true;
+      
+      debugPrint('Entering shop mode. User preference: $_originalThemeBeforeShop');
+      
+      // Switch to light theme temporarily for shop
+      themeManager.setTemporaryTheme(ThemeOption.light);
+    } else {
+      // Already in light mode, just mark that we're in shop mode
+      _wasInShopMode = true;
+      _originalThemeBeforeShop = null;
+      debugPrint('Already in light mode when entering shop');
+    }
+  }
+  
+  void _exitShopMode(ThemeManagerNotifier themeManager) {
+    if (_wasInShopMode) {
+      debugPrint('Exiting shop mode. User preference was: $_originalThemeBeforeShop');
+      
+      // Always restore user's theme when leaving shop
+      themeManager.restoreUserTheme();
+      
+      // Reset shop mode state
+      _originalThemeBeforeShop = null;
+      _wasInShopMode = false;
+    }
+  }
+  
+  void _restoreOriginalThemeIfNeeded() {
+    // Only restore if we were in shop mode
+    if (_wasInShopMode) {
+      final themeManager = ref.read(themeManagerNotifierProvider.notifier);
+      themeManager.restoreUserTheme();
+      debugPrint('Restored user theme on dispose');
     }
   }
   
