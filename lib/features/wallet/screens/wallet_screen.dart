@@ -21,7 +21,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      backgroundColor: modernTheme.backgroundColor,
+      backgroundColor: modernTheme.surfaceColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
@@ -116,7 +116,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20.0),
                 decoration: BoxDecoration(
-                  color: modernTheme.surfaceColor,
+                  color: modernTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: modernTheme.dividerColor!.withOpacity(0.3),
@@ -319,7 +319,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(24.0),
                 decoration: BoxDecoration(
-                  color: modernTheme.surfaceColor,
+                  color: modernTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: modernTheme.dividerColor!.withOpacity(0.3),
@@ -350,7 +350,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: modernTheme.surfaceColor,
+                  color: modernTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: modernTheme.dividerColor!.withOpacity(0.3),

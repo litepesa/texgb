@@ -374,8 +374,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
 
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      // Important: set extendBody to true to allow content to extend behind system nav bar
-      extendBody: true,
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SingleChildScrollView(
