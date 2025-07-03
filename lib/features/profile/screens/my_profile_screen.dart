@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -114,9 +113,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
     _animationController.forward();
     
-    // Ensure system UI is consistent with HomeScreen
-    _updateSystemUI();
-    
     // Preload user's profile image and related images in background
     _preloadCriticalImages();
     
@@ -125,27 +121,10 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   }
   
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Update system UI when dependencies change
-    _updateSystemUI();
-  }
-  
-  @override
   void dispose() {
     _aboutController.dispose();
     _animationController.dispose();
     super.dispose();
-  }
-  
-  // Method to ensure system navigation bar stays transparent
-  void _updateSystemUI() {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-    ));
   }
 
   // Load channel data to get real stats
@@ -355,11 +334,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     final user = ref.watch(currentUserProvider);
     final channelsState = ref.watch(channelsProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    // Update system UI when widget rebuilds
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateSystemUI();
-    });
 
     if (user == null) {
       return const Scaffold(

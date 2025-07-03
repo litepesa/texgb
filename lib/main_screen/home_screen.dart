@@ -108,8 +108,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     setState(() {
       _currentIndex = index;
-      _updateSystemUI();
     });
+
+    // Special handling for Profile tab to prevent black bar
+    if (index == 4) {
+      // Force update system UI for Profile tab
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateSystemUI();
+        
+        // Apply additional times for Profile tab specifically
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && _currentIndex == 4) {
+            _updateSystemUI();
+          }
+        });
+        
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted && _currentIndex == 4) {
+            _updateSystemUI();
+          }
+        });
+      });
+    } else {
+      // Normal system UI update for other tabs
+      _updateSystemUI();
+    }
 
     // Handle feed screen lifecycle
     if (_currentIndex == 0) {
@@ -197,6 +220,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         systemNavigationBarDividerColor: Colors.transparent,
         systemNavigationBarContrastEnforced: false,
       ));
+    } else if (_currentIndex == 4) {
+      // Profile screen - special handling to prevent black bar
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      
+      // Force transparent navigation bar for Profile tab
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent, // Force transparent
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+      
+      // Apply multiple times to ensure it sticks for Profile tab
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mounted && _currentIndex == 4) {
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarDividerColor: Colors.transparent,
+            systemNavigationBarContrastEnforced: false,
+          ));
+        }
+      });
+      
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted && _currentIndex == 4) {
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarDividerColor: Colors.transparent,
+            systemNavigationBarContrastEnforced: false,
+          ));
+        }
+      });
     } else {
       // Other screens - use theme-appropriate colors
       final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -229,8 +292,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     setState(() {
       _currentIndex = index;
-      _updateSystemUI();
     });
+
+    // Special handling for Profile tab
+    if (index == 4) {
+      // Force update system UI for Profile tab with multiple attempts
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateSystemUI();
+        
+        // Apply additional times for Profile tab specifically
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted && _currentIndex == 4) {
+            _updateSystemUI();
+          }
+        });
+        
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted && _currentIndex == 4) {
+            _updateSystemUI();
+          }
+        });
+        
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted && _currentIndex == 4) {
+            _updateSystemUI();
+          }
+        });
+      });
+    } else {
+      // Normal system UI update for other tabs
+      _updateSystemUI();
+    }
 
     // Handle feed screen lifecycle
     if (_currentIndex == 0) {
@@ -685,7 +777,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       textColor = const Color(0xFF121212); // Dark text
       iconColor = const Color(0xFF00A884); // Light theme primary
     } else {
-      appBarColor = modernTheme.backgroundColor!;
+      appBarColor = modernTheme.surfaceColor!;
       textColor = modernTheme.textColor!;
       iconColor = modernTheme.primaryColor!;
     }
