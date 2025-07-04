@@ -39,6 +39,7 @@ class Constants {
 
   // Channels routes
   static const String channelsFeedScreen = '/channelsFeedScreen';
+  static const String channelsListScreen = '/channelsListScreen';
   static const String createChannelScreen = '/createChannelScreen';
   static const String channelProfileScreen = '/channelProfileScreen';
   static const String myChannelScreen = '/myChannelScreen';

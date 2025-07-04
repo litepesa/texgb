@@ -10,6 +10,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_post_screen.dart';
+import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
@@ -29,11 +30,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
 
-// Shop imports (NEW)
-import 'package:textgb/features/shop/screens/shops_list_screen.dart';
-import 'package:textgb/features/shop/screens/individual_shop_screen.dart';
-
-
+// Remove shop imports since we're replacing with channels
+// import 'package:textgb/features/shop/screens/shops_list_screen.dart';
+// import 'package:textgb/features/shop/screens/individual_shop_screen.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -128,8 +127,8 @@ class AppRoot extends ConsumerWidget {
           Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
           
           // Channels routes 
-
           Constants.channelsFeedScreen: (context) => const ChannelsFeedScreen(),
+          Constants.channelsListScreen: (context) => const ChannelsListScreen(),
           Constants.createChannelScreen: (context) => const CreateChannelScreen(),
           Constants.myChannelScreen: (context) => const MyChannelScreen(),
           Constants.createChannelPostScreen: (context) => const CreatePostScreen(),
@@ -155,16 +154,6 @@ class AppRoot extends ConsumerWidget {
           Constants.myPostScreen: (context) {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
             return MyPostScreen(videoId: videoId);
-          },
-
-          // Shop routes (NEW)
-          Constants.shopsListScreen: (context) => const ShopsListScreen(),
-          Constants.individualShopScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-            return IndividualShopScreen(
-              shopName: args['shopName'] as String,
-              shopCategory: args['shopCategory'] as String,
-            );
           },
           
           // Wallet routes
