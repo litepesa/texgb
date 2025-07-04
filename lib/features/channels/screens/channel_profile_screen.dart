@@ -29,7 +29,7 @@ class ChannelProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> 
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   
   // Core controllers
   final PageController _pageController = PageController();
@@ -44,6 +44,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   // State management
   int _currentVideoIndex = 0;
   bool _isCommenting = false;
+  
+  // Caption expansion state
+  Map<int, bool> _expandedCaptions = {};
   
   // Channel data
   ChannelModel? _channel;
@@ -68,9 +71,26 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     _setupCacheCleanup();
   }
 
+  void _setupSystemUI() {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.black,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ));
+  }
+
   void _setupCacheCleanup() {
     _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
       _cacheService.cleanupOldCache();
+    });
+  }
+
+  void _setupKeyboardListener() {
+    _commentFocusNode.addListener(() {
+      setState(() {
+        _isCommenting = _commentFocusNode.hasFocus;
+      });
     });
   }
 
@@ -89,37 +109,6 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       default:
         break;
     }
-  }
-
-  void _setupSystemUI() {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black,
-      systemNavigationBarIconBrightness: Brightness.light,
-    ));
-  }
-
-  void _restoreSystemUI() {
-    // Restore to default system UI when leaving
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
-          ? Brightness.light 
-          : Brightness.dark,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
-          ? Brightness.light 
-          : Brightness.dark,
-    ));
-  }
-
-  void _setupKeyboardListener() {
-    _commentFocusNode.addListener(() {
-      setState(() {
-        _isCommenting = _commentFocusNode.hasFocus;
-      });
-    });
   }
 
   Future<void> _loadChannelData() async {
@@ -150,7 +139,6 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
           _isChannelLoading = false;
         });
         
-        // Initialize video controllers
         _initializeVideoControllers();
       }
     } catch (e) {
@@ -171,7 +159,6 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       }
     }
     
-    // Play first video if available
     if (_channelVideos.isNotEmpty) {
       _playCurrentVideo();
     }
@@ -179,14 +166,11 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
 
   Future<void> _initializeVideoController(int index, String videoUrl) async {
     try {
-      // Try to get cached video first
       File? cachedFile;
       try {
         if (await _cacheService.isVideoCached(videoUrl)) {
           cachedFile = await _cacheService.getCachedVideo(videoUrl);
-          debugPrint('Using cached video: ${cachedFile.path}');
         } else {
-          debugPrint('Video not cached, downloading: $videoUrl');
           cachedFile = await _cacheService.preloadVideo(videoUrl);
         }
       } catch (e) {
@@ -211,7 +195,6 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
         });
       }
       
-      // Auto-play if this is the current video
       if (index == _currentVideoIndex) {
         controller.play();
       }
@@ -230,10 +213,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     });
 
     _playCurrentVideo();
-    
-    // Preload next videos using cache service
     _cacheService.preloadVideosIntelligently(_channelVideos, index);
-    
     ref.read(channelVideosProvider.notifier).incrementViewCount(_channelVideos[index].id);
   }
 
@@ -271,6 +251,12 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     });
     
     await ref.read(channelsProvider.notifier).toggleFollowChannel(_channel!.id);
+  }
+
+  void _toggleCaptionExpansion(int index) {
+    setState(() {
+      _expandedCaptions[index] = !(_expandedCaptions[index] ?? false);
+    });
   }
 
   Future<void> _addComment() async {
@@ -349,11 +335,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     
-    // Dispose cache service
     _cacheService.dispose();
     _cacheCleanupTimer?.cancel();
     
-    // Dispose all video controllers
     for (final controller in _videoControllers.values) {
       controller.dispose();
     }
@@ -363,9 +347,6 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     _commentController.dispose();
     _commentFocusNode.dispose();
     _pageController.dispose();
-    
-    // Restore system UI before disposing
-    _restoreSystemUI();
     
     super.dispose();
   }
@@ -388,38 +369,52 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       );
     }
     
-    return WillPopScope(
-      onWillPop: () async {
-        _restoreSystemUI();
-        return true;
-      },
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
-        extendBody: true,
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            // Main video content
-            Positioned.fill(
-              child: _buildVideoFeed(),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Main video content - FULL SCREEN (fills entire screen)
+          Positioned.fill(
+            child: _buildVideoFeed(),
+          ),
+          
+          // Top bar overlay - Back arrow and Search
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            left: 16,
+            right: 16,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {},
+                  child: const Icon(
+                    Icons.search,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ],
             ),
-            
-            // Back button
-            _buildBackButton(),
-            
-            // Channel info
-            _buildChannelInfo(),
-            
-            // Right side menu
-            _buildRightSideMenu(),
-            
-            // Video caption
-            _buildVideoCaption(),
-          ],
-        ),
-        
-        // Comment bottom nav
-        bottomNavigationBar: _buildCommentBottomNav(),
+          ),
+          
+          // Right side menu overlay
+          _buildRightSideMenu(),
+          
+          // Bottom content overlay
+          _buildBottomContent(),
+          
+          // Comment input overlay (directly over video)
+          _buildCommentInput(),
+        ],
       ),
     );
   }
@@ -490,16 +485,21 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
         autoPlayInterval: const Duration(seconds: 4),
       ),
       items: imageUrls.map((imageUrl) {
-        return Container(
-          width: double.infinity,
-          height: double.infinity,
+        return SizedBox.expand(
           child: Image.network(
             imageUrl,
-            fit: BoxFit.contain,
+            fit: BoxFit.cover, // Fill entire screen edge to edge
+            width: double.infinity,
+            height: double.infinity,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+              return Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.black,
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
               );
             },
             errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
@@ -510,150 +510,56 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   }
 
   Widget _buildPlaceholder() {
-    return const Center(
-      child: Icon(
-        Icons.broken_image,
-        color: Colors.white,
-        size: 64,
-      ),
-    );
-  }
-
-  Widget _buildBackButton() {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 16,
-      left: 16,
-      child: GestureDetector(
-        onTap: () {
-          _restoreSystemUI();
-          Navigator.of(context).pop();
-        },
-        child: const Icon(
-          Icons.arrow_back,
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.black,
+      child: const Center(
+        child: Icon(
+          Icons.broken_image,
           color: Colors.white,
-          size: 28,
+          size: 64,
         ),
       ),
     );
   }
 
-  Widget _buildChannelInfo() {
-    if (_channel == null) return const SizedBox.shrink();
-    
+  // Top bar - EXACTLY like your screenshots
+  Widget _buildTopBar() {
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 60,
-      left: 20,
-      right: 20,
+      top: MediaQuery.of(context).padding.top + 12,
+      left: 16,
+      right: 16,
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Channel avatar
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 1.5),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: _channel!.profileImage.isNotEmpty
-                  ? Image.network(_channel!.profileImage, fit: BoxFit.cover)
-                  : Container(
-                      color: Colors.grey[700],
-                      child: Center(
-                        child: Text(
-                          _channel!.name.isNotEmpty ? _channel!.name[0].toUpperCase() : 'C',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
+          // Back arrow
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: const Icon(
+              Icons.arrow_back,
+              color: Colors.white,
+              size: 28,
             ),
           ),
           
-          const SizedBox(width: 12),
-          
-          // Channel name and verification
-          Expanded(
-            child: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    _channel!.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 4,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (_channel!.isVerified) ...[
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.verified,
-                    color: Colors.blue,
-                    size: 16,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+          // Search icon
+          GestureDetector(
+            onTap: () {
+              // Implement search functionality
+            },
+            child: const Icon(
+              Icons.search,
+              color: Colors.white,
+              size: 28,
             ),
           ),
-          
-          const SizedBox(width: 16),
-          
-          // Follow button (only if not owner)
-          if (!_isOwner)
-            GestureDetector(
-              onTap: _toggleFollow,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _isFollowing 
-                      ? Colors.grey[600]!.withOpacity(0.8)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: Text(
-                  _isFollowing ? 'Following' : 'Follow',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
 
+  // Right side menu - EXACTLY 5 icons like your screenshots
   Widget _buildRightSideMenu() {
     final currentVideo = _channelVideos.isNotEmpty && _currentVideoIndex < _channelVideos.length 
         ? _channelVideos[_currentVideoIndex] 
@@ -661,289 +567,343 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
 
     return Positioned(
       right: 12,
-      bottom: 200, // Above comment input area
+      bottom: 200,
       child: Column(
         children: [
-          // Like button
-          Column(
-            children: [
-              GestureDetector(
-                onTap: () => _likeCurrentVideo(currentVideo),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  child: Icon(
-                    currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite_border,
-                    color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
-                    size: 32,
-                    shadows: const [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Text(
-                _formatCount(currentVideo?.likes ?? 0),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 4,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          // Heart icon with count - EXACTLY like your screenshots
+          _buildSideMenuItem(
+            icon: currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite_border,
+            iconColor: currentVideo?.isLiked == true ? Colors.red : Colors.white,
+            count: currentVideo?.likes ?? 1026,
+            onTap: () => _likeCurrentVideo(currentVideo),
           ),
           
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           
-          // Comment button
-          Column(
-            children: [
-              GestureDetector(
-                onTap: () => _commentFocusNode.requestFocus(),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  child: const Icon(
-                    Icons.mode_comment_outlined,
-                    color: Colors.white,
-                    size: 30,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Text(
-                _formatCount(currentVideo?.comments ?? 0),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 4,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          // Chat bubble icon with count - EXACTLY like your screenshots
+          _buildSideMenuItem(
+            icon: Icons.chat_bubble_outline,
+            iconColor: Colors.white,
+            count: currentVideo?.comments ?? 29,
+            onTap: () => _commentFocusNode.requestFocus(),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Star icon with count - EXACTLY like your screenshots
+          _buildSideMenuItem(
+            icon: Icons.star_border,
+            iconColor: Colors.white,
+            count: 138,
+            onTap: () {
+              // Star functionality
+            },
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Flower/More icon with count - EXACTLY like your screenshots
+          _buildSideMenuItem(
+            icon: Icons.local_florist_outlined,
+            iconColor: Colors.white,
+            count: 58,
+            onTap: () {
+              // More options
+            },
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Share arrow icon with count - EXACTLY like your screenshots
+          _buildSideMenuItem(
+            icon: Icons.reply,
+            iconColor: Colors.white,
+            count: 9,
+            onTap: () {
+              // Share functionality
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRightMenuItem({
-    required Widget child,
-    String? label,
+  Widget _buildSideMenuItem({
+    required IconData icon,
+    required Color iconColor,
+    required int count,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
-          Container(padding: const EdgeInsets.all(8), child: child),
-          if (label != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                shadows: [Shadow(color: Colors.black, blurRadius: 2)],
-              ),
+          Icon(
+            icon,
+            color: iconColor,
+            size: 32,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _formatCount(count),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildVideoCaption() {
-    final currentVideo = _channelVideos.isNotEmpty && _currentVideoIndex < _channelVideos.length 
-        ? _channelVideos[_currentVideoIndex] 
-        : null;
-
-    if (currentVideo == null) return const SizedBox.shrink();
-
+  // Bottom content overlay - Profile + Follow + Caption
+  Widget _buildBottomContent() {
+    if (_channelVideos.isEmpty || _currentVideoIndex >= _channelVideos.length || _channel == null) {
+      return const SizedBox.shrink();
+    }
+    
+    final currentVideo = _channelVideos[_currentVideoIndex];
+    final isExpanded = _expandedCaptions[_currentVideoIndex] ?? false;
+    
     return Positioned(
-      bottom: 120, // Above comment input
+      bottom: 70, // Above comment input
       left: 16,
-      right: 70, // Leave space for right menu
+      right: 70, // Leave more space for right menu
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Caption
-          if (currentVideo.caption.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                currentVideo.caption,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 4,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
+          // Profile + Username + Follow button row
+          Row(
+            children: [
+              // Profile circle - smaller like in your image
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: _channel!.profileImage.isNotEmpty
+                      ? Image.network(_channel!.profileImage, fit: BoxFit.cover)
+                      : Container(
+                          color: Colors.grey[700],
+                          child: Center(
+                            child: Text(
+                              _channel!.name.isNotEmpty ? _channel!.name[0].toUpperCase() : 'C',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
               ),
-            ),
+              
+              const SizedBox(width: 10),
+              
+              // Username
+              Expanded(
+                child: Text(
+                  _channel!.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              
+              const SizedBox(width: 8),
+              
+              // Follow button - EXACTLY like your reference images (gray background)
+              if (!_isOwner)
+                GestureDetector(
+                  onTap: _toggleFollow,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[700]!.withOpacity(0.8), // Gray background like in your image
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      _isFollowing ? 'Following' : 'Follow',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           
-          // Hashtags
-          if (currentVideo.tags.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                currentVideo.tags.take(3).map((tag) => '#$tag').join(' '),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 4,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 6),
+          
+          // Caption
+          GestureDetector(
+            onTap: () => _toggleCaptionExpansion(_currentVideoIndex),
+            child: Text(
+              currentVideo.caption.isNotEmpty ? currentVideo.caption : 'Sirin Amin Zehra Sirin Vefalim Dance',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
+              maxLines: isExpanded ? null : 1,
+              overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
             ),
+          ),
+          
+          const SizedBox(height: 2),
+          
+          // Hashtags with More
+          GestureDetector(
+            onTap: () => _toggleCaptionExpansion(_currentVideoIndex),
+            child: isExpanded
+                ? Text(
+                    currentVideo.tags.isNotEmpty 
+                        ? currentVideo.tags.map((tag) => '#$tag').join(' ')
+                        : '#shortvideo #dance #popular #trending',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  )
+                : Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          currentVideo.tags.isNotEmpty 
+                              ? currentVideo.tags.map((tag) => '#$tag').join(' ')
+                              : '#shortvideo #dance #popul...',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'More',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCommentBottomNav() {
-    return Container(
-      height: 70 + MediaQuery.of(context).viewPadding.bottom,
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Container(
-          margin: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
-          child: Row(
-            children: [
-              // User avatar
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[600],
-                ),
-                child: _auth.currentUser?.photoURL != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
-                          _auth.currentUser!.photoURL!,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 18,
-                      ),
+  // Comment input overlay - EXACTLY like your reference images (dark background)
+  Widget _buildCommentInput() {
+    return Positioned(
+      bottom: MediaQuery.of(context).viewPadding.bottom + 12,
+      left: 16,
+      right: 16,
+      child: Container(
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.7), // Dark background like in your image
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 12),
+            
+            // Profile icon
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey[600],
               ),
-              
-              const SizedBox(width: 12),
-              
-              // Comment input field
-              Expanded(
-                child: Container(
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: _commentController,
-                    focusNode: _commentFocusNode,
-                    decoration: const InputDecoration(
-                      hintText: 'Add a comment...',
-                      hintStyle: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
+              child: _auth.currentUser?.photoURL != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        _auth.currentUser!.photoURL!,
+                        fit: BoxFit.cover,
                       ),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                    ),
-                    style: const TextStyle(
+                    )
+                  : const Icon(
+                      Icons.person,
                       color: Colors.white,
-                      fontSize: 14,
+                      size: 14,
                     ),
-                    maxLines: 1,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _addComment(),
+            ),
+            
+            const SizedBox(width: 12),
+            
+            // Comment text field
+            Expanded(
+              child: TextField(
+                controller: _commentController,
+                focusNode: _commentFocusNode,
+                decoration: const InputDecoration(
+                  hintText: 'Comment',
+                  hintStyle: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 14,
                   ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
                 ),
-              ),
-              
-              const SizedBox(width: 12),
-              
-              // Send button
-              GestureDetector(
-                onTap: _isCommenting ? null : _addComment,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  child: _isCommenting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Icon(
-                          Icons.send,
-                          color: Colors.white,
-                          size: 14,
-                        ),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
                 ),
+                maxLines: 1,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _addComment(),
               ),
-            ],
-          ),
+            ),
+            
+            const SizedBox(width: 8),
+            
+            // @ symbol
+            const Icon(
+              Icons.alternate_email,
+              color: Colors.white54,
+              size: 18,
+            ),
+            
+            const SizedBox(width: 8),
+            
+            // Emoji button
+            const Icon(
+              Icons.emoji_emotions_outlined,
+              color: Colors.white54,
+              size: 18,
+            ),
+            
+            const SizedBox(width: 8),
+            
+            // Gallery/Photo icon
+            const Icon(
+              Icons.photo_outlined,
+              color: Colors.white54,
+              size: 18,
+            ),
+            
+            const SizedBox(width: 12),
+          ],
         ),
       ),
     );
@@ -1003,10 +963,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () {
-              _restoreSystemUI();
-              Navigator.of(context).pop();
-            },
+            onPressed: () => Navigator.of(context).pop(),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
