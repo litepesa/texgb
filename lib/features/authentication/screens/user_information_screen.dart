@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
-import 'package:textgb/features/authentication/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:textgb/shared/widgets/app_bar_back_button.dart';
 

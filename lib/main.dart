@@ -33,7 +33,6 @@ import 'package:textgb/shared/theme/system_ui_updater.dart';
 import 'package:textgb/features/shop/screens/shops_list_screen.dart';
 import 'package:textgb/features/shop/screens/individual_shop_screen.dart';
 
-// Moments imports (NEW)
 
 
 // Create a route observer to monitor route changes

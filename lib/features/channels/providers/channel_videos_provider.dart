@@ -1,13 +1,13 @@
+// lib/features/channels/providers/channel_videos_provider.dart
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
-import 'package:textgb/features/channels/models/channel_model.dart';
+import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:uuid/uuid.dart';
+import '../models/channel_video_model.dart';
+import '../models/channel_model.dart';
+import '../repositories/channel_repository.dart';
 
 // Define the channel videos state
 class ChannelVideosState {
@@ -48,11 +48,10 @@ class ChannelVideosState {
 
 // Create the channel videos provider
 class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ChannelRepository _repository;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  ChannelVideosNotifier() : super(const ChannelVideosState()) {
+  ChannelVideosNotifier(this._repository) : super(const ChannelVideosState()) {
     // Initialize with empty state and load data
     loadVideos();
     loadLikedVideos();
@@ -63,29 +62,18 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     debugPrint('======= DEBUGGING CHANNEL VIDEOS DATA =======');
     
     try {
-      final allDocsSnap = await _firestore.collection(Constants.channelVideos).get();
-      debugPrint('Total videos in collection: ${allDocsSnap.docs.length}');
-      
-      // Log document details
-      int activeCount = 0;
-      for (var doc in allDocsSnap.docs) {
-        final data = doc.data();
-        debugPrint('Document ID: ${doc.id}');
-        debugPrint('  isActive: ${data['isActive']} (${data['isActive'].runtimeType})');
-        debugPrint('  caption: ${data['caption']}');
-        if (data['isActive'] == true) activeCount++;
-      }
-      debugPrint('Videos with isActive=true: $activeCount');
-      
+      final videos = await _repository.getChannelVideos();
+      debugPrint('Total videos from repository: ${videos.length}');
       debugPrint('Current state - videos count: ${state.videos.length}');
-      
       debugPrint('======= END DEBUGGING CHANNEL VIDEOS DATA =======');
+    } on RepositoryException catch (e) {
+      debugPrint('Error during debugging: ${e.message}');
     } catch (e) {
       debugPrint('Error during debugging: $e');
     }
   }
 
-  // Load videos from Firestore
+  // Load videos from repository
   Future<void> loadVideos({bool forceRefresh = false}) async {
     // If not forcing refresh and we already have videos, just return
     if (!forceRefresh && state.videos.isNotEmpty) {
@@ -96,27 +84,23 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // Get all active videos sorted by creation date
-      final QuerySnapshot querySnapshot = await _firestore
-          .collection(Constants.channelVideos)
-          .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
-          .get();
+      final videos = await _repository.getChannelVideos(forceRefresh: forceRefresh);
       
-      List<ChannelVideoModel> videos = [];
-      
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        
-        // Check if user has liked this video
-        final isLiked = state.likedVideos.contains(doc.id);
-        
-        videos.add(ChannelVideoModel.fromMap(data, id: doc.id, isLiked: isLiked));
-      }
+      // Update liked status for videos
+      final videosWithLikedStatus = videos.map((video) {
+        final isLiked = state.likedVideos.contains(video.id);
+        return video.copyWith(isLiked: isLiked);
+      }).toList();
       
       // Update state with videos
       state = state.copyWith(
-        videos: videos,
+        videos: videosWithLikedStatus,
+        isLoading: false,
+      );
+    } on RepositoryException catch (e) {
+      debugPrint('Error loading videos: ${e.message}');
+      state = state.copyWith(
+        error: e.message,
         isLoading: false,
       );
     } catch (e) {
@@ -131,25 +115,19 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
   // Load videos for a specific channel
   Future<List<ChannelVideoModel>> loadChannelVideos(String channelId) async {
     try {
-      final QuerySnapshot querySnapshot = await _firestore
-          .collection(Constants.channelVideos)
-          .where('channelId', isEqualTo: channelId)
-          .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
-          .get();
+      final channelVideos = await _repository.getVideosByChannelId(channelId);
       
-      List<ChannelVideoModel> channelVideos = [];
+      // Update liked status for videos
+      final videosWithLikedStatus = channelVideos.map((video) {
+        final isLiked = state.likedVideos.contains(video.id);
+        return video.copyWith(isLiked: isLiked);
+      }).toList();
       
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        
-        // Check if user has liked this video
-        final isLiked = state.likedVideos.contains(doc.id);
-        
-        channelVideos.add(ChannelVideoModel.fromMap(data, id: doc.id, isLiked: isLiked));
-      }
-      
-      return channelVideos;
+      return videosWithLikedStatus;
+    } on RepositoryException catch (e) {
+      debugPrint('Error loading channel videos: ${e.message}');
+      state = state.copyWith(error: e.message);
+      return [];
     } catch (e) {
       debugPrint('Error loading channel videos: $e');
       state = state.copyWith(error: e.toString());
@@ -163,19 +141,18 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     
     try {
       final uid = _auth.currentUser!.uid;
-      final userDoc = await _firestore.collection(Constants.users).doc(uid).get();
+      final likedVideos = await _repository.getLikedVideos(uid);
+      state = state.copyWith(likedVideos: likedVideos);
       
-      if (userDoc.exists && userDoc.data()!.containsKey('likedChannelVideos')) {
-        final likedVideos = List<String>.from(userDoc.data()!['likedChannelVideos'] ?? []);
-        state = state.copyWith(likedVideos: likedVideos);
-        
-        // Update isLiked status for existing videos
-        final updatedVideos = state.videos.map((video) {
-          return video.copyWith(isLiked: likedVideos.contains(video.id));
-        }).toList();
-        
-        state = state.copyWith(videos: updatedVideos);
-      }
+      // Update isLiked status for existing videos
+      final updatedVideos = state.videos.map((video) {
+        return video.copyWith(isLiked: likedVideos.contains(video.id));
+      }).toList();
+      
+      state = state.copyWith(videos: updatedVideos);
+    } on RepositoryException catch (e) {
+      debugPrint('Error loading liked videos: ${e.message}');
+      state = state.copyWith(error: e.message);
     } catch (e) {
       debugPrint('Error loading liked videos: $e');
       state = state.copyWith(error: e.toString());
@@ -188,7 +165,6 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     
     try {
       final uid = _auth.currentUser!.uid;
-      final videoDoc = _firestore.collection(Constants.channelVideos).doc(videoId);
       
       // Get current liked videos
       List<String> likedVideos = List.from(state.likedVideos);
@@ -197,8 +173,10 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       // Update local state first (optimistic update)
       if (isCurrentlyLiked) {
         likedVideos.remove(videoId);
+        await _repository.unlikeVideo(videoId, uid);
       } else {
         likedVideos.add(videoId);
+        await _repository.likeVideo(videoId, uid);
       }
       
       // Update videos list with new like status
@@ -217,32 +195,13 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         likedVideos: likedVideos,
       );
       
-      // Update Firestore
-      // 1. Update user's liked videos
-      await _firestore.collection(Constants.users).doc(uid).update({
-        'likedChannelVideos': isCurrentlyLiked
-            ? FieldValue.arrayRemove([videoId])
-            : FieldValue.arrayUnion([videoId]),
-      });
+    } on RepositoryException catch (e) {
+      debugPrint('Error toggling like: ${e.message}');
+      state = state.copyWith(error: e.message);
       
-      // 2. Update video's like count
-      await videoDoc.update({
-        'likes': isCurrentlyLiked
-            ? FieldValue.increment(-1)
-            : FieldValue.increment(1),
-      });
-      
-      // 3. Update channel's total likes
-      final videoData = (await videoDoc.get()).data() as Map<String, dynamic>?;
-      if (videoData != null && videoData['channelId'] != null) {
-        final channelId = videoData['channelId'];
-        await _firestore.collection(Constants.channels).doc(channelId).update({
-          'likesCount': isCurrentlyLiked
-              ? FieldValue.increment(-1)
-              : FieldValue.increment(1),
-        });
-      }
-      
+      // Revert the optimistic update on error
+      loadVideos();
+      loadLikedVideos();
     } catch (e) {
       debugPrint('Error toggling like: $e');
       state = state.copyWith(error: e.toString());
@@ -274,29 +233,20 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       final videoId = const Uuid().v4();
       
       // Upload video to storage
-      final storageRef = _storage.ref().child('channelVideos/$videoId.mp4');
-      final uploadTask = storageRef.putFile(
+      final videoUrl = await _repository.uploadVideo(
         videoFile,
-        SettableMetadata(contentType: 'video/mp4'),
+        'channelVideos/$videoId.mp4',
+        onProgress: (progress) {
+          state = state.copyWith(uploadProgress: progress);
+        },
       );
-      
-      // Monitor upload progress
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        state = state.copyWith(uploadProgress: progress);
-      });
-      
-      // Wait for upload to complete
-      final taskSnapshot = await uploadTask;
-      final videoUrl = await taskSnapshot.ref.getDownloadURL();
       
       // Generate thumbnail (in a real app, you'd use FFmpeg or a server function)
       // For now, we'll just use an empty string as placeholder
       const thumbnailUrl = '';
       
-      // Create video model
-      final ChannelVideoModel videoData = ChannelVideoModel(
-        id: videoId,
+      // Create video
+      final videoData = await _repository.createVideo(
         channelId: channel.id,
         channelName: channel.name,
         channelImage: channel.profileImage,
@@ -304,29 +254,8 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         caption: caption,
-        likes: 0,
-        comments: 0,
-        views: 0,
-        shares: 0,
-        isLiked: false,
-        tags: tags ?? [],
-        createdAt: Timestamp.now(),
-        isActive: true,
-        isFeatured: false,
-        isMultipleImages: false,
-        imageUrls: [],
+        tags: tags,
       );
-      
-      // Save to Firestore
-      await _firestore
-          .collection(Constants.channelVideos)
-          .doc(videoId)
-          .set(videoData.toMap());
-      
-      // Update channel's video count
-      await _firestore.collection(Constants.channels).doc(channel.id).update({
-        'videosCount': FieldValue.increment(1),
-      });
       
       // Update local state
       List<ChannelVideoModel> updatedVideos = [
@@ -341,6 +270,14 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       );
       
       onSuccess('Video uploaded successfully');
+    } on RepositoryException catch (e) {
+      debugPrint('Error uploading video: ${e.message}');
+      state = state.copyWith(
+        isUploading: false,
+        uploadProgress: 0.0,
+        error: e.message,
+      );
+      onError(e.message);
     } catch (e) {
       debugPrint('Error uploading video: $e');
       state = state.copyWith(
@@ -348,7 +285,6 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         uploadProgress: 0.0,
         error: e.toString(),
       );
-      
       onError(e.toString());
     }
   }
@@ -382,57 +318,27 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       // Upload each image
       for (int i = 0; i < imageFiles.length; i++) {
         final file = imageFiles[i];
-        final storageRef = _storage.ref().child('channelImages/$postId/image_$i.jpg');
-        final uploadTask = storageRef.putFile(
+        final imageUrl = await _repository.uploadImage(
           file,
-          SettableMetadata(contentType: 'image/jpeg'),
+          'channelImages/$postId/image_$i.jpg',
         );
-        
-        // Monitor upload progress
-        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-          final taskProgress = snapshot.bytesTransferred / snapshot.totalBytes;
-          final overallProgress = (i / imageFiles.length) + (taskProgress / imageFiles.length);
-          state = state.copyWith(uploadProgress: overallProgress);
-        });
-        
-        final taskSnapshot = await uploadTask;
-        final imageUrl = await taskSnapshot.ref.getDownloadURL();
         imageUrls.add(imageUrl);
+        
+        // Update progress
+        final progress = (i + 1) / imageFiles.length;
+        state = state.copyWith(uploadProgress: progress);
       }
       
-      // Create video model (actually an image carousel post)
-      final ChannelVideoModel postData = ChannelVideoModel(
-        id: postId,
+      // Create image post
+      final postData = await _repository.createImagePost(
         channelId: channel.id,
         channelName: channel.name,
         channelImage: channel.profileImage,
         userId: uid,
-        videoUrl: '', // No video URL for image posts
-        thumbnailUrl: imageUrls.first, // Use first image as thumbnail
-        caption: caption,
-        likes: 0,
-        comments: 0,
-        views: 0,
-        shares: 0,
-        isLiked: false,
-        tags: tags ?? [],
-        createdAt: Timestamp.now(),
-        isActive: true,
-        isFeatured: false,
-        isMultipleImages: true,
         imageUrls: imageUrls,
+        caption: caption,
+        tags: tags,
       );
-      
-      // Save to Firestore
-      await _firestore
-          .collection(Constants.channelVideos)
-          .doc(postId)
-          .set(postData.toMap());
-      
-      // Update channel's video count
-      await _firestore.collection(Constants.channels).doc(channel.id).update({
-        'videosCount': FieldValue.increment(1),
-      });
       
       // Update local state
       List<ChannelVideoModel> updatedVideos = [
@@ -447,6 +353,14 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       );
       
       onSuccess('Images uploaded successfully');
+    } on RepositoryException catch (e) {
+      debugPrint('Error uploading images: ${e.message}');
+      state = state.copyWith(
+        isUploading: false,
+        uploadProgress: 0.0,
+        error: e.message,
+      );
+      onError(e.message);
     } catch (e) {
       debugPrint('Error uploading images: $e');
       state = state.copyWith(
@@ -454,7 +368,6 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         uploadProgress: 0.0,
         error: e.toString(),
       );
-      
       onError(e.toString());
     }
   }
@@ -462,9 +375,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
   // Increment view count for a video
   Future<void> incrementViewCount(String videoId) async {
     try {
-      await _firestore.collection(Constants.channelVideos).doc(videoId).update({
-        'views': FieldValue.increment(1),
-      });
+      await _repository.incrementViewCount(videoId);
       
       // Update local state
       final updatedVideos = state.videos.map((video) {
@@ -475,6 +386,9 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       }).toList();
       
       state = state.copyWith(videos: updatedVideos);
+    } on RepositoryException catch (e) {
+      debugPrint('Error incrementing view count: ${e.message}');
+      state = state.copyWith(error: e.message);
     } catch (e) {
       debugPrint('Error incrementing view count: $e');
       state = state.copyWith(error: e.toString());
@@ -490,37 +404,15 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     
     try {
       final uid = _auth.currentUser!.uid;
+      await _repository.deleteVideo(videoId, uid);
       
-      // Get the video document
-      final videoDoc = await _firestore.collection(Constants.channelVideos).doc(videoId).get();
-      final videoData = videoDoc.data();
-      
-      // Check if the current user is the owner of the channel
-      if (videoData != null) {
-        final channelId = videoData['channelId'];
-        final channelDoc = await _firestore.collection(Constants.channels).doc(channelId).get();
-        final channelData = channelDoc.data();
-        
-        if (channelData != null && channelData['ownerId'] == uid) {
-          // Mark as inactive instead of deleting
-          await _firestore.collection(Constants.channelVideos).doc(videoId).update({
-            'isActive': false,
-          });
-          
-          // Decrement channel's video count
-          await _firestore.collection(Constants.channels).doc(channelId).update({
-            'videosCount': FieldValue.increment(-1),
-          });
-          
-          // Update local state
-          final updatedVideos = state.videos.where((video) => video.id != videoId).toList();
-          state = state.copyWith(videos: updatedVideos);
-        } else {
-          onError('You can only delete videos from your own channel');
-        }
-      } else {
-        onError('Video not found');
-      }
+      // Update local state
+      final updatedVideos = state.videos.where((video) => video.id != videoId).toList();
+      state = state.copyWith(videos: updatedVideos);
+    } on RepositoryException catch (e) {
+      debugPrint('Error deleting video: ${e.message}');
+      state = state.copyWith(error: e.message);
+      onError(e.message);
     } catch (e) {
       debugPrint('Error deleting video: $e');
       state = state.copyWith(error: e.toString());
@@ -531,19 +423,16 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
   // Get a specific video by ID
   Future<ChannelVideoModel?> getVideoById(String videoId) async {
     try {
-      final docSnapshot = await _firestore
-          .collection(Constants.channelVideos)
-          .doc(videoId)
-          .get();
-      
-      if (!docSnapshot.exists) {
-        return null;
+      final video = await _repository.getVideoById(videoId);
+      if (video != null) {
+        final isLiked = state.likedVideos.contains(videoId);
+        return video.copyWith(isLiked: isLiked);
       }
-      
-      final data = docSnapshot.data() as Map<String, dynamic>;
-      final isLiked = state.likedVideos.contains(videoId);
-      
-      return ChannelVideoModel.fromMap(data, id: videoId, isLiked: isLiked);
+      return null;
+    } on RepositoryException catch (e) {
+      debugPrint('Error getting video by ID: ${e.message}');
+      state = state.copyWith(error: e.message);
+      return null;
     } catch (e) {
       debugPrint('Error getting video by ID: $e');
       state = state.copyWith(error: e.toString());
@@ -554,5 +443,6 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
 
 // Provider definition
 final channelVideosProvider = StateNotifierProvider<ChannelVideosNotifier, ChannelVideosState>((ref) {
-  return ChannelVideosNotifier();
+  final repository = ref.watch(channelRepositoryProvider);
+  return ChannelVideosNotifier(repository);
 });

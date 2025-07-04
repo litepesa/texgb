@@ -1,12 +1,17 @@
+// lib/features/channels/providers/channels_provider.dart
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:uuid/uuid.dart';
+import '../models/channel_model.dart';
+import '../repositories/channel_repository.dart';
+
+// Provider for the repository
+final channelRepositoryProvider = Provider<ChannelRepository>((ref) {
+  return FirebaseChannelRepository();
+});
 
 // Define the channels state
 class ChannelsState {
@@ -51,18 +56,17 @@ class ChannelsState {
 
 // Create the channels provider
 class ChannelsNotifier extends StateNotifier<ChannelsState> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ChannelRepository _repository;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  ChannelsNotifier() : super(const ChannelsState()) {
+  ChannelsNotifier(this._repository) : super(const ChannelsState()) {
     // Initialize with empty state and load data
     loadChannels();
     loadUserChannel();
     loadFollowedChannels();
   }
 
-  // Load channels from Firestore
+  // Load channels from repository
   Future<void> loadChannels({bool forceRefresh = false}) async {
     // If not forcing refresh and we already have channels, just return
     if (!forceRefresh && state.channels.isNotEmpty) {
@@ -73,23 +77,16 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // Get all active channels
-      final QuerySnapshot querySnapshot = await _firestore
-          .collection(Constants.channels)
-          .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
-          .get();
-      
-      List<ChannelModel> channels = [];
-      
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        channels.add(ChannelModel.fromMap(data, doc.id));
-      }
+      final channels = await _repository.getChannels(forceRefresh: forceRefresh);
       
       // Update state with channels
       state = state.copyWith(
         channels: channels,
+        isLoading: false,
+      );
+    } on RepositoryException catch (e) {
+      state = state.copyWith(
+        error: e.message,
         isLoading: false,
       );
     } catch (e) {
@@ -106,26 +103,10 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     
     try {
       final uid = _auth.currentUser!.uid;
-      
-      // Get channels owned by the current user
-      final QuerySnapshot querySnapshot = await _firestore
-          .collection(Constants.channels)
-          .where('ownerId', isEqualTo: uid)
-          .where('isActive', isEqualTo: true)
-          .limit(1)
-          .get();
-      
-      if (querySnapshot.docs.isEmpty) {
-        // User doesn't have a channel
-        state = state.copyWith(userChannel: null);
-        return;
-      }
-      
-      // User has a channel
-      final data = querySnapshot.docs.first.data() as Map<String, dynamic>;
-      final userChannel = ChannelModel.fromMap(data, querySnapshot.docs.first.id);
-      
+      final userChannel = await _repository.getUserChannel(uid);
       state = state.copyWith(userChannel: userChannel);
+    } on RepositoryException catch (e) {
+      state = state.copyWith(error: e.message);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
@@ -137,12 +118,10 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     
     try {
       final uid = _auth.currentUser!.uid;
-      final userDoc = await _firestore.collection(Constants.users).doc(uid).get();
-      
-      if (userDoc.exists && userDoc.data()!.containsKey('followedChannels')) {
-        final followedChannels = List<String>.from(userDoc.data()!['followedChannels'] ?? []);
-        state = state.copyWith(followedChannels: followedChannels);
-      }
+      final followedChannels = await _repository.getFollowedChannels(uid);
+      state = state.copyWith(followedChannels: followedChannels);
+    } on RepositoryException catch (e) {
+      state = state.copyWith(error: e.message);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
@@ -174,88 +153,52 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     
     try {
       final uid = _auth.currentUser!.uid;
-      final channelId = const Uuid().v4();
       
-      // Get user info
-      final userDoc = await _firestore.collection(Constants.users).doc(uid).get();
+      // Get user info - this would ideally come from a user repository
+      // For now, using Firebase directly for user data
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final userData = userDoc.data();
       
       if (userData == null) {
-        throw Exception('User data not found');
+        throw RepositoryException('User data not found');
       }
       
-      final userName = userData[Constants.name] ?? '';
-      final userImage = userData[Constants.image] ?? '';
+      final userName = userData['name'] ?? '';
+      final userImage = userData['image'] ?? '';
       
-      // Upload profile image if provided
+      // Upload images
       String profileImageUrl = '';
-      if (profileImage != null) {
-        final storageRef = _storage.ref().child('channelImages/$channelId/profile.jpg');
-        final uploadTask = storageRef.putFile(
-          profileImage,
-          SettableMetadata(contentType: 'image/jpeg'),
-        );
-        
-        // Monitor upload progress
-        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          state = state.copyWith(uploadProgress: progress * 0.5); // First half of progress
-        });
-        
-        final snapshot = await uploadTask;
-        profileImageUrl = await snapshot.ref.getDownloadURL();
-      }
-      
-      // Upload cover image if provided
       String coverImageUrl = '';
-      if (coverImage != null) {
-        final storageRef = _storage.ref().child('channelImages/$channelId/cover.jpg');
-        final uploadTask = storageRef.putFile(
-          coverImage,
-          SettableMetadata(contentType: 'image/jpeg'),
+      
+      if (profileImage != null) {
+        final channelId = const Uuid().v4();
+        profileImageUrl = await _repository.uploadImage(
+          profileImage, 
+          'channelImages/$channelId/profile.jpg'
         );
-        
-        // Monitor upload progress
-        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          state = state.copyWith(uploadProgress: 0.5 + progress * 0.5); // Second half of progress
-        });
-        
-        final snapshot = await uploadTask;
-        coverImageUrl = await snapshot.ref.getDownloadURL();
+        state = state.copyWith(uploadProgress: 0.5);
       }
       
-      // Create channel model
-      final ChannelModel channel = ChannelModel(
-        id: channelId,
-        ownerId: uid,
-        ownerName: userName,
-        ownerImage: userImage,
+      if (coverImage != null) {
+        final channelId = const Uuid().v4();
+        coverImageUrl = await _repository.uploadImage(
+          coverImage, 
+          'channelImages/$channelId/cover.jpg'
+        );
+        state = state.copyWith(uploadProgress: 1.0);
+      }
+      
+      // Create channel
+      final channel = await _repository.createChannel(
+        userId: uid,
+        userName: userName,
+        userImage: userImage,
         name: name,
         description: description,
-        profileImage: profileImageUrl,
-        coverImage: coverImageUrl,
-        followers: 0,
-        videosCount: 0,
-        likesCount: 0,
-        isVerified: false,
-        tags: tags ?? [],
-        followerUIDs: [],
-        createdAt: Timestamp.now(),
-        isActive: true,
-        isFeatured: false,
+        profileImageUrl: profileImageUrl,
+        coverImageUrl: coverImageUrl,
+        tags: tags,
       );
-      
-      // Save to Firestore
-      await _firestore
-          .collection(Constants.channels)
-          .doc(channelId)
-          .set(channel.toMap());
-      
-      // Update user's owned channels
-      await _firestore.collection(Constants.users).doc(uid).update({
-        'ownedChannels': FieldValue.arrayUnion([channelId]),
-      });
       
       // Update local state
       state = state.copyWith(
@@ -267,13 +210,20 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
       
       onSuccess('Channel created successfully');
       return channel;
+    } on RepositoryException catch (e) {
+      state = state.copyWith(
+        isCreatingChannel: false,
+        uploadProgress: 0.0,
+        error: e.message,
+      );
+      onError(e.message);
+      return null;
     } catch (e) {
       state = state.copyWith(
         isCreatingChannel: false,
         uploadProgress: 0.0,
         error: e.toString(),
       );
-      
       onError(e.toString());
       return null;
     }
@@ -285,8 +235,6 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     
     try {
       final uid = _auth.currentUser!.uid;
-      final channelDoc = _firestore.collection(Constants.channels).doc(channelId);
-      final userDoc = _firestore.collection(Constants.users).doc(uid);
       
       // Get current followed channels
       List<String> followedChannels = List.from(state.followedChannels);
@@ -295,8 +243,10 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
       // Update local state first (optimistic update)
       if (isCurrentlyFollowed) {
         followedChannels.remove(channelId);
+        await _repository.unfollowChannel(channelId, uid);
       } else {
         followedChannels.add(channelId);
+        await _repository.followChannel(channelId, uid);
       }
       
       // Update channels list with new follow status
@@ -317,35 +267,13 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
         followedChannels: followedChannels,
       );
       
-      // Update Firestore in batch
-      final batch = _firestore.batch();
-      
-      // 1. Update user's followed channels and following count
-      batch.update(userDoc, {
-        'followedChannels': isCurrentlyFollowed
-            ? FieldValue.arrayRemove([channelId])
-            : FieldValue.arrayUnion([channelId]),
-        'followingCount': isCurrentlyFollowed
-            ? FieldValue.increment(-1)
-            : FieldValue.increment(1),
-      });
-      
-      // 2. Update channel's followers count and list
-      batch.update(channelDoc, {
-        'followers': isCurrentlyFollowed
-            ? FieldValue.increment(-1)
-            : FieldValue.increment(1),
-        'followerUIDs': isCurrentlyFollowed
-            ? FieldValue.arrayRemove([uid])
-            : FieldValue.arrayUnion([uid]),
-      });
-      
-      // Commit the batch
-      await batch.commit();
-      
+    } on RepositoryException catch (e) {
+      state = state.copyWith(error: e.message);
+      // Revert the optimistic update on error
+      loadChannels();
+      loadFollowedChannels();
     } catch (e) {
       state = state.copyWith(error: e.toString());
-      
       // Revert the optimistic update on error
       loadChannels();
       loadFollowedChannels();
@@ -355,16 +283,10 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
   // Get a specific channel by ID
   Future<ChannelModel?> getChannelById(String channelId) async {
     try {
-      final docSnapshot = await _firestore
-          .collection(Constants.channels)
-          .doc(channelId)
-          .get();
-      
-      if (!docSnapshot.exists) {
-        return null;
-      }
-      
-      return ChannelModel.fromMap(docSnapshot.data()!, channelId);
+      return await _repository.getChannelById(channelId);
+    } on RepositoryException catch (e) {
+      state = state.copyWith(error: e.message);
+      return null;
     } catch (e) {
       state = state.copyWith(error: e.toString());
       return null;
@@ -392,56 +314,32 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     state = state.copyWith(isCreatingChannel: true, uploadProgress: 0.0);
     
     try {
-      Map<String, dynamic> updates = channel.toMap();
+      String profileImageUrl = channel.profileImage;
+      String coverImageUrl = channel.coverImage;
       
       // Upload new profile image if provided
       if (profileImage != null) {
-        final storageRef = _storage.ref().child('channelImages/${channel.id}/profile.jpg');
-        final uploadTask = storageRef.putFile(
-          profileImage,
-          SettableMetadata(contentType: 'image/jpeg'),
+        profileImageUrl = await _repository.uploadImage(
+          profileImage, 
+          'channelImages/${channel.id}/profile.jpg'
         );
-        
-        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          state = state.copyWith(uploadProgress: progress * 0.5);
-        });
-        
-        final snapshot = await uploadTask;
-        final profileImageUrl = await snapshot.ref.getDownloadURL();
-        
-        updates['profileImage'] = profileImageUrl;
+        state = state.copyWith(uploadProgress: 0.5);
       }
       
       // Upload new cover image if provided
       if (coverImage != null) {
-        final storageRef = _storage.ref().child('channelImages/${channel.id}/cover.jpg');
-        final uploadTask = storageRef.putFile(
-          coverImage,
-          SettableMetadata(contentType: 'image/jpeg'),
+        coverImageUrl = await _repository.uploadImage(
+          coverImage, 
+          'channelImages/${channel.id}/cover.jpg'
         );
-        
-        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          state = state.copyWith(uploadProgress: 0.5 + progress * 0.5);
-        });
-        
-        final snapshot = await uploadTask;
-        final coverImageUrl = await snapshot.ref.getDownloadURL();
-        
-        updates['coverImage'] = coverImageUrl;
+        state = state.copyWith(uploadProgress: 1.0);
       }
       
-      // Update in Firestore
-      await _firestore
-          .collection(Constants.channels)
-          .doc(channel.id)
-          .update(updates);
-      
-      // Update local state
-      final updatedChannel = channel.copyWith(
-        profileImage: updates['profileImage'] ?? channel.profileImage,
-        coverImage: updates['coverImage'] ?? channel.coverImage,
+      // Update channel
+      final updatedChannel = await _repository.updateChannel(
+        channel: channel,
+        profileImageUrl: profileImageUrl,
+        coverImageUrl: coverImageUrl,
       );
       
       // Update channels list
@@ -460,13 +358,19 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
       );
       
       onSuccess('Channel updated successfully');
+    } on RepositoryException catch (e) {
+      state = state.copyWith(
+        isCreatingChannel: false,
+        uploadProgress: 0.0,
+        error: e.message,
+      );
+      onError(e.message);
     } catch (e) {
       state = state.copyWith(
         isCreatingChannel: false,
         uploadProgress: 0.0,
         error: e.toString(),
       );
-      
       onError(e.toString());
     }
   }
@@ -477,26 +381,7 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     
     try {
       final uid = _auth.currentUser!.uid;
-      final channelDoc = await _firestore
-          .collection(Constants.channels)
-          .doc(channelId)
-          .get();
-      
-      final data = channelDoc.data();
-      if (data == null || data['ownerId'] != uid) {
-        throw Exception('You can only delete your own channel');
-      }
-      
-      // Mark channel as inactive instead of deleting
-      await _firestore
-          .collection(Constants.channels)
-          .doc(channelId)
-          .update({'isActive': false});
-      
-      // Remove from user's owned channels
-      await _firestore.collection(Constants.users).doc(uid).update({
-        'ownedChannels': FieldValue.arrayRemove([channelId]),
-      });
+      await _repository.deleteChannel(channelId, uid);
       
       // Update local state
       final updatedChannels = state.channels.where((c) => c.id != channelId).toList();
@@ -505,6 +390,8 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
         userChannel: null,
         channels: updatedChannels,
       );
+    } on RepositoryException catch (e) {
+      state = state.copyWith(error: e.message);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
@@ -516,5 +403,6 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
 
 // Provider definition
 final channelsProvider = StateNotifierProvider<ChannelsNotifier, ChannelsState>((ref) {
-  return ChannelsNotifier();
+  final repository = ref.watch(channelRepositoryProvider);
+  return ChannelsNotifier(repository);
 });

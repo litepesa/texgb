@@ -1,10 +1,7 @@
-// lib/features/authentication/authentication_provider.dart
+// lib/features/authentication/authentication_provider.dart (Updated)
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -12,10 +9,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+import '../repositories/auth_repository.dart';
+import 'auth_repository_provider.dart';
 
 part 'authentication_provider.g.dart';
 
-// State class for authentication
+// State class for authentication (unchanged)
 class AuthenticationState {
   final bool isLoading;
   final bool isSuccessful;
@@ -23,7 +22,7 @@ class AuthenticationState {
   final String? phoneNumber;
   final UserModel? userModel;
   final String? error;
-  final List<UserModel>? savedAccounts; // Added for account switching
+  final List<UserModel>? savedAccounts;
 
   const AuthenticationState({
     this.isLoading = false,
@@ -58,24 +57,22 @@ class AuthenticationState {
 
 @riverpod
 class Authentication extends _$Authentication {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  AuthRepository get _repository => ref.read(authRepositoryProvider);
 
   @override
   FutureOr<AuthenticationState> build() async {
     // Check authentication state on initialization
     final isAuthenticated = await checkAuthenticationState();
     
-    if (isAuthenticated && _auth.currentUser != null) {
+    if (isAuthenticated && _repository.currentUserId != null) {
       final userModel = await getUserDataFromFireStore();
       await saveUserDataToSharedPreferences();
       final savedAccounts = await getSavedAccounts();
       
       return AuthenticationState(
         isSuccessful: true,
-        uid: _auth.currentUser!.uid,
-        phoneNumber: _auth.currentUser!.phoneNumber,
+        uid: _repository.currentUserId,
+        phoneNumber: _repository.currentUserPhoneNumber,
         userModel: userModel,
         savedAccounts: savedAccounts,
       );
@@ -86,44 +83,49 @@ class Authentication extends _$Authentication {
 
   // Check authentication state
   Future<bool> checkAuthenticationState() async {
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (_auth.currentUser != null) {
-      return true;
+    try {
+      return await _repository.checkAuthenticationState();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      return false;
     }
-    return false;
   }
 
   // Check if user exists
   Future<bool> checkUserExists() async {
     final currentState = state.value ?? const AuthenticationState();
-    final uid = currentState.uid ?? _auth.currentUser?.uid;
+    final uid = currentState.uid ?? _repository.currentUserId;
     
     if (uid == null) return false;
     
-    DocumentSnapshot documentSnapshot =
-        await _firestore.collection(Constants.users).doc(uid).get();
-    return documentSnapshot.exists;
+    try {
+      return await _repository.checkUserExists(uid);
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      return false;
+    }
   }
 
   // Get user data from firestore
   Future<UserModel?> getUserDataFromFireStore() async {
     final currentState = state.value ?? const AuthenticationState();
-    final uid = currentState.uid ?? _auth.currentUser?.uid;
+    final uid = currentState.uid ?? _repository.currentUserId;
     
     if (uid == null) return null;
     
-    DocumentSnapshot documentSnapshot =
-        await _firestore.collection(Constants.users).doc(uid).get();
-    
-    if (!documentSnapshot.exists) return null;
-    
-    final userModel = UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-    
-    // Update state with user model
-    state = AsyncValue.data(currentState.copyWith(userModel: userModel));
-    
-    return userModel;
+    try {
+      final userModel = await _repository.getUserDataFromFireStore(uid);
+      
+      if (userModel != null) {
+        // Update state with user model
+        state = AsyncValue.data(currentState.copyWith(userModel: userModel));
+      }
+      
+      return userModel;
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      return null;
+    }
   }
 
   // Save user data to shared preferences
@@ -162,40 +164,21 @@ class Authentication extends _$Authentication {
   }) async {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
 
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        try {
-          final userCredential = await _auth.signInWithCredential(credential);
-          
-          state = AsyncValue.data(AuthenticationState(
-            isSuccessful: true,
-            uid: userCredential.user!.uid,
-            phoneNumber: userCredential.user!.phoneNumber,
-          ));
-        } catch (e) {
-          state = AsyncValue.error(e, StackTrace.current);
-          showSnackBar(context, e.toString());
-        }
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        state = AsyncValue.error(e, StackTrace.current);
-        showSnackBar(context, e.toString());
-      },
-      codeSent: (String verificationId, int? resendToken) async {
-        state = AsyncValue.data(const AuthenticationState());
-        
-        // Navigate to OTP screen
-        Navigator.of(context).pushNamed(
-          Constants.otpScreen,
-          arguments: {
-            Constants.verificationId: verificationId,
-            Constants.phoneNumber: phoneNumber,
-          },
-        );
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {},
-    );
+    try {
+      await _repository.signInWithPhoneNumber(
+        phoneNumber: phoneNumber,
+        context: context,
+      );
+      
+      state = AsyncValue.data(AuthenticationState(
+        isSuccessful: true,
+        uid: _repository.currentUserId,
+        phoneNumber: _repository.currentUserPhoneNumber,
+      ));
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      showSnackBar(context, e.message);
+    }
   }
 
   // Verify OTP code
@@ -207,107 +190,85 @@ class Authentication extends _$Authentication {
   }) async {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
 
-    final credential = PhoneAuthProvider.credential(
-      verificationId: verificationId,
-      smsCode: otpCode,
-    );
-
     try {
-      final userCredential = await _auth.signInWithCredential(credential);
+      await _repository.verifyOTPCode(
+        verificationId: verificationId,
+        otpCode: otpCode,
+        context: context,
+        onSuccess: onSuccess,
+      );
       
       state = AsyncValue.data(AuthenticationState(
         isSuccessful: true,
-        uid: userCredential.user!.uid,
-        phoneNumber: userCredential.user!.phoneNumber,
+        uid: _repository.currentUserId,
+        phoneNumber: _repository.currentUserPhoneNumber,
       ));
-      
-      onSuccess();
-    } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
-      showSnackBar(context, e.toString());
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      showSnackBar(context, e.message);
     }
   }
 
   // Save user data to firestore
   Future<void> saveUserDataToFireStore({
-  required UserModel userModel,
-  required File? fileImage,
-  required Function onSuccess,
-  required Function onFail,
-}) async {
-  state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    required UserModel userModel,
+    required File? fileImage,
+    required Function onSuccess,
+    required Function onFail,
+  }) async {
+    state = AsyncValue.data(const AuthenticationState(isLoading: true));
 
-  try {
-    // Start with the original user model
-    UserModel updatedUserModel = userModel;
-
-    // Upload image if provided and update the model
-    if (fileImage != null) {
-      String imageUrl = await storeFileToStorage(
-          file: fileImage,
-          reference: '${Constants.userImages}/${userModel.uid}');
-
-      updatedUserModel = updatedUserModel.copyWith(image: imageUrl);
+    try {
+      await _repository.saveUserDataToFireStore(
+        userModel: userModel,
+        fileImage: fileImage,
+        onSuccess: () {
+          state = AsyncValue.data(AuthenticationState(
+            isSuccessful: true,
+            userModel: userModel,
+            uid: userModel.uid,
+          ));
+          onSuccess();
+        },
+        onFail: (error) {
+          state = AsyncValue.error(error, StackTrace.current);
+          onFail();
+        },
+      );
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      onFail();
     }
-
-    // Update timestamps - create final model with all updates
-    final finalUserModel = updatedUserModel.copyWith(
-      lastSeen: DateTime.now().microsecondsSinceEpoch.toString(),
-      createdAt: DateTime.now().microsecondsSinceEpoch.toString(),
-    );
-
-    // Save user data to firestore
-    await _firestore
-        .collection(Constants.users)
-        .doc(finalUserModel.uid)
-        .set(finalUserModel.toMap());
-
-    state = AsyncValue.data(AuthenticationState(
-      isSuccessful: true,
-      userModel: finalUserModel,
-      uid: finalUserModel.uid,
-    ));
-    
-    onSuccess();
-  } on FirebaseException catch (e) {
-    state = AsyncValue.error(e, StackTrace.current);
-    onFail(e.toString());
   }
-}
 
   // Get user stream
   Stream<DocumentSnapshot> userStream({required String userID}) {
-    return _firestore.collection(Constants.users).doc(userID).snapshots();
+    return _repository.userStream(userID: userID);
   }
 
   // Get all users stream
   Stream<QuerySnapshot> getAllUsersStream({required String userID}) {
-    return _firestore
-        .collection(Constants.users)
-        .where(Constants.uid, isNotEqualTo: userID)
-        .snapshots();
+    return _repository.getAllUsersStream(userID: userID);
   }
 
   // Add contact to user's contacts
-  Future<void> addContact({
-    required String contactID,
-  }) async {
+  Future<void> addContact({required String contactID}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
     
     try {
-      // Add contact to user's contacts list
-      await _firestore.collection(Constants.users).doc(currentState!.userModel!.uid).update({
-        Constants.contactsUIDs: FieldValue.arrayUnion([contactID]),
-      });
+      await _repository.addContact(
+        userUid: currentState!.userModel!.uid,
+        contactId: contactID,
+      );
       
       // Update local model
       final updatedUser = currentState.userModel!.copyWith();
       updatedUser.contactsUIDs.add(contactID);
       
       state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
-    } on FirebaseException catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
       debugPrint(e.toString());
     }
   }
@@ -318,18 +279,18 @@ class Authentication extends _$Authentication {
     if (currentState?.userModel == null) return;
     
     try {
-      // Remove contact from user's contacts list
-      await _firestore.collection(Constants.users).doc(currentState!.userModel!.uid).update({
-        Constants.contactsUIDs: FieldValue.arrayRemove([contactID]),
-      });
+      await _repository.removeContact(
+        userUid: currentState!.userModel!.uid,
+        contactId: contactID,
+      );
       
       // Update local model
       final updatedUser = currentState.userModel!.copyWith();
       updatedUser.contactsUIDs.remove(contactID);
       
       state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
-    } on FirebaseException catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
       debugPrint(e.toString());
     }
   }
@@ -340,18 +301,18 @@ class Authentication extends _$Authentication {
     if (currentState?.userModel == null) return;
     
     try {
-      // Add contact to blocked list
-      await _firestore.collection(Constants.users).doc(currentState!.userModel!.uid).update({
-        Constants.blockedUIDs: FieldValue.arrayUnion([contactID]),
-      });
+      await _repository.blockContact(
+        userUid: currentState!.userModel!.uid,
+        contactId: contactID,
+      );
       
       // Update local model
       final updatedUser = currentState.userModel!.copyWith();
       updatedUser.blockedUIDs.add(contactID);
       
       state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
-    } on FirebaseException catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
       debugPrint(e.toString());
     }
   }
@@ -362,18 +323,18 @@ class Authentication extends _$Authentication {
     if (currentState?.userModel == null) return;
     
     try {
-      // Remove contact from blocked list
-      await _firestore.collection(Constants.users).doc(currentState!.userModel!.uid).update({
-        Constants.blockedUIDs: FieldValue.arrayRemove([contactID]),
-      });
+      await _repository.unblockContact(
+        userUid: currentState!.userModel!.uid,
+        contactId: contactID,
+      );
       
       // Update local model
       final updatedUser = currentState.userModel!.copyWith();
       updatedUser.blockedUIDs.remove(contactID);
       
       state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
-    } on FirebaseException catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
       debugPrint(e.toString());
     }
   }
@@ -383,76 +344,68 @@ class Authentication extends _$Authentication {
     String uid,
     List<String> groupMembersUIDs,
   ) async {
-    List<UserModel> contactsList = [];
-
-    DocumentSnapshot documentSnapshot =
-        await _firestore.collection(Constants.users).doc(uid).get();
-
-    List<dynamic> contactsUIDs = documentSnapshot.get(Constants.contactsUIDs);
-
-    for (String contactUID in contactsUIDs) {
-      // If groupMembersUIDs list is not empty and contains the contactUID we skip this contact
-      if (groupMembersUIDs.isNotEmpty && groupMembersUIDs.contains(contactUID)) {
-        continue;
-      }
-      DocumentSnapshot documentSnapshot =
-          await _firestore.collection(Constants.users).doc(contactUID).get();
-      UserModel contact =
-          UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-      contactsList.add(contact);
+    try {
+      return await _repository.getContactsList(uid, groupMembersUIDs);
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      return [];
     }
-
-    return contactsList;
   }
 
   // Get a list of blocked contacts
-  Future<List<UserModel>> getBlockedContactsList({
-    required String uid,
-  }) async {
-    List<UserModel> blockedContactsList = [];
-
-    DocumentSnapshot documentSnapshot =
-        await _firestore.collection(Constants.users).doc(uid).get();
-
-    List<dynamic> blockedUIDs = documentSnapshot.get(Constants.blockedUIDs);
-
-    for (String blockedUID in blockedUIDs) {
-      DocumentSnapshot documentSnapshot = await _firestore
-          .collection(Constants.users)
-          .doc(blockedUID)
-          .get();
-      UserModel blockedContact =
-          UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-      blockedContactsList.add(blockedContact);
+  Future<List<UserModel>> getBlockedContactsList({required String uid}) async {
+    try {
+      return await _repository.getBlockedContactsList(uid: uid);
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      return [];
     }
-
-    return blockedContactsList;
   }
 
   // Search for users by phone number
-  Future<UserModel?> searchUserByPhoneNumber({
-    required String phoneNumber,
-  }) async {
+  Future<UserModel?> searchUserByPhoneNumber({required String phoneNumber}) async {
     try {
-      QuerySnapshot querySnapshot = await _firestore
-          .collection(Constants.users)
-          .where(Constants.phoneNumber, isEqualTo: phoneNumber)
-          .limit(1)
-          .get();
-      
-      if (querySnapshot.docs.isEmpty) {
-        return null;
-      }
-      
-      return UserModel.fromMap(
-          querySnapshot.docs.first.data() as Map<String, dynamic>);
-    } catch (e) {
-      debugPrint('Error searching user: $e');
+      return await _repository.searchUserByPhoneNumber(phoneNumber: phoneNumber);
+    } on AuthRepositoryException catch (e) {
+      debugPrint('Error searching user: ${e.message}');
       return null;
     }
   }
 
-  // NEW METHODS FOR ACCOUNT SWITCHING
+  // Get user data by ID
+  Future<UserModel?> getUserDataById(String userId) async {
+    try {
+      return await _repository.getUserDataById(userId);
+    } on AuthRepositoryException catch (e) {
+      debugPrint('Error getting user by ID: ${e.message}');
+      return null;
+    }
+  }
+
+  // Update user profile data
+  Future<void> updateUserProfile(UserModel updatedUser) async {
+    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    
+    try {
+      await _repository.updateUserProfile(updatedUser);
+
+      // Update local user model
+      final currentState = state.value ?? const AuthenticationState();
+      
+      state = AsyncValue.data(currentState.copyWith(
+        userModel: updatedUser,
+        isLoading: false,
+      ));
+
+      // Save updated user data to shared preferences
+      await saveUserDataToSharedPreferences();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      throw e.message;
+    }
+  }
+
+  // Account switching methods (kept same for now, can be refactored later if needed)
   
   // Get saved accounts from SharedPreferences
   Future<List<UserModel>> getSavedAccounts() async {
@@ -512,28 +465,14 @@ class Authentication extends _$Authentication {
     
     try {
       // Sign out current user
-      if (_auth.currentUser != null) {
-        await _auth.signOut();
-      }
+      await _repository.signOut();
       
-      // We need to sign in with the selected account
-      // This would require getting credentials for the selected account
-      // Since we can't have stored credentials for security reasons,
-      // we'd typically prompt the user for verification
-      
-      // For demonstration, we'll simply update the state to show loading
-      // In a real app, you'd need to implement the authentication flow
-      // specific to your auth method (phone, email, etc.)
-      
-      // Placeholder for authentication logic
-      // After successful authentication, you would:
-      
-      // 1. Update SharedPreferences with the selected account
+      // Update SharedPreferences with the selected account
       SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
       await sharedPreferences.setString(
           Constants.userModel, jsonEncode(selectedAccount.toMap()));
       
-      // 2. Update state with the new user model
+      // Update state with the new user model
       final savedAccounts = await getSavedAccounts();
       state = AsyncValue.data(AuthenticationState(
         isSuccessful: true,
@@ -542,11 +481,9 @@ class Authentication extends _$Authentication {
         userModel: selectedAccount,
         savedAccounts: savedAccounts,
       ));
-      
-      // Not tracking online status anymore
-    } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
-      throw e.toString();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      throw e.message;
     }
   }
   
@@ -577,69 +514,31 @@ class Authentication extends _$Authentication {
     final currentState = state.value ?? const AuthenticationState();
     state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
   }
-
-  // Update user profile data in Firestore
-  Future<void> updateUserProfile(UserModel updatedUser) async {
-    state = AsyncValue.data(const AuthenticationState(isLoading: true));
-    
-    try {
-      // Update user data in Firestore
-      await _firestore
-          .collection(Constants.users)
-          .doc(updatedUser.uid)
-          .update(updatedUser.toMap());
-
-      // Update local user model
-      final currentState = state.value ?? const AuthenticationState();
-      
-      state = AsyncValue.data(currentState.copyWith(
-        userModel: updatedUser,
-        isLoading: false,
-      ));
-
-      // Save updated user data to shared preferences
-      await saveUserDataToSharedPreferences();
-    } on FirebaseException catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
-      throw e.toString();
-    }
-  }
-
-  // Add this method to lib/features/authentication/authentication_provider.dart class
-
-// Get user data by ID
-Future<UserModel?> getUserDataById(String userId) async {
-  try {
-    DocumentSnapshot documentSnapshot =
-        await _firestore.collection(Constants.users).doc(userId).get();
-    
-    if (!documentSnapshot.exists) return null;
-    
-    return UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-  } catch (e) {
-    debugPrint('Error getting user by ID: $e');
-    return null;
-  }
-}
-
-  
   
   // Sign out user
   Future<void> signOut() async {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
     
     try {
-      // No need to update online status when signing out
-      await _auth.signOut();
+      await _repository.signOut();
       
       // Clear local user data
       SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
       await sharedPreferences.remove(Constants.userModel);
       
       state = AsyncValue.data(const AuthenticationState());
-    } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
-      throw e.toString();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      throw e.message;
+    }
+  }
+
+  // Store file to storage (kept for backward compatibility)
+  Future<String> storeFileToStorage({required File file, required String reference}) async {
+    try {
+      return await _repository.storeFileToStorage(file: file, reference: reference);
+    } on AuthRepositoryException catch (e) {
+      throw e.message;
     }
   }
 }
