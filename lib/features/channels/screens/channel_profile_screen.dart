@@ -82,6 +82,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   static const double _progressBarHeight = 3.0;
   final ValueNotifier<double> _progressNotifier = ValueNotifier<double>(0.0);
 
+  // Store original system UI for restoration
+  SystemUiOverlayStyle? _originalSystemUiStyle;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -93,6 +96,28 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     _loadChannelData();
     _setupCacheCleanup();
     _initializeAnimationControllers();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Store original system UI after dependencies are available
+    if (_originalSystemUiStyle == null) {
+      _storeOriginalSystemUI();
+    }
+  }
+
+  void _storeOriginalSystemUI() {
+    // Store the current system UI style before making changes
+    final brightness = Theme.of(context).brightness;
+    _originalSystemUiStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    );
   }
   
   void _initializeAnimationControllers() {
@@ -130,8 +155,10 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black,
+      systemNavigationBarColor: Colors.transparent, // Changed to transparent
       systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
     ));
   }
 
@@ -469,20 +496,26 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     );
   }
 
-  // Enhanced back navigation with proper system UI reset
+  // Enhanced back navigation with proper system UI restoration
   void _handleBackNavigation() {
-    // Reset system UI to home screen style before popping
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black,
-      systemNavigationBarIconBrightness: Brightness.light,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-    ));
+    // Restore the original system UI style if available
+    if (_originalSystemUiStyle != null) {
+      SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
+    } else {
+      // Fallback: restore based on current theme
+      final brightness = Theme.of(context).brightness;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    }
     
-    // Small delay to ensure system UI is set before navigation
-    Future.delayed(const Duration(milliseconds: 50), () {
+    // Small delay to ensure system UI is properly restored
+    Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
         Navigator.of(context).pop();
       }
@@ -575,6 +608,22 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    
+    // Restore original system UI style on dispose if available
+    if (_originalSystemUiStyle != null) {
+      SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
+    } else if (mounted) {
+      // Fallback: restore based on current theme
+      final brightness = Theme.of(context).brightness;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    }
     
     _cacheService.dispose();
     _cacheCleanupTimer?.cancel();
