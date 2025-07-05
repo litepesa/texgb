@@ -11,6 +11,7 @@ import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
+import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -43,9 +44,17 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   
   // State management
   int _currentVideoIndex = 0;
+  bool _isAppInForeground = true;
+  bool _isScreenActive = true;
   
   // Caption expansion state
   Map<int, bool> _expandedCaptions = {};
+  
+  // Like animation state
+  bool _showLikeAnimation = false;
+  late AnimationController _likeAnimationController;
+  late AnimationController _heartScaleController;
+  late Animation<double> _heartScaleAnimation;
   
   // Channel data
   ChannelModel? _channel;
@@ -64,7 +73,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   Timer? _progressTimer;
   double _currentProgress = 0.0;
   
-  // Animation controller for image carousels
+  // Animation controllers
   late AnimationController _imageProgressController;
   late AnimationController _progressController;
   
@@ -96,6 +105,25 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       vsync: this,
       duration: const Duration(seconds: 15),
     );
+    
+    // Like animation controllers
+    _likeAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    _heartScaleController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    
+    _heartScaleAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.2,
+    ).animate(CurvedAnimation(
+      parent: _heartScaleController,
+      curve: Curves.elasticOut,
+    ));
   }
 
   void _setupSystemUI() {
@@ -118,12 +146,16 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     super.didChangeAppLifecycleState(state);
     
     switch (state) {
+      case AppLifecycleState.resumed:
+        _isAppInForeground = true;
+        if (_isScreenActive) {
+          _playCurrentVideo();
+        }
+        break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
+        _isAppInForeground = false;
         _pauseCurrentVideo();
-        break;
-      case AppLifecycleState.resumed:
-        _playCurrentVideo();
         break;
       default:
         break;
@@ -131,6 +163,8 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   }
 
   Future<void> _loadChannelData() async {
+    if (!mounted) return;
+    
     setState(() {
       _isChannelLoading = true;
       _channelError = null;
@@ -158,7 +192,8 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
           _isChannelLoading = false;
         });
         
-        _initializeVideoControllers();
+        // Initialize video controllers with performance optimization
+        _initializeVideoControllersOptimized();
       }
     } catch (e) {
       if (mounted) {
@@ -170,8 +205,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     }
   }
 
-  void _initializeVideoControllers() {
-    for (int i = 0; i < _channelVideos.length; i++) {
+  void _initializeVideoControllersOptimized() {
+    if (_channelVideos.isEmpty) return;
+    
+    // Only initialize current video and next 2 videos for performance
+    final maxInitialize = (_channelVideos.length).clamp(0, 3);
+    
+    for (int i = 0; i < maxInitialize; i++) {
       final video = _channelVideos[i];
       if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
         _initializeVideoController(i, video.videoUrl);
@@ -191,10 +231,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
         if (await _cacheService.isVideoCached(videoUrl)) {
           cachedFile = await _cacheService.getCachedVideo(videoUrl);
         } else {
-          cachedFile = await _cacheService.preloadVideo(videoUrl);
+          // Only preload if within first 3 videos for performance
+          if (index < 3) {
+            cachedFile = await _cacheService.preloadVideo(videoUrl);
+          }
         }
       } catch (e) {
-        debugPrint('Cache error, falling back to network: $e');
+        debugPrint('Cache error for video $index, falling back to network: $e');
       }
 
       VideoPlayerController controller;
@@ -215,7 +258,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
         });
       }
       
-      if (index == _currentVideoIndex) {
+      if (index == _currentVideoIndex && _isScreenActive && _isAppInForeground) {
         controller.play();
       }
     } catch (e) {
@@ -237,13 +280,51 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
 
     _playCurrentVideo();
     _startProgressTracking();
-    _cacheService.preloadVideosIntelligently(_channelVideos, index);
+    
+    // Intelligent preloading: initialize next video controller if needed
+    _preloadNextVideos(index);
+    
+    // Increment view count
     ref.read(channelVideosProvider.notifier).incrementViewCount(_channelVideos[index].id);
+  }
+  
+  void _preloadNextVideos(int currentIndex) {
+    // Preload next 2 videos if not already initialized
+    for (int i = 1; i <= 2; i++) {
+      final nextIndex = currentIndex + i;
+      if (nextIndex < _channelVideos.length && 
+          !_videoInitialized.containsKey(nextIndex) &&
+          !_channelVideos[nextIndex].isMultipleImages &&
+          _channelVideos[nextIndex].videoUrl.isNotEmpty) {
+        _initializeVideoController(nextIndex, _channelVideos[nextIndex].videoUrl);
+      }
+    }
+    
+    // Clean up old controllers to save memory (keep only current and next 2)
+    _cleanupOldControllers(currentIndex);
+  }
+  
+  void _cleanupOldControllers(int currentIndex) {
+    final controllersToRemove = <int>[];
+    
+    _videoControllers.forEach((index, controller) {
+      // Keep current video and next 2 videos
+      if (index < currentIndex - 1 || index > currentIndex + 2) {
+        controllersToRemove.add(index);
+      }
+    });
+    
+    for (final index in controllersToRemove) {
+      _videoControllers[index]?.dispose();
+      _videoControllers.remove(index);
+      _videoInitialized.remove(index);
+    }
   }
   
   void _startProgressTracking() {
     _progressTimer?.cancel();
     
+    if (_currentVideoIndex >= _channelVideos.length) return;
     final currentVideo = _channelVideos[_currentVideoIndex];
     
     if (currentVideo.isMultipleImages) {
@@ -253,7 +334,12 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       _imageProgressController.addListener(_updateImageProgress);
     } else {
       // For videos, track actual video progress
-      _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      _progressTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+        if (!mounted || !_isScreenActive || !_isAppInForeground) {
+          timer.cancel();
+          return;
+        }
+        
         final controller = _videoControllers[_currentVideoIndex];
         if (controller != null && controller.value.isInitialized) {
           final position = controller.value.position;
@@ -278,6 +364,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   }
   
   void _updateImageProgress() {
+    if (!mounted) return;
     final progress = _imageProgressController.value;
     setState(() {
       _currentProgress = progress;
@@ -286,6 +373,8 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   }
 
   void _playCurrentVideo() {
+    if (!_isScreenActive || !_isAppInForeground || _currentVideoIndex >= _channelVideos.length) return;
+    
     final controller = _videoControllers[_currentVideoIndex];
     if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
       controller.seekTo(Duration.zero);
@@ -303,6 +392,11 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   }
 
   void _togglePlayPause() {
+    if (_currentVideoIndex >= _channelVideos.length) return;
+    
+    final currentVideo = _channelVideos[_currentVideoIndex];
+    if (currentVideo.isMultipleImages) return;
+    
     final controller = _videoControllers[_currentVideoIndex];
     if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
       if (controller.value.isPlaying) {
@@ -313,6 +407,35 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
         WakelockPlus.enable();
       }
     }
+  }
+
+  void _handleDoubleTap() {
+    if (_currentVideoIndex >= _channelVideos.length) return;
+    
+    // Trigger like animation
+    setState(() {
+      _showLikeAnimation = true;
+    });
+    
+    _heartScaleController.forward().then((_) {
+      _heartScaleController.reverse();
+    });
+    
+    _likeAnimationController.forward().then((_) {
+      _likeAnimationController.reset();
+      if (mounted) {
+        setState(() {
+          _showLikeAnimation = false;
+        });
+      }
+    });
+    
+    // Like the current video
+    final currentVideo = _channelVideos[_currentVideoIndex];
+    ref.read(channelVideosProvider.notifier).likeVideo(currentVideo.id);
+    
+    // Haptic feedback
+    HapticFeedback.lightImpact();
   }
 
   void _toggleFollow() async {
@@ -346,6 +469,89 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     );
   }
 
+  // Like animation overlay
+  Widget _buildLikeAnimationOverlay() {
+    return Positioned.fill(
+      child: AnimatedBuilder(
+        animation: _likeAnimationController,
+        builder: (context, child) {
+          return Stack(
+            children: [
+              // Center heart that scales
+              Center(
+                child: AnimatedBuilder(
+                  animation: _heartScaleAnimation,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: _heartScaleAnimation.value,
+                      child: const Icon(
+                        Icons.favorite,
+                        color: Colors.red,
+                        size: 80,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              
+              // Floating hearts
+              ..._buildFloatingHearts(),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  List<Widget> _buildFloatingHearts() {
+    const heartCount = 6;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    return List.generate(heartCount, (index) {
+      final offsetX = (index * 0.15 - 0.4) * screenWidth;
+      final startY = screenHeight * 0.6;
+      final endY = screenHeight * 0.2;
+      
+      return AnimatedBuilder(
+        animation: _likeAnimationController,
+        builder: (context, child) {
+          final progress = _likeAnimationController.value;
+          final opacity = (1.0 - progress).clamp(0.0, 1.0);
+          final y = startY + (endY - startY) * progress;
+          
+          return Positioned(
+            left: screenWidth / 2 + offsetX,
+            top: y,
+            child: Transform.rotate(
+              angle: (index - 2) * 0.3,
+              child: Opacity(
+                opacity: opacity,
+                child: Icon(
+                  Icons.favorite,
+                  color: Colors.red,
+                  size: 20 + (index % 3) * 10.0,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    });
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -355,6 +561,8 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     _progressTimer?.cancel();
     _imageProgressController.dispose();
     _progressController.dispose();
+    _likeAnimationController.dispose();
+    _heartScaleController.dispose();
     _progressNotifier.dispose();
     
     for (final controller in _videoControllers.values) {
@@ -411,17 +619,17 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
         extendBody: true,
         body: Stack(
           children: [
-            // Main video content - FULL SCREEN (fills entire screen)
+            // Main video content - FULL SCREEN
             Positioned.fill(
               bottom: totalBottomNavHeight,
               child: _buildVideoFeed(),
             ),
             
-            // Top bar overlay - Back arrow and Search
+            // Top bar overlay - Back arrow and Search (closer to edges and higher)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 12,
-              left: 16,
-              right: 16,
+              top: MediaQuery.of(context).padding.top + 4,
+              left: 8,
+              right: 8,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -496,11 +704,20 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
         
         return GestureDetector(
           onTap: _togglePlayPause,
+          onDoubleTap: _handleDoubleTap,
           child: Container(
             width: double.infinity,
             height: double.infinity,
             color: Colors.black,
-            child: _buildVideoContent(video, index),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildVideoContent(video, index),
+                // Like animation overlay
+                if (_showLikeAnimation && index == _currentVideoIndex)
+                  _buildLikeAnimationOverlay(),
+              ],
+            ),
           ),
         );
       },
@@ -590,7 +807,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     );
   }
 
-  // Bottom content overlay - Profile + Follow + Caption
+  // Bottom content overlay - Profile + Follow + Caption (positioned from progress bar level)
   Widget _buildBottomContent() {
     if (_channelVideos.isEmpty || _currentVideoIndex >= _channelVideos.length || _channel == null) {
       return const SizedBox.shrink();
@@ -600,83 +817,74 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     final isExpanded = _expandedCaptions[_currentVideoIndex] ?? false;
     
     return Positioned(
-      bottom: 130, // Adjusted for bottom nav bar
+      bottom: _bottomNavContentHeight + _progressBarHeight + MediaQuery.of(context).padding.bottom + 16, // Start from progress bar level
       left: 16,
-      right: 16, // Adjusted since we removed the right menu
+      right: 80, // Leave space for right side interactions
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Profile + Username + Follow button row
+          // Channel name with follow button (TikTok style)
           Row(
             children: [
-              // Profile circle - smaller like in your image
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: _channel!.profileImage.isNotEmpty
-                      ? Image.network(_channel!.profileImage, fit: BoxFit.cover)
-                      : Container(
-                          color: const Color(0xFF616161),
-                          child: Center(
-                            child: Text(
-                              _channel!.name.isNotEmpty ? _channel!.name[0].toUpperCase() : 'C',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _channel!.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 2,
                             ),
-                          ),
+                          ],
                         ),
-                ),
-              ),
-              
-              const SizedBox(width: 10),
-              
-              // Username
-              Expanded(
-                child: Text(
-                  _channel!.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                        offset: Offset(0, 1),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                    ),
+                    // Verified badge if applicable
+                    if (_channel!.isVerified)
+                      Container(
+                        margin: const EdgeInsets.only(left: 4),
+                        child: const Icon(
+                          Icons.verified,
+                          color: Colors.blue,
+                          size: 16,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              
               const SizedBox(width: 8),
-              
-              // Follow button - EXACTLY like your reference images (gray background)
+              // Follow button with red fill when not following
               if (!_isOwner)
                 GestureDetector(
                   onTap: _toggleFollow,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF616161).withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(16),
+                      color: _isFollowing ? Colors.transparent : const Color(0xFFE62117), // Red fill when not following
+                      border: Border.all(color: Colors.white, width: 1),
+                      borderRadius: BorderRadius.circular(15),
                     ),
                     child: Text(
                       _isFollowing ? 'Following' : 'Follow',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -684,97 +892,128 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
             ],
           ),
           
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           
-          // Caption
-          GestureDetector(
-            onTap: () => _toggleCaptionExpansion(_currentVideoIndex),
-            child: Text(
-              currentVideo.caption.isNotEmpty ? currentVideo.caption : 'Sirin Amin Zehra Sirin Vefalim Dance',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 2,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
-              maxLines: isExpanded ? null : 1,
-              overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
-            ),
+          // Caption with hashtags (exactly like channels feed screen)
+          _buildSmartCaption(currentVideo, isExpanded),
+        ],
+      ),
+    );
+  }
+
+  // Smart caption exactly like in channel_video_item.dart
+  Widget _buildSmartCaption(ChannelVideoModel video, bool isExpanded) {
+    if (video.caption.isEmpty) return const SizedBox.shrink();
+
+    final captionStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 14,
+      height: 1.3,
+      shadows: [
+        Shadow(
+          color: Colors.black.withOpacity(0.7),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    );
+
+    final moreStyle = captionStyle.copyWith(
+      color: Colors.white.withOpacity(0.7),
+      fontWeight: FontWeight.w500,
+    );
+
+    // Combine caption with hashtags on new line
+    String fullText = video.caption;
+    if (video.tags.isNotEmpty) {
+      final hashtags = video.tags.map((tag) => '#$tag').join(' ');
+      fullText += '\n$hashtags';
+    }
+
+    return GestureDetector(
+      onTap: () => _toggleCaptionExpansion(_currentVideoIndex),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        child: isExpanded 
+          ? _buildExpandedText(fullText, captionStyle, moreStyle)
+          : _buildTruncatedText(fullText, captionStyle, moreStyle),
+      ),
+    );
+  }
+
+  Widget _buildExpandedText(String fullText, TextStyle captionStyle, TextStyle moreStyle) {
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: fullText,
+            style: captionStyle,
           ),
-          
-          const SizedBox(height: 2),
-          
-          // Hashtags with More
-          GestureDetector(
-            onTap: () => _toggleCaptionExpansion(_currentVideoIndex),
-            child: isExpanded
-                ? Text(
-                    currentVideo.tags.isNotEmpty 
-                        ? currentVideo.tags.map((tag) => '#$tag').join(' ')
-                        : '#shortvideo #dance #popular #trending',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 2,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                  )
-                : Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          currentVideo.tags.isNotEmpty 
-                              ? currentVideo.tags.map((tag) => '#$tag').join(' ')
-                              : '#shortvideo #dance #popul...',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 2,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'More',
-                        style: TextStyle(
-                          color: Color(0xFFB3B3B3),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 2,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+          TextSpan(
+            text: ' less',
+            style: moreStyle,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTruncatedText(String fullText, TextStyle captionStyle, TextStyle moreStyle) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        
+        final textPainter = TextPainter(
+          text: TextSpan(text: fullText, style: captionStyle),
+          textDirection: TextDirection.ltr,
+          maxLines: 2,
+        );
+        textPainter.layout(maxWidth: maxWidth);
+        
+        // If text doesn't exceed 2 lines, show it fully
+        if (!textPainter.didExceedMaxLines) {
+          return Text(fullText, style: captionStyle);
+        }
+        
+        // Find where the text should be cut for 1.5 lines
+        final firstLineHeight = textPainter.preferredLineHeight;
+        final oneAndHalfLineHeight = firstLineHeight * 1.5;
+        
+        final cutPosition = textPainter.getPositionForOffset(
+          Offset(maxWidth * 0.7, oneAndHalfLineHeight)
+        );
+        
+        var cutIndex = cutPosition.offset;
+        
+        // Find the last space before cut position to avoid cutting words
+        while (cutIndex > 0 && fullText[cutIndex] != ' ') {
+          cutIndex--;
+        }
+        
+        // Ensure we have some text to show
+        if (cutIndex < 10) {
+          cutIndex = fullText.indexOf(' ', 10);
+          if (cutIndex == -1) cutIndex = fullText.length ~/ 3;
+        }
+        
+        final truncatedText = fullText.substring(0, cutIndex);
+        
+        return RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: truncatedText,
+                style: captionStyle,
+              ),
+              TextSpan(
+                text: '... more',
+                style: moreStyle,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -811,7 +1050,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     );
   }
 
-  // Bottom navigation bar widget - Now with 5 tabs matching channels_feed_screen
+  // Bottom navigation bar widget - Now with real comments functionality
   Widget _buildBottomNavigationBar(ModernThemeExtension modernTheme) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final totalHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
@@ -844,7 +1083,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                   activeIcon: Icons.home,
                   label: 'Home',
                   isActive: true,
-                  onTap: () {},
+                  onTap: () => Navigator.of(context).pop(),
                   iconColor: Colors.white,
                   labelColor: Colors.white,
                 ),
@@ -881,7 +1120,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                   activeIcon: CupertinoIcons.text_bubble_fill,
                   label: 'Comments',
                   isActive: false,
-                  onTap: () {}, // No action needed for comments in profile screen
+                  onTap: () => _showCommentsForCurrentVideo(currentVideo),
                   iconColor: Colors.white,
                   labelColor: Colors.white,
                   badgeCount: currentVideo?.comments ?? 0,
@@ -1075,21 +1314,59 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     }
   }
 
-  void _navigateToCreatePost() async {
-    final result = await Navigator.pushNamed(context, Constants.createChannelPostScreen);
-    if (result == true) {
+  void _showCommentsForCurrentVideo(ChannelVideoModel? video) {
+    if (video != null) {
+      // Pause current video when showing comments
       _pauseCurrentVideo();
       
-      await ref.read(channelVideosProvider.notifier).loadChannelVideos(widget.channelId);
+      // Show comments bottom sheet and handle completion
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        isDismissible: true,
+        enableDrag: true,
+        useSafeArea: true,
+        builder: (context) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: CommentsBottomSheet(videoId: video.id),
+        ),
+      ).whenComplete(() {
+        // Resume video when comments are closed
+        if (_isScreenActive && _isAppInForeground) {
+          _playCurrentVideo();
+        }
+      });
+    }
+  }
+
+  void _navigateToCreatePost() async {
+    // Pause current video
+    _pauseCurrentVideo();
+    
+    final result = await Navigator.pushNamed(context, Constants.createChannelPostScreen);
+    if (result == true) {
+      // Reload channel videos
+      await _loadChannelData();
       
+      // Reset progress and restart playback
       setState(() {
         _currentProgress = 0.0;
       });
       _progressNotifier.value = 0.0;
       _progressTimer?.cancel();
       _imageProgressController.reset();
-      if (_channelVideos.isNotEmpty) {
+      
+      if (_channelVideos.isNotEmpty && _isScreenActive && _isAppInForeground) {
         _imageProgressController.forward();
+        _playCurrentVideo();
+      }
+    } else {
+      // Resume video if user cancelled
+      if (_isScreenActive && _isAppInForeground) {
+        _playCurrentVideo();
       }
     }
   }
