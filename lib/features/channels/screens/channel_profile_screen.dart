@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
@@ -15,6 +16,7 @@ import 'package:video_player/video_player.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class ChannelProfileScreen extends ConsumerStatefulWidget {
   final String channelId;
@@ -29,12 +31,10 @@ class ChannelProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> 
-    with WidgetsBindingObserver, TickerProviderStateMixin {
+    with WidgetsBindingObserver, TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   
   // Core controllers
   final PageController _pageController = PageController();
-  final TextEditingController _commentController = TextEditingController();
-  final FocusNode _commentFocusNode = FocusNode();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
@@ -43,7 +43,6 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   
   // State management
   int _currentVideoIndex = 0;
-  bool _isCommenting = false;
   
   // Caption expansion state
   Map<int, bool> _expandedCaptions = {};
@@ -60,6 +59,22 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   Map<int, VideoPlayerController> _videoControllers = {};
   Map<int, bool> _videoInitialized = {};
   Timer? _cacheCleanupTimer;
+  
+  // Progress tracking
+  Timer? _progressTimer;
+  double _currentProgress = 0.0;
+  
+  // Animation controller for image carousels
+  late AnimationController _imageProgressController;
+  late AnimationController _progressController;
+  
+  // Bottom nav bar constants
+  static const double _bottomNavContentHeight = 60.0;
+  static const double _progressBarHeight = 3.0;
+  final ValueNotifier<double> _progressNotifier = ValueNotifier<double>(0.0);
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -67,8 +82,20 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     WidgetsBinding.instance.addObserver(this);
     _setupSystemUI();
     _loadChannelData();
-    _setupKeyboardListener();
     _setupCacheCleanup();
+    _initializeAnimationControllers();
+  }
+  
+  void _initializeAnimationControllers() {
+    _imageProgressController = AnimationController(
+      duration: const Duration(seconds: 15),
+      vsync: this,
+    );
+    
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 15),
+    );
   }
 
   void _setupSystemUI() {
@@ -83,14 +110,6 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   void _setupCacheCleanup() {
     _cacheCleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
       _cacheService.cleanupOldCache();
-    });
-  }
-
-  void _setupKeyboardListener() {
-    _commentFocusNode.addListener(() {
-      setState(() {
-        _isCommenting = _commentFocusNode.hasFocus;
-      });
     });
   }
 
@@ -161,6 +180,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     
     if (_channelVideos.isNotEmpty) {
       _playCurrentVideo();
+      _startProgressTracking();
     }
   }
 
@@ -207,14 +227,62 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     if (index >= _channelVideos.length) return;
 
     _pauseCurrentVideo();
+    _stopProgressTracking();
     
     setState(() {
       _currentVideoIndex = index;
+      _currentProgress = 0.0;
+      _progressNotifier.value = 0.0;
     });
 
     _playCurrentVideo();
+    _startProgressTracking();
     _cacheService.preloadVideosIntelligently(_channelVideos, index);
     ref.read(channelVideosProvider.notifier).incrementViewCount(_channelVideos[index].id);
+  }
+  
+  void _startProgressTracking() {
+    _progressTimer?.cancel();
+    
+    final currentVideo = _channelVideos[_currentVideoIndex];
+    
+    if (currentVideo.isMultipleImages) {
+      // For images, use animation controller
+      _imageProgressController.reset();
+      _imageProgressController.forward();
+      _imageProgressController.addListener(_updateImageProgress);
+    } else {
+      // For videos, track actual video progress
+      _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        final controller = _videoControllers[_currentVideoIndex];
+        if (controller != null && controller.value.isInitialized) {
+          final position = controller.value.position;
+          final duration = controller.value.duration;
+          
+          if (duration.inMilliseconds > 0) {
+            final progress = position.inMilliseconds / duration.inMilliseconds;
+            setState(() {
+              _currentProgress = progress;
+            });
+            _progressNotifier.value = progress;
+          }
+        }
+      });
+    }
+  }
+  
+  void _stopProgressTracking() {
+    _progressTimer?.cancel();
+    _imageProgressController.removeListener(_updateImageProgress);
+    _imageProgressController.stop();
+  }
+  
+  void _updateImageProgress() {
+    final progress = _imageProgressController.value;
+    setState(() {
+      _currentProgress = progress;
+    });
+    _progressNotifier.value = progress;
   }
 
   void _playCurrentVideo() {
@@ -222,6 +290,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
       controller.seekTo(Duration.zero);
       controller.play();
+      WakelockPlus.enable();
     }
   }
 
@@ -229,6 +298,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     final controller = _videoControllers[_currentVideoIndex];
     if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
       controller.pause();
+      WakelockPlus.disable();
     }
   }
 
@@ -237,8 +307,10 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
       if (controller.value.isPlaying) {
         controller.pause();
+        WakelockPlus.disable();
       } else {
         controller.play();
+        WakelockPlus.enable();
       }
     }
   }
@@ -259,69 +331,12 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     });
   }
 
-  Future<void> _addComment() async {
-    if (_commentController.text.trim().isEmpty) return;
-    if (_auth.currentUser == null) {
-      _showSnackBar('You must be logged in to comment');
-      return;
-    }
-
-    if (_channelVideos.isEmpty || _currentVideoIndex >= _channelVideos.length) return;
-
-    final currentVideo = _channelVideos[_currentVideoIndex];
-
-    setState(() {
-      _isCommenting = true;
-    });
-
-    try {
-      final uid = _auth.currentUser!.uid;
-      final userDoc = await _firestore.collection(Constants.users).doc(uid).get();
-      final userData = userDoc.data();
-      
-      if (userData == null) {
-        throw Exception('User data not found');
-      }
-      
-      final userName = userData[Constants.name] ?? '';
-      final userImage = userData[Constants.image] ?? '';
-      
-      final commentData = {
-        'videoId': currentVideo.id,
-        'userId': uid,
-        'userName': userName,
-        'userImage': userImage,
-        'comment': _commentController.text.trim(),
-        'createdAt': FieldValue.serverTimestamp(),
-        'likes': 0,
-        'replyCount': 0,
-      };
-      
-      await _firestore.collection(Constants.channelComments).add(commentData);
-      await _firestore.collection(Constants.channelVideos).doc(currentVideo.id).update({
-        'comments': FieldValue.increment(1),
-      });
-      
-      _commentController.clear();
-      _commentFocusNode.unfocus();
-      
-      _showSnackBar('Comment added successfully');
-      
-    } catch (e) {
-      _showSnackBar('Error adding comment: ${e.toString()}');
-    } finally {
-      setState(() {
-        _isCommenting = false;
-      });
-    }
-  }
-
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.grey[800],
+        backgroundColor: const Color(0xFF424242),
         margin: EdgeInsets.only(
           bottom: MediaQuery.of(context).size.height * 0.8,
           left: 16,
@@ -337,6 +352,10 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     
     _cacheService.dispose();
     _cacheCleanupTimer?.cancel();
+    _progressTimer?.cancel();
+    _imageProgressController.dispose();
+    _progressController.dispose();
+    _progressNotifier.dispose();
     
     for (final controller in _videoControllers.values) {
       controller.dispose();
@@ -344,15 +363,17 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     _videoControllers.clear();
     _videoInitialized.clear();
     
-    _commentController.dispose();
-    _commentFocusNode.dispose();
     _pageController.dispose();
+    
+    WakelockPlus.disable();
     
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    
     if (_isChannelLoading) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -369,52 +390,93 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       );
     }
     
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Main video content - FULL SCREEN (fills entire screen)
-          Positioned.fill(
-            child: _buildVideoFeed(),
-          ),
-          
-          // Top bar overlay - Back arrow and Search
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 12,
-            left: 16,
-            right: 16,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {},
-                  child: const Icon(
-                    Icons.search,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-              ],
+    final modernTheme = context.modernTheme;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final totalBottomNavHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
+    
+    return WillPopScope(
+      onWillPop: () async {
+        // Reset system UI when user navigates back
+        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ));
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        extendBodyBehindAppBar: true,
+        extendBody: true,
+        body: Stack(
+          children: [
+            // Main video content - FULL SCREEN (fills entire screen)
+            Positioned.fill(
+              bottom: totalBottomNavHeight,
+              child: _buildVideoFeed(),
             ),
-          ),
-          
-          // Right side menu overlay
-          _buildRightSideMenu(),
-          
-          // Bottom content overlay
-          _buildBottomContent(),
-          
-          // Comment input overlay (directly over video)
-          _buildCommentInput(),
-        ],
+            
+            // Top bar overlay - Back arrow and Search
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 12,
+              left: 16,
+              right: 16,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: const Icon(
+                        CupertinoIcons.chevron_left,
+                        color: Colors.white,
+                        size: 28,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 3,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {},
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: const Icon(
+                        Icons.search,
+                        color: Colors.white,
+                        size: 28,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 3,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Bottom content overlay
+            _buildBottomContent(),
+            
+            // Bottom navigation bar with progress indicator
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: _buildBottomNavigationBar(modernTheme),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -465,10 +527,14 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       );
     }
     
-    return Center(
-      child: AspectRatio(
-        aspectRatio: controller.value.aspectRatio,
-        child: VideoPlayer(controller),
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: controller.value.size.width,
+          height: controller.value.size.height,
+          child: VideoPlayer(controller),
+        ),
       ),
     );
   }
@@ -488,7 +554,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
         return SizedBox.expand(
           child: Image.network(
             imageUrl,
-            fit: BoxFit.cover, // Fill entire screen edge to edge
+            fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
             loadingBuilder: (context, child, loadingProgress) {
@@ -524,139 +590,6 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     );
   }
 
-  // Top bar - EXACTLY like your screenshots
-  Widget _buildTopBar() {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 12,
-      left: 16,
-      right: 16,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Back arrow
-          GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: const Icon(
-              Icons.arrow_back,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          
-          // Search icon
-          GestureDetector(
-            onTap: () {
-              // Implement search functionality
-            },
-            child: const Icon(
-              Icons.search,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Right side menu - EXACTLY 5 icons like your screenshots
-  Widget _buildRightSideMenu() {
-    final currentVideo = _channelVideos.isNotEmpty && _currentVideoIndex < _channelVideos.length 
-        ? _channelVideos[_currentVideoIndex] 
-        : null;
-
-    return Positioned(
-      right: 12,
-      bottom: 200,
-      child: Column(
-        children: [
-          // Heart icon with count - EXACTLY like your screenshots
-          _buildSideMenuItem(
-            icon: currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite_border,
-            iconColor: currentVideo?.isLiked == true ? Colors.red : Colors.white,
-            count: currentVideo?.likes ?? 1026,
-            onTap: () => _likeCurrentVideo(currentVideo),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Chat bubble icon with count - EXACTLY like your screenshots
-          _buildSideMenuItem(
-            icon: Icons.chat_bubble_outline,
-            iconColor: Colors.white,
-            count: currentVideo?.comments ?? 29,
-            onTap: () => _commentFocusNode.requestFocus(),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Star icon with count - EXACTLY like your screenshots
-          _buildSideMenuItem(
-            icon: Icons.star_border,
-            iconColor: Colors.white,
-            count: 138,
-            onTap: () {
-              // Star functionality
-            },
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Flower/More icon with count - EXACTLY like your screenshots
-          _buildSideMenuItem(
-            icon: Icons.local_florist_outlined,
-            iconColor: Colors.white,
-            count: 58,
-            onTap: () {
-              // More options
-            },
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Share arrow icon with count - EXACTLY like your screenshots
-          _buildSideMenuItem(
-            icon: Icons.reply,
-            iconColor: Colors.white,
-            count: 9,
-            onTap: () {
-              // Share functionality
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSideMenuItem({
-    required IconData icon,
-    required Color iconColor,
-    required int count,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color: iconColor,
-            size: 32,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _formatCount(count),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // Bottom content overlay - Profile + Follow + Caption
   Widget _buildBottomContent() {
     if (_channelVideos.isEmpty || _currentVideoIndex >= _channelVideos.length || _channel == null) {
@@ -667,9 +600,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     final isExpanded = _expandedCaptions[_currentVideoIndex] ?? false;
     
     return Positioned(
-      bottom: 70, // Above comment input
+      bottom: 130, // Adjusted for bottom nav bar
       left: 16,
-      right: 70, // Leave more space for right menu
+      right: 16, // Adjusted since we removed the right menu
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -689,7 +622,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                   child: _channel!.profileImage.isNotEmpty
                       ? Image.network(_channel!.profileImage, fit: BoxFit.cover)
                       : Container(
-                          color: Colors.grey[700],
+                          color: const Color(0xFF616161),
                           child: Center(
                             child: Text(
                               _channel!.name.isNotEmpty ? _channel!.name[0].toUpperCase() : 'C',
@@ -714,6 +647,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -728,7 +668,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.grey[700]!.withOpacity(0.8), // Gray background like in your image
+                      color: const Color(0xFF616161).withOpacity(0.8),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
@@ -755,6 +695,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                 color: Colors.white,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                ],
               ),
               maxLines: isExpanded ? null : 1,
               overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
@@ -775,6 +722,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 2,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
                   )
                 : Row(
@@ -788,6 +742,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                             color: Colors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 2,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -797,9 +758,16 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                       const Text(
                         'More',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: Color(0xFFB3B3B3),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 2,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -810,99 +778,225 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     );
   }
 
-  // Comment input overlay - EXACTLY like your reference images (dark background)
-  Widget _buildCommentInput() {
-    return Positioned(
-      bottom: MediaQuery.of(context).viewPadding.bottom + 12,
-      left: 16,
-      right: 16,
-      child: Container(
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.7), // Dark background like in your image
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 12),
-            
-            // Profile icon
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey[600],
-              ),
-              child: _auth.currentUser?.photoURL != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        _auth.currentUser!.photoURL!,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-            ),
-            
-            const SizedBox(width: 12),
-            
-            // Comment text field
-            Expanded(
-              child: TextField(
-                controller: _commentController,
-                focusNode: _commentFocusNode,
-                decoration: const InputDecoration(
-                  hintText: 'Comment',
-                  hintStyle: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 14,
+  // Progress bar widget for the bottom nav divider
+  Widget _buildProgressBar(ModernThemeExtension modernTheme) {
+    return ValueListenableBuilder<double>(
+      valueListenable: _progressNotifier,
+      builder: (context, progress, child) {
+        return Container(
+          height: _progressBarHeight,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+          ),
+          child: Stack(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 100),
+                width: MediaQuery.of(context).size.width * progress.clamp(0.0, 1.0),
+                height: _progressBarHeight,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      modernTheme.primaryColor ?? Colors.blue,
+                      (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
+                    ],
                   ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
                 ),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Bottom navigation bar widget - Now with 5 tabs matching channels_feed_screen
+  Widget _buildBottomNavigationBar(ModernThemeExtension modernTheme) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final totalHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
+    
+    // Get current video for likes and comments count
+    final videos = _channelVideos;
+    final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
+        ? videos[_currentVideoIndex] 
+        : null;
+    
+    return Container(
+      height: totalHeight,
+      decoration: const BoxDecoration(
+        color: Colors.black,
+      ),
+      child: Column(
+        children: [
+          // Progress bar as divider
+          _buildProgressBar(modernTheme),
+          
+          // Navigation content
+          Container(
+            height: _bottomNavContentHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  icon: Icons.home,
+                  activeIcon: Icons.home,
+                  label: 'Home',
+                  isActive: true,
+                  onTap: () {},
+                  iconColor: Colors.white,
+                  labelColor: Colors.white,
                 ),
-                maxLines: 1,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _addComment(),
+                _buildNavItem(
+                  icon: Icons.search,
+                  activeIcon: Icons.search,
+                  label: 'Search',
+                  isActive: false,
+                  onTap: () {},
+                  iconColor: Colors.white,
+                  labelColor: Colors.white,
+                ),
+                _buildNavItem(
+                  icon: Icons.add_circle,
+                  activeIcon: Icons.add_circle,
+                  label: 'Post',
+                  isActive: false,
+                  onTap: _navigateToCreatePost,
+                  iconColor: Colors.white,
+                  labelColor: Colors.white,
+                ),
+                _buildNavItemWithBadge(
+                  icon: currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite,
+                  activeIcon: Icons.favorite,
+                  label: 'Likes',
+                  isActive: false,
+                  onTap: () => _likeCurrentVideo(currentVideo),
+                  iconColor: currentVideo?.isLiked == true ? const Color(0xFFFF3040) : Colors.white,
+                  labelColor: Colors.white,
+                  badgeCount: currentVideo?.likes ?? 0,
+                ),
+                _buildNavItemWithBadge(
+                  icon: CupertinoIcons.text_bubble_fill,
+                  activeIcon: CupertinoIcons.text_bubble_fill,
+                  label: 'Comments',
+                  isActive: false,
+                  onTap: () {}, // No action needed for comments in profile screen
+                  iconColor: Colors.white,
+                  labelColor: Colors.white,
+                  badgeCount: currentVideo?.comments ?? 0,
+                ),
+              ],
+            ),
+          ),
+          
+          // System navigation bar space
+          SizedBox(height: bottomPadding),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    Color? iconColor,
+    Color? labelColor,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isActive ? activeIcon : icon,
+              color: iconColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: labelColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
-            
-            const SizedBox(width: 8),
-            
-            // @ symbol
-            const Icon(
-              Icons.alternate_email,
-              color: Colors.white54,
-              size: 18,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItemWithBadge({
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    Color? iconColor,
+    Color? labelColor,
+    required int badgeCount,
+  }) {
+    final modernTheme = context.modernTheme;
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  isActive ? activeIcon : icon,
+                  color: iconColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
+                  size: 24,
+                ),
+                if (badgeCount > 0)
+                  Positioned(
+                    right: -8,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor ?? Colors.blue,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.black, width: 1),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        _formatCount(badgeCount),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            
-            const SizedBox(width: 8),
-            
-            // Emoji button
-            const Icon(
-              Icons.emoji_emotions_outlined,
-              color: Colors.white54,
-              size: 18,
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: labelColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              ),
             ),
-            
-            const SizedBox(width: 8),
-            
-            // Gallery/Photo icon
-            const Icon(
-              Icons.photo_outlined,
-              color: Colors.white54,
-              size: 18,
-            ),
-            
-            const SizedBox(width: 12),
           ],
         ),
       ),
@@ -925,7 +1019,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
             _isOwner 
                 ? 'Create your first video to share with your followers'
                 : 'This channel hasn\'t posted any videos yet',
-            style: const TextStyle(color: Colors.white70, fontSize: 16),
+            style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 16),
             textAlign: TextAlign.center,
           ),
           if (_isOwner) ...[
@@ -933,7 +1027,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, Constants.createChannelPostScreen),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: const Color(0xFFFF0050),
                 foregroundColor: Colors.white,
               ),
               child: const Text('Create Video'),
@@ -958,14 +1052,14 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
           const SizedBox(height: 8),
           Text(
             _channelError!,
-            style: const TextStyle(color: Colors.white70, fontSize: 16),
+            style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 16),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: const Color(0xFFFF0050),
               foregroundColor: Colors.white,
             ),
             child: const Text('Go Back'),
@@ -978,6 +1072,25 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   void _likeCurrentVideo(ChannelVideoModel? video) {
     if (video != null) {
       ref.read(channelVideosProvider.notifier).likeVideo(video.id);
+    }
+  }
+
+  void _navigateToCreatePost() async {
+    final result = await Navigator.pushNamed(context, Constants.createChannelPostScreen);
+    if (result == true) {
+      _pauseCurrentVideo();
+      
+      await ref.read(channelVideosProvider.notifier).loadChannelVideos(widget.channelId);
+      
+      setState(() {
+        _currentProgress = 0.0;
+      });
+      _progressNotifier.value = 0.0;
+      _progressTimer?.cancel();
+      _imageProgressController.reset();
+      if (_channelVideos.isNotEmpty) {
+        _imageProgressController.forward();
+      }
     }
   }
 
