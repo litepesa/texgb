@@ -875,7 +875,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _isFollowing ? Colors.transparent : const Color(0xFFE62117), // Red fill when not following
+                      color: _isFollowing ? Colors.transparent : const Color(0xFFFF3040), // Red fill when not following
                       border: Border.all(color: Colors.white, width: 1),
                       borderRadius: BorderRadius.circular(15),
                     ),
