@@ -469,6 +469,26 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     );
   }
 
+  // Enhanced back navigation with proper system UI reset
+  void _handleBackNavigation() {
+    // Reset system UI to home screen style before popping
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.black,
+      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ));
+    
+    // Small delay to ensure system UI is set before navigation
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
   // Like animation overlay
   Widget _buildLikeAnimationOverlay() {
     return Positioned.fill(
@@ -604,14 +624,8 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     
     return WillPopScope(
       onWillPop: () async {
-        // Reset system UI when user navigates back
-        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ));
-        return true;
+        _handleBackNavigation();
+        return false; // Prevent default pop behavior
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -625,19 +639,20 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
               child: _buildVideoFeed(),
             ),
             
-            // Top bar overlay - Back arrow and Search (closer to edges and higher)
+            // Top bar overlay - Reliable back button and search
             Positioned(
               top: MediaQuery.of(context).padding.top + 4,
-              left: 8,
+              left: 4, // Adjusted for better tap area
               right: 8,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      child: const Icon(
+                  // Enhanced back button with larger tap area
+                  Material(
+                    type: MaterialType.transparency,
+                    child: IconButton(
+                      onPressed: _handleBackNavigation,
+                      icon: const Icon(
                         CupertinoIcons.chevron_left,
                         color: Colors.white,
                         size: 28,
@@ -649,25 +664,37 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                           ),
                         ],
                       ),
+                      iconSize: 28,
+                      padding: const EdgeInsets.all(12), // Larger tap area
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
+                      splashRadius: 24,
+                      tooltip: 'Back',
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () {},
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      child: const Icon(
-                        Icons.search,
-                        color: Colors.white,
-                        size: 28,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 3,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
+                  IconButton(
+                    onPressed: () {},
+                    icon: const Icon(
+                      Icons.search,
+                      color: Colors.white,
+                      size: 28,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
+                    iconSize: 28,
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    splashRadius: 24,
                   ),
                 ],
               ),
@@ -1083,7 +1110,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
                   activeIcon: Icons.home,
                   label: 'Home',
                   isActive: true,
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: _handleBackNavigation,
                   iconColor: Colors.white,
                   labelColor: Colors.white,
                 ),
@@ -1296,7 +1323,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: _handleBackNavigation,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFF0050),
               foregroundColor: Colors.white,

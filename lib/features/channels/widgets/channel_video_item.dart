@@ -908,7 +908,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.white, width: 1),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(15),
                   ),
                   child: Text(
                     isFollowing ? 'Following' : 'Follow',
