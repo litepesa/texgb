@@ -181,10 +181,11 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
         _isAppInForeground = false;
         _pauseCurrentVideo();
         break;
-      default:
+      case AppLifecycleState.hidden:
         break;
     }
   }
@@ -246,7 +247,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     }
     
     if (_channelVideos.isNotEmpty) {
-      _playCurrentVideo();
+      _playCurrentVideo(); // This will handle wakelock
       _startProgressTracking();
     }
   }
@@ -287,6 +288,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       
       if (index == _currentVideoIndex && _isScreenActive && _isAppInForeground) {
         controller.play();
+        WakelockPlus.enable();
       }
     } catch (e) {
       debugPrint('Error initializing video $index: $e');
@@ -296,6 +298,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   void _onPageChanged(int index) {
     if (index >= _channelVideos.length) return;
 
+    // Pause current video and disable wakelock
     _pauseCurrentVideo();
     _stopProgressTracking();
     
@@ -305,6 +308,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       _progressNotifier.value = 0.0;
     });
 
+    // Play new video (this will enable wakelock if appropriate)
     _playCurrentVideo();
     _startProgressTracking();
     
@@ -355,15 +359,21 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     final currentVideo = _channelVideos[_currentVideoIndex];
     
     if (currentVideo.isMultipleImages) {
-      // For images, use animation controller
+      // For images, use animation controller and enable wakelock
       _imageProgressController.reset();
       _imageProgressController.forward();
       _imageProgressController.addListener(_updateImageProgress);
+      
+      // Enable wakelock for images too to prevent screen from sleeping
+      if (_isScreenActive && _isAppInForeground) {
+        WakelockPlus.enable();
+      }
     } else {
       // For videos, track actual video progress
       _progressTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
         if (!mounted || !_isScreenActive || !_isAppInForeground) {
           timer.cancel();
+          WakelockPlus.disable();
           return;
         }
         
@@ -388,6 +398,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     _progressTimer?.cancel();
     _imageProgressController.removeListener(_updateImageProgress);
     _imageProgressController.stop();
+    // Don't disable wakelock here as it might be needed for the next content
   }
   
   void _updateImageProgress() {
@@ -400,12 +411,18 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   }
 
   void _playCurrentVideo() {
-    if (!_isScreenActive || !_isAppInForeground || _currentVideoIndex >= _channelVideos.length) return;
+    if (!_isScreenActive || !_isAppInForeground || _currentVideoIndex >= _channelVideos.length) {
+      WakelockPlus.disable();
+      return;
+    }
     
     final controller = _videoControllers[_currentVideoIndex];
     if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
       controller.seekTo(Duration.zero);
       controller.play();
+      WakelockPlus.enable();
+    } else {
+      // For images or when video is not ready, still enable wakelock
       WakelockPlus.enable();
     }
   }
@@ -414,8 +431,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     final controller = _videoControllers[_currentVideoIndex];
     if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
       controller.pause();
-      WakelockPlus.disable();
     }
+    // Always disable wakelock when pausing
+    WakelockPlus.disable();
   }
 
   void _togglePlayPause() {
@@ -498,6 +516,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
 
   // Enhanced back navigation with proper system UI restoration
   void _handleBackNavigation() {
+    // Pause playback and disable wakelock before leaving
+    _pauseCurrentVideo();
+    
     // Restore the original system UI style if available
     if (_originalSystemUiStyle != null) {
       SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
@@ -609,6 +630,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     
+    // Stop all playback and disable wakelock before disposing
+    _pauseCurrentVideo();
+    
     // Restore original system UI style on dispose if available
     if (_originalSystemUiStyle != null) {
       SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
@@ -642,6 +666,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     
     _pageController.dispose();
     
+    // Final wakelock disable
     WakelockPlus.disable();
     
     super.dispose();
@@ -1392,7 +1417,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
 
   void _showCommentsForCurrentVideo(ChannelVideoModel? video) {
     if (video != null) {
-      // Pause current video when showing comments
+      // Pause current video and disable wakelock when showing comments
       _pauseCurrentVideo();
       
       // Show comments bottom sheet and handle completion
@@ -1410,7 +1435,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
           child: CommentsBottomSheet(videoId: video.id),
         ),
       ).whenComplete(() {
-        // Resume video when comments are closed
+        // Resume video and re-enable wakelock when comments are closed
         if (_isScreenActive && _isAppInForeground) {
           _playCurrentVideo();
         }
@@ -1419,7 +1444,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
   }
 
   void _navigateToCreatePost() async {
-    // Pause current video
+    // Pause current video and disable wakelock
     _pauseCurrentVideo();
     
     final result = await Navigator.pushNamed(context, Constants.createChannelPostScreen);
@@ -1437,10 +1462,10 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
       
       if (_channelVideos.isNotEmpty && _isScreenActive && _isAppInForeground) {
         _imageProgressController.forward();
-        _playCurrentVideo();
+        _playCurrentVideo(); // This will handle wakelock
       }
     } else {
-      // Resume video if user cancelled
+      // Resume video if user cancelled (this will re-enable wakelock)
       if (_isScreenActive && _isAppInForeground) {
         _playCurrentVideo();
       }
