@@ -1151,7 +1151,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
     );
   }
 
-  // Bottom navigation bar widget - Now with real comments functionality
+  // Bottom navigation bar widget - Updated with custom DM button
   Widget _buildBottomNavigationBar(ModernThemeExtension modernTheme) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final totalHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
@@ -1180,32 +1180,29 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(
-                  icon: Icons.home,
-                  activeIcon: Icons.home,
-                  label: 'Home',
-                  isActive: true,
-                  onTap: _handleBackNavigation,
+                  icon: CupertinoIcons.gift_alt_fill,
+                  activeIcon: CupertinoIcons.gift_fill,
+                  label: 'Gift',
+                  isActive: false,
+                  onTap: () {
+                    // TODO: Navigate to Gift screen when implemented
+                  },
                   iconColor: Colors.white,
                   labelColor: Colors.white,
                 ),
                 _buildNavItem(
-                  icon: Icons.search,
-                  activeIcon: Icons.search,
-                  label: 'Search',
+                  icon: Icons.download_rounded,
+                  activeIcon: Icons.download,
+                  label: 'Save',
                   isActive: false,
-                  onTap: () {},
+                  onTap: () {
+                    // TODO: Implement save video to gallery functionality
+                  },
                   iconColor: Colors.white,
                   labelColor: Colors.white,
                 ),
-                _buildNavItem(
-                  icon: Icons.add_circle,
-                  activeIcon: Icons.add_circle,
-                  label: 'Post',
-                  isActive: false,
-                  onTap: _navigateToCreatePost,
-                  iconColor: Colors.white,
-                  labelColor: Colors.white,
-                ),
+                // Custom DM button (no label)
+                _buildDMButton(),
                 _buildNavItemWithBadge(
                   icon: currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite,
                   activeIcon: Icons.favorite,
@@ -1233,6 +1230,48 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen>
           // System navigation bar space
           SizedBox(height: bottomPadding),
         ],
+      ),
+    );
+  }
+
+  // Custom DM button similar to the post button in home screen
+  Widget _buildDMButton() {
+    return GestureDetector(
+      onTap: () {
+        // TODO: Navigate to DM screen when implemented
+      },
+      child: Container(
+        width: 45,
+        height: 32,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          gradient: LinearGradient(
+            colors: [
+              Colors.blue.shade500,
+              Colors.cyan.shade400,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            'DM',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
       ),
     );
   }
