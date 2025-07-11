@@ -39,7 +39,6 @@ class Constants {
 
   // Channels routes
   static const String channelsFeedScreen = '/channelsFeedScreen';
-  static const String channelsListScreen = '/channelsListScreen';
   static const String createChannelScreen = '/createChannelScreen';
   static const String channelProfileScreen = '/channelProfileScreen';
   static const String myChannelScreen = '/myChannelScreen';
@@ -286,7 +285,21 @@ class Constants {
   static const String repliedToCommentId = 'repliedToCommentId';
   static const String repliedToAuthorName = 'repliedToAuthorName';
 
+  // ===== PAYMENT-RELATED CONSTANTS =====
   
+  static const String paymentStatus = 'paymentStatus';
+  static const String isAccountActivated = 'isAccountActivated';
+  static const String paymentTransactionId = 'paymentTransactionId';
+  static const String paymentDate = 'paymentDate';
+  static const String amountPaid = 'amountPaid';
+  static const String walletBalance = 'walletBalance';
+  static const String transactionId = 'transactionId';
+  static const String transactionType = 'transactionType';
+  static const String transactionAmount = 'transactionAmount';
+  static const String transactionDate = 'transactionDate';
+  static const String recipientUID = 'recipientUID';
+  static const String currency = 'KES';
+  static const double activationFee = 99.0;
 
   // ===== VALIDATION LIMITS =====
   
@@ -349,7 +362,6 @@ class Constants {
   static const String public = 'public';
 
   // In your constants.dart file, add:
-static const String shopsListScreen = '/shops-list-screen';
-static const String individualShopScreen = '/individual-shop-screen';
-
+  static const String shopsListScreen = '/shops-list-screen';
+  static const String individualShopScreen = '/individual-shop-screen';
 }

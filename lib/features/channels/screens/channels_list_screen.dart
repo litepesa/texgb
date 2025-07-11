@@ -6,6 +6,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class ChannelsListScreen extends ConsumerStatefulWidget {
   const ChannelsListScreen({super.key});
@@ -54,9 +55,10 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
   @override
   Widget build(BuildContext context) {
     final channelsState = ref.watch(channelsProvider);
+    final theme = context.modernTheme;
     
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.surfaceColor,
       body: Column(
         children: [
           // Category filter tabs (WhatsApp-style)
@@ -66,10 +68,10 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
               bottom: 8,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.surfaceColor,
               border: Border(
                 bottom: BorderSide(
-                  color: Colors.grey[200]!,
+                  color: theme.dividerColor!,
                   width: 0.5,
                 ),
               ),
@@ -125,9 +127,13 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
   }
 
   Widget _buildChannelsList(ChannelsState channelsState) {
+    final theme = context.modernTheme;
+    
     if (channelsState.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
+      return Center(
+        child: CircularProgressIndicator(
+          color: theme.primaryColor,
+        ),
       );
     }
 
@@ -138,14 +144,14 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
           children: [
             Icon(
               Icons.error_outline,
-              color: Colors.grey[400],
+              color: theme.textTertiaryColor,
               size: 64,
             ),
             const SizedBox(height: 16),
             Text(
               'Error loading channels',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: theme.textSecondaryColor,
                 fontSize: 16,
               ),
             ),
@@ -153,7 +159,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             Text(
               channelsState.error!,
               style: TextStyle(
-                color: Colors.grey[500],
+                color: theme.textTertiaryColor,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -181,7 +187,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
               _selectedCategory == 'Following' 
                 ? Icons.favorite_outline 
                 : Icons.video_library_outlined,
-              color: Colors.grey[400],
+              color: theme.textTertiaryColor,
               size: 64,
             ),
             const SizedBox(height: 16),
@@ -190,7 +196,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                 ? 'No followed channels'
                 : 'No channels available',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: theme.textSecondaryColor,
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
               ),
@@ -201,7 +207,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                 ? 'Follow channels to see them here'
                 : 'Check back later for new channels',
               style: TextStyle(
-                color: Colors.grey[500],
+                color: theme.textTertiaryColor,
                 fontSize: 14,
               ),
             ),
@@ -235,6 +241,9 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
   }
 
   Widget _buildCategoryTab(String category, bool isSelected) {
+    final theme = context.modernTheme;
+    final modernTheme = context.modernTheme;
+    
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -255,7 +264,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
         child: Text(
           category,
           style: TextStyle(
-            color: isSelected ? const Color(0xFF00A884) : Colors.grey[600],
+            color: isSelected ? modernTheme.primaryColor : theme.textSecondaryColor,
             fontSize: 15,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -267,6 +276,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
   Widget _buildChannelListItem(ChannelModel channel) {
     final followedChannels = ref.watch(channelsProvider).followedChannels;
     final isFollowing = followedChannels.contains(channel.id);
+    final theme = context.modernTheme;
 
     return InkWell(
       onTap: () {
@@ -281,7 +291,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Colors.grey[100]!,
+              color: theme.dividerColor!,
               width: 0.5,
             ),
           ),
@@ -308,36 +318,36 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                             imageUrl: channel.profileImage,
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(
-                              color: Colors.grey[200],
+                              color: theme.surfaceVariantColor,
                               child: Icon(
                                 Icons.video_library,
-                                color: Colors.grey[400],
+                                color: theme.textTertiaryColor,
                                 size: 20,
                               ),
                             ),
                             errorWidget: (context, url, error) => Container(
-                              color: Colors.grey[200],
+                              color: theme.surfaceVariantColor,
                               child: Center(
                                 child: Text(
                                   channel.name.isNotEmpty ? channel.name[0].toUpperCase() : 'C',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.grey[600],
+                                    color: theme.textSecondaryColor,
                                   ),
                                 ),
                               ),
                             ),
                           )
                         : Container(
-                            color: Colors.grey[200],
+                            color: theme.surfaceVariantColor,
                             child: Center(
                               child: Text(
                                 channel.name.isNotEmpty ? channel.name[0].toUpperCase() : 'C',
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.grey[600],
+                                  color: theme.textSecondaryColor,
                                 ),
                               ),
                             ),
@@ -355,7 +365,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                       decoration: BoxDecoration(
                         color: Colors.blue,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: theme.surfaceColor!, width: 2),
                       ),
                       child: const Icon(
                         Icons.star,
@@ -380,10 +390,10 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                       Flexible(
                         child: Text(
                           channel.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black,
+                            color: theme.textColor,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -408,7 +418,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                       channel.description,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: theme.textSecondaryColor,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -423,7 +433,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                         '${_formatCount(channel.followers)} followers',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[500],
+                          color: theme.textTertiaryColor,
                         ),
                       ),
                       if (channel.videosCount > 0) ...[
@@ -431,7 +441,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                           ' • ${channel.videosCount} videos',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[500],
+                            color: theme.textTertiaryColor,
                           ),
                         ),
                       ],
@@ -449,14 +459,14 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isFollowing ? Colors.grey[200] : const Color(0xFF00A884),
+                  color: isFollowing ? theme.surfaceVariantColor : const Color(0xFF00A884),
                   borderRadius: BorderRadius.circular(16),
-                  border: isFollowing ? Border.all(color: Colors.grey[300]!) : null,
+                  border: isFollowing ? Border.all(color: theme.borderColor!) : null,
                 ),
                 child: Text(
                   isFollowing ? 'Following' : 'Follow',
                   style: TextStyle(
-                    color: isFollowing ? Colors.grey[700] : Colors.white,
+                    color: isFollowing ? theme.textSecondaryColor : Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class ShopsListScreen extends StatefulWidget {
   const ShopsListScreen({super.key});
@@ -130,8 +131,11 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.modernTheme;
+    final modernTheme = context.modernTheme;
+    
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.surfaceColor,
       body: Column(
         children: [
           // Category filter tabs (WhatsApp-style)
@@ -141,10 +145,10 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
               bottom: 8,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.surfaceColor,
               border: Border(
                 bottom: BorderSide(
-                  color: Colors.grey[200]!,
+                  color: theme.dividerColor!,
                   width: 0.5,
                 ),
               ),
@@ -207,6 +211,9 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
   }
 
   Widget _buildCategoryTab(String category, bool isSelected) {
+    final theme = context.modernTheme;
+    final modernTheme = context.modernTheme;
+    
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -227,7 +234,7 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
         child: Text(
           category,
           style: TextStyle(
-            color: isSelected ? const Color(0xFF00A884) : Colors.grey[600],
+            color: isSelected ? modernTheme.primaryColor : theme.textSecondaryColor,
             fontSize: 15,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -237,6 +244,8 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
   }
 
   Widget _buildShopListItem(ShopData shop) {
+    final theme = context.modernTheme;
+    
     return InkWell(
       onTap: () {
         Navigator.pushNamed(
@@ -253,7 +262,7 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Colors.grey[100]!,
+              color: theme.dividerColor!,
               width: 0.5,
             ),
           ),
@@ -296,7 +305,7 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
                       decoration: BoxDecoration(
                         color: Colors.red,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: theme.surfaceColor!, width: 2),
                       ),
                       child: const Icon(
                         Icons.flash_on,
@@ -321,10 +330,10 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
                       Flexible(
                         child: Text(
                           shop.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black,
+                            color: theme.textColor,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -348,7 +357,7 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
                     shop.description,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: theme.textSecondaryColor,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -361,7 +370,7 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
                     '${shop.followers} followers',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[500],
+                      color: theme.textTertiaryColor,
                     ),
                   ),
                 ],
@@ -376,7 +385,7 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
                   shop.lastUpdate,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[500],
+                    color: theme.textTertiaryColor,
                   ),
                 ),
                 const SizedBox(height: 4),

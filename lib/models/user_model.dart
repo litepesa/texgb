@@ -416,6 +416,8 @@ class UserModel {
   @override
   int get hashCode => uid.hashCode;
 
+  get statusMutedUsers => null;
+
   @override
   String toString() {
     return 'UserModel(uid: $uid, name: $name, phoneNumber: $phoneNumber)';
