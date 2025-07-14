@@ -44,7 +44,7 @@ class Constants {
   static const String myChannelScreen = '/myChannelScreen';
   static const String editChannelScreen = '/editChannelScreen';
   static const String createChannelPostScreen = '/createChannelPostScreen';
-  static const String channelVideoDetailScreen = '/channelVideoDetailScreen';
+  static const String channelFeedScreen = '/channelFeedScreen';
   static const String channelCommentsScreen = '/channelCommentsScreen';
   static const String exploreChannelsScreen = '/exploreChannelsScreen';
   static const String myPostScreen = '/myPostScreen';
