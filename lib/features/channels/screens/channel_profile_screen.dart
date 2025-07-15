@@ -1,5 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
@@ -26,11 +32,31 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
   String? _error;
   bool _isFollowing = false;
   bool _isOwner = false;
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, String> _videoThumbnails = {};
+  
+  // Cache manager for video thumbnails
+  static final _thumbnailCacheManager = CacheManager(
+    Config(
+      'channelVideoThumbnails',
+      stalePeriod: const Duration(days: 7),
+      maxNrOfCacheObjects: 200,
+    ),
+  );
+
+  // Custom white theme
+  static const _whiteTheme = _WhiteTheme();
 
   @override
   void initState() {
     super.initState();
     _loadChannelData();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadChannelData() async {
@@ -66,6 +92,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
           _isOwner = isOwner;
           _isLoading = false;
         });
+        
+        // Generate thumbnails for video content
+        _generateVideoThumbnails();
       }
     } catch (e) {
       if (mounted) {
@@ -73,6 +102,53 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
           _error = e.toString();
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _generateVideoThumbnails() async {
+    for (final video in _channelVideos) {
+      if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
+        try {
+          // Check if thumbnail is already cached
+          final cacheKey = 'thumb_${video.id}';
+          final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
+          
+          if (fileInfo != null && fileInfo.file.existsSync()) {
+            // Use cached thumbnail
+            if (mounted) {
+              setState(() {
+                _videoThumbnails[video.id] = fileInfo.file.path;
+              });
+            }
+          } else {
+            // Generate new thumbnail
+            final thumbnailPath = await VideoThumbnail.thumbnailFile(
+              video: video.videoUrl,
+              thumbnailPath: (await getTemporaryDirectory()).path,
+              imageFormat: ImageFormat.JPEG,
+              maxHeight: 400, // Higher quality for better display
+              quality: 85,
+            );
+            
+            if (thumbnailPath != null && mounted) {
+              // Cache the thumbnail
+              final thumbnailFile = File(thumbnailPath);
+              if (thumbnailFile.existsSync()) {
+                await _thumbnailCacheManager.putFile(
+                  cacheKey,
+                  thumbnailFile.readAsBytesSync(),
+                );
+              }
+              
+              setState(() {
+                _videoThumbnails[video.id] = thumbnailPath;
+              });
+            }
+          }
+        } catch (e) {
+          print('Error generating thumbnail for video ${video.id}: $e');
+        }
       }
     }
   }
@@ -120,499 +196,509 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     ).then((_) => _loadChannelData());
   }
 
+  String _formatViewCount(int views) {
+    if (views >= 1000000) {
+      return '${(views / 1000000).toStringAsFixed(1)}M';
+    } else if (views >= 1000) {
+      return '${(views / 1000).toStringAsFixed(1)}K';
+    }
+    return views.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final modernTheme = context.modernTheme;
-    
     return Scaffold(
-      backgroundColor: modernTheme.backgroundColor,
+      backgroundColor: _whiteTheme.backgroundColor,
       body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: modernTheme.primaryColor,
-              ),
-            )
+          ? _buildLoadingView()
           : _error != null
-              ? _buildErrorView(modernTheme)
-              : _buildProfileView(modernTheme),
+              ? _buildErrorView()
+              : _buildProfileView(),
     );
   }
 
-  Widget _buildErrorView(ModernThemeExtension modernTheme) {
+  Widget _buildLoadingView() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              color: modernTheme.primaryColor,
-              size: 64,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Error loading channel',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Go Back'),
-            ),
-          ],
-        ),
+      child: CircularProgressIndicator(
+        color: _whiteTheme.primaryColor,
+        strokeWidth: 2,
       ),
     );
   }
 
-  Widget _buildProfileView(ModernThemeExtension modernTheme) {
-    if (_channel == null) {
-      return const Center(child: Text('Channel not found'));
-    }
-
-    return CustomScrollView(
-      slivers: [
-        // App bar with channel cover image
-        SliverAppBar(
-          backgroundColor: Colors.transparent,
-          expandedHeight: 200,
-          pinned: true,
-          flexibleSpace: FlexibleSpaceBar(
-            background: _channel!.coverImage.isNotEmpty
-                ? Image.network(
-                    _channel!.coverImage,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    color: Colors.grey[800],
-                    child: Center(
-                      child: Text(
-                        _channel!.name.isNotEmpty
-                            ? _channel!.name[0].toUpperCase()
-                            : "C",
-                        style: TextStyle(
-                          color: modernTheme.primaryColor,
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-          ),
-          leading: IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back,
-                color: Colors.white,
-                size: 20,
+  Widget _buildErrorView() {
+    return SafeArea(
+      child: Column(
+        children: [
+          // App Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            decoration: BoxDecoration(
+              color: _whiteTheme.backgroundColor,
+              border: Border(
+                bottom: BorderSide(
+                  color: _whiteTheme.dividerColor,
+                  width: 0.5,
+                ),
               ),
             ),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          actions: [
-            if (_isOwner)
-              IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.edit,
-                    color: Colors.white,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.arrow_back_ios,
+                    color: _whiteTheme.textColor,
                     size: 20,
                   ),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                onPressed: _editChannel,
-              ),
-          ],
-        ),
-        
-        // Channel info
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Profile image, name and follow button
-                Row(
-                  children: [
-                    // Profile image
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-                      backgroundImage: _channel!.profileImage.isNotEmpty
-                          ? NetworkImage(_channel!.profileImage)
-                          : null,
-                      child: _channel!.profileImage.isEmpty
-                          ? Text(
-                              _channel!.name.isNotEmpty
-                                  ? _channel!.name[0].toUpperCase()
-                                  : "C",
-                              style: TextStyle(
-                                color: modernTheme.primaryColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 32,
-                              ),
-                            )
-                          : null,
-                    ),
-                    
-                    const SizedBox(width: 16),
-                    
-                    // Channel name and owner
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                _channel!.name,
-                                style: TextStyle(
-                                  color: modernTheme.textColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 20,
-                                ),
-                              ),
-                              if (_channel!.isVerified)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: Icon(
-                                    Icons.verified,
-                                    color: Colors.blue,
-                                    size: 20,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          Text(
-                            'Owner: ${_channel!.ownerName}',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Follow/Unfollow button or create post button
-                    if (_isOwner)
-                      ElevatedButton.icon(
-                        onPressed: _createPost,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Post'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: modernTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                        ),
-                      )
-                    else
-                      ElevatedButton(
-                        onPressed: _toggleFollow,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isFollowing
-                              ? Colors.grey[700]
-                              : modernTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                        ),
-                        child: Text(_isFollowing ? 'Following' : 'Follow'),
-                      ),
-                  ],
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Channel description
                 Text(
-                  _channel!.description,
+                  'Profile',
                   style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 16,
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Channel stats
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatColumn(_channel!.followers.toString(), 'Followers'),
-                    _buildStatColumn(_channel!.videosCount.toString(), 'Videos'),
-                    _buildStatColumn(_channel!.likesCount.toString(), 'Likes'),
-                  ],
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Tags
-                if (_channel!.tags.isNotEmpty)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _channel!.tags.map((tag) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: modernTheme.primaryColor!.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          '#$tag',
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                
-                const SizedBox(height: 24),
-                
-                // Content header
-                Text(
-                  'Content',
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontWeight: FontWeight.bold,
+                    color: _whiteTheme.textColor,
                     fontSize: 18,
-                  ),
-                ),
-                
-                const SizedBox(height: 8),
-                
-                // Content count
-                Text(
-                  '${_channelVideos.length} videos and posts',
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: _whiteTheme.primaryColor,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Channel not found',
+                      style: TextStyle(
+                        color: _whiteTheme.textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'This channel may have been deleted or doesn\'t exist',
+                      style: TextStyle(
+                        color: _whiteTheme.textSecondaryColor,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        'Go Back',
+                        style: TextStyle(
+                          color: _whiteTheme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileView() {
+    if (_channel == null) {
+      return Center(
+        child: Text(
+          'Channel not found',
+          style: TextStyle(
+            color: _whiteTheme.textColor,
+            fontSize: 16,
+          ),
         ),
-        
-        // Channel content grid
-        _channelVideos.isEmpty
-            ? SliverToBoxAdapter(
-                child: Center(
+      );
+    }
+
+    return NestedScrollView(
+      controller: _scrollController,
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
+          SliverAppBar(
+            backgroundColor: _whiteTheme.backgroundColor,
+            elevation: 0,
+            pinned: true,
+            floating: false,
+            snap: false,
+            expandedHeight: 380,
+            leading: IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios,
+                color: _whiteTheme.textColor,
+                size: 20,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            actions: [
+              if (_isOwner)
+                IconButton(
+                  icon: Icon(
+                    Icons.settings,
+                    color: _whiteTheme.textColor,
+                  ),
+                  onPressed: _editChannel,
+                ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: SafeArea(
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.only(
+                      left: 20,
+                      right: 20,
+                      top: 60,
+                      bottom: 20,
+                    ),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.videocam_off,
-                          color: modernTheme.textSecondaryColor,
-                          size: 48,
+                        // Profile Avatar
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _whiteTheme.dividerColor,
+                              width: 2,
+                            ),
+                          ),
+                          child: _channel!.profileImage.isNotEmpty
+                              ? ClipOval(
+                                  child: CachedNetworkImage(
+                                    imageUrl: _channel!.profileImage,
+                                    fit: BoxFit.cover,
+                                    width: 100,
+                                    height: 100,
+                                    placeholder: (context, url) => Container(
+                                      color: _whiteTheme.surfaceColor,
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            _whiteTheme.primaryColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) => Container(
+                                      color: _whiteTheme.surfaceColor,
+                                      child: Center(
+                                        child: Text(
+                                          _channel!.name.isNotEmpty
+                                              ? _channel!.name[0].toUpperCase()
+                                              : "C",
+                                          style: TextStyle(
+                                            color: _whiteTheme.primaryColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 36,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _whiteTheme.surfaceColor,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      _channel!.name.isNotEmpty
+                                          ? _channel!.name[0].toUpperCase()
+                                          : "C",
+                                      style: TextStyle(
+                                        color: _whiteTheme.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 36,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                         ),
+                        
                         const SizedBox(height: 16),
-                        Text(
-                          'No content yet',
-                          style: TextStyle(
-                            color: modernTheme.textColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        
+                        // Channel Name and Verification
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _channel!.name,
+                                style: TextStyle(
+                                  color: _whiteTheme.textColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                            if (_channel!.isVerified) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.verified,
+                                color: _whiteTheme.primaryColor,
+                                size: 18,
+                              ),
+                            ],
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        if (_isOwner)
-                          Text(
-                            'Create your first post to share with your followers',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 14,
-                            ),
-                            textAlign: TextAlign.center,
-                          )
-                        else
-                          Text(
-                            'This channel hasn\'t posted any content yet',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 14,
-                            ),
-                            textAlign: TextAlign.center,
+                        
+                        const SizedBox(height: 4),
+                        
+                        // Owner Name
+                        Text(
+                          '@${_channel!.ownerName}',
+                          style: TextStyle(
+                            color: _whiteTheme.textSecondaryColor,
+                            fontSize: 14,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Stats Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildStatColumn(
+                              _formatViewCount(_channel!.followers),
+                              'Followers',
+                            ),
+                            _buildStatColumn(
+                              _formatViewCount(_channel!.videosCount),
+                              'Videos',
+                            ),
+                            _buildStatColumn(
+                              _formatViewCount(_channel!.likesCount),
+                              'Likes',
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // Action Button
+                        Container(
+                          width: double.infinity,
+                          constraints: const BoxConstraints(maxWidth: 300),
+                          child: _isOwner
+                              ? OutlinedButton.icon(
+                                  onPressed: _createPost,
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: const Text('Create Post'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: _whiteTheme.primaryColor,
+                                    side: BorderSide(color: _whiteTheme.primaryColor),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                )
+                              : ElevatedButton(
+                                  onPressed: _toggleFollow,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _isFollowing
+                                        ? _whiteTheme.surfaceColor
+                                        : _whiteTheme.primaryColor,
+                                    foregroundColor: _isFollowing
+                                        ? _whiteTheme.textColor
+                                        : Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: _isFollowing 
+                                          ? BorderSide(color: _whiteTheme.dividerColor)
+                                          : BorderSide.none,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _isFollowing ? 'Following' : 'Follow',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                        ),
                       ],
                     ),
                   ),
                 ),
-              )
-            : SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 3/4, // Slightly taller than wide
+              ),
+            ),
+          ),
+        ];
+      },
+      body: Column(
+        children: [
+          // Description Section (if available)
+          if (_channel!.description.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: _whiteTheme.backgroundColor,
+                border: Border(
+                  bottom: BorderSide(
+                    color: _whiteTheme.dividerColor,
+                    width: 0.5,
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
+                ),
+              ),
+              child: Text(
+                _channel!.description,
+                style: TextStyle(
+                  color: _whiteTheme.textColor,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          
+          // Content Section
+          Expanded(
+            child: _channelVideos.isEmpty
+                ? _buildEmptyState()
+                : GridView.builder(
+                    padding: const EdgeInsets.all(1),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 1,
+                      mainAxisSpacing: 1,
+                      childAspectRatio: 9 / 16, // TikTok-like aspect ratio
+                    ),
+                    itemCount: _channelVideos.length,
+                    itemBuilder: (context, index) {
                       final video = _channelVideos[index];
                       
                       return GestureDetector(
                         onTap: () => _openVideoDetails(video),
                         child: Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: Colors.grey[800],
-                            image: video.isMultipleImages && video.imageUrls.isNotEmpty
-                                ? DecorationImage(
-                                    image: NetworkImage(video.imageUrls.first),
-                                    fit: BoxFit.cover,
-                                  )
-                                : video.thumbnailUrl.isNotEmpty
-                                    ? DecorationImage(
-                                        image: NetworkImage(video.thumbnailUrl),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
+                            color: _whiteTheme.surfaceColor,
                           ),
                           child: Stack(
+                            fit: StackFit.expand,
                             children: [
-                              if (!video.isMultipleImages && video.thumbnailUrl.isEmpty)
-                                Center(
-                                  child: Icon(
-                                    Icons.play_circle_fill,
-                                    color: modernTheme.primaryColor,
-                                    size: 32,
-                                  ),
-                                ),
-                              if (video.isMultipleImages && video.imageUrls.length > 1)
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.7),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Icon(
-                                      Icons.photo_library,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                              if (!video.isMultipleImages)
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.7),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Icon(
-                                      Icons.videocam,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.bottomCenter,
-                                      end: Alignment.topCenter,
-                                      colors: [
-                                        Colors.black.withOpacity(0.8),
-                                        Colors.transparent,
-                                      ],
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        video.caption,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
+                              // Video Thumbnail
+                              if (video.thumbnailUrl.isNotEmpty)
+                                CachedNetworkImage(
+                                  imageUrl: video.thumbnailUrl,
+                                  fit: BoxFit.cover,
+                                  memCacheHeight: 600, // Optimize memory usage
+                                  placeholder: (context, url) => Container(
+                                    color: _whiteTheme.surfaceColor,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          _whiteTheme.primaryColor,
                                         ),
                                       ),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.favorite,
-                                            color: Colors.white,
-                                            size: 12,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            '${video.likes}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Icon(
-                                            Icons.visibility,
-                                            color: Colors.white,
-                                            size: 12,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            '${video.views}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ],
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) {
+                                    return _buildThumbnailPlaceholder();
+                                  },
+                                )
+                              else if (video.isMultipleImages && video.imageUrls.isNotEmpty)
+                                CachedNetworkImage(
+                                  imageUrl: video.imageUrls.first,
+                                  fit: BoxFit.cover,
+                                  memCacheHeight: 600, // Optimize memory usage
+                                  placeholder: (context, url) => Container(
+                                    color: _whiteTheme.surfaceColor,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          _whiteTheme.primaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) {
+                                    return _buildThumbnailPlaceholder();
+                                  },
+                                )
+                              else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id))
+                                Image.file(
+                                  File(_videoThumbnails[video.id]!),
+                                  fit: BoxFit.cover,
+                                )
+                              else
+                                _buildThumbnailPlaceholder(),
+                              
+                              // Multiple Images Indicator
+                              if (video.isMultipleImages && video.imageUrls.length > 1)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.7),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Icon(
+                                      Icons.collections,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                              
+                              // View Count
+                              Positioned(
+                                bottom: 4,
+                                left: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.7),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.visibility,
+                                        color: Colors.white,
+                                        size: 12,
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        _formatViewCount(video.views),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -623,39 +709,93 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                         ),
                       );
                     },
-                    childCount: _channelVideos.length,
                   ),
-                ),
-              ),
-        
-        // Bottom padding
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 40),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
-  
+
   Widget _buildStatColumn(String count, String label) {
     return Column(
       children: [
         Text(
           count,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: _whiteTheme.textColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           label,
           style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 14,
+            color: _whiteTheme.textSecondaryColor,
+            fontSize: 12,
           ),
         ),
       ],
     );
   }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.videocam_off_outlined,
+            color: _whiteTheme.textSecondaryColor,
+            size: 48,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No videos yet',
+            style: TextStyle(
+              color: _whiteTheme.textColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _isOwner
+                ? 'Start creating content to share with your followers'
+                : 'This channel hasn\'t shared any videos yet',
+            style: TextStyle(
+              color: _whiteTheme.textSecondaryColor,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThumbnailPlaceholder() {
+    return Container(
+      color: _whiteTheme.surfaceColor,
+      child: Center(
+        child: Icon(
+          Icons.play_circle_outline,
+          color: _whiteTheme.primaryColor,
+          size: 32,
+        ),
+      ),
+    );
+  }
+}
+
+// Custom white theme class
+class _WhiteTheme {
+  const _WhiteTheme();
+  
+  Color get backgroundColor => Color(0xFF8E8E93);
+  Color get surfaceColor => const Color(0xFFF8F9FA);
+  Color get primaryColor => const Color(0xFF007AFF);
+  Color get textColor => const Color(0xFF1C1C1E);
+  Color get textSecondaryColor => Colors.white70;
+  Color get dividerColor => const Color(0xFFE5E5EA);
 }
