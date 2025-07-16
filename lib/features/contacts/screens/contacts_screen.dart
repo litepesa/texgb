@@ -233,6 +233,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     
     final formatter = DateFormat('MMM d, h:mm a');
     final syncTime = formatter.format(state.lastSyncTime!);
+    final modernTheme = context.modernTheme;
     
     Color statusColor;
     IconData statusIcon;
@@ -267,7 +268,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+      color: modernTheme.surfaceColor,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -277,7 +278,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
             '$statusText • Last synced: $syncTime',
             style: TextStyle(
               fontSize: 12,
-              color: Theme.of(context).textTheme.bodySmall?.color,
+              color: modernTheme.textSecondaryColor,
             ),
           ),
           if (state.backgroundSyncAvailable) ...[
@@ -287,7 +288,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
               child: Icon(
                 Icons.refresh,
                 size: 16,
-                color: Theme.of(context).primaryColor,
+                color: modernTheme.primaryColor,
               ),
             ),
           ],
@@ -298,80 +299,105 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
 
   // Permission request UI
   Widget _buildPermissionScreen() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.contacts,
-              size: 100,
-              color: Colors.grey.withOpacity(0.5),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Contacts Access Required',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+    final modernTheme = context.modernTheme;
+    
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.contacts,
+                size: 100,
+                color: modernTheme.textSecondaryColor?.withOpacity(0.5),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'To sync your contacts and find friends on TexGB, we need access to your contacts.',
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () async {
-                final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
-                await contactsNotifier.requestPermission();
-              },
-              icon: const Icon(Icons.security),
-              label: const Text('Grant Permission'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
+              const SizedBox(height: 24),
+              Text(
+                'Contacts Access Required',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: modernTheme.textColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'To sync your contacts and find friends on TexGB, we need access to your contacts.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: modernTheme.textSecondaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+                  await contactsNotifier.requestPermission();
+                },
+                icon: const Icon(Icons.security),
+                label: const Text('Grant Permission'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Optimized contact item with better caching
+  // Optimized contact item with clean list design
   Widget _buildOptimizedContactItem(UserModel contact, int index) {
-    return ListTile(
-      key: ValueKey(contact.uid),
-      leading: _buildCachedAvatar(contact),
-      title: Text(
-        contact.name,
-        style: const TextStyle(fontWeight: FontWeight.w600),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+    final modernTheme = context.modernTheme;
+    
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: ListTile(
+        key: ValueKey(contact.uid),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: _buildCachedAvatar(contact),
+        title: Text(
+          contact.name,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: modernTheme.textColor,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          contact.phoneNumber,
+          style: TextStyle(
+            color: modernTheme.textSecondaryColor,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: _buildContactActions(contact),
+        onTap: () => _startChatWithContact(contact),
       ),
-      subtitle: Text(
-        contact.phoneNumber,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: _buildContactActions(contact),
-      onTap: () => _startChatWithContact(contact),
     );
   }
 
   // Cached avatar widget for better performance
   Widget _buildCachedAvatar(UserModel contact) {
+    final modernTheme = context.modernTheme;
+    
     if (contact.image.isEmpty) {
       return CircleAvatar(
         radius: 24,
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: modernTheme.primaryColor,
         child: Text(
           contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
           style: const TextStyle(
@@ -390,12 +416,12 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       ),
       placeholder: (context, url) => CircleAvatar(
         radius: 24,
-        backgroundColor: Colors.grey.shade300,
+        backgroundColor: modernTheme.surfaceVariantColor,
         child: const CircularProgressIndicator(strokeWidth: 2),
       ),
       errorWidget: (context, url, error) => CircleAvatar(
         radius: 24,
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: modernTheme.primaryColor,
         child: Text(
           contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
           style: const TextStyle(
@@ -409,44 +435,53 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
 
   // Contact actions with better UX
   Widget _buildContactActions(UserModel contact) {
+    final modernTheme = context.modernTheme;
+    
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: const Icon(CupertinoIcons.chat_bubble_text),
+          icon: Icon(
+            CupertinoIcons.chat_bubble_text,
+            color: modernTheme.textSecondaryColor,
+          ),
           onPressed: () => _startChatWithContact(contact),
           tooltip: 'Message',
         ),
         PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
+          icon: Icon(
+            Icons.more_vert,
+            color: modernTheme.textSecondaryColor,
+          ),
+          color: modernTheme.surfaceColor,
           onSelected: (value) => _handleContactAction(value, contact),
           itemBuilder: (context) => [
-            const PopupMenuItem<String>(
+            PopupMenuItem<String>(
               value: 'info',
               child: Row(
                 children: [
-                  Icon(Icons.info_outline),
-                  SizedBox(width: 10),
-                  Text('Contact info'),
+                  Icon(Icons.info_outline, color: modernTheme.textSecondaryColor),
+                  const SizedBox(width: 10),
+                  Text('Contact info', style: TextStyle(color: modernTheme.textColor)),
                 ],
               ),
             ),
-            const PopupMenuItem<String>(
+            PopupMenuItem<String>(
               value: 'block',
               child: Row(
                 children: [
-                  Icon(Icons.block, color: Colors.red),
-                  SizedBox(width: 10),
+                  const Icon(Icons.block, color: Colors.red),
+                  const SizedBox(width: 10),
                   Text('Block contact', style: TextStyle(color: Colors.red)),
                 ],
               ),
             ),
-            const PopupMenuItem<String>(
+            PopupMenuItem<String>(
               value: 'remove',
               child: Row(
                 children: [
-                  Icon(Icons.delete_outline, color: Colors.red),
-                  SizedBox(width: 10),
+                  const Icon(Icons.delete_outline, color: Colors.red),
+                  const SizedBox(width: 10),
                   Text('Remove contact', style: TextStyle(color: Colors.red)),
                 ],
               ),
@@ -518,15 +553,18 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     required String content,
     required String action,
   }) async {
+    final modernTheme = context.modernTheme;
+    
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
+        backgroundColor: modernTheme.surfaceColor,
+        title: Text(title, style: TextStyle(color: modernTheme.textColor)),
+        content: Text(content, style: TextStyle(color: modernTheme.textSecondaryColor)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: modernTheme.textSecondaryColor)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -542,51 +580,63 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     return result ?? false;
   }
 
-  // Enhanced invite item with better performance
+  // Enhanced invite item with clean list design
   Widget _buildOptimizedInviteItem(Contact contact, int index) {
-    return ListTile(
-      key: ValueKey(contact.id),
-      leading: CircleAvatar(
-        radius: 24,
-        backgroundColor: Colors.grey.shade300,
-        child: Text(
-          contact.displayName.isNotEmpty 
-              ? contact.displayName[0].toUpperCase() 
-              : '?',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black54 
-                : Colors.white,
+    final modernTheme = context.modernTheme;
+    
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: ListTile(
+        key: ValueKey(contact.id),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: CircleAvatar(
+          radius: 24,
+          backgroundColor: modernTheme.surfaceVariantColor,
+          child: Text(
+            contact.displayName.isNotEmpty 
+                ? contact.displayName[0].toUpperCase() 
+                : '?',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: modernTheme.textSecondaryColor,
+            ),
           ),
         ),
+        title: Text(
+          contact.displayName,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: modernTheme.textColor,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          contact.phones.isNotEmpty 
+              ? contact.phones.first.number 
+              : 'No phone number',
+          style: TextStyle(
+            color: modernTheme.textSecondaryColor,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: _buildInviteButton(contact),
+        onTap: () => _showContactDetailsSheet(contact),
       ),
-      title: Text(
-        contact.displayName,
-        style: const TextStyle(fontWeight: FontWeight.w600),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        contact.phones.isNotEmpty 
-            ? contact.phones.first.number 
-            : 'No phone number',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: _buildInviteButton(contact),
-      onTap: () => _showContactDetailsSheet(contact),
     );
   }
 
   // Invite button with loading state
   Widget _buildInviteButton(Contact contact) {
+    final modernTheme = context.modernTheme;
+    
     return ElevatedButton(
       onPressed: () => _shareInvitation(contact),
       style: ElevatedButton.styleFrom(
         foregroundColor: Colors.white,
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: modernTheme.primaryColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -613,9 +663,12 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
 
   // Enhanced contact details sheet
   void _showContactDetailsSheet(Contact contact) {
+    final modernTheme = context.modernTheme;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: modernTheme.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -626,6 +679,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         expand: false,
         builder: (context, scrollController) => Container(
           padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: modernTheme.surfaceColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -635,7 +692,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade400,
+                    color: modernTheme.textSecondaryColor?.withOpacity(0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -647,14 +704,15 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                 children: [
                   CircleAvatar(
                     radius: 30,
-                    backgroundColor: Colors.grey.shade300,
+                    backgroundColor: modernTheme.surfaceVariantColor,
                     child: Text(
                       contact.displayName.isNotEmpty 
                           ? contact.displayName[0].toUpperCase() 
                           : '?',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        color: modernTheme.textSecondaryColor,
                       ),
                     ),
                   ),
@@ -665,9 +723,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                       children: [
                         Text(
                           contact.displayName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
+                            color: modernTheme.textColor,
                           ),
                         ),
                         if (contact.phones.isNotEmpty)
@@ -675,7 +734,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                             contact.phones.first.number,
                             style: TextStyle(
                               fontSize: 16,
-                              color: Colors.grey.shade600,
+                              color: modernTheme.textSecondaryColor,
                             ),
                           ),
                       ],
@@ -688,19 +747,20 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
               
               // Phone numbers
               if (contact.phones.isNotEmpty) ...[
-                const Text(
+                Text(
                   'Phone Numbers',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
+                    color: modernTheme.textColor,
                   ),
                 ),
                 const SizedBox(height: 8),
                 ...contact.phones.map((phone) => ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.phone, color: Theme.of(context).primaryColor),
-                  title: Text(phone.number),
-                  subtitle: Text(phone.label.name.toUpperCase()),
+                  leading: Icon(Icons.phone, color: modernTheme.primaryColor),
+                  title: Text(phone.number, style: TextStyle(color: modernTheme.textColor)),
+                  subtitle: Text(phone.label.name.toUpperCase(), style: TextStyle(color: modernTheme.textSecondaryColor)),
                 )),
                 const SizedBox(height: 16),
               ],
@@ -718,7 +778,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                       icon: const Icon(Icons.share),
                       label: const Text('Invite to TexGB'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
+                        backgroundColor: modernTheme.primaryColor,
                         foregroundColor: Colors.white,
                       ),
                     ),
@@ -727,8 +787,11 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                      label: const Text('Close'),
+                      icon: Icon(Icons.close, color: modernTheme.textSecondaryColor),
+                      label: Text('Close', style: TextStyle(color: modernTheme.textSecondaryColor)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: modernTheme.dividerColor!),
+                      ),
                     ),
                   ),
                 ],
@@ -776,16 +839,21 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     
-    final theme = Theme.of(context);
     final modernTheme = context.modernTheme;
-    final primaryColor = modernTheme.primaryColor!;
     
     return Scaffold(
+      backgroundColor: modernTheme.surfaceColor,
       appBar: AppBar(
-        title: _isSearching ? _buildSearchField() : const Text('Contacts'),
+        backgroundColor: modernTheme.surfaceColor,
+        elevation: 0,
+        title: _isSearching ? _buildSearchField() : Text('Contacts', style: TextStyle(color: modernTheme.textColor)),
+        iconTheme: IconThemeData(color: modernTheme.textColor),
         actions: _buildAppBarActions(),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: modernTheme.primaryColor,
+          unselectedLabelColor: modernTheme.textSecondaryColor,
+          indicatorColor: modernTheme.primaryColor,
           tabs: const [
             Tab(text: 'Contacts'),
             Tab(text: 'Invites'),
@@ -808,42 +876,64 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
                 _updateFilteredContacts();
               });
               
-              return TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildContactsTab(state),
-                  _buildInvitesTab(state),
-                ],
+              return Container(
+                color: modernTheme.surfaceColor,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildContactsTab(state),
+                    _buildInvitesTab(state),
+                  ],
+                ),
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stackTrace) => Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red.shade300,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading contacts',
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    error.toString(),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: _forceSyncContacts,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
-                  ),
-                ],
+            loading: () => Container(
+              color: modernTheme.surfaceColor,
+              child: Center(
+                child: CircularProgressIndicator(color: modernTheme.primaryColor),
+              ),
+            ),
+            error: (error, stackTrace) => Container(
+              color: modernTheme.surfaceColor,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red.shade300,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error loading contacts',
+                      style: TextStyle(
+                        color: modernTheme.textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      error.toString(),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: modernTheme.textSecondaryColor,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _forceSyncContacts,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: modernTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -858,17 +948,20 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
             ),
           ).then((_) => _updateFilteredContacts());
         },
-        backgroundColor: primaryColor,
+        backgroundColor: modernTheme.primaryColor,
+        foregroundColor: Colors.white,
         child: const Icon(Icons.person_add),
       ),
     );
   }
 
   List<Widget> _buildAppBarActions() {
+    final modernTheme = context.modernTheme;
+    
     return [
       if (!_isSearching)
         IconButton(
-          icon: const Icon(Icons.search),
+          icon: Icon(Icons.search, color: modernTheme.textColor),
           onPressed: () {
             setState(() {
               _isSearching = true;
@@ -878,7 +971,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         ),
       if (_isSearching)
         IconButton(
-          icon: const Icon(Icons.clear),
+          icon: Icon(Icons.clear, color: modernTheme.textColor),
           onPressed: () {
             setState(() {
               _searchController.clear();
@@ -891,47 +984,48 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       PopupMenuButton<String>(
         icon: RotationTransition(
           turns: _refreshAnimation,
-          child: const Icon(Icons.more_vert),
+          child: Icon(Icons.more_vert, color: modernTheme.textColor),
         ),
+        color: modernTheme.surfaceColor,
         onSelected: _handleMenuAction,
         itemBuilder: (context) => [
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             value: 'refresh',
             child: Row(
               children: [
-                Icon(Icons.sync),
-                SizedBox(width: 10),
-                Text('Sync contacts'),
+                Icon(Icons.sync, color: modernTheme.textSecondaryColor),
+                const SizedBox(width: 10),
+                Text('Sync contacts', style: TextStyle(color: modernTheme.textColor)),
               ],
             ),
           ),
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             value: 'blocked',
             child: Row(
               children: [
-                Icon(Icons.block),
-                SizedBox(width: 10),
-                Text('Blocked contacts'),
+                Icon(Icons.block, color: modernTheme.textSecondaryColor),
+                const SizedBox(width: 10),
+                Text('Blocked contacts', style: TextStyle(color: modernTheme.textColor)),
               ],
             ),
           ),
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             value: 'clear_cache',
             child: Row(
               children: [
-                Icon(Icons.clear_all),
-                SizedBox(width: 10),
-                Text('Clear cache'),
+                Icon(Icons.clear_all, color: modernTheme.textSecondaryColor),
+                const SizedBox(width: 10),
+                Text('Clear cache', style: TextStyle(color: modernTheme.textColor)),
               ],
             ),
           ),
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             value: 'settings',
             child: Row(
               children: [
-                Icon(Icons.settings),
-                SizedBox(width: 10),
-                Text('Contact settings'),
+                Icon(Icons.settings, color: modernTheme.textSecondaryColor),
+                const SizedBox(width: 10),
+                Text('Contact settings', style: TextStyle(color: modernTheme.textColor)),
               ],
             ),
           ),
@@ -981,125 +1075,171 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   }
 
   Widget _buildSearchField() {
+    final modernTheme = context.modernTheme;
+    
     return TextField(
       controller: _searchController,
       focusNode: _searchFocusNode,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         hintText: 'Search contacts...',
         border: InputBorder.none,
-        hintStyle: TextStyle(color: Colors.grey),
+        hintStyle: TextStyle(color: modernTheme.textSecondaryColor),
       ),
-      style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+      style: TextStyle(color: modernTheme.textColor),
     );
   }
 
   Widget _buildContactsTab(ContactsState state) {
+    final modernTheme = context.modernTheme;
+    
     if (state.isLoading && _isInitializing) {
-      return const Center(child: CircularProgressIndicator());
+      return Container(
+        color: modernTheme.surfaceColor,
+        child: Center(
+          child: CircularProgressIndicator(color: modernTheme.primaryColor),
+        ),
+      );
     }
 
     if (_filteredRegisteredContacts.isEmpty && !state.isLoading) {
       return _buildEmptyContactsState();
     }
 
-    return RefreshIndicator(
-      key: _refreshIndicatorKey,
-      onRefresh: _forceSyncContacts,
-      child: Column(
-        children: [
-          _buildSyncStatusIndicator(state),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _filteredRegisteredContacts.length,
-              itemBuilder: (context, index) {
-                final contact = _filteredRegisteredContacts[index];
-                return _buildOptimizedContactItem(contact, index);
-              },
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: RefreshIndicator(
+        key: _refreshIndicatorKey,
+        onRefresh: _forceSyncContacts,
+        child: Column(
+          children: [
+            _buildSyncStatusIndicator(state),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _filteredRegisteredContacts.length,
+                itemBuilder: (context, index) {
+                  final contact = _filteredRegisteredContacts[index];
+                  return _buildOptimizedContactItem(contact, index);
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildInvitesTab(ContactsState state) {
+    final modernTheme = context.modernTheme;
+    
     if (state.isLoading && _isInitializing) {
-      return const Center(child: CircularProgressIndicator());
+      return Container(
+        color: modernTheme.surfaceColor,
+        child: Center(
+          child: CircularProgressIndicator(color: modernTheme.primaryColor),
+        ),
+      );
     }
 
     if (_filteredUnregisteredContacts.isEmpty && !state.isLoading) {
       return _buildEmptyInvitesState();
     }
 
-    return RefreshIndicator(
-      onRefresh: _forceSyncContacts,
-      child: Column(
-        children: [
-          _buildSyncStatusIndicator(state),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _filteredUnregisteredContacts.length,
-              itemBuilder: (context, index) {
-                final contact = _filteredUnregisteredContacts[index];
-                return _buildOptimizedInviteItem(contact, index);
-              },
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: RefreshIndicator(
+        onRefresh: _forceSyncContacts,
+        child: Column(
+          children: [
+            _buildSyncStatusIndicator(state),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _filteredUnregisteredContacts.length,
+                itemBuilder: (context, index) {
+                  final contact = _filteredUnregisteredContacts[index];
+                  return _buildOptimizedInviteItem(contact, index);
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildEmptyContactsState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            CupertinoIcons.person_2,
-            size: 80,
-            color: Colors.grey,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _searchQuery.isEmpty ? 'No contacts found' : 'No matching contacts',
-            style: const TextStyle(fontSize: 16),
-          ),
-          const SizedBox(height: 16),
-          if (_searchQuery.isEmpty)
-            ElevatedButton.icon(
-              onPressed: _forceSyncContacts,
-              icon: const Icon(Icons.sync),
-              label: const Text('Sync Contacts'),
+    final modernTheme = context.modernTheme;
+    
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              CupertinoIcons.person_2,
+              size: 80,
+              color: modernTheme.textSecondaryColor,
             ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isEmpty ? 'No contacts found' : 'No matching contacts',
+              style: TextStyle(
+                fontSize: 16,
+                color: modernTheme.textColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_searchQuery.isEmpty)
+              ElevatedButton.icon(
+                onPressed: _forceSyncContacts,
+                icon: const Icon(Icons.sync),
+                label: const Text('Sync Contacts'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildEmptyInvitesState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            CupertinoIcons.person_badge_plus,
-            size: 80,
-            color: Colors.grey,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _searchQuery.isEmpty ? 'No contacts to invite' : 'No matching contacts',
-            style: const TextStyle(fontSize: 16),
-          ),
-          const SizedBox(height: 16),
-          if (_searchQuery.isEmpty)
-            ElevatedButton.icon(
-              onPressed: _forceSyncContacts,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh Contacts'),
+    final modernTheme = context.modernTheme;
+    
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              CupertinoIcons.person_badge_plus,
+              size: 80,
+              color: modernTheme.textSecondaryColor,
             ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isEmpty ? 'No contacts to invite' : 'No matching contacts',
+              style: TextStyle(
+                fontSize: 16,
+                color: modernTheme.textColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_searchQuery.isEmpty)
+              ElevatedButton.icon(
+                onPressed: _forceSyncContacts,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh Contacts'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

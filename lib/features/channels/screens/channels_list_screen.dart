@@ -367,7 +367,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isUserChannel 
-                              ? const Color(0xFF00A884) 
+                              ? theme.primaryColor! 
                               : channel.isFeatured 
                                   ? Colors.blue 
                                   : Colors.transparent,
@@ -503,7 +503,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isFollowing ? theme.surfaceVariantColor : const Color(0xFF00A884),
+                        color: isFollowing ? theme.surfaceVariantColor : theme.primaryColor,
                         borderRadius: BorderRadius.circular(20),
                         border: isFollowing ? Border.all(color: theme.borderColor!) : null,
                       ),

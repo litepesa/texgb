@@ -1,4 +1,4 @@
-// lib/features/short_dramas/screens/short_dramas_screen.dart
+// lib/features/duanju/screens/short_dramas_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,13 +16,11 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
   late TabController _tabController;
   
   final List<String> _categories = [
-    'For You',
-    'Romance',
-    'Drama',
-    'Comedy',
-    'Action',
-    'Thriller',
-    'Fantasy',
+    'All',
+    'Following',
+    'Trending',
+    'Latest',
+    'Popular',
   ];
 
   @override
@@ -42,7 +40,7 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
     final modernTheme = context.modernTheme;
     
     return Scaffold(
-      backgroundColor: modernTheme.backgroundColor,
+      backgroundColor: modernTheme.surfaceColor,
       body: Column(
         children: [
           // Category tabs
@@ -51,10 +49,13 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
             child: TabBar(
               controller: _tabController,
               isScrollable: true,
+              padding: EdgeInsets.zero,
+              tabAlignment: TabAlignment.start,
               labelColor: modernTheme.primaryColor,
               unselectedLabelColor: modernTheme.textSecondaryColor,
               indicatorColor: modernTheme.primaryColor,
               indicatorWeight: 3,
+              dividerColor: Colors.transparent,
               labelStyle: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -82,9 +83,9 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
   Widget _buildCategoryContent(String category, ModernThemeExtension modernTheme) {
     return CustomScrollView(
       slivers: [
-        // Featured dramas section
+        // Subscriptions section
         SliverToBoxAdapter(
-          child: _buildFeaturedSection(modernTheme),
+          child: _buildSubscriptionsSection(modernTheme),
         ),
         
         // Popular dramas grid
@@ -107,7 +108,7 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
     );
   }
 
-  Widget _buildFeaturedSection(ModernThemeExtension modernTheme) {
+  Widget _buildSubscriptionsSection(ModernThemeExtension modernTheme) {
     return Container(
       height: 220,
       margin: const EdgeInsets.symmetric(vertical: 16),
@@ -117,7 +118,7 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Featured Dramas',
+              'Your Subscriptions',
               style: TextStyle(
                 color: modernTheme.textColor,
                 fontSize: 18,
@@ -131,7 +132,7 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: 10,
-              itemBuilder: (context, index) => _buildFeaturedCard(index, modernTheme),
+              itemBuilder: (context, index) => _buildSubscriptionCard(index, modernTheme),
             ),
           ),
         ],
@@ -139,7 +140,7 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
     );
   }
 
-  Widget _buildFeaturedCard(int index, ModernThemeExtension modernTheme) {
+  Widget _buildSubscriptionCard(int index, ModernThemeExtension modernTheme) {
     final dummyTitles = [
       'Love in Seoul',
       'Midnight Detective',
@@ -153,14 +154,28 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
       'Golden Hour'
     ];
 
+    // Generate dummy view counts
+    final viewCounts = [
+      '2.1M views',
+      '850K views',
+      '1.3M views',
+      '500K views',
+      '750K views',
+      '1.8M views',
+      '320K views',
+      '990K views',
+      '1.5M views',
+      '420K views'
+    ];
+
     return Container(
       width: 140,
       margin: const EdgeInsets.only(right: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
+          // Full color background
           Container(
-            height: 120,
+            height: 200,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               gradient: LinearGradient(
@@ -187,14 +202,14 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.red,
+                      color: Colors.green,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Text(
-                      'EP 1',
+                      'UNLOCKED',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 10,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -203,42 +218,78 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            dummyTitles[index % dummyTitles.length],
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          
+          // Floating transparent overlay at bottom
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.7),
+                  ],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    dummyTitles[index % dummyTitles.length],
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 8,
+                          color: Colors.black54,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.visibility,
+                        color: Colors.white70,
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          viewCounts[index % viewCounts.length],
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            shadows: [
+                              Shadow(
+                                blurRadius: 8,
+                                color: Colors.black54,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(
-                Icons.star,
-                color: Colors.amber,
-                size: 14,
-              ),
-              const SizedBox(width: 2),
-              Text(
-                '${(4.0 + (index % 10) * 0.1).toStringAsFixed(1)}',
-                style: TextStyle(
-                  color: modernTheme.textSecondaryColor,
-                  fontSize: 12,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${(index + 1) * 15}min',
-                style: TextStyle(
-                  color: modernTheme.textSecondaryColor,
-                  fontSize: 12,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -270,13 +321,35 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
     ];
 
     final episodes = [12, 16, 20, 24, 8, 10, 14, 18, 22, 26][index % 10];
-    final rating = 3.5 + (index % 15) * 0.1;
+    
+    // Generate dummy view counts for main grid
+    final viewCounts = [
+      '1.2M',
+      '850K',
+      '2.1M',
+      '450K',
+      '1.8M',
+      '650K',
+      '3.2M',
+      '920K',
+      '1.5M',
+      '380K',
+      '2.7M',
+      '590K',
+      '1.1M',
+      '750K',
+      '1.9M',
+      '420K',
+      '2.5M',
+      '680K',
+      '1.4M',
+      '330K'
+    ];
 
     return GestureDetector(
       onTap: () => _showDramaDetails(dummyTitles[index], modernTheme),
       child: Container(
         decoration: BoxDecoration(
-          color: modernTheme.surfaceColor,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -286,13 +359,12 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
+            // Full color background cover
             Container(
-              height: 160,
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -341,7 +413,7 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
                         color: Colors.black.withOpacity(0.7),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.favorite_border,
                         color: Colors.white,
                         size: 16,
@@ -351,52 +423,67 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
                 ],
               ),
             ),
-            Expanded(
-              child: Padding(
+            
+            // Floating transparent overlay at bottom
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
                 padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.8),
+                    ],
+                  ),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       dummyTitles[index],
-                      style: TextStyle(
-                        color: modernTheme.textColor,
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
+                        shadows: [
+                          Shadow(
+                            blurRadius: 8,
+                            color: Colors.black54,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(
-                          Icons.star,
-                          color: Colors.amber,
-                          size: 14,
+                        const Icon(
+                          Icons.visibility,
+                          color: Colors.white70,
+                          size: 12,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          rating.toStringAsFixed(1),
-                          style: TextStyle(
-                            color: modernTheme.textSecondaryColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: modernTheme.primaryColor?.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'HD',
-                            style: TextStyle(
-                              color: modernTheme.primaryColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          '${viewCounts[index]} views',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            shadows: [
+                              Shadow(
+                                blurRadius: 8,
+                                color: Colors.black54,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -481,10 +568,10 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  Icon(Icons.star, color: Colors.amber, size: 16),
+                                  Icon(Icons.visibility, color: modernTheme.textSecondaryColor, size: 16),
                                   const SizedBox(width: 4),
                                   Text(
-                                    '4.5 • 2024 • 16 Episodes',
+                                    '2.1M views • 2024 • 16 Episodes',
                                     style: TextStyle(
                                       color: modernTheme.textSecondaryColor,
                                       fontSize: 14,
@@ -516,7 +603,7 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
                                       color: modernTheme.textColor,
                                     ),
                                     style: IconButton.styleFrom(
-                                      backgroundColor: modernTheme.backgroundColor,
+                                      backgroundColor: modernTheme.surfaceColor,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         side: BorderSide(color: modernTheme.dividerColor!),
@@ -572,8 +659,12 @@ class _ShortDramasScreenState extends ConsumerState<ShortDramasScreen>
                             width: 60,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: modernTheme.backgroundColor,
+                              color: modernTheme.surfaceColor,
                               borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: modernTheme.dividerColor!.withOpacity(0.3),
+                                width: 1,
+                              ),
                             ),
                             child: Center(
                               child: Icon(

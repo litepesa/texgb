@@ -14,17 +14,205 @@ import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
-class ChatsTab extends ConsumerWidget {
+class ChatsTab extends ConsumerStatefulWidget {
   const ChatsTab({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChatsTab> createState() => _ChatsTabState();
+}
+
+class _ChatsTabState extends ConsumerState<ChatsTab> {
+  final TextEditingController _searchController = TextEditingController();
+  List<ChatModel> _searchResults = [];
+  bool _isSearching = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Perform search
+  void _performSearch(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _searchResults = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    // Get all chats from the stream
+    final chatsAsync = ref.read(chatStreamProvider);
+    
+    chatsAsync.when(
+      data: (chats) {
+        // Filter out group chats - only search direct chats
+        final directChats = chats.where((chat) => !chat.isGroup).toList();
+        
+        // Filter chats based on search query
+        final results = directChats.where((chat) {
+          final contactName = chat.contactName.toLowerCase();
+          final lastMessage = chat.lastMessage.toLowerCase();
+          final searchQuery = query.toLowerCase();
+          
+          return contactName.contains(searchQuery) || lastMessage.contains(searchQuery);
+        }).toList();
+        
+        setState(() {
+          _searchResults = results;
+          _isSearching = false;
+        });
+      },
+      loading: () {
+        setState(() {
+          _isSearching = false;
+          _searchResults = [];
+        });
+      },
+      error: (error, stack) {
+        setState(() {
+          _isSearching = false;
+          _searchResults = [];
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final currentUser = ref.watch(currentUserProvider);
     
     // Watch chats stream
     final chatsStream = ref.watch(chatStreamProvider);
     
+    return Container(
+      color: modernTheme.surfaceColor, // Use surfaceColor for entire background
+      child: Column(
+        children: [
+          // Search bar - WhatsApp style
+          Container(
+            color: modernTheme.surfaceColor,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: modernTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search chats...',
+                  hintStyle: TextStyle(
+                    color: modernTheme.textSecondaryColor,
+                    fontSize: 16,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: modernTheme.textSecondaryColor,
+                    size: 22,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 16,
+                ),
+                onChanged: _performSearch,
+              ),
+            ),
+          ),
+          
+          // Main content
+          Expanded(
+            child: Container(
+              color: modernTheme.surfaceColor,
+              child: _searchController.text.isNotEmpty
+                  ? _buildSearchResults()
+                  : _buildChatsContent(chatsStream),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Build search results
+  Widget _buildSearchResults() {
+    final modernTheme = context.modernTheme;
+    
+    if (_isSearching) {
+      return Container(
+        color: modernTheme.surfaceColor,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
+      return Container(
+        color: modernTheme.surfaceColor,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.search_off,
+                size: 64,
+                color: modernTheme.textSecondaryColor!.withOpacity(0.5),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No chats found',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Try searching with different keywords',
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: RefreshIndicator(
+        onRefresh: () async {
+          ref.refresh(chatStreamProvider);
+        },
+        child: ListView.separated(
+          padding: const EdgeInsets.only(top: 8.0, bottom: 100),
+          itemCount: _searchResults.length,
+          separatorBuilder: (context, index) => _buildDivider(context),
+          itemBuilder: (context, index) {
+            final chat = _searchResults[index];
+            return _buildChatItem(context, ref, chat);
+          },
+        ),
+      ),
+    );
+  }
+
+  // Build main chats content
+  Widget _buildChatsContent(AsyncValue<List<ChatModel>> chatsStream) {
     return chatsStream.when(
       data: (chats) {
         // Filter out group chats - only show direct chats

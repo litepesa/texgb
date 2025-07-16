@@ -12,7 +12,6 @@ import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-import 'package:textgb/features/shop/screens/shops_list_screen.dart';
 
 import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
@@ -39,14 +38,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Chats',
     'Groups',
     'Status',
-    'Series'
+    'Dramas'
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_text,
     Icons.group_outlined,
     Icons.donut_large_outlined,
-    Icons.radio_button_checked
+    CupertinoIcons.play_circle
   ];
 
   @override
@@ -141,10 +140,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             color: modernTheme.surfaceColor,
             child: const ChannelsListScreen(),
           ),
-          // Shop tab (index 3)
+          // Dramas tab (index 3) - Short Dramas Screen
           Container(
-            color: modernTheme.surfaceColor,
-            child: const ShopsListScreen(),
+            color: modernTheme.backgroundColor,
+            child: const ShortDramasScreen(),
           ),
         ],
       ),
@@ -381,9 +380,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats, Groups, and Shop tabs
+  // Show FAB on Chats, Groups, and Discover tabs
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 3;
+    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 2;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -562,20 +561,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
         child: const Icon(Icons.group_add),
       );
-    } else if (_currentIndex == 3) {
-      // Shop tab - Browse shops FAB
-      /*return FloatingActionButton(
+    } else if (_currentIndex == 2) {
+      // Discover tab - Create post FAB
+      return FloatingActionButton(
         backgroundColor: modernTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
-        onPressed: () {
-          // Navigate to create shop or search shops screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Browse Shops feature coming soon!')),
-          );
-        },
-        child: const Icon(Icons.search),
-      );*/
+        onPressed: () => Navigator.pushNamed(context, Constants.createChannelPostScreen),
+        child: const Icon(Icons.add),
+      );
     }
     
     return const SizedBox.shrink();
