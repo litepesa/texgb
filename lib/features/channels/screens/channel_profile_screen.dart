@@ -44,9 +44,6 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     ),
   );
 
-  // Custom white theme
-  static const _whiteTheme = _WhiteTheme();
-
   @override
   void initState() {
     super.initState();
@@ -207,26 +204,28 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.modernTheme;
+    
     return Scaffold(
-      backgroundColor: _whiteTheme.backgroundColor,
+      backgroundColor: theme.backgroundColor,
       body: _isLoading
-          ? _buildLoadingView()
+          ? _buildLoadingView(theme)
           : _error != null
-              ? _buildErrorView()
-              : _buildProfileView(),
+              ? _buildErrorView(theme)
+              : _buildProfileView(theme),
     );
   }
 
-  Widget _buildLoadingView() {
+  Widget _buildLoadingView(ModernThemeExtension theme) {
     return Center(
       child: CircularProgressIndicator(
-        color: _whiteTheme.primaryColor,
+        color: theme.primaryColor,
         strokeWidth: 2,
       ),
     );
   }
 
-  Widget _buildErrorView() {
+  Widget _buildErrorView(ModernThemeExtension theme) {
     return SafeArea(
       child: Column(
         children: [
@@ -234,10 +233,10 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             decoration: BoxDecoration(
-              color: _whiteTheme.backgroundColor,
+              color: theme.backgroundColor,
               border: Border(
                 bottom: BorderSide(
-                  color: _whiteTheme.dividerColor,
+                  color: theme.dividerColor!,
                   width: 0.5,
                 ),
               ),
@@ -247,7 +246,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                 IconButton(
                   icon: Icon(
                     Icons.arrow_back_ios,
-                    color: _whiteTheme.textColor,
+                    color: theme.textColor,
                     size: 20,
                   ),
                   onPressed: () => Navigator.of(context).pop(),
@@ -255,7 +254,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                 Text(
                   'Profile',
                   style: TextStyle(
-                    color: _whiteTheme.textColor,
+                    color: theme.textColor,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),
@@ -272,14 +271,14 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                   children: [
                     Icon(
                       Icons.error_outline,
-                      color: _whiteTheme.primaryColor,
+                      color: theme.primaryColor,
                       size: 48,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Channel not found',
                       style: TextStyle(
-                        color: _whiteTheme.textColor,
+                        color: theme.textColor,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
@@ -288,7 +287,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                     Text(
                       'This channel may have been deleted or doesn\'t exist',
                       style: TextStyle(
-                        color: _whiteTheme.textSecondaryColor,
+                        color: theme.textSecondaryColor,
                         fontSize: 14,
                       ),
                       textAlign: TextAlign.center,
@@ -299,7 +298,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                       child: Text(
                         'Go Back',
                         style: TextStyle(
-                          color: _whiteTheme.primaryColor,
+                          color: theme.primaryColor,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -314,13 +313,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     );
   }
 
-  Widget _buildProfileView() {
+  Widget _buildProfileView(ModernThemeExtension theme) {
     if (_channel == null) {
       return Center(
         child: Text(
           'Channel not found',
           style: TextStyle(
-            color: _whiteTheme.textColor,
+            color: theme.textColor,
             fontSize: 16,
           ),
         ),
@@ -332,7 +331,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return [
           SliverAppBar(
-            backgroundColor: _whiteTheme.backgroundColor,
+            backgroundColor: theme.backgroundColor,
             elevation: 0,
             pinned: true,
             floating: false,
@@ -341,17 +340,26 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
             leading: IconButton(
               icon: Icon(
                 Icons.arrow_back_ios,
-                color: _whiteTheme.textColor,
+                color: theme.textColor,
                 size: 20,
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),
+            title: Text(
+              'Profile',
+              style: TextStyle(
+                color: theme.textColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            centerTitle: true,
             actions: [
               if (_isOwner)
                 IconButton(
                   icon: Icon(
                     Icons.settings,
-                    color: _whiteTheme.textColor,
+                    color: theme.textColor,
                   ),
                   onPressed: _editChannel,
                 ),
@@ -377,7 +385,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: _whiteTheme.dividerColor,
+                              color: theme.dividerColor!,
                               width: 2,
                             ),
                           ),
@@ -389,25 +397,25 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                     width: 100,
                                     height: 100,
                                     placeholder: (context, url) => Container(
-                                      color: _whiteTheme.surfaceColor,
+                                      color: theme.surfaceColor,
                                       child: Center(
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
                                           valueColor: AlwaysStoppedAnimation<Color>(
-                                            _whiteTheme.primaryColor,
+                                            theme.primaryColor!,
                                           ),
                                         ),
                                       ),
                                     ),
                                     errorWidget: (context, url, error) => Container(
-                                      color: _whiteTheme.surfaceColor,
+                                      color: theme.surfaceColor,
                                       child: Center(
                                         child: Text(
                                           _channel!.name.isNotEmpty
                                               ? _channel!.name[0].toUpperCase()
                                               : "C",
                                           style: TextStyle(
-                                            color: _whiteTheme.primaryColor,
+                                            color: theme.primaryColor,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 36,
                                           ),
@@ -419,7 +427,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                               : Container(
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: _whiteTheme.surfaceColor,
+                                    color: theme.surfaceColor,
                                   ),
                                   child: Center(
                                     child: Text(
@@ -427,7 +435,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                           ? _channel!.name[0].toUpperCase()
                                           : "C",
                                       style: TextStyle(
-                                        color: _whiteTheme.primaryColor,
+                                        color: theme.primaryColor,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 36,
                                       ),
@@ -446,7 +454,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                               child: Text(
                                 _channel!.name,
                                 style: TextStyle(
-                                  color: _whiteTheme.textColor,
+                                  color: theme.textColor,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 20,
                                 ),
@@ -458,7 +466,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                               const SizedBox(width: 4),
                               Icon(
                                 Icons.verified,
-                                color: _whiteTheme.primaryColor,
+                                color: theme.primaryColor,
                                 size: 18,
                               ),
                             ],
@@ -471,7 +479,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                         Text(
                           '@${_channel!.ownerName}',
                           style: TextStyle(
-                            color: _whiteTheme.textSecondaryColor,
+                            color: theme.textSecondaryColor,
                             fontSize: 14,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -487,14 +495,17 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                             _buildStatColumn(
                               _formatViewCount(_channel!.followers),
                               'Followers',
+                              theme,
                             ),
                             _buildStatColumn(
                               _formatViewCount(_channel!.videosCount),
                               'Videos',
+                              theme,
                             ),
                             _buildStatColumn(
                               _formatViewCount(_channel!.likesCount),
                               'Likes',
+                              theme,
                             ),
                           ],
                         ),
@@ -511,8 +522,8 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                   icon: const Icon(Icons.add, size: 18),
                                   label: const Text('Create Post'),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: _whiteTheme.primaryColor,
-                                    side: BorderSide(color: _whiteTheme.primaryColor),
+                                    foregroundColor: theme.primaryColor,
+                                    side: BorderSide(color: theme.primaryColor!),
                                     padding: const EdgeInsets.symmetric(vertical: 12),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
@@ -523,17 +534,17 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                   onPressed: _toggleFollow,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: _isFollowing
-                                        ? _whiteTheme.surfaceColor
-                                        : _whiteTheme.primaryColor,
+                                        ? theme.surfaceColor
+                                        : theme.primaryColor,
                                     foregroundColor: _isFollowing
-                                        ? _whiteTheme.textColor
+                                        ? theme.textColor
                                         : Colors.white,
                                     padding: const EdgeInsets.symmetric(vertical: 12),
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
                                       side: _isFollowing 
-                                          ? BorderSide(color: _whiteTheme.dividerColor)
+                                          ? BorderSide(color: theme.dividerColor!)
                                           : BorderSide.none,
                                     ),
                                   ),
@@ -562,10 +573,10 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: _whiteTheme.backgroundColor,
+                color: theme.backgroundColor,
                 border: Border(
                   bottom: BorderSide(
-                    color: _whiteTheme.dividerColor,
+                    color: theme.dividerColor!,
                     width: 0.5,
                   ),
                 ),
@@ -573,7 +584,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
               child: Text(
                 _channel!.description,
                 style: TextStyle(
-                  color: _whiteTheme.textColor,
+                  color: theme.textColor,
                   fontSize: 14,
                   height: 1.4,
                 ),
@@ -583,7 +594,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
           // Content Section
           Expanded(
             child: _channelVideos.isEmpty
-                ? _buildEmptyState()
+                ? _buildEmptyState(theme)
                 : GridView.builder(
                     padding: const EdgeInsets.all(1),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -600,7 +611,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                         onTap: () => _openVideoDetails(video),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: _whiteTheme.surfaceColor,
+                            color: theme.surfaceColor,
                           ),
                           child: Stack(
                             fit: StackFit.expand,
@@ -612,18 +623,18 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                   fit: BoxFit.cover,
                                   memCacheHeight: 600, // Optimize memory usage
                                   placeholder: (context, url) => Container(
-                                    color: _whiteTheme.surfaceColor,
+                                    color: theme.surfaceColor,
                                     child: Center(
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                         valueColor: AlwaysStoppedAnimation<Color>(
-                                          _whiteTheme.primaryColor,
+                                          theme.primaryColor!,
                                         ),
                                       ),
                                     ),
                                   ),
                                   errorWidget: (context, url, error) {
-                                    return _buildThumbnailPlaceholder();
+                                    return _buildThumbnailPlaceholder(theme);
                                   },
                                 )
                               else if (video.isMultipleImages && video.imageUrls.isNotEmpty)
@@ -632,18 +643,18 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                   fit: BoxFit.cover,
                                   memCacheHeight: 600, // Optimize memory usage
                                   placeholder: (context, url) => Container(
-                                    color: _whiteTheme.surfaceColor,
+                                    color: theme.surfaceColor,
                                     child: Center(
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                         valueColor: AlwaysStoppedAnimation<Color>(
-                                          _whiteTheme.primaryColor,
+                                          theme.primaryColor!,
                                         ),
                                       ),
                                     ),
                                   ),
                                   errorWidget: (context, url, error) {
-                                    return _buildThumbnailPlaceholder();
+                                    return _buildThumbnailPlaceholder(theme);
                                   },
                                 )
                               else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id))
@@ -652,7 +663,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                   fit: BoxFit.cover,
                                 )
                               else
-                                _buildThumbnailPlaceholder(),
+                                _buildThumbnailPlaceholder(theme),
                               
                               // Multiple Images Indicator
                               if (video.isMultipleImages && video.imageUrls.length > 1)
@@ -716,13 +727,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     );
   }
 
-  Widget _buildStatColumn(String count, String label) {
+  Widget _buildStatColumn(String count, String label, ModernThemeExtension theme) {
     return Column(
       children: [
         Text(
           count,
           style: TextStyle(
-            color: _whiteTheme.textColor,
+            color: theme.textColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -731,7 +742,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
         Text(
           label,
           style: TextStyle(
-            color: _whiteTheme.textSecondaryColor,
+            color: theme.textSecondaryColor,
             fontSize: 12,
           ),
         ),
@@ -739,21 +750,21 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(ModernThemeExtension theme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.videocam_off_outlined,
-            color: _whiteTheme.textSecondaryColor,
+            color: theme.textSecondaryColor,
             size: 48,
           ),
           const SizedBox(height: 16),
           Text(
             'No videos yet',
             style: TextStyle(
-              color: _whiteTheme.textColor,
+              color: theme.textColor,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -764,7 +775,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                 ? 'Start creating content to share with your followers'
                 : 'This channel hasn\'t shared any videos yet',
             style: TextStyle(
-              color: _whiteTheme.textSecondaryColor,
+              color: theme.textSecondaryColor,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -774,28 +785,16 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     );
   }
 
-  Widget _buildThumbnailPlaceholder() {
+  Widget _buildThumbnailPlaceholder(ModernThemeExtension theme) {
     return Container(
-      color: _whiteTheme.surfaceColor,
+      color: theme.surfaceColor,
       child: Center(
         child: Icon(
           Icons.play_circle_outline,
-          color: _whiteTheme.primaryColor,
+          color: theme.primaryColor,
           size: 32,
         ),
       ),
     );
   }
-}
-
-// Custom white theme class
-class _WhiteTheme {
-  const _WhiteTheme();
-  
-  Color get backgroundColor => Color(0xFF8E8E93);
-  Color get surfaceColor => const Color(0xFFF8F9FA);
-  Color get primaryColor => const Color(0xFF007AFF);
-  Color get textColor => const Color(0xFF1C1C1E);
-  Color get textSecondaryColor => Colors.white70;
-  Color get dividerColor => const Color(0xFFE5E5EA);
 }

@@ -10,7 +10,7 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
-import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/shop/screens/shops_list_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -43,16 +43,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
     'Shop',      // Index 1 - Shops List
     '',          // Index 2 - Post (no label, special design)
-    'Dramas',    // Index 3 - Short Dramas 
+    'Wallet',    // Index 3 - Wallet 
     'Profile'    // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home,                        // Home
-    CupertinoIcons.shopping_cart,       // Shop
+    Icons.home_rounded,                        // Home
+    Icons.shopping_cart_outlined,       // Shop
     Icons.add,                         // Post (will be styled specially)
-    Icons.video_library_outlined,              // Dramas
-    Icons.person_outline               // Me/Profile
+    Icons.account_balance_wallet_outlined, // Wallet
+    Icons.person_2_outlined               // Me/Profile
   ];
 
   // Feed screen controller for lifecycle management
@@ -511,11 +511,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Text('Create Post'),
             ),
           ),
-          // Dramas tab (index 3)
+          // Wallet tab (index 3)
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const ShortDramasScreen(),
+            child: const WalletScreen(),
           ),
           // Profile tab (index 4)
           const MyProfileScreen(),
@@ -763,7 +763,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         title = 'Shop';
         break;
       case 3:
-        title = 'Dramas';
+        title = 'Wallet';
         break;
       default:
         title = 'WeiBao';

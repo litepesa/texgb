@@ -46,6 +46,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _isScreenActive = true;
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
+  String _selectedFeedType = 'For You'; // Track selected feed type
   
   // Enhanced progress tracking
   double _videoProgress = 0.0;
@@ -417,7 +418,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             child: _buildBody(channelVideosState, channelsState),
           ),
           
-          // TikTok-style top floating icons
+          // Clean top floating icons - only menu and search
           _buildTopFloatingIcons(),
           
           // TikTok-style right side menu
@@ -463,7 +464,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // TikTok-style top floating icons
+  // Clean top floating icons - only three dot menu and search
   Widget _buildTopFloatingIcons() {
     return Positioned(
       top: MediaQuery.of(context).padding.top + 16,
@@ -472,49 +473,136 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Live and Following buttons (TikTok style)
-          Row(
-            children: [
-              _buildTopButton('Today', false),
-              const SizedBox(width: 20),
-              _buildTopButton('Following', false),
-              const SizedBox(width: 20),
-              _buildTopButton('For You', true), // Active state
-            ],
+          // Three dot menu on the left (vertical)
+          GestureDetector(
+            onTap: _showFeedOptionsMenu,
+            child: const Icon(
+              Icons.more_vert,
+              color: Colors.white,
+              size: 26,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
           ),
           
-          // Search icon - clean and bold
-          Icon(
-            CupertinoIcons.search,
-            color: Colors.white,
-            size: 26,
-            shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.7),
-                blurRadius: 4,
-                offset: Offset(0, 1),
-              ),
-            ],
+          // Search icon on the right
+          GestureDetector(
+            onTap: () {
+              // TODO: Navigate to search screen
+            },
+            child: const Icon(
+              CupertinoIcons.search,
+              color: Colors.white,
+              size: 26,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTopButton(String text, bool isActive) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 17,
-        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-        shadows: [
-          Shadow(
-            color: Colors.black.withOpacity(0.7),
-            blurRadius: 3,
-            offset: Offset(0, 1),
-          ),
-        ],
+  // Show feed options menu with the previous options
+  void _showFeedOptionsMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            const Text(
+              'Feed Options',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Feed type options
+            _buildFeedOption('Today', 'Today'),
+            const SizedBox(height: 12),
+            _buildFeedOption('Following', 'Following'),
+            const SizedBox(height: 12),
+            _buildFeedOption('For You', 'For You'),
+            
+            const SizedBox(height: 20),
+            const Divider(color: Colors.grey),
+            const SizedBox(height: 12),
+            
+            // Additional options
+            _buildMenuOption(Icons.settings, 'Settings', () {
+              Navigator.pop(context);
+              // TODO: Navigate to settings
+            }),
+            const SizedBox(height: 12),
+            _buildMenuOption(Icons.help_outline, 'Help & Support', () {
+              Navigator.pop(context);
+              // TODO: Navigate to help
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeedOption(String title, String value) {
+    final isSelected = _selectedFeedType == value;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedFeedType = value;
+        });
+        Navigator.pop(context);
+        // TODO: Filter feed based on selected type
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected ? Border.all(color: Colors.blue, width: 1) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              color: isSelected ? Colors.blue : Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                color: isSelected ? Colors.blue : Colors.white,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

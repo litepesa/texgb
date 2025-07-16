@@ -499,20 +499,18 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       width: double.infinity,
       height: double.infinity,
       color: Colors.black,
-      child: Center(
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.contain, // Maintain aspect ratio, no stretching
-          width: double.infinity,
-          height: double.infinity,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return _buildLoadingIndicator();
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return _buildPlaceholder(Icons.broken_image);
-          },
-        ),
+      child: Image.network(
+        imageUrl,
+        fit: BoxFit.cover, // Changed to cover for full screen like channel feed
+        width: double.infinity,
+        height: double.infinity,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return _buildLoadingIndicator();
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return _buildPlaceholder(Icons.broken_image);
+        },
       ),
     );
   }
@@ -532,84 +530,19 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     return _buildFullScreenVideo();
   }
 
-  // TikTok-style full screen video (maintains aspect ratio, no stretching)
+  // Full screen video like channel feed screen - using cover fit
   Widget _buildFullScreenVideo() {
     final controller = _videoPlayerController!;
-    final videoSize = controller.value.size;
     
-    if (videoSize.isEmpty) {
-      return Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: Colors.black,
-        child: const Center(child: CircularProgressIndicator()),
-      );
-    }
-    
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final screenWidth = constraints.maxWidth;
-        final screenHeight = constraints.maxHeight;
-        final videoAspectRatio = videoSize.width / videoSize.height;
-        final screenAspectRatio = screenWidth / screenHeight;
-        
-        double width, height;
-        double scale = 1.0;
-        
-        // Calculate the size that fits the video without stretching
-        if (videoAspectRatio > screenAspectRatio) {
-          // Video is wider than screen (like 16:9 on a tall phone)
-          // Fit to screen width, center vertically with black bars if needed
-          width = screenWidth;
-          height = screenWidth / videoAspectRatio;
-          
-          // If the video is too short for the screen, we can scale it up slightly
-          // to reduce black bars while maintaining aspect ratio
-          if (height < screenHeight * 0.7) {
-            scale = (screenHeight * 0.8) / height;
-            height = height * scale;
-            width = width * scale;
-          }
-        } else {
-          // Video is taller than screen (like 9:16 or square)
-          // Fit to screen height, center horizontally
-          height = screenHeight;
-          width = screenHeight * videoAspectRatio;
-          
-          // For very narrow videos, scale up slightly to fill more screen
-          if (width < screenWidth * 0.7) {
-            scale = (screenWidth * 0.8) / width;
-            width = width * scale;
-            height = height * scale;
-          }
-        }
-        
-        // Ensure we don't exceed screen bounds even after scaling
-        if (width > screenWidth) {
-          final scaleDown = screenWidth / width;
-          width = screenWidth;
-          height = height * scaleDown;
-        }
-        
-        if (height > screenHeight) {
-          final scaleDown = screenHeight / height;
-          height = screenHeight;
-          width = width * scaleDown;
-        }
-        
-        return Container(
-          width: screenWidth,
-          height: screenHeight,
-          color: Colors.black,
-          child: Center(
-            child: SizedBox(
-              width: width,
-              height: height,
-              child: VideoPlayer(controller),
-            ),
-          ),
-        );
-      },
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover, // Changed to cover for full screen like channel feed
+        child: SizedBox(
+          width: controller.value.size.width,
+          height: controller.value.size.height,
+          child: VideoPlayer(controller),
+        ),
+      ),
     );
   }
 
@@ -735,10 +668,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       fontWeight: FontWeight.w500,
     );
 
-    final hashtagStyle = captionStyle.copyWith(
-      fontWeight: FontWeight.w500,
-    );
-
     // Combine caption with hashtags on new line
     String fullText = widget.video.caption;
     if (widget.video.tags.isNotEmpty) {
@@ -780,7 +709,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth;
         
-        // SIMPLE APPROACH: Use TextPainter to find exact character position
         final textPainter = TextPainter(
           text: TextSpan(text: fullText, style: captionStyle),
           textDirection: TextDirection.ltr,
@@ -794,13 +722,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         }
         
         // Find where the text should be cut for 1.5 lines
-        // Get position at end of first line
         final firstLineHeight = textPainter.preferredLineHeight;
         final oneAndHalfLineHeight = firstLineHeight * 1.5;
         
-        // Find the character position at 1.5 lines
         final cutPosition = textPainter.getPositionForOffset(
-          Offset(maxWidth * 0.7, oneAndHalfLineHeight) // 70% of width at 1.5 line height
+          Offset(maxWidth * 0.7, oneAndHalfLineHeight)
         );
         
         var cutIndex = cutPosition.offset;
@@ -812,7 +738,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         
         // Ensure we have some text to show
         if (cutIndex < 10) {
-          // If cut position is too early, find first space after 10 characters
           cutIndex = fullText.indexOf(' ', 10);
           if (cutIndex == -1) cutIndex = fullText.length ~/ 3;
         }
@@ -837,10 +762,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // TikTok-style bottom content overlay
+  // TikTok-style bottom content overlay - Updated follow button to match channel feed
   Widget _buildBottomContentOverlay() {
     final channelsState = ref.watch(channelsProvider);
     final isFollowing = channelsState.followedChannels.contains(widget.video.channelId);
+    final userChannel = channelsState.userChannel;
+    final isOwner = userChannel != null && userChannel.id == widget.video.channelId;
     
     return Positioned(
       bottom: 100, // Above bottom nav
@@ -850,7 +777,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Channel name with verified badge and follow button
+          // Channel name with verified badge and follow button (TikTok style)
           Row(
             children: [
               Flexible(
@@ -902,24 +829,27 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _handleFollowToggle,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white, width: 1),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Text(
-                    isFollowing ? 'Following' : 'Follow',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+              // Follow button with red fill when not following (like channel feed)
+              if (!isOwner)
+                GestureDetector(
+                  onTap: _handleFollowToggle,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isFollowing ? Colors.transparent : const Color(0xFFFF3040), // Red fill when not following
+                      border: Border.all(color: Colors.white, width: 1),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Text(
+                      isFollowing ? 'Following' : 'Follow',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           

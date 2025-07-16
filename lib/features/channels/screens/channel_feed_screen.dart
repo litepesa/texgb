@@ -1214,8 +1214,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(
-                  icon: CupertinoIcons.gift_alt_fill,
-                  activeIcon: CupertinoIcons.gift_fill,
+                  icon: CupertinoIcons.gift_alt,
+                  activeIcon: CupertinoIcons.gift_alt_fill,
                   label: 'Gift',
                   isActive: false,
                   onTap: () {
@@ -1239,7 +1239,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
                 _buildDMButton(),
                 _buildNavItemWithBadge(
                   icon: currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite,
-                  activeIcon: Icons.favorite,
+                  activeIcon: Icons.favorite_border,
                   label: 'Likes',
                   isActive: false,
                   onTap: () => _likeCurrentVideo(currentVideo),
@@ -1248,8 +1248,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
                   badgeCount: currentVideo?.likes ?? 0,
                 ),
                 _buildNavItemWithBadge(
-                  icon: CupertinoIcons.text_bubble_fill,
-                  activeIcon: CupertinoIcons.text_bubble_fill,
+                  icon: CupertinoIcons.ellipses_bubble,
+                  activeIcon: CupertinoIcons.ellipses_bubble_fill,
                   label: 'Comments',
                   isActive: false,
                   onTap: () => _showCommentsForCurrentVideo(currentVideo),
