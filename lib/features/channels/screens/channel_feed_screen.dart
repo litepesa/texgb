@@ -577,6 +577,26 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     });
   }
 
+  // Add navigation to channel profile
+  void _navigateToChannelProfile() async {
+    if (_channel == null) return;
+    
+    // Pause current video and disable wakelock before navigation
+    _pauseCurrentVideo();
+    
+    // Navigate to channel profile screen
+    await Navigator.pushNamed(
+      context,
+      Constants.channelProfileScreen,
+      arguments: _channel!.id,
+    );
+    
+    // Resume video when returning (if still active)
+    if (_isScreenActive && _isAppInForeground) {
+      _playCurrentVideo();
+    }
+  }
+
   // Like animation overlay
   Widget _buildLikeAnimationOverlay() {
     return Positioned.fill(
@@ -782,7 +802,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
                       tooltip: 'Back',
                     ),
                   ),
-                  IconButton(
+                  /*IconButton(
                     onPressed: () {},
                     icon: const Icon(
                       Icons.search,
@@ -803,7 +823,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
                       minHeight: 44,
                     ),
                     splashRadius: 24,
-                  ),
+                  ),*/
                 ],
               ),
             ),
@@ -959,47 +979,50 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Channel name with follow button (TikTok style)
+          // Channel name with follow button (TikTok style) - Now clickable
           Row(
             children: [
               Flexible(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _channel!.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 2,
-                            ),
-                          ],
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    // Verified badge if applicable
-                    if (_channel!.isVerified)
-                      Container(
-                        margin: const EdgeInsets.only(left: 4),
-                        child: const Icon(
-                          Icons.verified,
-                          color: Colors.blue,
-                          size: 16,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 2,
-                            ),
-                          ],
+                child: GestureDetector(
+                  onTap: _navigateToChannelProfile, // Add navigation function
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          _channel!.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 2,
+                              ),
+                            ],
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                  ],
+                      // Verified badge if applicable
+                      if (_channel!.isVerified)
+                        Container(
+                          margin: const EdgeInsets.only(left: 4),
+                          child: const Icon(
+                            Icons.verified,
+                            color: Colors.blue,
+                            size: 16,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 2,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
