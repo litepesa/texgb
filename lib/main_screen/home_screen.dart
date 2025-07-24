@@ -28,7 +28,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, RouteAware {
   int _currentIndex = 0;
   int _previousIndex = 0;
   final PageController _pageController = PageController();
@@ -272,7 +272,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _navigateToCreatePost() async {
-    // Pause feed if active
+    // Pause feed if active - this is the key fix
     if (_currentIndex == 0) {
       _feedScreenKey.currentState?.onScreenBecameInactive();
     }
@@ -284,9 +284,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     );
 
-    // Resume feed if returning to it
-    if (result == true && _currentIndex == 0) {
-      _feedScreenKey.currentState?.onScreenBecameActive();
+    // Resume feed if returning to it - this is the key fix
+    if (_currentIndex == 0) {
+      // Always resume when returning to feed, regardless of result
+      // Add a small delay to ensure the screen transition is complete
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted && _currentIndex == 0) {
+          _feedScreenKey.currentState?.onScreenBecameActive();
+        }
+      });
     }
   }
 

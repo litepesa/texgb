@@ -1,6 +1,7 @@
 // lib/features/channels/widgets/channel_video_item.dart
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
@@ -17,6 +18,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
   final ChannelVideoModel video;
   final bool isActive;
   final Function(VideoPlayerController)? onVideoControllerReady;
+  final Function(bool isPlaying)? onManualPlayPause; // New callback for manual play/pause
   final VideoPlayerController? preloadedController;
   final bool isLoading;
   final bool hasFailed;
@@ -26,6 +28,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
     required this.video,
     required this.isActive,
     this.onVideoControllerReady,
+    this.onManualPlayPause,
     this.preloadedController,
     this.isLoading = false,
     this.hasFailed = false,
@@ -241,6 +244,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     });
     
     if (widget.isActive) {
+      // Only seek to beginning for truly new videos, not when resuming
       _videoPlayerController!.seekTo(Duration.zero);
       _playVideo();
     }
@@ -273,13 +277,19 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     
     if (!_isInitialized) return;
     
+    bool willBePlaying;
     if (_isPlaying) {
       _pauseVideo();
+      willBePlaying = false;
     } else {
-      if (_videoPlayerController != null) {
-        _videoPlayerController!.seekTo(Duration.zero);
-      }
+      // Resume from current position, don't seek to beginning
       _playVideo();
+      willBePlaying = true;
+    }
+    
+    // Notify parent about manual play/pause
+    if (widget.onManualPlayPause != null) {
+      widget.onManualPlayPause!(willBePlaying);
     }
   }
 
@@ -633,15 +643,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   Widget _buildTikTokPlayIndicator() {
     return const Center(
       child: Icon(
-        Icons.play_arrow_rounded,
+        CupertinoIcons.play,
         color: Colors.white,
-        size: 100,
-        shadows: [
-          Shadow(
-            color: Colors.black,
-            blurRadius: 8,
-          ),
-        ],
+        size: 60,
       ),
     );
   }

@@ -30,7 +30,7 @@ class ChannelsFeedScreen extends ConsumerStatefulWidget {
 }
 
 class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen> 
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver, RouteAware {
   
   // Core controllers
   final PageController _pageController = PageController();
@@ -47,6 +47,8 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
   String _selectedFeedType = 'For You'; // Track selected feed type
+  bool _isNavigatingAway = false; // Track navigation state
+  bool _isManuallyPaused = false; // Track if user manually paused the video
   
   // Enhanced progress tracking
   double _videoProgress = 0.0;
@@ -82,7 +84,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     switch (state) {
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
-        if (_isScreenActive) {
+        if (_isScreenActive && !_isNavigatingAway) {
           _startFreshPlayback();
         }
         break;
@@ -102,8 +104,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     debugPrint('ChannelsFeedScreen: Screen became active');
     _isScreenActive = true;
+    _isNavigatingAway = false; // Reset navigation state
     
-    if (_isAppInForeground) {
+    if (_isAppInForeground && !_isManuallyPaused) {
       _startFreshPlayback();
       _startIntelligentPreloading();
       WakelockPlus.enable();
@@ -119,15 +122,45 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     WakelockPlus.disable();
   }
 
+  // New method to handle navigation away from feed
+  void _pauseForNavigation() {
+    debugPrint('ChannelsFeedScreen: Pausing for navigation');
+    _isNavigatingAway = true;
+    _stopPlayback();
+  }
+
+  // New method to handle returning from navigation
+  void _resumeFromNavigation() {
+    debugPrint('ChannelsFeedScreen: Resuming from navigation');
+    _isNavigatingAway = false;
+    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+      // Add a small delay to ensure the screen is fully visible before starting playback
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+          _startFreshPlayback();
+        }
+      });
+    }
+  }
+
   void _startFreshPlayback() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground) return;
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused) return;
     
     debugPrint('ChannelsFeedScreen: Starting fresh playback');
     
-    // Always start from the beginning for a fresh experience
+    // Only seek to beginning for truly fresh starts (new videos or screen activation)
+    // Don't seek when resuming from manual pause
     if (_currentVideoController?.value.isInitialized == true) {
-      _currentVideoController!.seekTo(Duration.zero);
       _currentVideoController!.play();
+      debugPrint('ChannelsFeedScreen: Video controller playing');
+    } else {
+      // If video controller isn't ready, trigger a re-initialization
+      debugPrint('ChannelsFeedScreen: Video controller not ready, attempting initialization');
+      final videos = ref.read(channelVideosProvider).videos;
+      if (videos.isNotEmpty && _currentVideoIndex < videos.length) {
+        // This will trigger the video item to reinitialize if needed
+        setState(() {});
+      }
     }
     
     _setupVideoProgressTracking();
@@ -192,7 +225,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
 
   void _updateProgress(double progress) {
     // Call the callback to update the home screen progress indicator
-    if (widget.onVideoProgressChanged != null && _isScreenActive) {
+    if (widget.onVideoProgressChanged != null && _isScreenActive && !_isNavigatingAway) {
       widget.onVideoProgressChanged!(progress);
     }
   }
@@ -225,9 +258,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         
         _progressController.forward();
         
-        if (_isScreenActive && _isAppInForeground) {
+        if (_isScreenActive && _isAppInForeground && !_isNavigatingAway) {
           Timer(const Duration(milliseconds: 500), () {
-            if (mounted && _isScreenActive && _isAppInForeground) {
+            if (mounted && _isScreenActive && _isAppInForeground && !_isNavigatingAway) {
               _startIntelligentPreloading();
             }
           });
@@ -237,12 +270,12 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _setupVideoProgressTracking() {
-    if (!_isScreenActive || !_isAppInForeground) return;
+    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
     
     _progressUpdateTimer?.cancel();
     
     _progressUpdateTimer = Timer.periodic(_progressUpdateInterval, (timer) {
-      if (!mounted || !_isScreenActive || !_isAppInForeground) {
+      if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway) {
         timer.cancel();
         return;
       }
@@ -267,7 +300,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           }
           
           // Trigger next batch preloading when halfway through
-          if (progress > 0.5 && _isScreenActive && _isAppInForeground) {
+          if (progress > 0.5 && _isScreenActive && _isAppInForeground && !_isNavigatingAway) {
             _preloadNextBatch();
           }
         }
@@ -286,7 +319,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _startIntelligentPreloading() {
-    if (!_isScreenActive || !_isAppInForeground) return;
+    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
     
     final videos = ref.read(channelVideosProvider).videos;
     if (videos.isEmpty) return;
@@ -303,7 +336,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _onVideoControllerReady(VideoPlayerController controller) {
-    if (!mounted || !_isScreenActive || !_isAppInForeground) return;
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
     
     debugPrint('Video controller ready, setting up fresh playback');
     
@@ -312,7 +345,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _videoProgress = 0.0;
     });
 
-    // Always start fresh from the beginning
+    // Always start fresh from the beginning for NEW videos
     controller.seekTo(Duration.zero);
     _setupVideoProgressTracking();
     
@@ -323,9 +356,31 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     WakelockPlus.enable();
     
-    if (_isScreenActive && _isAppInForeground) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
       _startIntelligentPreloading();
     }
+  }
+
+  // Separate method for starting fresh video (seeks to beginning)
+  void _startFreshVideo() {
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused) return;
+    
+    debugPrint('ChannelsFeedScreen: Starting fresh video from beginning');
+    
+    if (_currentVideoController?.value.isInitialized == true) {
+      _currentVideoController!.seekTo(Duration.zero);
+      _currentVideoController!.play();
+    }
+    
+    _startFreshPlayback();
+  }
+
+  // Method to handle manual play/pause from video item
+  void onManualPlayPause(bool isPlaying) {
+    debugPrint('ChannelsFeedScreen: Manual play/pause - isPlaying: $isPlaying');
+    setState(() {
+      _isManuallyPaused = !isPlaying;
+    });
   }
 
   void _onPageChanged(int index) {
@@ -340,6 +395,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _videoProgress = 0.0;
       _videoPosition = Duration.zero;
       _videoDuration = Duration.zero;
+      _isManuallyPaused = false; // Reset manual pause state for new video
     });
 
     _progressNotifier.value = 0.0;
@@ -356,7 +412,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       debugPrint('Waiting for video to initialize for progress tracking');
     }
 
-    if (_isScreenActive && _isAppInForeground) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
       _startIntelligentPreloading();
       // Restart music disc animation for new video - check if controller is ready
       if (!_musicDiscController.isAnimating) {
@@ -457,8 +513,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         
         return ChannelVideoItem(
           video: video,
-          isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground,
+          isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
           onVideoControllerReady: _onVideoControllerReady,
+          onManualPlayPause: onManualPlayPause,
         );
       },
     );
@@ -916,13 +973,19 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  void _navigateToChannelProfile() {
+  void _navigateToChannelProfile() async {
     final videos = ref.read(channelVideosProvider).videos;
     if (_currentVideoIndex < videos.length) {
-      Navigator.of(context).pushNamed(
+      // Pause video before navigation
+      _pauseForNavigation();
+      
+      final result = await Navigator.of(context).pushNamed(
         Constants.channelProfileScreen,
         arguments: videos[_currentVideoIndex].channelId,
       );
+      
+      // Resume video after returning from navigation
+      _resumeFromNavigation();
     }
   }
 
