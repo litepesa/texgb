@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
+import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -82,6 +83,44 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
     }
     
     return channels;
+  }
+
+  Future<void> _navigateToChannelFeed(ChannelModel channel) async {
+    try {
+      // Load channel videos to get the latest video
+      final videos = await ref.read(channelVideosProvider.notifier).loadChannelVideos(channel.id);
+      
+      if (videos.isNotEmpty) {
+        // Navigate to channel feed with the first/latest video
+        Navigator.pushNamed(
+          context,
+          Constants.channelFeedScreen,
+          arguments: videos.first.id,
+        );
+      } else {
+        // No videos available, show a message or navigate to channel profile
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This channel has no videos yet'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        
+        // Navigate to channel profile instead
+        Navigator.pushNamed(
+          context,
+          Constants.channelProfileScreen,
+          arguments: channel.id,
+        );
+      }
+    } catch (e) {
+      // Error loading videos, navigate to channel profile
+      Navigator.pushNamed(
+        context,
+        Constants.channelProfileScreen,
+        arguments: channel.id,
+      );
+    }
   }
 
   @override
@@ -342,15 +381,12 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
           ),
 
         InkWell(
-          onTap: () {
+          onTap: () async {
             if (isUserChannel) {
               Navigator.pushNamed(context, Constants.myChannelScreen);
             } else {
-              Navigator.pushNamed(
-                context,
-                Constants.channelProfileScreen,
-                arguments: channel.id,
-              );
+              // Navigate to channel feed for other channels
+              await _navigateToChannelFeed(channel);
             }
           },
           child: Container(

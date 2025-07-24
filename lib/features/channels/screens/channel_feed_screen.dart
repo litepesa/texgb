@@ -1208,12 +1208,12 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     );
   }
 
-  // Bottom navigation bar widget - Updated with custom DM button
+  // Bottom navigation bar widget - Updated with only 3 tabs: Gifts, DM, Comments
   Widget _buildBottomNavigationBar(ModernThemeExtension modernTheme) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final totalHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
     
-    // Get current video for likes and comments count
+    // Get current video for comments count
     final videos = _channelVideos;
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
         ? videos[_currentVideoIndex] 
@@ -1229,50 +1229,33 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           // Progress bar as divider
           _buildProgressBar(modernTheme),
           
-          // Navigation content
+          // Navigation content with only 3 items
           Container(
             height: _bottomNavContentHeight,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
+                // Gifts tab
                 _buildNavItem(
-                  icon: CupertinoIcons.gift_alt,
+                  icon: CupertinoIcons.gift_alt_fill,
                   activeIcon: CupertinoIcons.gift_alt_fill,
-                  label: 'Gift',
+                  label: 'Send Gift',
                   isActive: false,
                   onTap: () {
-                    // TODO: Navigate to Gift screen when implemented
+                    // TODO: Navigate to Gifts screen when implemented
                   },
                   iconColor: Colors.white,
                   labelColor: Colors.white,
                 ),
-                _buildNavItem(
-                  icon: Icons.download_rounded,
-                  activeIcon: Icons.download,
-                  label: 'Save',
-                  isActive: false,
-                  onTap: () {
-                    // TODO: Implement save video to gallery functionality
-                  },
-                  iconColor: Colors.white,
-                  labelColor: Colors.white,
-                ),
-                // Custom DM button (no label)
+                
+                // DM button (custom style)
                 _buildDMButton(),
+                
+                // Comments tab with badge
                 _buildNavItemWithBadge(
-                  icon: currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite,
-                  activeIcon: Icons.favorite_border,
-                  label: 'Likes',
-                  isActive: false,
-                  onTap: () => _likeCurrentVideo(currentVideo),
-                  iconColor: currentVideo?.isLiked == true ? const Color(0xFFFF3040) : Colors.white,
-                  labelColor: Colors.white,
-                  badgeCount: currentVideo?.likes ?? 0,
-                ),
-                _buildNavItemWithBadge(
-                  icon: CupertinoIcons.ellipses_bubble,
-                  activeIcon: CupertinoIcons.ellipses_bubble_fill,
+                  icon: CupertinoIcons.bubble_middle_bottom_fill,
+                  activeIcon: CupertinoIcons.bubble_middle_bottom_fill,
                   label: 'Comments',
                   isActive: false,
                   onTap: () => _showCommentsForCurrentVideo(currentVideo),
@@ -1298,36 +1281,53 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
         // TODO: Navigate to DM screen when implemented
       },
       child: Container(
-        width: 45,
-        height: 32,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          gradient: LinearGradient(
-            colors: [
-              Colors.blue.shade500,
-              Colors.cyan.shade400,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 45,
+              height: 32,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.blue.shade500,
+                    Colors.cyan.shade400,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  'DM',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
             ),
+            const SizedBox(height: 4),
+            /*Text(
+              'DM',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 10,
+                fontWeight: FontWeight.w400,
+              ),
+            ),*/
           ],
-        ),
-        child: Center(
-          child: Text(
-            'DM',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-          ),
         ),
       ),
     );

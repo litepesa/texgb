@@ -11,7 +11,7 @@ import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/channels/screens/channels_list_screen.dart';
+import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/light_theme.dart';
@@ -33,28 +33,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
   
-  // Enhanced theme management for channels tab
-  ThemeOption? _originalThemeBeforeChannels;
-  bool _wasInChannelsMode = false;
-  
   // Video progress tracking
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
-  // Updated tab configuration for TikTok-style layout with Chats instead of Wallet
+  // Updated tab configuration for TikTok-style layout with Dramas
   final List<String> _tabNames = [
     'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
-    'Channels',  // Index 1 - Channels List (replaced Shop)
+    'Drama',    // Index 1 - Short Dramas
     '',          // Index 2 - Post (no label, special design)
-    'Inbox',     // Index 3 - Chats (replaced Wallet)
+    'Inbox',     // Index 3 - Chats
     'Profile'    // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home_rounded,                        // Home
-    Icons.radio_button_on_rounded,     // Channels
-    Icons.add,                         // Post (will be styled specially)
-    CupertinoIcons.chat_bubble_2,        // Chats (replaced wallet icon)
-    Icons.person_outline               // Me/Profile
+    Icons.home_rounded,                  // Home
+    Icons.video_library_outlined,         // Drama
+    Icons.add,                          // Post (will be styled specially)
+    CupertinoIcons.chat_bubble_2,      // Chats
+    Icons.person_outline                // Me/Profile
   ];
 
   // Feed screen controller for lifecycle management
@@ -66,24 +62,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateSystemUI();
-      // Store the initial theme state
-      _initializeThemeState();
     });
-  }
-
-  void _initializeThemeState() {
-    final currentThemeState = ref.read(themeManagerNotifierProvider).valueOrNull;
-    if (currentThemeState != null) {
-      // Reset any channels mode flags on app start
-      _originalThemeBeforeChannels = null;
-      _wasInChannelsMode = false;
-    }
   }
 
   @override
   void dispose() {
-    // Clean up theme state when disposing
-    _restoreOriginalThemeIfNeeded();
     _pageController.dispose();
     _videoProgressNotifier.dispose();
     super.dispose();
@@ -98,9 +81,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Store previous index for navigation management
     _previousIndex = _currentIndex;
-    
-    // Handle theme switching for channels tab
-    _handleThemeForTab(index);
     
     // Handle feed screen lifecycle
     if (_currentIndex == 0) {
@@ -151,64 +131,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Future.delayed(const Duration(milliseconds: 50), () {
       _isPageAnimating = false;
     });
-  }
-  
-  /// Enhanced theme handling when entering/leaving channels tab
-  void _handleThemeForTab(int newIndex) {
-    final themeManager = ref.read(themeManagerNotifierProvider.notifier);
-    final currentThemeState = ref.read(themeManagerNotifierProvider).valueOrNull;
-    
-    if (currentThemeState == null) return;
-    
-    // Entering channels tab (index 1)
-    if (newIndex == 1 && _currentIndex != 1) {
-      _enterChannelsMode(themeManager, currentThemeState);
-    }
-    // Leaving channels tab
-    else if (_currentIndex == 1 && newIndex != 1) {
-      _exitChannelsMode(themeManager);
-    }
-  }
-  
-  void _enterChannelsMode(ThemeManagerNotifier themeManager, ThemeState currentThemeState) {
-    // Only change theme if not already in light mode or if it's a temporary override
-    if (currentThemeState.currentTheme != ThemeOption.light || currentThemeState.isTemporaryOverride) {
-      // Store the user's actual theme preference before switching
-      _originalThemeBeforeChannels = themeManager.userThemePreference ?? currentThemeState.currentTheme;
-      _wasInChannelsMode = true;
-      
-      debugPrint('Entering channels mode. User preference: $_originalThemeBeforeChannels');
-      
-      // Switch to light theme temporarily for channels
-      themeManager.setTemporaryTheme(ThemeOption.light);
-    } else {
-      // Already in light mode, just mark that we're in channels mode
-      _wasInChannelsMode = true;
-      _originalThemeBeforeChannels = null;
-      debugPrint('Already in light mode when entering channels');
-    }
-  }
-  
-  void _exitChannelsMode(ThemeManagerNotifier themeManager) {
-    if (_wasInChannelsMode) {
-      debugPrint('Exiting channels mode. User preference was: $_originalThemeBeforeChannels');
-      
-      // Always restore user's theme when leaving channels
-      themeManager.restoreUserTheme();
-      
-      // Reset channels mode state
-      _originalThemeBeforeChannels = null;
-      _wasInChannelsMode = false;
-    }
-  }
-  
-  void _restoreOriginalThemeIfNeeded() {
-    // Only restore if we were in channels mode
-    if (_wasInChannelsMode) {
-      final themeManager = ref.read(themeManagerNotifierProvider.notifier);
-      themeManager.restoreUserTheme();
-      debugPrint('Restored user theme on dispose');
-    }
   }
   
   void _updateSystemUI() {
@@ -279,9 +201,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _onPageChanged(int index) {
     // Only process page changes that aren't from programmatic jumps
     if (_isPageAnimating) return;
-    
-    // Handle theme switching for channels tab
-    _handleThemeForTab(index);
     
     // Handle feed screen lifecycle
     if (_currentIndex == 0) {
@@ -354,111 +273,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  // Handle channels dropdown menu actions
-  void _handleChannelsMenuAction(String action) {
+  // Handle dramas dropdown menu actions
+  void _handleDramasMenuAction(String action) {
     switch (action) {
       case 'search':
-        // Navigate to channel search
+        // Navigate to drama search
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Search Channels')),
+          const SnackBar(content: Text('Search Dramas')),
         );
         break;
-      case 'my_channels':
-        // Navigate to my channels
-        Navigator.pushNamed(context, Constants.myChannelScreen);
-        break;
-      case 'following':
-        // Show following channels
+      case 'my_list':
+        // Navigate to my list
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Following Channels')),
+          const SnackBar(content: Text('My List')),
         );
         break;
-      case 'create':
-        // Navigate to create channel
-        Navigator.pushNamed(context, Constants.createChannelScreen);
+      case 'downloads':
+        // Show downloads
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Downloads')),
+        );
+        break;
+      case 'history':
+        // Navigate to watch history
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Watch History')),
+        );
         break;
       case 'settings':
-        // Navigate to channel settings
+        // Navigate to drama settings
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Channel Settings')),
+          const SnackBar(content: Text('Drama Settings')),
         );
         break;
     }
-  }
-
-  void _showChannelCategoriesBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final modernTheme = context.modernTheme;
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: BoxDecoration(
-            color: modernTheme.surfaceColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: modernTheme.dividerColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text(
-                  'Channel Categories',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: modernTheme.textColor,
-                  ),
-                ),
-              ),
-              // Categories list
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [
-                    'Entertainment',
-                    'Education',
-                    'Gaming',
-                    'Music',
-                    'Sports',
-                    'Technology',
-                    'Lifestyle',
-                    'News',
-                  ].map((category) => ListTile(
-                    leading: Icon(
-                      Icons.video_library_outlined,
-                      color: modernTheme.primaryColor,
-                    ),
-                    title: Text(
-                      category,
-                      style: TextStyle(color: modernTheme.textColor),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Selected: $category')),
-                      );
-                    },
-                  )).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -467,7 +315,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 4;
-    final isChannelsTab = _currentIndex == 1;
+    final isDramasTab = _currentIndex == 1;
     final isChatsTab = _currentIndex == 3;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
@@ -495,14 +343,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               },
             ),
           ),
-          // Channels tab (index 1) - Always uses light theme
+          // Dramas tab (index 1) - Short Dramas Screen
           Container(
             color: modernTheme.backgroundColor,
-            child: Theme(
-              // Force light theme for channels screen
-              data: modernLightTheme(),
-              child: const ChannelsListScreen(),
-            ),
+            child: const ShortDramasScreen(),
           ),
           // Post tab (index 2) - This should never be shown as we navigate directly
           Container(
@@ -511,7 +355,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Text('Create Post'),
             ),
           ),
-          // Chats tab (index 3) - Replaced Wallet with Chats
+          // Chats tab (index 3)
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
@@ -532,30 +376,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // TikTok-style bottom navigation with video progress indicator
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme, AsyncValue<List<ChatModel>> chatsAsyncValue) {
     final isHomeTab = _currentIndex == 0;
-    final isChannelsTab = _currentIndex == 1;
-    
-    // For channels tab, use light theme colors for bottom nav
-    Color backgroundColor;
-    Color? borderColor;
-    
-    if (isHomeTab) {
-      backgroundColor = Colors.black;
-      borderColor = null;
-    } else if (isChannelsTab) {
-      // Light theme colors for channels tab
-      backgroundColor = const Color(0xFFFFFFFF); // Light surface
-      borderColor = const Color(0xFFE0E0E0); // Light border
-    } else {
-      backgroundColor = modernTheme.surfaceColor!;
-      borderColor = modernTheme.dividerColor;
-    }
     
     return Container(
       decoration: BoxDecoration(
-        color: backgroundColor,
-        border: (isHomeTab || borderColor == null) ? null : Border(
+        color: isHomeTab ? Colors.black : modernTheme.surfaceColor!,
+        border: isHomeTab ? null : Border(
           top: BorderSide(
-            color: borderColor,
+            color: modernTheme.dividerColor!,
             width: 0.5,
           ),
         ),
@@ -585,7 +412,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     index,
                     modernTheme,
                     isHomeTab,
-                    isChannelsTab,
                     chatsAsyncValue,
                   );
                 }),
@@ -701,7 +527,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int index,
     ModernThemeExtension modernTheme,
     bool isHomeTab,
-    bool isChannelsTab,
     AsyncValue<List<ChatModel>> chatsAsyncValue,
   ) {
     final isSelected = _currentIndex == index;
@@ -722,17 +547,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             isSelected, 
             modernTheme, 
             isHomeTab,
-            isChannelsTab,
             chatUnreadCount
           );
         },
-        loading: () => _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab, isChannelsTab),
-        error: (_, __) => _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab, isChannelsTab),
+        loading: () => _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab),
+        error: (_, __) => _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab),
       );
     }
     
     // For other tabs, no badge needed
-    return _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab, isChannelsTab);
+    return _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab);
   }
 
   Widget _buildNavItemWithBadge(
@@ -740,7 +564,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isSelected,
     ModernThemeExtension modernTheme,
     bool isHomeTab,
-    bool isChannelsTab,
     int unreadCount,
   ) {
     Color iconColor;
@@ -750,12 +573,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // Home tab colors
       iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
       textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-    } else if (isChannelsTab) {
-      // Channels tab - use light theme colors
-      const lightPrimary = Color(0xFF00A884);
-      const lightSecondary = Color(0xFF6A6A6A);
-      iconColor = isSelected ? lightPrimary : lightSecondary;
-      textColor = isSelected ? lightPrimary : lightSecondary;
     } else {
       // Other tabs - use current theme
       iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
@@ -844,7 +661,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isSelected,
     ModernThemeExtension modernTheme,
     bool isHomeTab,
-    bool isChannelsTab,
   ) {
     Color iconColor;
     Color textColor;
@@ -853,12 +669,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // Home tab colors
       iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
       textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-    } else if (isChannelsTab) {
-      // Channels tab - use light theme colors
-      const lightPrimary = Color(0xFF00A884);
-      const lightSecondary = Color(0xFF6A6A6A);
-      iconColor = isSelected ? lightPrimary : lightSecondary;
-      textColor = isSelected ? lightPrimary : lightSecondary;
     } else {
       // Other tabs - use current theme
       iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
@@ -908,13 +718,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     String title = 'WeiBao';
-    final isChannelsTab = _currentIndex == 1;
+    final isDramasTab = _currentIndex == 1;
     final isChatsTab = _currentIndex == 3;
     
     // Set title based on current tab
     switch (_currentIndex) {
       case 1:
-        title = 'Channels';
+        title = 'Dramas';
         break;
       case 3:
         title = 'Inbox';
@@ -923,27 +733,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         title = 'WeiBao';
     }
 
-    // For channels tab, use light theme colors for app bar
-    Color appBarColor;
-    Color textColor;
-    Color iconColor;
-    
-    if (isChannelsTab) {
-      appBarColor = const Color(0xFFFFFFFF); // Light surface
-      textColor = const Color(0xFF121212); // Dark text
-      iconColor = const Color(0xFF00A884); // Light theme primary
-    } else {
-      appBarColor = modernTheme.surfaceColor!;
-      textColor = modernTheme.textColor!;
-      iconColor = modernTheme.primaryColor!;
-    }
-
     return AppBar(
-      backgroundColor: appBarColor,
+      backgroundColor: modernTheme.surfaceColor!,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
-      iconTheme: IconThemeData(color: iconColor),
+      iconTheme: IconThemeData(color: modernTheme.primaryColor!),
       title: _currentIndex == 1 || _currentIndex == 3
           ? _currentIndex == 1
               ? Container(
@@ -976,7 +771,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               : Text(
                   title,
                   style: TextStyle(
-                    color: textColor,
+                    color: modernTheme.textColor!,
                     fontWeight: FontWeight.bold,
                     fontSize: 22,
                     letterSpacing: -0.3,
@@ -988,7 +783,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   TextSpan(
                     text: "Wei",
                     style: TextStyle(
-                      color: textColor,          
+                      color: modernTheme.textColor!,          
                       fontWeight: FontWeight.w500,
                       fontSize: 22,
                       letterSpacing: -0.3,
@@ -997,7 +792,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   TextSpan(
                     text: "Bao",
                     style: TextStyle(
-                      color: iconColor,
+                      color: modernTheme.primaryColor!,
                       fontWeight: FontWeight.w700,
                       fontSize: 24,
                       letterSpacing: -0.3,
@@ -1007,37 +802,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
       actions: _currentIndex == 1 ? [
-        // Search icon for channels tab
+        // Search icon for dramas tab
         IconButton(
-          icon: Icon(CupertinoIcons.search, color: iconColor),
+          icon: Icon(CupertinoIcons.search, color: modernTheme.primaryColor!),
           onPressed: () {
             // Handle search action
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Search channels')),
+              const SnackBar(content: Text('Search dramas')),
             );
           },
         ),
-        // Create channel icon
+        // Download icon
         IconButton(
-          icon: Icon(Icons.add_circle_outline, color: iconColor),
+          icon: Icon(Icons.download_outlined, color: modernTheme.primaryColor!),
           onPressed: () {
-            Navigator.pushNamed(context, Constants.createChannelScreen);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Downloads')),
+            );
           },
         ),
         // Dropdown menu with 3 dots
         PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert, color: iconColor),
-          onSelected: _handleChannelsMenuAction,
-          color: isChannelsTab ? const Color(0xFFFFFFFF) : modernTheme.surfaceColor,
+          icon: Icon(Icons.more_vert, color: modernTheme.primaryColor!),
+          onSelected: _handleDramasMenuAction,
+          color: modernTheme.surfaceColor,
           elevation: 8,
           surfaceTintColor: modernTheme.primaryColor?.withOpacity(0.1),
           shadowColor: Colors.black.withOpacity(0.2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: isChannelsTab 
-                ? const Color(0xFFE0E0E0).withOpacity(0.2)
-                : modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
+              color: modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
               width: 1,
             ),
           ),
@@ -1054,22 +849,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: isChannelsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
+                      color: modernTheme.primaryColor?.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.search_outlined,
-                      color: isChannelsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
+                      color: modernTheme.primaryColor,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Text(
-                    'Search Channels',
+                    'Search Dramas',
                     style: TextStyle(
-                      color: isChannelsTab ? const Color(0xFF121212) : modernTheme.textColor,
+                      color: modernTheme.textColor,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1078,7 +871,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             PopupMenuItem<String>(
-              value: 'my_channels',
+              value: 'my_list',
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -1087,22 +880,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: isChannelsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
+                      color: modernTheme.primaryColor?.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.video_library_outlined,
-                      color: isChannelsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
+                      Icons.bookmark_outline,
+                      color: modernTheme.primaryColor,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Text(
-                    'My Channels',
+                    'My List',
                     style: TextStyle(
-                      color: isChannelsTab ? const Color(0xFF121212) : modernTheme.textColor,
+                      color: modernTheme.textColor,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1111,7 +902,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             PopupMenuItem<String>(
-              value: 'following',
+              value: 'downloads',
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -1120,22 +911,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: isChannelsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
+                      color: modernTheme.primaryColor?.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.favorite_outline,
-                      color: isChannelsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
+                      Icons.download_outlined,
+                      color: modernTheme.primaryColor,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Text(
-                    'Following',
+                    'Downloads',
                     style: TextStyle(
-                      color: isChannelsTab ? const Color(0xFF121212) : modernTheme.textColor,
+                      color: modernTheme.textColor,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1144,7 +933,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             PopupMenuItem<String>(
-              value: 'create',
+              value: 'history',
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -1153,22 +942,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: isChannelsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
+                      color: modernTheme.primaryColor?.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.add_circle_outline,
-                      color: isChannelsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
+                      Icons.history,
+                      color: modernTheme.primaryColor,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Text(
-                    'Create Channel',
+                    'Watch History',
                     style: TextStyle(
-                      color: isChannelsTab ? const Color(0xFF121212) : modernTheme.textColor,
+                      color: modernTheme.textColor,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1186,14 +973,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: isChannelsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
+                      color: modernTheme.primaryColor?.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.settings_outlined,
-                      color: isChannelsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
+                      color: modernTheme.primaryColor,
                       size: 20,
                     ),
                   ),
@@ -1201,7 +986,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   Text(
                     'Settings',
                     style: TextStyle(
-                      color: isChannelsTab ? const Color(0xFF121212) : modernTheme.textColor,
+                      color: modernTheme.textColor,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1215,7 +1000,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ] : isChatsTab ? [
         // Search icon for chats tab
         IconButton(
-          icon: Icon(Icons.search, color: iconColor),
+          icon: Icon(Icons.search, color: modernTheme.primaryColor!),
           onPressed: () {
             // Handle search action for chats
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1225,14 +1010,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
         // New chat icon
         IconButton(
-          icon: Icon(CupertinoIcons.chat_bubble_2, color: iconColor),
+          icon: Icon(CupertinoIcons.chat_bubble_2, color: modernTheme.primaryColor!),
           onPressed: () {
             Navigator.pushNamed(context, Constants.contactsScreen);
           },
         ),
         // Dropdown menu for chats
         PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert, color: iconColor),
+          icon: Icon(Icons.more_vert, color: modernTheme.primaryColor!),
           onSelected: (String value) {
             switch (value) {
               case 'new_group':
@@ -1404,7 +1189,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: Container(
           height: 0.5,
           width: double.infinity,
-          color: isChannelsTab ? const Color(0xFFE0E0E0) : modernTheme.dividerColor,
+          color: modernTheme.dividerColor,
         ),
       ),
     );
