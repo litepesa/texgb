@@ -1,4 +1,4 @@
-// lib/features/channels/screens/channel_feed_screen.dart
+import 'dart:math';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -55,6 +55,9 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   late AnimationController _likeAnimationController;
   late AnimationController _heartScaleController;
   late Animation<double> _heartScaleAnimation;
+  late AnimationController _burstAnimationController;
+  late Animation<double> _burstAnimation;
+  late AnimationController _sparkleAnimationController;
   
   // Channel data
   ChannelModel? _channel;
@@ -133,22 +136,40 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     
     // Like animation controllers
     _likeAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
     
     _heartScaleController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
     
     _heartScaleAnimation = Tween<double>(
       begin: 0.0,
-      end: 1.2,
+      end: 1.3,
     ).animate(CurvedAnimation(
       parent: _heartScaleController,
       curve: Curves.elasticOut,
     ));
+    
+    _burstAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _burstAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _burstAnimationController,
+      curve: Curves.easeOut,
+    ));
+    
+    _sparkleAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
   }
 
   void _setupSystemUI() {
@@ -496,8 +517,19 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
       _showLikeAnimation = true;
     });
     
+    // Start all animations
     _heartScaleController.forward().then((_) {
-      _heartScaleController.reverse();
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _heartScaleController.reverse();
+      });
+    });
+    
+    _burstAnimationController.forward().then((_) {
+      _burstAnimationController.reset();
+    });
+    
+    _sparkleAnimationController.forward().then((_) {
+      _sparkleAnimationController.reset();
     });
     
     _likeAnimationController.forward().then((_) {
@@ -511,10 +543,12 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     
     // Like the current video
     final currentVideo = _channelVideos[_currentVideoIndex];
-    ref.read(channelVideosProvider.notifier).likeVideo(currentVideo.id);
+    if (!currentVideo.isLiked) {
+      ref.read(channelVideosProvider.notifier).likeVideo(currentVideo.id);
+    }
     
     // Haptic feedback
-    HapticFeedback.lightImpact();
+    HapticFeedback.mediumImpact();
   }
 
   void _toggleFollow() async {
@@ -597,55 +631,142 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     }
   }
 
-  // Like animation overlay
+  // Like animation overlay - More exciting with burst effect, sparkles, and floating hearts
   Widget _buildLikeAnimationOverlay() {
     return Positioned.fill(
-      child: AnimatedBuilder(
-        animation: _likeAnimationController,
-        builder: (context, child) {
-          return Stack(
-            children: [
-              // Center heart that scales
-              Center(
-                child: AnimatedBuilder(
-                  animation: _heartScaleAnimation,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: _heartScaleAnimation.value,
-                      child: const Icon(
-                        Icons.favorite,
-                        color: Colors.red,
-                        size: 80,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 8,
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            // Burst effect background
+            Center(
+              child: AnimatedBuilder(
+                animation: _burstAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _burstAnimation.value * 3,
+                    child: Opacity(
+                      opacity: (1 - _burstAnimation.value).clamp(0.0, 0.5),
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.red.withOpacity(0.6),
+                              Colors.pink.withOpacity(0.4),
+                              Colors.transparent,
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
-              
-              // Floating hearts
-              ..._buildFloatingHearts(),
-            ],
-          );
-        },
+            ),
+            
+            // Sparkles around the heart
+            ..._buildSparkles(),
+            
+            // Center heart that scales and rotates
+            Center(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_heartScaleAnimation, _likeAnimationController]),
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _heartScaleAnimation.value,
+                    child: Transform.rotate(
+                      angle: _likeAnimationController.value * 0.5,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.red.withOpacity(0.6),
+                              blurRadius: 20,
+                              spreadRadius: 10,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.favorite,
+                          color: Colors.red,
+                          size: 100,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Floating hearts with more dynamic movement
+            ..._buildFloatingHearts(),
+          ],
+        ),
       ),
     );
   }
 
+  List<Widget> _buildSparkles() {
+    const sparkleCount = 12;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    return List.generate(sparkleCount, (index) {
+      final angle = (index * 360 / sparkleCount) * (3.14159 / 180);
+      final radius = 120.0;
+      
+      return AnimatedBuilder(
+        animation: _sparkleAnimationController,
+        builder: (context, child) {
+          final progress = _sparkleAnimationController.value;
+          final scale = (1 - progress).clamp(0.0, 1.0);
+          final distance = radius * progress;
+          
+          return Positioned(
+            left: screenWidth / 2 + (distance * cos(angle)) - 10,
+            top: screenHeight / 2 + (distance * sin(angle)) - 10,
+            child: Transform.scale(
+              scale: scale,
+              child: Transform.rotate(
+                angle: progress * 6.28,
+                child: Icon(
+                  index % 2 == 0 ? Icons.star : Icons.auto_awesome,
+                  color: index % 3 == 0 ? Colors.yellow : Colors.orange,
+                  size: 20,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    });
+  }
+
   List<Widget> _buildFloatingHearts() {
-    const heartCount = 6;
+    const heartCount = 8;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     
     return List.generate(heartCount, (index) {
-      final offsetX = (index * 0.15 - 0.4) * screenWidth;
+      final offsetX = (index * 0.25 - 1) * screenWidth * 0.5;
       final startY = screenHeight * 0.6;
-      final endY = screenHeight * 0.2;
+      final endY = screenHeight * 0.1;
+      final zigzagAmplitude = 30.0;
       
       return AnimatedBuilder(
         animation: _likeAnimationController,
@@ -653,24 +774,31 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           final progress = _likeAnimationController.value;
           final opacity = (1.0 - progress).clamp(0.0, 1.0);
           final y = startY + (endY - startY) * progress;
+          final zigzag = sin(progress * 3.14159 * 4) * zigzagAmplitude;
           
           return Positioned(
-            left: screenWidth / 2 + offsetX,
+            left: screenWidth / 2 + offsetX + zigzag,
             top: y,
             child: Transform.rotate(
-              angle: (index - 2) * 0.3,
+              angle: (index - 4) * 0.3 + progress * 2,
               child: Opacity(
                 opacity: opacity,
-                child: Icon(
-                  Icons.favorite,
-                  color: Colors.red,
-                  size: 20 + (index % 3) * 10.0,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 4,
-                    ),
-                  ],
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.5),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.favorite,
+                    color: index % 2 == 0 ? Colors.red : Colors.pink,
+                    size: 25 + (index % 3) * 10.0,
+                  ),
                 ),
               ),
             ),
@@ -710,6 +838,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     _progressController.dispose();
     _likeAnimationController.dispose();
     _heartScaleController.dispose();
+    _burstAnimationController.dispose();
+    _sparkleAnimationController.dispose();
     _progressNotifier.dispose();
     
     for (final controller in _videoControllers.values) {
@@ -1208,12 +1338,12 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     );
   }
 
-  // Bottom navigation bar widget - Updated with only 3 tabs: Gifts, DM, Comments
+  // Bottom navigation bar widget - Updated with only 3 tabs: Comments, DM, Likes
   Widget _buildBottomNavigationBar(ModernThemeExtension modernTheme) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final totalHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
     
-    // Get current video for comments count
+    // Get current video for likes and comments count
     final videos = _channelVideos;
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
         ? videos[_currentVideoIndex] 
@@ -1236,32 +1366,31 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                // Gifts tab
-                _buildNavItem(
-                  icon: CupertinoIcons.gift_alt_fill,
-                  activeIcon: CupertinoIcons.gift_alt_fill,
-                  label: 'Send Gift',
-                  isActive: false,
-                  onTap: () {
-                    // TODO: Navigate to Gifts screen when implemented
-                  },
-                  iconColor: Colors.white,
-                  labelColor: Colors.white,
-                ),
-                
-                // DM button (custom style)
-                _buildDMButton(),
-                
                 // Comments tab with badge
                 _buildNavItemWithBadge(
-                  icon: CupertinoIcons.bubble_middle_bottom_fill,
-                  activeIcon: CupertinoIcons.bubble_middle_bottom_fill,
+                  icon: CupertinoIcons.ellipses_bubble_fill,
+                  activeIcon: CupertinoIcons.ellipses_bubble_fill,
                   label: 'Comments',
                   isActive: false,
                   onTap: () => _showCommentsForCurrentVideo(currentVideo),
                   iconColor: Colors.white,
                   labelColor: Colors.white,
                   badgeCount: currentVideo?.comments ?? 0,
+                ),
+                
+                // DM button (custom style)
+                _buildDMButton(),
+                
+                // Likes tab with badge
+                _buildNavItemWithBadge(
+                  icon: Icons.favorite,
+                  activeIcon: Icons.favorite,
+                  label: 'Like  Post',
+                  isActive: false,
+                  onTap: () => _likeCurrentVideo(currentVideo),
+                  iconColor: currentVideo?.isLiked == true ? Colors.red : Colors.white,
+                  labelColor: Colors.white,
+                  badgeCount: currentVideo?.likes ?? 0,
                 ),
               ],
             ),
@@ -1508,6 +1637,39 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   void _likeCurrentVideo(ChannelVideoModel? video) {
     if (video != null) {
       ref.read(channelVideosProvider.notifier).likeVideo(video.id);
+      
+      // Trigger animation when liking via button
+      if (!video.isLiked) {
+        setState(() {
+          _showLikeAnimation = true;
+        });
+        
+        // Start all animations
+        _heartScaleController.forward().then((_) {
+          Future.delayed(const Duration(milliseconds: 200), () {
+            _heartScaleController.reverse();
+          });
+        });
+        
+        _burstAnimationController.forward().then((_) {
+          _burstAnimationController.reset();
+        });
+        
+        _sparkleAnimationController.forward().then((_) {
+          _sparkleAnimationController.reset();
+        });
+        
+        _likeAnimationController.forward().then((_) {
+          _likeAnimationController.reset();
+          if (mounted) {
+            setState(() {
+              _showLikeAnimation = false;
+            });
+          }
+        });
+        
+        HapticFeedback.mediumImpact();
+      }
     }
   }
 
