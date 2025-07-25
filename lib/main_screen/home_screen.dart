@@ -11,7 +11,8 @@ import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
+import 'package:textgb/features/groups/screens/groups_tab.dart';
+import 'package:textgb/features/shop/screens/shops_list_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -34,27 +35,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
   
-  // Inbox tab switcher state
+  // Inbox tab switcher state (for Chats/Wallet)
   int _inboxTabIndex = 0; // 0 for Chats, 1 for Wallet
   final PageController _inboxPageController = PageController();
+  
+  // Groups tab switcher state (for Groups/Shops)
+  int _groupsTabIndex = 0; // 0 for Groups, 1 for Shops
+  final PageController _groupsPageController = PageController();
   
   // Video progress tracking
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
-  // Updated tab configuration for TikTok-style layout with Dramas
+  // Updated tab configuration with new layout
   final List<String> _tabNames = [
-    'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
-    'Drama',    // Index 1 - Short Dramas
-    '',          // Index 2 - Post (no label, special design)
-    'Inbox',     // Index 3 - Chats/Wallet switcher
-    'Profile'    // Index 4 - Profile
+    'Inbox',      // Index 0 - Chats/Wallet switcher (moved from index 3)
+    'Groups',     // Index 1 - Groups/Shops switcher (replaced Dramas)
+    '',           // Index 2 - Post (no label, special design)
+    'Channels',   // Index 3 - Channels Feed (moved from index 0, renamed from Home)
+    'Profile'     // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home_rounded,                  // Home
-    Icons.video_library_outlined,         // Drama
+    CupertinoIcons.chat_bubble_2,       // Inbox (Chats)
+    Icons.group_outlined,                // Groups
     Icons.add,                          // Post (will be styled specially)
-    CupertinoIcons.chat_bubble_2,      // Chats
+    Icons.radio_button_on_rounded,      // Channels (changed icon)
     Icons.person_outline                // Me/Profile
   ];
 
@@ -74,6 +79,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     _pageController.dispose();
     _inboxPageController.dispose();
+    _groupsPageController.dispose();
     _videoProgressNotifier.dispose();
     super.dispose();
   }
@@ -83,6 +89,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _inboxTabIndex = index;
     });
     _inboxPageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _onGroupsTabChanged(int index) {
+    setState(() {
+      _groupsTabIndex = index;
+    });
+    _groupsPageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
@@ -99,8 +116,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Store previous index for navigation management
     _previousIndex = _currentIndex;
     
-    // Handle feed screen lifecycle
-    if (_currentIndex == 0) {
+    // Handle feed screen lifecycle (channels is now at index 3)
+    if (_currentIndex == 3) {
       // Leaving feed screen
       _feedScreenKey.currentState?.onScreenBecameInactive();
     }
@@ -133,8 +150,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _updateSystemUI();
     }
 
-    // Handle feed screen lifecycle
-    if (_currentIndex == 0) {
+    // Handle feed screen lifecycle (channels is now at index 3)
+    if (_currentIndex == 3) {
       // Entering feed screen
       Future.delayed(const Duration(milliseconds: 100), () {
         _feedScreenKey.currentState?.onScreenBecameActive();
@@ -151,8 +168,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   void _updateSystemUI() {
-    if (_currentIndex == 0) {
-      // Home/Feed screen - black background with light status bar
+    if (_currentIndex == 3) {
+      // Channels/Feed screen - black background with light status bar
       SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
@@ -219,8 +236,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Only process page changes that aren't from programmatic jumps
     if (_isPageAnimating) return;
     
-    // Handle feed screen lifecycle
-    if (_currentIndex == 0) {
+    // Handle feed screen lifecycle (channels is now at index 3)
+    if (_currentIndex == 3) {
       // Leaving feed screen
       _feedScreenKey.currentState?.onScreenBecameInactive();
     }
@@ -262,8 +279,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _updateSystemUI();
     }
 
-    // Handle feed screen lifecycle
-    if (_currentIndex == 0) {
+    // Handle feed screen lifecycle (channels is now at index 3)
+    if (_currentIndex == 3) {
       // Entering feed screen
       Future.delayed(const Duration(milliseconds: 100), () {
         _feedScreenKey.currentState?.onScreenBecameActive();
@@ -272,8 +289,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _navigateToCreatePost() async {
-    // Pause feed if active - this is the key fix
-    if (_currentIndex == 0) {
+    // Pause feed if active (channels is now at index 3)
+    if (_currentIndex == 3) {
       _feedScreenKey.currentState?.onScreenBecameInactive();
     }
 
@@ -284,51 +301,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     );
 
-    // Resume feed if returning to it - this is the key fix
-    if (_currentIndex == 0) {
+    // Resume feed if returning to it (channels is now at index 3)
+    if (_currentIndex == 3) {
       // Always resume when returning to feed, regardless of result
       // Add a small delay to ensure the screen transition is complete
       Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted && _currentIndex == 0) {
+        if (mounted && _currentIndex == 3) {
           _feedScreenKey.currentState?.onScreenBecameActive();
         }
       });
-    }
-  }
-
-  // Handle dramas dropdown menu actions
-  void _handleDramasMenuAction(String action) {
-    switch (action) {
-      case 'search':
-        // Navigate to drama search
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Search Dramas')),
-        );
-        break;
-      case 'my_list':
-        // Navigate to my list
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('My List')),
-        );
-        break;
-      case 'downloads':
-        // Show downloads
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Downloads')),
-        );
-        break;
-      case 'history':
-        // Navigate to watch history
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Watch History')),
-        );
-        break;
-      case 'settings':
-        // Navigate to drama settings
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Drama Settings')),
-        );
-        break;
     }
   }
 
@@ -512,31 +493,222 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  Widget _buildGroupsContent(ModernThemeExtension modernTheme) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: Column(
+        children: [
+          // Enhanced tab bar for Groups/Shops switcher
+          Container(
+            margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: modernTheme.dividerColor!.withOpacity(0.15),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: modernTheme.primaryColor!.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                  spreadRadius: -4,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _onGroupsTabChanged(0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: _groupsTabIndex == 0 ? Border(
+                          bottom: BorderSide(
+                            color: modernTheme.primaryColor!,
+                            width: 3,
+                          ),
+                        ) : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: _groupsTabIndex == 0 
+                                ? modernTheme.primaryColor!.withOpacity(0.15)
+                                : modernTheme.primaryColor!.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              _groupsTabIndex == 0 
+                                ? Icons.group
+                                : Icons.group_outlined,
+                              color: _groupsTabIndex == 0 
+                                ? modernTheme.primaryColor 
+                                : modernTheme.textSecondaryColor,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style: TextStyle(
+                              color: _groupsTabIndex == 0 
+                                ? modernTheme.primaryColor 
+                                : modernTheme.textSecondaryColor,
+                              fontWeight: _groupsTabIndex == 0 
+                                ? FontWeight.w700 
+                                : FontWeight.w500,
+                              fontSize: 15,
+                              letterSpacing: 0.2,
+                            ),
+                            child: const Text('Groups'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _onGroupsTabChanged(1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: _groupsTabIndex == 1 ? Border(
+                          bottom: BorderSide(
+                            color: modernTheme.primaryColor!,
+                            width: 3,
+                          ),
+                        ) : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: _groupsTabIndex == 1 
+                                ? modernTheme.primaryColor!.withOpacity(0.15)
+                                : modernTheme.primaryColor!.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              _groupsTabIndex == 1 
+                                ? Icons.storefront
+                                : Icons.storefront_outlined,
+                              color: _groupsTabIndex == 1 
+                                ? modernTheme.primaryColor 
+                                : modernTheme.textSecondaryColor,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style: TextStyle(
+                              color: _groupsTabIndex == 1 
+                                ? modernTheme.primaryColor 
+                                : modernTheme.textSecondaryColor,
+                              fontWeight: _groupsTabIndex == 1 
+                                ? FontWeight.w700 
+                                : FontWeight.w500,
+                              fontSize: 15,
+                              letterSpacing: 0.2,
+                            ),
+                            child: const Text('Shops'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Content area
+          Expanded(
+            child: PageView(
+              controller: _groupsPageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _groupsTabIndex = index;
+                });
+              },
+              children: [
+                // Groups tab content
+                Container(
+                  color: modernTheme.surfaceColor,
+                  padding: EdgeInsets.only(bottom: bottomPadding),
+                  child: const GroupsTab(),
+                ),
+                // Shops tab content
+                Container(
+                  color: modernTheme.surfaceColor,
+                  child: const ShopsListScreen(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isHomeTab = _currentIndex == 0;
+    final isChannelsTab = _currentIndex == 3;
     final isProfileTab = _currentIndex == 4;
-    final isDramasTab = _currentIndex == 1;
-    final isInboxTab = _currentIndex == 3;
+    final isGroupsTab = _currentIndex == 1;
+    final isInboxTab = _currentIndex == 0;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final chatsAsyncValue = ref.watch(chatStreamProvider);
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: isHomeTab || isProfileTab,
-      backgroundColor: isHomeTab ? Colors.black : modernTheme.surfaceColor,
+      extendBodyBehindAppBar: isChannelsTab || isProfileTab,
+      backgroundColor: isChannelsTab ? Colors.black : modernTheme.surfaceColor,
       
-      // Hide AppBar for home and profile tabs
-      appBar: (isHomeTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
+      // Hide AppBar for channels and profile tabs
+      appBar: (isChannelsTab || isProfileTab) ? null : _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Home tab (index 0) - Channels Feed with black background
+          // Inbox tab (index 0) - Chats/Wallet switcher (moved from index 3)
+          _buildInboxContent(modernTheme),
+          // Groups tab (index 1) - Groups/Shops switcher (replaced Dramas)
+          _buildGroupsContent(modernTheme),
+          // Post tab (index 2) - This should never be shown as we navigate directly
+          Container(
+            color: modernTheme.surfaceColor,
+            child: const Center(
+              child: Text('Create Post'),
+            ),
+          ),
+          // Channels tab (index 3) - Channels Feed with black background (moved from index 0)
           Container(
             color: Colors.black,
             child: ChannelsFeedScreen(
@@ -546,20 +718,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               },
             ),
           ),
-          // Dramas tab (index 1) - Short Dramas Screen
-          Container(
-            color: modernTheme.surfaceColor,
-            child: const ShortDramasScreen(),
-          ),
-          // Post tab (index 2) - This should never be shown as we navigate directly
-          Container(
-            color: modernTheme.surfaceColor,
-            child: const Center(
-              child: Text('Create Post'),
-            ),
-          ),
-          // Inbox tab (index 3) - Chats/Wallet switcher
-          _buildInboxContent(modernTheme),
           // Profile tab (index 4)
           const MyProfileScreen(),
         ],
@@ -574,12 +732,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // TikTok-style bottom navigation with video progress indicator
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme, AsyncValue<List<ChatModel>> chatsAsyncValue) {
-    final isHomeTab = _currentIndex == 0;
+    final isChannelsTab = _currentIndex == 3;
     
     return Container(
       decoration: BoxDecoration(
-        color: isHomeTab ? Colors.black : modernTheme.surfaceColor!,
-        border: isHomeTab ? null : Border(
+        color: isChannelsTab ? Colors.black : modernTheme.surfaceColor!,
+        border: isChannelsTab ? null : Border(
           top: BorderSide(
             color: modernTheme.dividerColor!,
             width: 0.5,
@@ -589,8 +747,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Video progress indicator for home tab only
-          if (isHomeTab)
+          // Video progress indicator for channels tab only
+          if (isChannelsTab)
             _buildVideoProgressIndicator(),
           
           // Bottom navigation content
@@ -604,13 +762,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 children: List.generate(5, (index) {
                   if (index == 2) {
                     // Special post button
-                    return _buildPostButton(modernTheme, isHomeTab);
+                    return _buildPostButton(modernTheme, isChannelsTab);
                   }
                   
                   return _buildNavItem(
                     index,
                     modernTheme,
-                    isHomeTab,
+                    isChannelsTab,
                     chatsAsyncValue,
                   );
                 }),
@@ -654,7 +812,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildPostButton(ModernThemeExtension modernTheme, bool isHomeTab) {
+  Widget _buildPostButton(ModernThemeExtension modernTheme, bool isChannelsTab) {
     return GestureDetector(
       onTap: () => _navigateToCreatePost(),
       child: Container(
@@ -725,13 +883,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildNavItem(
     int index,
     ModernThemeExtension modernTheme,
-    bool isHomeTab,
+    bool isChannelsTab,
     AsyncValue<List<ChatModel>> chatsAsyncValue,
   ) {
     final isSelected = _currentIndex == index;
     
-    // Chats tab is at index 3 - show unread count for direct chats only
-    if (index == 3) {
+    // Inbox tab is at index 0 - show unread count for direct chats only
+    if (index == 0) {
       return chatsAsyncValue.when(
         data: (chats) {
           // Only show unread count when on Chats sub-tab, not Wallet
@@ -748,31 +906,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             index, 
             isSelected, 
             modernTheme, 
-            isHomeTab,
+            isChannelsTab,
             chatUnreadCount
           );
         },
-        loading: () => _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab),
-        error: (_, __) => _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab),
+        loading: () => _buildDefaultNavItem(index, isSelected, modernTheme, isChannelsTab),
+        error: (_, __) => _buildDefaultNavItem(index, isSelected, modernTheme, isChannelsTab),
+      );
+    }
+    
+    // Groups tab is at index 1 - show unread count for group chats only
+    if (index == 1) {
+      return chatsAsyncValue.when(
+        data: (chats) {
+          // Only show unread count when on Groups sub-tab, not Shops
+          final shouldShowBadge = _groupsTabIndex == 0;
+          
+          // Calculate unread count from group chats only
+          final groupChats = chats.where((chat) => chat.isGroup).toList();
+          final groupUnreadCount = shouldShowBadge ? groupChats.fold<int>(
+            0, 
+            (sum, chat) => sum + chat.getDisplayUnreadCount()
+          ) : 0;
+          
+          return _buildNavItemWithBadge(
+            index, 
+            isSelected, 
+            modernTheme, 
+            isChannelsTab,
+            groupUnreadCount
+          );
+        },
+        loading: () => _buildDefaultNavItem(index, isSelected, modernTheme, isChannelsTab),
+        error: (_, __) => _buildDefaultNavItem(index, isSelected, modernTheme, isChannelsTab),
       );
     }
     
     // For other tabs, no badge needed
-    return _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab);
+    return _buildDefaultNavItem(index, isSelected, modernTheme, isChannelsTab);
   }
 
   Widget _buildNavItemWithBadge(
     int index,
     bool isSelected,
     ModernThemeExtension modernTheme,
-    bool isHomeTab,
+    bool isChannelsTab,
     int unreadCount,
   ) {
     Color iconColor;
     Color textColor;
     
-    if (isHomeTab) {
-      // Home tab colors
+    if (isChannelsTab) {
+      // Channels tab colors
       iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
       textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
     } else {
@@ -862,13 +1047,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int index,
     bool isSelected,
     ModernThemeExtension modernTheme,
-    bool isHomeTab,
+    bool isChannelsTab,
   ) {
     Color iconColor;
     Color textColor;
     
-    if (isHomeTab) {
-      // Home tab colors
+    if (isChannelsTab) {
+      // Channels tab colors
       iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
       textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
     } else {
@@ -920,16 +1105,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     String title = 'WeiBao';
-    final isDramasTab = _currentIndex == 1;
-    final isInboxTab = _currentIndex == 3;
+    final isGroupsTab = _currentIndex == 1;
+    final isInboxTab = _currentIndex == 0;
     
     // Set title based on current tab
     switch (_currentIndex) {
-      case 1:
-        title = 'Dramas';
-        break;
-      case 3:
+      case 0:
         title = _inboxTabIndex == 0 ? 'Inbox' : 'Wallet';
+        break;
+      case 1:
+        title = _groupsTabIndex == 0 ? 'Groups' : 'Shops';
         break;
       default:
         title = 'WeiBao';
@@ -941,44 +1126,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       scrolledUnderElevation: 0,
       centerTitle: true,
       iconTheme: IconThemeData(color: modernTheme.primaryColor!),
-      title: _currentIndex == 1 || _currentIndex == 3
-          ? _currentIndex == 1
-              ? Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF00A884), Color(0xFF00C49A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF00A884).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                )
-              : Text(
-                  title,
-                  style: TextStyle(
-                    color: modernTheme.textColor!,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                    letterSpacing: -0.3,
-                  ),
-                )
+      title: _currentIndex == 0 || _currentIndex == 1
+          ? Text(
+              title,
+              style: TextStyle(
+                color: modernTheme.textColor!,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                letterSpacing: -0.3,
+              ),
+            )
           : RichText(
               text: TextSpan(
                 children: [
@@ -1004,231 +1161,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
       actions: _currentIndex == 1 ? [
-        // Search icon for dramas tab
-        IconButton(
-          icon: Icon(CupertinoIcons.search, color: modernTheme.primaryColor!),
-          onPressed: () {
-            // Handle search action
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Search dramas')),
-            );
-          },
-        ),
-        // Download icon
-        IconButton(
-          icon: Icon(Icons.download_outlined, color: modernTheme.primaryColor!),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Downloads')),
-            );
-          },
-        ),
-        // Dropdown menu with 3 dots
-        PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert, color: modernTheme.primaryColor!),
-          onSelected: _handleDramasMenuAction,
-          color: modernTheme.surfaceColor,
-          elevation: 8,
-          surfaceTintColor: modernTheme.primaryColor?.withOpacity(0.1),
-          shadowColor: Colors.black.withOpacity(0.2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
-              width: 1,
-            ),
+        // Groups/Shops tab actions
+        if (_groupsTabIndex == 0) ...[
+          // Groups sub-tab actions
+          IconButton(
+            icon: Icon(Icons.search, color: modernTheme.primaryColor!),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Search groups')),
+              );
+            },
           ),
-          position: PopupMenuPosition.under,
-          offset: const Offset(0, 8),
-          itemBuilder: (BuildContext context) => [
-            PopupMenuItem<String>(
-              value: 'search',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.search_outlined,
-                      color: modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Search Dramas',
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'my_list',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.bookmark_outline,
-                      color: modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'My List',
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'downloads',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.download_outlined,
-                      color: modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Downloads',
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'history',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.history,
-                      color: modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Watch History',
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'settings',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.settings_outlined,
-                      color: modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Settings',
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          IconButton(
+            icon: Icon(Icons.group_add, color: modernTheme.primaryColor!),
+            onPressed: () {
+              Navigator.pushNamed(context, Constants.createGroupScreen);
+            },
+          ),
+        ] else ...[
+          // Shops sub-tab actions
+          IconButton(
+            icon: Icon(CupertinoIcons.search, color: modernTheme.primaryColor!),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Search shops')),
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(CupertinoIcons.cart, color: modernTheme.primaryColor!),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Shopping cart')),
+              );
+            },
+          ),
+        ],
         const SizedBox(width: 8),
       ] : isInboxTab ? [
         // Different actions based on the selected inbox tab
         if (_inboxTabIndex == 0) ...[
           // Chats tab actions
-          // Search icon for chats tab
           IconButton(
             icon: Icon(Icons.search, color: modernTheme.primaryColor!),
             onPressed: () {
-              // Handle search action for chats
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Search chats')),
               );
             },
           ),
-          // New chat icon
           IconButton(
             icon: Icon(CupertinoIcons.chat_bubble_2, color: modernTheme.primaryColor!),
             onPressed: () {
               Navigator.pushNamed(context, Constants.contactsScreen);
             },
           ),
-          // Dropdown menu for chats
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, color: modernTheme.primaryColor!),
             onSelected: (String value) {
               switch (value) {
                 case 'new_group':
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Create new group')),
-                  );
+                  Navigator.pushNamed(context, Constants.createGroupScreen);
                   break;
                 case 'new_broadcast':
                   ScaffoldMessenger.of(context).showSnackBar(
