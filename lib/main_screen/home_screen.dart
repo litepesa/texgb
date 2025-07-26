@@ -51,7 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Inbox',      // Index 0 - Chats/Wallet switcher (moved from index 3)
     'Groups',     // Index 1 - Groups/Shops switcher (replaced Dramas)
     '',           // Index 2 - Post (no label, special design)
-    'Channels',   // Index 3 - Channels Feed (moved from index 0, renamed from Home)
+    'Discover',   // Index 3 - Channels Feed (moved from index 0, renamed from Home)
     'Profile'     // Index 4 - Profile
   ];
   
@@ -59,7 +59,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     CupertinoIcons.chat_bubble_2,       // Inbox (Chats)
     Icons.group_outlined,                // Groups
     Icons.add,                          // Post (will be styled specially)
-    Icons.radio_button_on_rounded,      // Channels (changed icon)
+    CupertinoIcons.compass,      // Channels (changed icon)
     Icons.person_outline                // Me/Profile
   ];
 

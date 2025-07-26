@@ -10,6 +10,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_post_screen.dart';
+import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
@@ -176,6 +177,8 @@ class AppRoot extends ConsumerWidget {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
             return ChannelFeedScreen(videoId: videoId);
           },
+
+          Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
           
           Constants.channelProfileScreen: (context) {
             final channelId = ModalRoute.of(context)!.settings.arguments as String;

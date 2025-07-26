@@ -36,6 +36,7 @@ class Constants {
   static const String videoDetailScreen = '/videoDetailScreen';
   static const String videoCommentsScreen = '/videoCommentsScreen';
   static const String userVideosScreen = '/userVideosScreen';
+  static const String recommendedPostsScreen = '/recommendedPostsScreen';
 
   // Channels routes
   static const String channelsFeedScreen = '/channelsFeedScreen';

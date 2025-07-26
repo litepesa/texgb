@@ -17,12 +17,8 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
   
   final List<String> categories = [
     'All',
-    'Fashion',
-    'Electronics',
-    'Beauty',
-    'Food',
-    'Sports',
-    'Home',
+    'Following',
+    'Verified',
   ];
   
   final List<ShopData> shops = [
@@ -31,7 +27,6 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
       category: "Fashion & Style",
       followers: "12.5K",
       isVerified: true,
-      hasFlashSale: true,
       description: "Trendy outfits for the modern woman",
       products: 89,
       rating: 4.8,
@@ -43,7 +38,6 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
       category: "Electronics",
       followers: "8.2K",
       isVerified: true,
-      hasFlashSale: false,
       description: "Latest gadgets & accessories",
       products: 156,
       rating: 4.9,
@@ -55,7 +49,6 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
       category: "Food & Snacks",
       followers: "15.1K",
       isVerified: false,
-      hasFlashSale: true,
       description: "Homemade treats & local delicacies",
       products: 45,
       rating: 4.7,
@@ -67,7 +60,6 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
       category: "Beauty & Care",
       followers: "6.8K",
       isVerified: true,
-      hasFlashSale: false,
       description: "Natural skincare & makeup",
       products: 67,
       rating: 4.6,
@@ -79,7 +71,6 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
       category: "Sports & Fitness",
       followers: "4.3K",
       isVerified: false,
-      hasFlashSale: true,
       description: "Quality gym equipment & supplements",
       products: 78,
       rating: 4.5,
@@ -91,7 +82,6 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
       category: "Home & Living",
       followers: "9.7K",
       isVerified: true,
-      hasFlashSale: false,
       description: "Everything for your perfect home",
       products: 134,
       rating: 4.8,
@@ -103,7 +93,6 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
       category: "Fashion & Style",
       followers: "7.1K",
       isVerified: false,
-      hasFlashSale: false,
       description: "Urban streetwear and accessories",
       products: 52,
       rating: 4.4,
@@ -115,7 +104,6 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
       category: "Food & Snacks",
       followers: "11.3K",
       isVerified: true,
-      hasFlashSale: false,
       description: "Fresh organic produce and groceries",
       products: 92,
       rating: 4.7,
@@ -126,7 +114,15 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
 
   List<ShopData> get filteredShops {
     if (_selectedCategory == 'All') return shops;
-    return shops.where((shop) => shop.category.contains(_selectedCategory)).toList();
+    if (_selectedCategory == 'Verified') {
+      return shops.where((shop) => shop.isVerified).toList();
+    }
+    if (_selectedCategory == 'Following') {
+      // For demo purposes, return shops with followers > 10K
+      // In real implementation, this would filter based on user's following list
+      return shops.where((shop) => double.parse(shop.followers.replaceAll('K', '')) > 10).toList();
+    }
+    return shops;
   }
 
   @override
@@ -167,32 +163,6 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
               ),
             ),
           ),
-
-          // Flash sale shops indicator
-          if (filteredShops.any((shop) => shop.hasFlashSale))
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.red[50],
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.flash_on,
-                    color: Colors.red[600],
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${filteredShops.where((shop) => shop.hasFlashSale).length} Shops have Flash sales',
-                    style: TextStyle(
-                      color: Colors.red[700],
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
           // Shops list
           Expanded(
@@ -270,51 +240,23 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
         child: Row(
           children: [
             // Shop avatar
-            Stack(
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: shop.profileColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: shop.hasFlashSale ? Colors.red : Colors.transparent,
-                      width: shop.hasFlashSale ? 2 : 0,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      shop.name[0],
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: shop.profileColor,
-                      ),
-                    ),
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: shop.profileColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  shop.name[0],
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: shop.profileColor,
                   ),
                 ),
-                // Flash sale indicator
-                if (shop.hasFlashSale)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: theme.surfaceColor!, width: 2),
-                      ),
-                      child: const Icon(
-                        Icons.flash_on,
-                        color: Colors.white,
-                        size: 8,
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
             
             const SizedBox(width: 12),
@@ -377,46 +319,13 @@ class _ShopsListScreenState extends State<ShopsListScreen> {
               ),
             ),
             
-            // Right side - Time and status
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  shop.lastUpdate,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.textTertiaryColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (shop.hasFlashSale)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.flash_on,
-                          color: Colors.white,
-                          size: 8,
-                        ),
-                        SizedBox(width: 2),
-                        Text(
-                          'SALE',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+            // Right side - Time
+            Text(
+              shop.lastUpdate,
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.textTertiaryColor,
+              ),
             ),
           ],
         ),
@@ -430,7 +339,6 @@ class ShopData {
   final String category;
   final String followers;
   final bool isVerified;
-  final bool hasFlashSale;
   final String description;
   final int products;
   final double rating;
@@ -442,7 +350,6 @@ class ShopData {
     required this.category,
     required this.followers,
     required this.isVerified,
-    required this.hasFlashSale,
     required this.description,
     required this.products,
     required this.rating,
