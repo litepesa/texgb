@@ -39,6 +39,7 @@ import 'package:textgb/models/user_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
+
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
 
@@ -169,7 +170,16 @@ class AppRoot extends ConsumerWidget {
               group: args['group'] as GroupModel,
             );
           },
-          Constants.channelsFeedScreen: (context) => const ChannelsFeedScreen(),
+          
+          // Channel routes with enhanced navigation support
+          Constants.channelsFeedScreen: (context) {
+            final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+            return ChannelsFeedScreen(
+              startVideoId: args?['startVideoId'] as String?,
+              channelId: args?['channelId'] as String?,
+            );
+          },
+          Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
           Constants.createChannelScreen: (context) => const CreateChannelScreen(),
           Constants.myChannelScreen: (context) => const MyChannelScreen(),
           Constants.createChannelPostScreen: (context) => const CreatePostScreen(),
@@ -177,8 +187,6 @@ class AppRoot extends ConsumerWidget {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
             return ChannelFeedScreen(videoId: videoId);
           },
-
-          Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
           
           Constants.channelProfileScreen: (context) {
             final channelId = ModalRoute.of(context)!.settings.arguments as String;

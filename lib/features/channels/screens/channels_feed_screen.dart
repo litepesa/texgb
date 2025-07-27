@@ -19,10 +19,14 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 class ChannelsFeedScreen extends ConsumerStatefulWidget {
   final Function(double)? onVideoProgressChanged;
+  final String? startVideoId; // For direct video navigation
+  final String? channelId; // For channel-specific filtering (optional)
 
   const ChannelsFeedScreen({
     Key? key,
     this.onVideoProgressChanged,
+    this.startVideoId,
+    this.channelId,
   }) : super(key: key);
 
   @override
@@ -256,6 +260,11 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           _isFirstLoad = false;
         });
         
+        // If a specific video ID was provided, jump to it
+        if (widget.startVideoId != null) {
+          _jumpToVideo(widget.startVideoId!);
+        }
+        
         _progressController.forward();
         
         if (_isScreenActive && _isAppInForeground && !_isNavigatingAway) {
@@ -266,6 +275,32 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           });
         }
       }
+    }
+  }
+
+  // Add this method to jump to a specific video
+  void _jumpToVideo(String videoId) {
+    final videos = ref.read(channelVideosProvider).videos;
+    final videoIndex = videos.indexWhere((video) => video.id == videoId);
+    
+    if (videoIndex != -1) {
+      debugPrint('ChannelsFeedScreen: Jumping to video at index $videoIndex');
+      
+      // Use a delay to ensure the PageView is ready and videos are loaded
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && _pageController.hasClients) {
+          _pageController.jumpToPage(videoIndex);
+          
+          // Update the current video index
+          setState(() {
+            _currentVideoIndex = videoIndex;
+          });
+          
+          debugPrint('ChannelsFeedScreen: Successfully jumped to video $videoId at index $videoIndex');
+        }
+      });
+    } else {
+      debugPrint('ChannelsFeedScreen: Video with ID $videoId not found in list');
     }
   }
 
