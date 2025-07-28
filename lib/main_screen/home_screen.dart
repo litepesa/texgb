@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
+import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
@@ -31,9 +32,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
   
-  // Enhanced theme management for shops tab
-  ThemeOption? _originalThemeBeforeShops;
-  bool _wasInShopsMode = false;
+  // Enhanced theme management for channels tab
+  ThemeOption? _originalThemeBeforeChannels;
+  bool _wasInChannelsMode = false;
   
   // Video progress tracking
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
@@ -41,7 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<String> _tabNames = [
     'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
-    'Shop',      // Index 1 - Shops List
+    'Channels',  // Index 1 - Channels List
     '',          // Index 2 - Post (no label, special design)
     'Wallet',    // Index 3 - Wallet 
     'Profile'    // Index 4 - Profile
@@ -49,7 +50,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<IconData> _tabIcons = [
     Icons.home,                        // Home
-    Icons.shopping_bag_outlined,       // Shop
+    Icons.video_library_outlined,      // Channels
     Icons.add,                         // Post (will be styled specially)
     Icons.account_balance_wallet_outlined, // Wallet
     Icons.person_outline               // Me/Profile
@@ -72,9 +73,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _initializeThemeState() {
     final currentThemeState = ref.read(themeManagerNotifierProvider).valueOrNull;
     if (currentThemeState != null) {
-      // Reset any shops mode flags on app start
-      _originalThemeBeforeShops = null;
-      _wasInShopsMode = false;
+      // Reset any channels mode flags on app start
+      _originalThemeBeforeChannels = null;
+      _wasInChannelsMode = false;
     }
   }
 
@@ -97,7 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Store previous index for navigation management
     _previousIndex = _currentIndex;
     
-    // Handle theme switching for shops tab
+    // Handle theme switching for channels tab
     _handleThemeForTab(index);
     
     // Handle feed screen lifecycle
@@ -151,58 +152,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
   
-  /// Enhanced theme handling when entering/leaving shops tab
+  /// Enhanced theme handling when entering/leaving channels tab
   void _handleThemeForTab(int newIndex) {
     final themeManager = ref.read(themeManagerNotifierProvider.notifier);
     final currentThemeState = ref.read(themeManagerNotifierProvider).valueOrNull;
     
     if (currentThemeState == null) return;
     
-    // Entering shops tab (index 1)
+    // Entering channels tab (index 1)
     if (newIndex == 1 && _currentIndex != 1) {
-      _enterShopsMode(themeManager, currentThemeState);
+      _enterChannelsMode(themeManager, currentThemeState);
     }
-    // Leaving shops tab
+    // Leaving channels tab
     else if (_currentIndex == 1 && newIndex != 1) {
-      _exitShopsMode(themeManager);
+      _exitChannelsMode(themeManager);
     }
   }
   
-  void _enterShopsMode(ThemeManagerNotifier themeManager, ThemeState currentThemeState) {
+  void _enterChannelsMode(ThemeManagerNotifier themeManager, ThemeState currentThemeState) {
     // Only change theme if not already in light mode or if it's a temporary override
     if (currentThemeState.currentTheme != ThemeOption.light || currentThemeState.isTemporaryOverride) {
       // Store the user's actual theme preference before switching
-      _originalThemeBeforeShops = themeManager.userThemePreference ?? currentThemeState.currentTheme;
-      _wasInShopsMode = true;
+      _originalThemeBeforeChannels = themeManager.userThemePreference ?? currentThemeState.currentTheme;
+      _wasInChannelsMode = true;
       
-      debugPrint('Entering shops mode. User preference: $_originalThemeBeforeShops');
+      debugPrint('Entering channels mode. User preference: $_originalThemeBeforeChannels');
       
-      // Switch to light theme temporarily for shops
+      // Switch to light theme temporarily for channels
       themeManager.setTemporaryTheme(ThemeOption.light);
     } else {
-      // Already in light mode, just mark that we're in shops mode
-      _wasInShopsMode = true;
-      _originalThemeBeforeShops = null;
-      debugPrint('Already in light mode when entering shops');
+      // Already in light mode, just mark that we're in channels mode
+      _wasInChannelsMode = true;
+      _originalThemeBeforeChannels = null;
+      debugPrint('Already in light mode when entering channels');
     }
   }
   
-  void _exitShopsMode(ThemeManagerNotifier themeManager) {
-    if (_wasInShopsMode) {
-      debugPrint('Exiting shops mode. User preference was: $_originalThemeBeforeShops');
+  void _exitChannelsMode(ThemeManagerNotifier themeManager) {
+    if (_wasInChannelsMode) {
+      debugPrint('Exiting channels mode. User preference was: $_originalThemeBeforeChannels');
       
-      // Always restore user's theme when leaving shops
+      // Always restore user's theme when leaving channels
       themeManager.restoreUserTheme();
       
-      // Reset shops mode state
-      _originalThemeBeforeShops = null;
-      _wasInShopsMode = false;
+      // Reset channels mode state
+      _originalThemeBeforeChannels = null;
+      _wasInChannelsMode = false;
     }
   }
   
   void _restoreOriginalThemeIfNeeded() {
-    // Only restore if we were in shops mode
-    if (_wasInShopsMode) {
+    // Only restore if we were in channels mode
+    if (_wasInChannelsMode) {
       final themeManager = ref.read(themeManagerNotifierProvider.notifier);
       themeManager.restoreUserTheme();
       debugPrint('Restored user theme on dispose');
@@ -278,7 +279,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Only process page changes that aren't from programmatic jumps
     if (_isPageAnimating) return;
     
-    // Handle theme switching for shops tab
+    // Handle theme switching for channels tab
     _handleThemeForTab(index);
     
     // Handle feed screen lifecycle
@@ -352,115 +353,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  // Handle shops dropdown menu actions
-  void _handleShopsMenuAction(String action) {
+  // Handle channels dropdown menu actions
+  void _handleChannelsMenuAction(String action) {
     switch (action) {
-      case 'search':
-        // Navigate to shop search
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Search Shops')),
-        );
-        break;
-      case 'my_shop':
-        // Navigate to my shop
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('My Shop')),
-        );
-        break;
-      case 'wishlist':
-        // Show wishlist
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('My Wishlist')),
-        );
-        break;
-      case 'create':
-        // Navigate to create shop
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Create Shop')),
-        );
-        break;
-      case 'cart':
-        // Navigate to shopping cart
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Shopping Cart')),
-        );
+      case 'my_channel':
+        // Navigate to my channel
+        Navigator.pushNamed(context, Constants.myChannelScreen);
         break;
     }
-  }
-
-  void _showShopCategoriesBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final modernTheme = context.modernTheme;
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: BoxDecoration(
-            color: modernTheme.surfaceColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: modernTheme.dividerColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text(
-                  'Shop Categories',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: modernTheme.textColor,
-                  ),
-                ),
-              ),
-              // Categories list
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [
-                    'Fashion',
-                    'Electronics',
-                    'Beauty',
-                    'Food',
-                    'Sports',
-                    'Home',
-                    'Books',
-                    'Jewelry',
-                  ].map((category) => ListTile(
-                    leading: Icon(
-                      Icons.shopping_bag_outlined,
-                      color: modernTheme.primaryColor,
-                    ),
-                    title: Text(
-                      category,
-                      style: TextStyle(color: modernTheme.textColor),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Selected: $category')),
-                      );
-                    },
-                  )).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -469,7 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 4;
-    final isShopsTab = _currentIndex == 1;
+    final isChannelsTab = _currentIndex == 1;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -495,13 +395,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               },
             ),
           ),
-          // Shop tab (index 1) - Always uses light theme
+          // Channels tab (index 1) - Always uses light theme
           Container(
             color: modernTheme.backgroundColor,
             child: Theme(
-              // Force light theme for shops screen
+              // Force light theme for channels screen
               data: modernLightTheme(),
-              child: const ShopsListScreen(),
+              child: const ChannelsListScreen(),
             ),
           ),
           // Post tab (index 2) - This should never be shown as we navigate directly
@@ -532,17 +432,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // TikTok-style bottom navigation with video progress indicator
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
     final isHomeTab = _currentIndex == 0;
-    final isShopsTab = _currentIndex == 1;
+    final isChannelsTab = _currentIndex == 1;
     
-    // For shops tab, use light theme colors for bottom nav
+    // For channels tab, use light theme colors for bottom nav
     Color backgroundColor;
     Color? borderColor;
     
     if (isHomeTab) {
       backgroundColor = Colors.black;
       borderColor = null;
-    } else if (isShopsTab) {
-      // Light theme colors for shops tab
+    } else if (isChannelsTab) {
+      // Light theme colors for channels tab
       backgroundColor = const Color(0xFFFFFFFF); // Light surface
       borderColor = const Color(0xFFE0E0E0); // Light border
     } else {
@@ -585,7 +485,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     index,
                     modernTheme,
                     isHomeTab,
-                    isShopsTab,
+                    isChannelsTab,
                   );
                 }),
               ),
@@ -700,7 +600,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int index,
     ModernThemeExtension modernTheme,
     bool isHomeTab,
-    bool isShopsTab,
+    bool isChannelsTab,
   ) {
     final isSelected = _currentIndex == index;
     
@@ -711,8 +611,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // Home tab colors
       iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
       textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-    } else if (isShopsTab) {
-      // Shops tab - use light theme colors
+    } else if (isChannelsTab) {
+      // Channels tab - use light theme colors
       const lightPrimary = Color(0xFF00A884);
       const lightSecondary = Color(0xFF6A6A6A);
       iconColor = isSelected ? lightPrimary : lightSecondary;
@@ -755,12 +655,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     String title = 'WeiBao';
-    final isShopsTab = _currentIndex == 1;
+    final isChannelsTab = _currentIndex == 1;
     
     // Set title based on current tab
     switch (_currentIndex) {
       case 1:
-        title = 'Shop';
+        title = 'Channels';
         break;
       case 3:
         title = 'Wallet';
@@ -769,12 +669,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         title = 'WeiBao';
     }
 
-    // For shops tab, use light theme colors for app bar
+    // For channels tab, use light theme colors for app bar
     Color appBarColor;
     Color textColor;
     Color iconColor;
     
-    if (isShopsTab) {
+    if (isChannelsTab) {
       appBarColor = const Color(0xFFFFFFFF); // Light surface
       textColor = const Color(0xFF121212); // Dark text
       iconColor = const Color(0xFF00A884); // Light theme primary
@@ -853,37 +753,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
       actions: _currentIndex == 1 ? [
-        // Search icon for shops tab
+        // Search icon for channels tab
         IconButton(
           icon: Icon(CupertinoIcons.search, color: iconColor),
           onPressed: () {
             // Handle search action
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Search shops')),
-            );
-          },
-        ),
-        // Shopping cart icon
-        IconButton(
-          icon: Icon(Icons.shopping_cart_outlined, color: iconColor),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Shopping Cart')),
+              const SnackBar(content: Text('Search channels')),
             );
           },
         ),
         // Dropdown menu with 3 dots
         PopupMenuButton<String>(
           icon: Icon(Icons.more_vert, color: iconColor),
-          onSelected: _handleShopsMenuAction,
-          color: isShopsTab ? const Color(0xFFFFFFFF) : modernTheme.surfaceColor,
+          onSelected: _handleChannelsMenuAction,
+          color: isChannelsTab ? const Color(0xFFFFFFFF) : modernTheme.surfaceColor,
           elevation: 8,
           surfaceTintColor: modernTheme.primaryColor?.withOpacity(0.1),
           shadowColor: Colors.black.withOpacity(0.2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: isShopsTab 
+              color: isChannelsTab 
                 ? const Color(0xFFE0E0E0).withOpacity(0.2)
                 : modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
               width: 1,
@@ -893,7 +784,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           offset: const Offset(0, 8),
           itemBuilder: (BuildContext context) => [
             PopupMenuItem<String>(
-              value: 'search',
+              value: 'my_channel',
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -902,154 +793,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: isShopsTab 
+                      color: isChannelsTab 
                         ? const Color(0xFF00A884).withOpacity(0.1)
                         : modernTheme.primaryColor?.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.search_outlined,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
+                      Icons.video_camera_back_outlined,
+                      color: isChannelsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Text(
-                    'Search Shops',
+                    'My Channel',
                     style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'my_shop',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isShopsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.storefront_outlined,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'My Shop',
-                    style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'wishlist',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isShopsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.favorite_outline,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'My Wishlist',
-                    style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'create',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isShopsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.add_business_outlined,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Create Shop',
-                    style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'cart',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isShopsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.shopping_cart_outlined,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Shopping Cart',
-                    style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
+                      color: isChannelsTab ? const Color(0xFF121212) : modernTheme.textColor,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1066,7 +825,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: Container(
           height: 0.5,
           width: double.infinity,
-          color: isShopsTab ? const Color(0xFFE0E0E0) : modernTheme.dividerColor,
+          color: isChannelsTab ? const Color(0xFFE0E0E0) : modernTheme.dividerColor,
         ),
       ),
     );

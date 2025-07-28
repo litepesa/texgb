@@ -509,8 +509,8 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             child: _buildBody(channelVideosState, channelsState),
           ),
           
-          // Clean top floating icons - back and search
-          _buildTopFloatingIcons(),
+          // Top navigation tabs and search
+          _buildTopNavigationBar(),
           
           // TikTok-style right side menu
           _buildRightSideMenu(),
@@ -518,7 +518,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           // Cache performance indicator (debug mode only)
           if (kDebugMode)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 60,
+              top: MediaQuery.of(context).padding.top + 120,
               left: 16,
               child: _buildCacheDebugInfo(),
             ),
@@ -556,22 +556,27 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // Clean top floating icons - back and search
-  Widget _buildTopFloatingIcons() {
+  // New top navigation bar with tabs and search
+  Widget _buildTopNavigationBar() {
     return Positioned(
       top: MediaQuery.of(context).padding.top + 16,
-      left: 20,
-      right: 20,
+      left: 16,
+      right: 16,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Back button on the left
-          GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: const Icon(
-              CupertinoIcons.chevron_left,
-              color: Colors.white,
-              size: 28,
+          // Navigation tabs - centered
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildNavTab('SHOP', 'Shop'),
+                const SizedBox(width: 24),
+                _buildNavTab('Series', 'Series'),
+                const SizedBox(width: 24),
+                _buildNavTab('Following', 'Following'),
+                const SizedBox(width: 24),
+                _buildNavTab('For You', 'For You'),
+              ],
             ),
           ),
           
@@ -589,6 +594,58 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildNavTab(String title, String value) {
+    final isSelected = _selectedFeedType == value;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedFeedType = value;
+        });
+        // TODO: Filter feed based on selected type
+        _loadVideosForFeedType(value);
+      },
+      child: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+          fontSize: 16,
+          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+          shadows: [
+            Shadow(
+              color: Colors.black.withOpacity(0.7),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Method to load videos based on feed type
+  void _loadVideosForFeedType(String feedType) {
+    // TODO: Implement different loading logic based on feed type
+    switch (feedType) {
+      case 'For You':
+        // Load personalized feed
+        ref.read(channelVideosProvider.notifier).loadVideos();
+        break;
+      case 'Following':
+        // Load videos from followed channels
+        ref.read(channelVideosProvider.notifier).loadVideos();//.loadFollowingVideos();
+        break;
+      case 'Shop':
+        // Load shopping/product videos
+        ref.read(channelVideosProvider.notifier).loadVideos();//.loadShopVideos();
+        break;
+      case 'Series':
+        // Load series content
+        ref.read(channelVideosProvider.notifier).loadVideos();//.loadSeriesVideos();
+        break;
+    }
   }
 
   // Show feed options menu with the previous options

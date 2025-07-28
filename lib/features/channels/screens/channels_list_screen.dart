@@ -23,7 +23,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
   final List<String> categories = [
     'All',
     'Following',
-    'Featured',
+    'Shopping',
   ];
 
   @override
@@ -47,39 +47,18 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             .where((channel) => followedChannels.contains(channel.id))
             .toList();
         break;
-      case 'Featured':
-        channels = channelsState.channels
-            .where((channel) => channel.isFeatured)
-            .toList();
+      case 'Shopping':
+        // For now, return empty list since this feature is not active yet
+        channels = [];
         break;
       default: // 'All'
         channels = channelsState.channels;
         break;
     }
 
-    // Always put user's channel first if it exists and matches the filter
+    // Always filter out user's own channel
     if (userChannel != null) {
-      // Remove user channel if it exists in the list
       channels.removeWhere((channel) => channel.id == userChannel.id);
-      
-      // Check if user channel should be included based on current filter
-      bool shouldIncludeUserChannel = false;
-      switch (_selectedCategory) {
-        case 'Following':
-          // Don't show user's own channel in following
-          shouldIncludeUserChannel = false;
-          break;
-        case 'Featured':
-          shouldIncludeUserChannel = userChannel.isFeatured;
-          break;
-        default: // 'All'
-          shouldIncludeUserChannel = true;
-          break;
-      }
-      
-      if (shouldIncludeUserChannel) {
-        channels.insert(0, userChannel);
-      }
     }
     
     return channels;
@@ -150,7 +129,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                 itemBuilder: (context, index) {
                   final category = categories[index];
                   final isSelected = _selectedCategory == category;
-                  return _buildCategoryTab(category, isSelected);
+                  final isActive = category != 'Shopping'; // Only All and Following are active
+                  return _buildCategoryTab(category, isSelected, isActive);
                 },
               ),
             ),
@@ -251,7 +231,9 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             Icon(
               _selectedCategory == 'Following' 
                 ? Icons.favorite_outline 
-                : Icons.video_library_outlined,
+                : _selectedCategory == 'Shopping'
+                  ? Icons.shopping_bag_outlined
+                  : Icons.video_library_outlined,
               color: theme.textTertiaryColor,
               size: 64,
             ),
@@ -259,7 +241,9 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             Text(
               _selectedCategory == 'Following' 
                 ? 'No followed channels'
-                : 'No channels available',
+                : _selectedCategory == 'Shopping'
+                  ? 'Shopping channels coming soon'
+                  : 'No channels available',
               style: TextStyle(
                 color: theme.textSecondaryColor,
                 fontSize: 18,
@@ -270,13 +254,15 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             Text(
               _selectedCategory == 'Following'
                 ? 'Follow channels to see them here'
-                : 'Check back later for new channels',
+                : _selectedCategory == 'Shopping'
+                  ? 'Verified shopping channels will appear here'
+                  : 'Check back later for new channels',
               style: TextStyle(
                 color: theme.textTertiaryColor,
                 fontSize: 14,
               ),
             ),
-            if (_selectedCategory != 'Following') ...[
+            if (_selectedCategory == 'All') ...[
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
@@ -299,23 +285,22 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
         itemCount: channels.length,
         itemBuilder: (context, index) {
           final channel = channels[index];
-          final isUserChannel = channelsState.userChannel?.id == channel.id;
-          return _buildChannelListItem(channel, isUserChannel, index == 0 && isUserChannel);
+          return _buildChannelListItem(channel);
         },
       ),
     );
   }
 
-  Widget _buildCategoryTab(String category, bool isSelected) {
+  Widget _buildCategoryTab(String category, bool isSelected, bool isActive) {
     final theme = context.modernTheme;
     final modernTheme = context.modernTheme;
     
     return GestureDetector(
-      onTap: () {
+      onTap: isActive ? () {
         setState(() {
           _selectedCategory = category;
         });
-      },
+      } : null,
       child: Container(
         margin: const EdgeInsets.only(right: 24),
         padding: const EdgeInsets.only(bottom: 8),
@@ -327,237 +312,202 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             ),
           ),
         ),
-        child: Text(
-          category,
-          style: TextStyle(
-            color: isSelected ? modernTheme.primaryColor : theme.textSecondaryColor,
-            fontSize: 15,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              category,
+              style: TextStyle(
+                color: isActive 
+                  ? (isSelected ? modernTheme.primaryColor : theme.textSecondaryColor)
+                  : theme.textTertiaryColor,
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+            // Add verified badge for Shopping tab
+            if (category == 'Shopping') ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.verified,
+                color: isActive 
+                  ? (isSelected ? modernTheme.primaryColor : theme.textSecondaryColor)
+                  : theme.textTertiaryColor,
+                size: 16,
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildChannelListItem(ChannelModel channel, bool isUserChannel, bool isFirstUserChannel) {
+  Widget _buildChannelListItem(ChannelModel channel) {
     final followedChannels = ref.watch(channelsProvider).followedChannels;
     final isFollowing = followedChannels.contains(channel.id);
     final theme = context.modernTheme;
 
-    return Column(
-      children: [
-        // Add "My Channel" section header for user's channel when it's first
-        if (isFirstUserChannel && _selectedCategory == 'All')
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Text(
-              'My Channel',
-              style: TextStyle(
-                color: theme.textSecondaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        
-        // Add "Other Channels" section header when user channel exists and we're showing the second item
-        if (_selectedCategory == 'All' && 
-            ref.watch(channelsProvider).userChannel != null && 
-            !isUserChannel && 
-            filteredChannels.length > 1 &&
-            filteredChannels.indexOf(channel) == 1)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Text(
-              'Other Channels',
-              style: TextStyle(
-                color: theme.textSecondaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-
-        InkWell(
-          onTap: () async {
-            if (isUserChannel) {
-              Navigator.pushNamed(context, Constants.myChannelScreen);
-            } else {
-              // Navigate to channel feed for other channels
-              await _navigateToChannelFeed(channel);
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
+    return InkWell(
+      onTap: () async {
+        // Navigate to channel feed for all channels
+        await _navigateToChannelFeed(channel);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // Channel avatar
+            Stack(
               children: [
-                // Channel avatar with WhatsApp-style ring for user's channel
-                Stack(
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isUserChannel 
-                              ? theme.primaryColor! 
-                              : channel.isFeatured 
-                                  ? Colors.blue 
-                                  : Colors.transparent,
-                          width: isUserChannel ? 3 : (channel.isFeatured ? 2 : 0),
-                        ),
-                      ),
-                      child: Container(
-                        margin: EdgeInsets.all(isUserChannel ? 3 : 0),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
-                          child: channel.profileImage.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: channel.profileImage,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(
-                                    color: theme.surfaceVariantColor,
-                                    child: Icon(
-                                      Icons.video_library,
-                                      color: theme.textTertiaryColor,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  errorWidget: (context, url, error) => Container(
-                                    color: theme.surfaceVariantColor,
-                                    child: Center(
-                                      child: Text(
-                                        channel.name.isNotEmpty ? channel.name[0].toUpperCase() : 'C',
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w600,
-                                          color: theme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : Container(
-                                  color: theme.surfaceVariantColor,
-                                  child: Center(
-                                    child: Text(
-                                      channel.name.isNotEmpty ? channel.name[0].toUpperCase() : 'C',
-                                      style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w600,
-                                        color: theme.textSecondaryColor,
-                                      ),
-                                    ),
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: channel.isFeatured ? Colors.blue : Colors.transparent,
+                      width: channel.isFeatured ? 2 : 0,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: channel.profileImage.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: channel.profileImage,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: theme.surfaceVariantColor,
+                              child: Icon(
+                                Icons.video_library,
+                                color: theme.textTertiaryColor,
+                                size: 24,
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: theme.surfaceVariantColor,
+                              child: Center(
+                                child: Text(
+                                  channel.name.isNotEmpty ? channel.name[0].toUpperCase() : 'C',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.textSecondaryColor,
                                   ),
                                 ),
-                        ),
-                      ),
-                    ),
-                    
-                    // Featured indicator (only for non-user channels)
-                    if (channel.isFeatured && !isUserChannel)
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: theme.surfaceColor!, width: 2),
-                          ),
-                          child: const Icon(
-                            Icons.star,
-                            color: Colors.white,
-                            size: 10,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                
-                const SizedBox(width: 12),
-                
-                // Channel info - simplified
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Channel name and verification
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              isUserChannel ? 'My Channel' : channel.name,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: theme.textColor,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            ),
+                          )
+                        : Container(
+                            color: theme.surfaceVariantColor,
+                            child: Center(
+                              child: Text(
+                                channel.name.isNotEmpty ? channel.name[0].toUpperCase() : 'C',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.textSecondaryColor,
+                                ),
+                              ),
                             ),
                           ),
-                          if (channel.isVerified) ...[
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.verified,
-                              color: Colors.blue,
-                              size: 16,
-                            ),
-                          ],
-                        ],
-                      ),
-                      
-                      const SizedBox(height: 4),
-                      
-                      // Just followers count
-                      Text(
-                        '${_formatCount(channel.followers)} followers',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: theme.textSecondaryColor,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
                 
-                // Follow button (hidden for user's own channel)
-                if (!isUserChannel)
-                  GestureDetector(
-                    onTap: () {
-                      ref.read(channelsProvider.notifier).toggleFollowChannel(channel.id);
-                    },
+                // Featured indicator
+                if (channel.isFeatured)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      width: 18,
+                      height: 18,
                       decoration: BoxDecoration(
-                        color: isFollowing ? theme.surfaceVariantColor : theme.primaryColor,
-                        borderRadius: BorderRadius.circular(20),
-                        border: isFollowing ? Border.all(color: theme.borderColor!) : null,
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: theme.surfaceColor!, width: 2),
                       ),
-                      child: Text(
-                        isFollowing ? 'Following' : 'Follow',
-                        style: TextStyle(
-                          color: isFollowing ? theme.textSecondaryColor : Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: const Icon(
+                        Icons.star,
+                        color: Colors.white,
+                        size: 10,
                       ),
                     ),
                   ),
               ],
             ),
-          ),
+            
+            const SizedBox(width: 12),
+            
+            // Channel info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Channel name and verification
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          channel.name,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: theme.textColor,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (channel.isVerified) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.verified,
+                          color: Colors.blue,
+                          size: 16,
+                        ),
+                      ],
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 4),
+                  
+                  // Followers count
+                  Text(
+                    '${_formatCount(channel.followers)} followers',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Follow button
+            GestureDetector(
+              onTap: () {
+                ref.read(channelsProvider.notifier).toggleFollowChannel(channel.id);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isFollowing ? theme.surfaceVariantColor : theme.primaryColor,
+                  borderRadius: BorderRadius.circular(20),
+                  border: isFollowing ? Border.all(color: theme.borderColor!) : null,
+                ),
+                child: Text(
+                  isFollowing ? 'Following' : 'Follow',
+                  style: TextStyle(
+                    color: isFollowing ? theme.textSecondaryColor : Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
