@@ -23,7 +23,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
   final List<String> categories = [
     'All',
     'Following',
-    'Shopping',
+    'SHOP',
   ];
 
   @override
@@ -47,7 +47,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             .where((channel) => followedChannels.contains(channel.id))
             .toList();
         break;
-      case 'Shopping':
+      case 'SHOP':
         // For now, return empty list since this feature is not active yet
         channels = [];
         break;
@@ -129,7 +129,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                 itemBuilder: (context, index) {
                   final category = categories[index];
                   final isSelected = _selectedCategory == category;
-                  final isActive = category != 'Shopping'; // Only All and Following are active
+                  final isActive = category != 'SHOP'; // Only All and Following are active
                   return _buildCategoryTab(category, isSelected, isActive);
                 },
               ),
@@ -231,7 +231,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             Icon(
               _selectedCategory == 'Following' 
                 ? Icons.favorite_outline 
-                : _selectedCategory == 'Shopping'
+                : _selectedCategory == 'SHOP'
                   ? Icons.shopping_bag_outlined
                   : Icons.video_library_outlined,
               color: theme.textTertiaryColor,
@@ -241,7 +241,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             Text(
               _selectedCategory == 'Following' 
                 ? 'No followed channels'
-                : _selectedCategory == 'Shopping'
+                : _selectedCategory == 'SHOP'
                   ? 'Shopping channels coming soon'
                   : 'No channels available',
               style: TextStyle(
@@ -254,7 +254,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             Text(
               _selectedCategory == 'Following'
                 ? 'Follow channels to see them here'
-                : _selectedCategory == 'Shopping'
+                : _selectedCategory == 'SHOP'
                   ? 'Verified shopping channels will appear here'
                   : 'Check back later for new channels',
               style: TextStyle(
@@ -325,8 +325,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
-            // Add verified badge for Shopping tab
-            if (category == 'Shopping') ...[
+            // Add verified badge for SHOP tab
+            if (category == 'SHOP') ...[
               const SizedBox(width: 4),
               Icon(
                 Icons.verified,
@@ -471,11 +471,34 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                   
                   const SizedBox(height: 4),
                   
-                  // Followers count
+                  // First line: Videos count and time ago
+                  Row(
+                    children: [
+                      Text(
+                        '${channel.videosCount} videos',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.textSecondaryColor,
+                        ),
+                      ),
+                      const Text(' • ', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      Text(
+                        _formatTimeAgo(channel.createdAt.toDate()),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.textSecondaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 2),
+                  
+                  // Second line: Followers count
                   Text(
                     '${_formatCount(channel.followers)} followers',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       color: theme.textSecondaryColor,
                     ),
                   ),
@@ -518,6 +541,24 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
       return '${(count / 1000).toStringAsFixed(1)}K';
     } else {
       return '${(count / 1000000).toStringAsFixed(1)}M';
+    }
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 30) {
+      final months = (difference.inDays / 30).floor();
+      return '$months month${months == 1 ? '' : 's'} ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
     }
   }
 }
