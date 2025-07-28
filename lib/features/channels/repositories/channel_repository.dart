@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
 import '../models/channel_model.dart';
 import '../models/channel_video_model.dart';
 
@@ -165,6 +166,7 @@ class FirebaseChannelRepository implements ChannelRepository {
         tags: tags ?? [],
         followerUIDs: [],
         createdAt: Timestamp.now(),
+        lastPostAt: null, // No posts yet when creating channel
         isActive: true,
         isFeatured: false,
       );
@@ -371,6 +373,8 @@ class FirebaseChannelRepository implements ChannelRepository {
   }) async {
     try {
       final videoId = _generateId();
+      final now = Timestamp.now();
+      
       final video = ChannelVideoModel(
         id: videoId,
         channelId: channelId,
@@ -386,7 +390,7 @@ class FirebaseChannelRepository implements ChannelRepository {
         shares: 0,
         isLiked: false,
         tags: tags ?? [],
-        createdAt: Timestamp.now(),
+        createdAt: now,
         isActive: true,
         isFeatured: false,
         isMultipleImages: false,
@@ -398,9 +402,10 @@ class FirebaseChannelRepository implements ChannelRepository {
           .doc(videoId)
           .set(video.toMap());
 
-      // Update channel's video count
+      // Update channel's video count AND lastPostAt
       await _firestore.collection(_channelsCollection).doc(channelId).update({
         'videosCount': FieldValue.increment(1),
+        'lastPostAt': now, // Update last post timestamp
       });
 
       return video;
@@ -421,6 +426,8 @@ class FirebaseChannelRepository implements ChannelRepository {
   }) async {
     try {
       final postId = _generateId();
+      final now = Timestamp.now();
+      
       final post = ChannelVideoModel(
         id: postId,
         channelId: channelId,
@@ -436,7 +443,7 @@ class FirebaseChannelRepository implements ChannelRepository {
         shares: 0,
         isLiked: false,
         tags: tags ?? [],
-        createdAt: Timestamp.now(),
+        createdAt: now,
         isActive: true,
         isFeatured: false,
         isMultipleImages: true,
@@ -448,9 +455,10 @@ class FirebaseChannelRepository implements ChannelRepository {
           .doc(postId)
           .set(post.toMap());
 
-      // Update channel's video count
+      // Update channel's video count AND lastPostAt
       await _firestore.collection(_channelsCollection).doc(channelId).update({
         'videosCount': FieldValue.increment(1),
+        'lastPostAt': now, // Update last post timestamp
       });
 
       return post;
@@ -479,12 +487,46 @@ class FirebaseChannelRepository implements ChannelRepository {
           .doc(videoId)
           .update({'isActive': false});
 
-      // Decrement channel's video count
+      // Update channel's video count
       await _firestore.collection(_channelsCollection).doc(video.channelId).update({
         'videosCount': FieldValue.increment(-1),
       });
+
+      // Update lastPostAt to the most recent remaining video
+      await _updateChannelLastPostAt(video.channelId);
+      
     } catch (e) {
       throw RepositoryException('Failed to delete video: $e');
+    }
+  }
+
+  // Helper method to update lastPostAt after video deletion
+  Future<void> _updateChannelLastPostAt(String channelId) async {
+    try {
+      // Get the most recent active video for this channel
+      final querySnapshot = await _firestore
+          .collection(_videosCollection)
+          .where('channelId', isEqualTo: channelId)
+          .where('isActive', isEqualTo: true)
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Update to the most recent video's timestamp
+        final latestVideoTimestamp = querySnapshot.docs.first.data()['createdAt'];
+        await _firestore.collection(_channelsCollection).doc(channelId).update({
+          'lastPostAt': latestVideoTimestamp,
+        });
+      } else {
+        // No videos left, set lastPostAt to null
+        await _firestore.collection(_channelsCollection).doc(channelId).update({
+          'lastPostAt': null,
+        });
+      }
+    } catch (e) {
+      // Don't throw error for this operation as it's not critical
+      debugPrint('Failed to update lastPostAt after deletion: $e');
     }
   }
 

@@ -471,7 +471,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                   
                   const SizedBox(height: 4),
                   
-                  // First line: Videos count and time ago
+                  // First line: Videos count and last post time
                   Row(
                     children: [
                       Text(
@@ -483,7 +483,10 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                       ),
                       const Text(' • ', style: TextStyle(color: Colors.grey, fontSize: 13)),
                       Text(
-                        _formatTimeAgo(channel.createdAt.toDate()),
+                        // Use lastPostAt if available, otherwise show "No posts yet"
+                        channel.lastPostAt != null 
+                          ? _getTimeAgo(channel.lastPostAt!.toDate())
+                          : 'No posts yet',
                         style: TextStyle(
                           fontSize: 13,
                           color: theme.textSecondaryColor,
@@ -544,7 +547,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
     }
   }
 
-  String _formatTimeAgo(DateTime dateTime) {
+  // Using the same logic as recommended posts screen
+  String _getTimeAgo(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
 

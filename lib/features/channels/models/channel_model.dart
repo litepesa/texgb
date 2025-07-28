@@ -18,6 +18,7 @@ class ChannelModel {
   final List<String> tags;
   final List<String> followerUIDs;
   final Timestamp createdAt;
+  final Timestamp? lastPostAt; // New field for last post timestamp
   final bool isActive;
   final bool isFeatured;
 
@@ -37,6 +38,7 @@ class ChannelModel {
     required this.tags,
     required this.followerUIDs,
     required this.createdAt,
+    this.lastPostAt, // Optional - null if no posts yet
     required this.isActive,
     required this.isFeatured,
   });
@@ -57,6 +59,7 @@ class ChannelModel {
       'tags': tags,
       'followerUIDs': followerUIDs,
       'createdAt': createdAt,
+      'lastPostAt': lastPostAt, // Include in map
       'isActive': isActive,
       'isFeatured': isFeatured,
     };
@@ -83,6 +86,7 @@ class ChannelModel {
       tags: List<String>.from(map['tags'] ?? []),
       followerUIDs: List<String>.from(map['followerUIDs'] ?? []),
       createdAt: map['createdAt'] ?? Timestamp.now(),
+      lastPostAt: map['lastPostAt'], // Can be null
       isActive: map['isActive'] ?? true,
       isFeatured: map['isFeatured'] ?? false,
     );
@@ -104,6 +108,7 @@ class ChannelModel {
     List<String>? tags,
     List<String>? followerUIDs,
     Timestamp? createdAt,
+    Timestamp? lastPostAt, // Add to copyWith
     bool? isActive,
     bool? isFeatured,
   }) {
@@ -123,6 +128,7 @@ class ChannelModel {
       tags: tags ?? this.tags,
       followerUIDs: followerUIDs ?? this.followerUIDs,
       createdAt: createdAt ?? this.createdAt,
+      lastPostAt: lastPostAt ?? this.lastPostAt,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
     );
