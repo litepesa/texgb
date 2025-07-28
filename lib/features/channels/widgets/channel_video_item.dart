@@ -376,7 +376,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             if (_showLikeAnimation)
               _buildLikeAnimation(),
             
-            // Bottom content overlay (TikTok style)
+            // Bottom content overlay (TikTok style) - moved to very bottom
             _buildBottomContentOverlay(),
             
             // Image carousel indicators
@@ -766,7 +766,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // TikTok-style bottom content overlay - Updated follow button to match channel feed
+  // TikTok-style bottom content overlay - moved to very bottom
   Widget _buildBottomContentOverlay() {
     final channelsState = ref.watch(channelsProvider);
     final isFollowing = channelsState.followedChannels.contains(widget.video.channelId);
@@ -774,7 +774,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     final isOwner = userChannel != null && userChannel.id == widget.video.channelId;
     
     return Positioned(
-      bottom: 100, // Above bottom nav
+      bottom: MediaQuery.of(context).padding.bottom + 16, // Account for system nav bar
       left: 16,
       right: 80, // Leave space for right side menu
       child: Column(

@@ -509,7 +509,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             child: _buildBody(channelVideosState, channelsState),
           ),
           
-          // Clean top floating icons - only menu and search
+          // Clean top floating icons - back and search
           _buildTopFloatingIcons(),
           
           // TikTok-style right side menu
@@ -556,7 +556,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // Clean top floating icons - only three dot menu and search
+  // Clean top floating icons - back and search
   Widget _buildTopFloatingIcons() {
     return Positioned(
       top: MediaQuery.of(context).padding.top + 16,
@@ -565,20 +565,13 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Three dot menu on the left (vertical)
+          // Back button on the left
           GestureDetector(
-            onTap: _showFeedOptionsMenu,
+            onTap: () => Navigator.of(context).pop(),
             child: const Icon(
-              Icons.more_vert,
+              CupertinoIcons.chevron_left,
               color: Colors.white,
-              size: 26,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 4,
-                  offset: Offset(0, 1),
-                ),
-              ],
+              size: 28,
             ),
           ),
           
@@ -590,14 +583,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             child: const Icon(
               CupertinoIcons.search,
               color: Colors.white,
-              size: 26,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 4,
-                  offset: Offset(0, 1),
-                ),
-              ],
+              size: 28,
             ),
           ),
         ],
@@ -699,7 +685,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // TikTok-style right side menu (Douyin icons)
+  // TikTok-style right side menu (Douyin icons) - moved to very bottom
   Widget _buildRightSideMenu() {
     final videos = ref.watch(channelVideosProvider).videos;
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
@@ -708,7 +694,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom: 120, // Above bottom nav
+      bottom: MediaQuery.of(context).padding.bottom + 16, // Account for system nav bar
       child: Column(
         children: [
           // Profile avatar with red ring
