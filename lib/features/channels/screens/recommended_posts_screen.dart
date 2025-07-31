@@ -19,14 +19,18 @@ class RecommendedPostsScreen extends ConsumerStatefulWidget {
 
 class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen> {
   final ScrollController _scrollController = ScrollController();
+  
+  // Cache for recommended videos to avoid reloading
+  List<ChannelVideoModel> _recommendedVideos = [];
+  bool _isLoadingRecommendations = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    // Load data when screen initializes
+    // Load recommended videos when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(channelVideosProvider.notifier).loadVideos();
-      ref.read(channelsProvider.notifier).loadChannels();
+      _loadRecommendedVideos();
     });
   }
 
@@ -36,39 +40,112 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     super.dispose();
   }
 
+  /// Load recommended videos efficiently
+  /// This method selects videos from channels with recent activity
+  Future<void> _loadRecommendedVideos({bool forceRefresh = false}) async {
+    if (_isLoadingRecommendations && !forceRefresh) return;
+
+    setState(() {
+      _isLoadingRecommendations = true;
+      _error = null;
+      if (forceRefresh) _recommendedVideos.clear();
+    });
+
+    try {
+      // Step 1: Get channels ordered by recent activity (lastPostAt)
+      await ref.read(channelsProvider.notifier).loadChannels(forceRefresh: forceRefresh);
+      final channelsState = ref.read(channelsProvider);
+      
+      if (channelsState.error != null) {
+        throw Exception(channelsState.error);
+      }
+
+      // Step 2: Filter and sort channels by activity
+      final activeChannels = channelsState.channels
+          .where((channel) => channel.lastPostAt != null && channel.videosCount > 0)
+          .toList();
+
+      // Sort by most recent activity first
+      activeChannels.sort((a, b) {
+        if (a.lastPostAt == null && b.lastPostAt == null) return 0;
+        if (a.lastPostAt == null) return 1;
+        if (b.lastPostAt == null) return -1;
+        return b.lastPostAt!.compareTo(a.lastPostAt!);
+      });
+
+      // Step 3: Load videos from top active channels (limit to first 10-15 channels)
+      final List<ChannelVideoModel> recommendedVideos = [];
+      final int maxChannelsToCheck = 15; // Limit for performance
+      final int maxVideosPerChannel = 3; // Get recent videos per channel
+      
+      for (int i = 0; i < activeChannels.length && i < maxChannelsToCheck; i++) {
+        final channel = activeChannels[i];
+        
+        try {
+          // Load recent videos from this channel
+          final channelVideos = await ref
+              .read(channelVideosProvider.notifier)
+              .loadChannelVideos(channel.id);
+
+          // Take only the most recent videos from this channel
+          final recentVideos = channelVideos.take(maxVideosPerChannel).toList();
+          recommendedVideos.addAll(recentVideos);
+          
+        } catch (e) {
+          debugPrint('Error loading videos for channel ${channel.id}: $e');
+          // Continue with other channels
+        }
+      }
+
+      // Step 4: Sort all collected videos by creation time (most recent first)
+      recommendedVideos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      // Step 5: Limit total recommendations for performance
+      final maxTotalVideos = 50; // Reasonable limit for UI performance
+      final finalRecommendations = recommendedVideos.take(maxTotalVideos).toList();
+
+      setState(() {
+        _recommendedVideos = finalRecommendations;
+        _isLoadingRecommendations = false;
+      });
+
+    } catch (e) {
+      debugPrint('Error loading recommendations: $e');
+      setState(() {
+        _error = e.toString();
+        _isLoadingRecommendations = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final channelVideosState = ref.watch(channelVideosProvider);
-
     return Scaffold(
       backgroundColor: context.modernTheme.surfaceColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(top: 12.0),
-          child: _buildBody(channelVideosState),
+          child: _buildBody(),
         ),
       ),
     );
   }
 
-  Widget _buildBody(ChannelVideosState videosState) {
-    if (videosState.isLoading && videosState.videos.isEmpty) {
+  Widget _buildBody() {
+    if (_isLoadingRecommendations && _recommendedVideos.isEmpty) {
       return _buildLoadingState();
     }
 
-    if (videosState.error != null) {
-      return _buildErrorState(videosState.error!);
+    if (_error != null && _recommendedVideos.isEmpty) {
+      return _buildErrorState(_error!);
     }
 
-    if (videosState.videos.isEmpty) {
+    if (_recommendedVideos.isEmpty && !_isLoadingRecommendations) {
       return _buildEmptyState();
     }
 
     return RefreshIndicator(
-      onRefresh: () async {
-        await ref.read(channelVideosProvider.notifier).loadVideos(forceRefresh: true);
-        await ref.read(channelsProvider.notifier).loadChannels(forceRefresh: true);
-      },
+      onRefresh: () => _loadRecommendedVideos(forceRefresh: true),
       backgroundColor: context.modernTheme.surfaceColor,
       color: context.modernTheme.textColor,
       child: Padding(
@@ -81,9 +158,9 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
           ),
-          itemCount: videosState.videos.length,
+          itemCount: _recommendedVideos.length,
           itemBuilder: (context, index) {
-            return _buildVideoThumbnail(videosState.videos[index]);
+            return _buildVideoThumbnail(_recommendedVideos[index]);
           },
         ),
       ),
@@ -111,23 +188,6 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                       width: double.infinity,
                       height: double.infinity,
                       child: _buildThumbnailContent(video),
-                    ),
-                  ),
-                  
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.more_vert,
-                        color: Colors.white,
-                        size: 16,
-                      ),
                     ),
                   ),
                   
@@ -378,9 +438,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () {
-              ref.read(channelVideosProvider.notifier).loadVideos(forceRefresh: true);
-            },
+            onPressed: () => _loadRecommendedVideos(forceRefresh: true),
             child: const Text('Retry'),
           ),
         ],
@@ -400,7 +458,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            'No videos available',
+            'No recommendations available',
             style: TextStyle(
               color: context.modernTheme.textColor,
               fontSize: 18,
@@ -409,7 +467,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Check back later for new content',
+            'Follow some channels to see recommendations',
             style: TextStyle(color: context.modernTheme.textSecondaryColor),
           ),
         ],

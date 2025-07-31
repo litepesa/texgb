@@ -32,6 +32,7 @@ import 'package:textgb/features/groups/screens/pending_requests_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
+import 'package:textgb/features/status/screens/status_screen.dart'; // Add this import
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
@@ -138,6 +139,9 @@ class AppRoot extends ConsumerWidget {
             final args = ModalRoute.of(context)!.settings.arguments as UserModel;
             return ContactProfileScreen(contact: args);
           },
+          
+          // Status screen route - ADD THIS
+          Constants.statusScreen: (context) => const StatusScreen(),
           
           // Chat screen route
           Constants.chatScreen: (context) {

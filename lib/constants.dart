@@ -1,4 +1,4 @@
-// lib/constants.dart - Updated with privacy features and cleaned of status reply code
+// lib/constants.dart - Updated with status features and privacy features and cleaned of status reply code
 class Constants {
   // ===== SCREEN ROUTES =====
   static const String landingScreen = '/landingScreen';
@@ -20,6 +20,21 @@ class Constants {
   static const String privacySettingsScreen = '/privacySettingsScreen';
   static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   static const String blockedContactsScreen = '/blockedContactsScreen';
+  
+  // Status feature routes
+  static const String statusScreen = '/statusScreen';
+  static const String statusViewerScreen = '/statusViewerScreen';
+  static const String createTextStatusScreen = '/createTextStatusScreen';
+  static const String createPhotoStatusScreen = '/createPhotoStatusScreen';
+  static const String createVideoStatusScreen = '/createVideoStatusScreen';
+  static const String statusCameraScreen = '/statusCameraScreen';
+  static const String statusPrivacyScreen = '/statusPrivacyScreen';
+  static const String statusInfoScreen = '/statusInfoScreen';
+  static const String myStatusScreen = '/myStatusScreen';
+  static const String statusContactsScreen = '/statusContactsScreen';
+  static const String statusReplyScreen = '/statusReplyScreen';
+  static const String statusForwardScreen = '/statusForwardScreen';
+  static const String statusSettingsScreen = '/statusSettingsScreen';
   
   // Group routes (Private Groups)
   static const String groupsMainScreen = '/groupsMainScreen';
@@ -63,6 +78,17 @@ class Constants {
   static const String publicGroupPostDetailScreen = '/publicGroupPostDetailScreen';
   static const String myPublicGroupsScreen = '/myPublicGroupsScreen';
   
+  // Shop feature routes
+  static const String shopsListScreen = '/shopsListScreen';
+  static const String individualShopScreen = '/individualShopScreen';
+  static const String shopProfileScreen = '/shopProfileScreen';
+  static const String createShopScreen = '/createShopScreen';
+  static const String editShopScreen = '/editShopScreen';
+  static const String shopCatalogScreen = '/shopCatalogScreen';
+  static const String shopProductScreen = '/shopProductScreen';
+  static const String shopOrdersScreen = '/shopOrdersScreen';
+  static const String shopAnalyticsScreen = '/shopAnalyticsScreen';
+  
   // Wallet routes
   static const String walletScreen = '/walletScreen';
   static const String topUpScreen = '/topUpScreen';
@@ -89,6 +115,24 @@ class Constants {
   static const String chats = 'chats';
   static const String messages = 'messages';
   static const String groups = 'groups';
+  
+  // Status collections
+  static const String statuses = 'statuses';
+  static const String statusViews = 'status_views';
+  static const String statusLikes = 'status_likes';
+  static const String statusReplies = 'status_replies';
+  static const String statusPrivacy = 'status_privacy';
+  static const String statusViewers = 'status_viewers';
+  static const String statusFiles = 'status_files';
+  
+  // Shop collections
+  static const String shops = 'shops';
+  static const String shopProducts = 'shop_products';
+  static const String shopOrders = 'shop_orders';
+  static const String shopReviews = 'shop_reviews';
+  static const String shopCategories = 'shop_categories';
+  static const String shopAnalytics = 'shop_analytics';
+  static const String shopFiles = 'shop_files';
   
   // Payment collections
   static const String payments = 'payments';
@@ -128,6 +172,9 @@ class Constants {
   static const String userImages = 'userImages';
   static const String chatFiles = 'chatFiles';
   static const String groupImages = 'groupImages';
+  static const String statusImages = 'statusImages';
+  static const String statusVideos = 'statusVideos';
+  static const String shopImages = 'shopImages';
 
   // ===== USER MODEL FIELD NAMES =====
   
@@ -160,12 +207,84 @@ class Constants {
   static const String allowForwarding = 'allowForwarding';
   static const String allowCallsFromContacts = 'allowCallsFromContacts';
   static const String blockedFromCalls = 'blockedFromCalls';
+  
+  // Status privacy settings
+  static const String statusPrivacySettings = 'statusPrivacySettings';
+  static const String statusVisibility = 'statusVisibility';
+  //static const String statusViewers = 'statusViewers';
+  static const String statusExcluded = 'statusExcluded';
+  static const String statusOnlyContacts = 'statusOnlyContacts';
+  static const String statusCustomList = 'statusCustomList';
+  static const String statusReadReceipts = 'statusReadReceipts';
 
   // Privacy permission levels
   static const String permissionEveryone = 'everyone';
   static const String permissionContactsOnly = 'contactsOnly';
   static const String permissionSelectedContacts = 'selectedContacts';
   static const String permissionNobody = 'nobody';
+  static const String permissionExceptContacts = 'exceptContacts';
+
+  // ===== STATUS MODEL FIELD NAMES =====
+  
+  static const String statusId = 'statusId';
+  static const String statusType = 'statusType';
+  static const String statusContent = 'statusContent';
+  static const String statusMediaUrl = 'statusMediaUrl';
+  static const String statusMediaType = 'statusMediaType';
+  static const String statusThumbnail = 'statusThumbnail';
+  static const String statusBackgroundColor = 'statusBackgroundColor';
+  static const String statusTextColor = 'statusTextColor';
+  static const String statusFont = 'statusFont';
+  static const String statusDuration = 'statusDuration';
+  static const String statusCreatedAt = 'statusCreatedAt';
+  static const String statusExpiresAt = 'statusExpiresAt';
+  static const String statusPrivacyLevel = 'statusPrivacyLevel';
+  static const String statusAllowedViewers = 'statusAllowedViewers';
+  static const String statusExcludedViewers = 'statusExcludedViewers';
+  static const String statusViewsCount = 'statusViewsCount';
+  static const String statusLikesCount = 'statusLikesCount';
+  static const String statusRepliesCount = 'statusRepliesCount';
+  static const String statusForwardsCount = 'statusForwardsCount';
+  static const String statusIsActive = 'statusIsActive';
+  static const String statusMetadata = 'statusMetadata';
+  
+  // Status types
+  static const String statusTypeText = 'text';
+  static const String statusTypeImage = 'image';
+  static const String statusTypeVideo = 'video';
+  static const String statusTypeAudio = 'audio';
+  static const String statusTypeGif = 'gif';
+  
+  // Status privacy levels
+  static const String statusPrivacyPublic = 'public';
+  static const String statusPrivacyContacts = 'contacts';
+  static const String statusPrivacyCustom = 'custom';
+  static const String statusPrivacyClose = 'close_friends';
+
+  // ===== SHOP MODEL FIELD NAMES =====
+  
+  static const String shopId = 'shopId';
+  static const String shopName = 'shopName';
+  static const String shopDescription = 'shopDescription';
+  static const String shopImage = 'shopImage';
+  static const String shopCoverImage = 'shopCoverImage';
+  static const String shopCategory = 'shopCategory';
+  static const String shopOwnerUID = 'shopOwnerUID';
+  static const String shopAddress = 'shopAddress';
+  static const String shopLocation = 'shopLocation';
+  static const String shopContactInfo = 'shopContactInfo';
+  static const String shopRating = 'shopRating';
+  static const String shopReviewsCount = 'shopReviewsCount';
+  static const String shopFollowersCount = 'shopFollowersCount';
+  static const String shopProductsCount = 'shopProductsCount';
+  static const String shopIsVerified = 'shopIsVerified';
+  static const String shopIsActive = 'shopIsActive';
+  static const String shopBusinessHours = 'shopBusinessHours';
+  static const String shopPaymentMethods = 'shopPaymentMethods';
+  static const String shopDeliveryOptions = 'shopDeliveryOptions';
+  static const String shopPolicies = 'shopPolicies';
+  static const String shopSocialLinks = 'shopSocialLinks';
+  static const String shopTags = 'shopTags';
 
   // ===== MESSAGE MODEL FIELD NAMES =====
   
@@ -302,6 +421,24 @@ class Constants {
   static const String currency = 'KES';
   static const double activationFee = 99.0;
 
+  // ===== STATUS-RELATED CONSTANTS =====
+  
+  // Status durations (in hours)
+  static const int statusDefaultDuration = 24;
+  static const int statusMaxDuration = 48;
+  static const int statusMinDuration = 1;
+  
+  // Status interaction limits
+  static const int maxStatusViewersToShow = 100;
+  static const int maxStatusRepliesPerUser = 10;
+  static const int maxStatusLength = 700;
+  
+  // Status media constants
+  static const int maxStatusImageSize = 5 * 1024 * 1024; // 5MB
+  static const int maxStatusVideoSize = 20 * 1024 * 1024; // 20MB
+  static const Duration maxStatusVideoDuration = Duration(seconds: 30);
+  static const Duration maxStatusAudioDuration = Duration(minutes: 1);
+
   // ===== VALIDATION LIMITS =====
   
   static const int maxMessageLength = 4000;
@@ -309,6 +446,13 @@ class Constants {
   static const int maxImageSize = 10 * 1024 * 1024; // 10MB
   static const Duration maxVideoDuration = Duration(minutes: 5);
   static const Duration maxAudioDuration = Duration(minutes: 10);
+  
+  // Shop validation limits
+  static const int maxShopNameLength = 50;
+  static const int maxShopDescriptionLength = 500;
+  static const int maxProductNameLength = 100;
+  static const int maxProductDescriptionLength = 1000;
+  static const double maxProductPrice = 1000000.0;
 
   // ===== ERROR MESSAGES =====
   
@@ -321,12 +465,31 @@ class Constants {
   static const String errorFileUpload = 'File upload failed';
   static const String errorFileTooLarge = 'File size too large';
   static const String errorInvalidFileType = 'Invalid file type';
+  
+  // Status error messages
+  static const String errorStatusExpired = 'Status has expired';
+  static const String errorStatusNotFound = 'Status not found';
+  static const String errorStatusPrivacyRestriction = 'Cannot view status due to privacy settings';
+  static const String errorStatusCreationFailed = 'Failed to create status';
+  static const String errorStatusUpdateFailed = 'Failed to update status';
+  static const String errorStatusDeleteFailed = 'Failed to delete status';
+  
+  // Shop error messages
+  static const String errorShopNotFound = 'Shop not found';
+  static const String errorShopCreationFailed = 'Failed to create shop';
+  static const String errorShopUpdateFailed = 'Failed to update shop';
+  static const String errorProductNotFound = 'Product not found';
+  static const String errorOrderFailed = 'Order placement failed';
 
   // ===== CACHE KEYS =====
   
   static const String cacheKeyUserPrivacy = 'user_privacy_cache';
   static const String cacheKeyContactPermissions = 'contact_permissions_cache';
   static const String cacheKeyBlockedUsers = 'blocked_users_cache';
+  static const String cacheKeyStatusPrivacy = 'status_privacy_cache';
+  static const String cacheKeyStatusViewers = 'status_viewers_cache';
+  static const String cacheKeyShopData = 'shop_data_cache';
+  static const String cacheKeyShopProducts = 'shop_products_cache';
 
   // ===== NOTIFICATION TYPES =====
   
@@ -335,6 +498,10 @@ class Constants {
   static const String notificationTypeChannelInvite = 'channel_invite';
   static const String notificationTypeCall = 'call';
   static const String notificationTypeReaction = 'reaction';
+  static const String notificationTypeStatusReply = 'status_reply';
+  static const String notificationTypeStatusMention = 'status_mention';
+  static const String notificationTypeShopOrder = 'shop_order';
+  static const String notificationTypeShopUpdate = 'shop_update';
 
   // ===== FEATURE FLAGS =====
   
@@ -343,6 +510,12 @@ class Constants {
   static const String featureMessageEditing = 'message_editing';
   static const String featureCallBlocking = 'call_blocking';
   static const String featureAdvancedPrivacy = 'advanced_privacy';
+  static const String featureStatusUpdates = 'status_updates';
+  static const String featureStatusReplies = 'status_replies';
+  static const String featureStatusForwarding = 'status_forwarding';
+  static const String featureShops = 'shops';
+  static const String featureShopOrders = 'shop_orders';
+  static const String featureShopAnalytics = 'shop_analytics';
 
   // ===== BACKEND MIGRATION PREPARATION =====
   
@@ -356,13 +529,76 @@ class Constants {
   static const String eventUserTyping = 'user_typing';
   static const String eventUserOnline = 'user_online';
   static const String eventUserOffline = 'user_offline';
+  static const String eventStatusCreated = 'status_created';
+  static const String eventStatusViewed = 'status_viewed';
+  static const String eventStatusReply = 'status_reply';
+  static const String eventShopUpdate = 'shop_update';
+  static const String eventOrderPlaced = 'order_placed';
 
   // ===== GENERAL CONSTANTS =====
   
   static const String private = 'private';
   static const String public = 'public';
-
-  // In your constants.dart file, add:
-  static const String shopsListScreen = '/shops-list-screen';
-  static const String individualShopScreen = '/individual-shop-screen';
+  
+  // Status background colors for text statuses
+  static const List<int> statusBackgroundColors = [
+    0xFF1976D2, // Blue
+    0xFF388E3C, // Green
+    0xFFD32F2F, // Red
+    0xFFF57C00, // Orange
+    0xFF7B1FA2, // Purple
+    0xFF303F9F, // Indigo
+    0xFF0097A7, // Cyan
+    0xFF5D4037, // Brown
+    0xFF455A64, // Blue Grey
+    0xFF424242, // Grey
+  ];
+  
+  // Status text fonts
+  static const List<String> statusTextFonts = [
+    'Roboto',
+    'Roboto Bold',
+    'Roboto Light',
+    'Dancing Script',
+    'Pacifico',
+    'Lobster',
+    'Comfortaa',
+    'Quicksand',
+  ];
+  
+  // Shop categories
+  /*static const List<String> shopCategories = [
+    'Fashion & Style',
+    'Electronics',
+    'Food & Snacks',
+    'Beauty & Care',
+    'Sports & Fitness',
+    'Home & Living',
+    'Books & Media',
+    'Automotive',
+    'Health & Wellness',
+    'Arts & Crafts',
+    'Services',
+    'Other',
+  ];
+  
+  // Payment methods for shops
+  static const List<String> shopPaymentMethods = [
+    'M-Pesa',
+    'Cash on Delivery',
+    'Bank Transfer',
+    'Credit/Debit Card',
+    'PayPal',
+    'Airtel Money',
+    'T-Kash',
+  ];
+  
+  // Delivery options for shops
+  static const List<String> shopDeliveryOptions = [
+    'Pickup',
+    'Local Delivery',
+    'Nationwide Shipping',
+    'International Shipping',
+    'Digital Delivery',
+  ];*/
 }
