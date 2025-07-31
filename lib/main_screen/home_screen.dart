@@ -9,11 +9,12 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
+import 'package:textgb/features/channels/screens/channels_list_screen.dart';
+import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
-import 'package:textgb/features/shop/screens/shops_list_screen.dart';
+import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -40,17 +41,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   int _inboxTabIndex = 0; // 0 for Chats, 1 for Wallet
   final PageController _inboxPageController = PageController();
   
-  // Groups tab switcher state (for Groups/Shops)
-  int _groupsTabIndex = 0; // 0 for Groups, 1 for Shops
+  // Groups tab switcher state (for Groups/Status)
+  int _groupsTabIndex = 0; // 0 for Groups, 1 for Status
   final PageController _groupsPageController = PageController();
   
-  // Channels tab switcher state (for Posts/Dramas)
-  int _channelsTabIndex = 0; // 0 for Posts, 1 for Dramas
+  // Channels tab switcher state (for Posts/Channels)
+  int _channelsTabIndex = 0; // 0 for Posts, 1 for Channels
   final PageController _channelsPageController = PageController();
   
   // Updated tab configuration with 4 tabs
   final List<String> _tabNames = [
-    'Inbox',      // Index 0 - Chats/Wallet switcher
+    'Chats',      // Index 0 - Chats/Wallet switcher
     'Groups',     // Index 1 - Groups/Shops switcher
     'Channels',   // Index 2 - Recommended Posts
     'Profile'     // Index 3 - Profile
@@ -99,7 +100,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       color: modernTheme.surfaceColor,
       child: Column(
         children: [
-          // Enhanced tab bar for Posts/Dramas switcher
+          // Enhanced tab bar for Posts/Channels switcher
           Container(
             margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -212,8 +213,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                             child: Icon(
                               _channelsTabIndex == 1 
-                                ? Icons.video_library
-                                : Icons.video_library_outlined,
+                                ? Icons.radio_button_on_rounded
+                                : Icons.radio_button_on_outlined,
                               color: _channelsTabIndex == 1 
                                 ? modernTheme.primaryColor 
                                 : modernTheme.textSecondaryColor,
@@ -233,7 +234,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               fontSize: 15,
                               letterSpacing: 0.2,
                             ),
-                            child: const Text('Dramas'),
+                            child: const Text('Channels'),
                           ),
                         ],
                       ),
@@ -258,10 +259,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   color: modernTheme.surfaceColor,
                   child: const RecommendedPostsScreen(),
                 ),
-                // Dramas tab content
+                // Channels tab content
                 Container(
                   color: modernTheme.surfaceColor,
-                  child: const ShortDramasScreen(),
+                  child: const ChannelsListScreen(),
                 ),
               ],
             ),
@@ -579,7 +580,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       color: modernTheme.surfaceColor,
       child: Column(
         children: [
-          // Enhanced tab bar for Groups/Shops switcher
+          // Enhanced tab bar for Groups/Status switcher
           Container(
             margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -692,8 +693,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                             child: Icon(
                               _groupsTabIndex == 1 
-                                ? Icons.storefront
-                                : Icons.storefront_outlined,
+                                ? Icons.donut_large
+                                : Icons.donut_large_outlined,
                               color: _groupsTabIndex == 1 
                                 ? modernTheme.primaryColor 
                                 : modernTheme.textSecondaryColor,
@@ -713,7 +714,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               fontSize: 15,
                               letterSpacing: 0.2,
                             ),
-                            child: const Text('Shops'),
+                            child: const Text('Status'),
                           ),
                         ],
                       ),
@@ -739,10 +740,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   padding: EdgeInsets.only(bottom: bottomPadding),
                   child: const GroupsTab(),
                 ),
-                // Shops tab content
+                // Status tab content
                 Container(
                   color: modernTheme.surfaceColor,
-                  child: const ShopsListScreen(),
+                  child: const StatusScreen(),
                 ),
               ],
             ),
@@ -859,7 +860,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (index == 1) {
       return chatsAsyncValue.when(
         data: (chats) {
-          // Only show unread count when on Groups sub-tab, not Shops
+          // Only show unread count when on Groups sub-tab, not Status
           final shouldShowBadge = _groupsTabIndex == 0;
           
           // Calculate unread count from group chats only
@@ -1030,10 +1031,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         title = _inboxTabIndex == 0 ? 'Inbox' : 'Wallet';
         break;
       case 1:
-        title = _groupsTabIndex == 0 ? 'Groups' : 'Shops';
+        title = _groupsTabIndex == 0 ? 'Groups' : 'Status';
         break;
       case 2:
-        title = _channelsTabIndex == 0 ? 'Channels' : 'Dramas';
+        title = _channelsTabIndex == 0 ? 'Posts' : 'Channels';
         break;
       default:
         title = 'WeiBao';
@@ -1080,7 +1081,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
       actions: _currentIndex == 1 ? [
-        // Groups/Shops tab actions
+        // Groups/Status tab actions
         if (_groupsTabIndex == 0) ...[
           // Groups sub-tab actions
           IconButton(
@@ -1098,20 +1099,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             },
           ),
         ] else ...[
-          // Shops sub-tab actions
+          // Status sub-tab actions
           IconButton(
-            icon: Icon(CupertinoIcons.search, color: modernTheme.primaryColor!),
+            icon: Icon(Icons.camera_alt_outlined, color: modernTheme.primaryColor!),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Search shops')),
+                const SnackBar(content: Text('Camera status')),
               );
             },
           ),
           IconButton(
-            icon: Icon(CupertinoIcons.cart, color: modernTheme.primaryColor!),
+            icon: Icon(Icons.more_vert, color: modernTheme.primaryColor!),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Shopping cart')),
+                const SnackBar(content: Text('Status settings')),
               );
             },
           ),
@@ -1502,21 +1503,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             onPressed: () => _navigateToCreatePost(),
           ),
         ] else ...[
-          // Dramas sub-tab actions
+          // Channels sub-tab actions
           IconButton(
             icon: Icon(CupertinoIcons.search, color: modernTheme.primaryColor!),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Search dramas')),
+                const SnackBar(content: Text('Search channels')),
               );
             },
           ),
           IconButton(
-            icon: Icon(Icons.download_outlined, color: modernTheme.primaryColor!),
+            icon: Icon(Icons.add_circle_outline, color: modernTheme.primaryColor!),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Downloads')),
-              );
+              Navigator.pushNamed(context, Constants.createChannelScreen);
             },
           ),
         ],
