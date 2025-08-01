@@ -12,7 +12,7 @@ import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-
+import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
@@ -37,15 +37,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final List<String> _tabNames = [
     'Chats',
     'Groups',
-    'Discover',
-    'Duanju'
+    'Status',
+    'Live'  // Changed from 'Duanju' to 'Live'
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.chat_bubble_text,
+    CupertinoIcons.chat_bubble_2,
     Icons.group_outlined,
-    CupertinoIcons.compass,
-    Icons.radio_button_checked
+    Icons.donut_large_rounded,
+    Icons.radio_button_checked 
   ];
 
   @override
@@ -140,10 +140,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             color: modernTheme.backgroundColor,
             child: const ChannelsListScreen(),
           ),
-          // Short Dramas tab (index 3)
+          // Live tab (index 3) - Changed from ShortDramasScreen to LiveScreen
           Container(
             color: modernTheme.surfaceColor,
-            child: const ShortDramasScreen(),
+            child: const LiveScreen(),
           ),
         ],
       ),
@@ -241,7 +241,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // For other tabs (Discover, Dramas), no badge needed
+    // For other tabs (Discover, Live), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
 
@@ -380,9 +380,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats, Groups, and Dramas tabs
+  // Show FAB on Chats, Groups, Discover, and Live tabs
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 3;
+    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 2 || _currentIndex == 3;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -412,7 +412,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       text: TextSpan(
         children: [
           TextSpan(
-            text: "Wei",
+            text: "Snap",
             style: TextStyle(
               color: modernTheme.textColor,          
               fontWeight: FontWeight.w500,
@@ -421,7 +421,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
           TextSpan(
-            text: "Bao",
+            text: "reel",
             style: TextStyle(
               color: modernTheme.primaryColor,
               fontWeight: FontWeight.w700,
@@ -561,19 +561,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
         child: const Icon(Icons.group_add),
       );
-    } else if (_currentIndex == 3) {
-      // Dramas tab - Browse dramas FAB
+    } else if (_currentIndex == 2) {
+      // Discover tab - Create post FAB
       return FloatingActionButton(
         backgroundColor: modernTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
         onPressed: () {
-          // Navigate to search or browse dramas screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Browse Dramas feature coming soon!')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CreatePostScreen(),
+            ),
           );
         },
-        child: const Icon(Icons.search),
+        child: const Icon(Icons.add),
+      );
+    } else if (_currentIndex == 3) {
+      // Live tab - Go live FAB (import the GoLiveScreen)
+      return FloatingActionButton(
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LiveScreen(), // This could be GoLiveScreen for starting a stream
+            ),
+          );
+        },
+        child: const Icon(Icons.videocam),
       );
     }
     

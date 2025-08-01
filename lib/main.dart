@@ -385,10 +385,10 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'WeiBao',
+                'Snapreel',
                 style: TextStyle(
                   color: backgroundColor,
-                  fontSize: 28,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
