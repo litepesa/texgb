@@ -556,7 +556,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // Updated top navigation bar with back button and reduced spacing
+  // New top navigation bar with tabs and search
   Widget _buildTopNavigationBar() {
     return Positioned(
       top: MediaQuery.of(context).padding.top + 16,
@@ -564,39 +564,17 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       right: 16,
       child: Row(
         children: [
-          // Back button on the left
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).pop();
-            },
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              child: const Icon(
-                CupertinoIcons.chevron_back,
-                color: Colors.white,
-                size: 28,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Navigation tabs - centered with reduced spacing
+          // Navigation tabs - centered
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _buildNavTab('SHOP', 'Shop'),
-                const SizedBox(width: 16), // Reduced from 24
+                const SizedBox(width: 24),
                 _buildNavTab('Series', 'Series'),
-                const SizedBox(width: 16), // Reduced from 24
+                const SizedBox(width: 24),
                 _buildNavTab('Following', 'Following'),
-                const SizedBox(width: 16), // Reduced from 24
+                const SizedBox(width: 24),
                 _buildNavTab('For You', 'For You'),
               ],
             ),
@@ -607,20 +585,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             onTap: () {
               // TODO: Navigate to search screen
             },
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              child: const Icon(
-                CupertinoIcons.search,
-                color: Colors.white,
-                size: 28,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
+            child: const Icon(
+              CupertinoIcons.search,
+              color: Colors.white,
+              size: 28,
             ),
           ),
         ],
