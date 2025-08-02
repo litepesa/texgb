@@ -18,12 +18,15 @@ class RecommendedPostsScreen extends ConsumerStatefulWidget {
 }
 
 class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen> {
-  final ScrollController _scrollController = ScrollController();
+  final PageController _pageController = PageController(
+    viewportFraction: 0.85, // Shows part of adjacent pages
+  );
   
   // Cache for recommended videos to avoid reloading
   List<ChannelVideoModel> _recommendedVideos = [];
   bool _isLoadingRecommendations = false;
   String? _error;
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -36,7 +39,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -148,152 +151,218 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
       onRefresh: () => _loadRecommendedVideos(forceRefresh: true),
       backgroundColor: context.modernTheme.surfaceColor,
       color: context.modernTheme.textColor,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: GridView.builder(
-          controller: _scrollController,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.55,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
+      child: Column(
+        children: [
+          // Page indicator dots
+          if (_recommendedVideos.isNotEmpty) _buildPageIndicator(),
+          
+          // Main carousel
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              itemCount: _recommendedVideos.length,
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+                  child: _buildVideoThumbnail(_recommendedVideos[index], index),
+                );
+              },
+            ),
           ),
-          itemCount: _recommendedVideos.length,
-          itemBuilder: (context, index) {
-            return _buildVideoThumbnail(_recommendedVideos[index]);
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageIndicator() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(
+          _recommendedVideos.length > 10 ? 10 : _recommendedVideos.length, // Limit dots to 10
+          (index) {
+            // For more than 10 items, show relative position
+            int displayIndex = _recommendedVideos.length > 10 
+                ? (_currentIndex < 5 ? index : (_currentIndex > _recommendedVideos.length - 6 ? index + _recommendedVideos.length - 10 : index + _currentIndex - 4))
+                : index;
+            
+            bool isActive = displayIndex == _currentIndex;
+            
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 3.0),
+              height: 6.0,
+              width: isActive ? 20.0 : 6.0,
+              decoration: BoxDecoration(
+                color: isActive 
+                    ? context.modernTheme.textColor 
+                    : context.modernTheme.textSecondaryColor,//.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(3.0),
+              ),
+            );
           },
         ),
       ),
     );
   }
 
-  Widget _buildVideoThumbnail(ChannelVideoModel video) {
-    return GestureDetector(
-      onTap: () => _navigateToVideoFeed(video),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 3,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: context.modernTheme.surfaceVariantColor,
-              ),
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      child: _buildThumbnailContent(video),
+  Widget _buildVideoThumbnail(ChannelVideoModel video, int index) {
+    // Calculate scale based on current page position
+    double scale = 1.0;
+    if (_pageController.hasClients && _pageController.page != null) {
+      scale = 1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
+    }
+
+    return Transform.scale(
+      scale: scale,
+      child: GestureDetector(
+        onTap: () => _navigateToVideoFeed(video),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Main thumbnail
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(12),
-                          bottomRight: Radius.circular(12),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    children: [
+                      // Main thumbnail content
+                      Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        child: _buildThumbnailContent(video),
+                      ),
+                      
+                      // Gradient overlay for caption and views
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.7),
+                              ],
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                video.caption.isNotEmpty ? video.caption : 'No caption',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${_formatCount(video.views)} views',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.8),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Channel info outside thumbnail
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundImage: video.channelImage.isNotEmpty
+                        ? NetworkImage(video.channelImage)
+                        : null,
+                    backgroundColor: context.modernTheme.surfaceVariantColor,
+                    child: video.channelImage.isEmpty
+                        ? Text(
+                            video.channelName.isNotEmpty 
+                                ? video.channelName[0].toUpperCase()
+                                : "U",
+                            style: TextStyle(
+                              color: context.modernTheme.textColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          video.channelName,
+                          style: TextStyle(
+                            color: context.modernTheme.textColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              _getTimeAgo(video.createdAt.toDate()),
+                              style: TextStyle(
+                                color: context.modernTheme.textSecondaryColor,
+                                fontSize: 12,
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            video.caption.isNotEmpty ? video.caption : 'No caption',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          
-                          Text(
-                            '${_formatCount(video.views)} views',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          
-          const SizedBox(height: 8),
-          
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 12,
-                backgroundImage: video.channelImage.isNotEmpty
-                    ? NetworkImage(video.channelImage)
-                    : null,
-                backgroundColor: context.modernTheme.surfaceVariantColor,
-                child: video.channelImage.isEmpty
-                    ? Text(
-                        video.channelName.isNotEmpty 
-                            ? video.channelName[0].toUpperCase()
-                            : "U",
-                        style: TextStyle(
-                          color: context.modernTheme.textColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      video.channelName,
-                      style: TextStyle(
-                        color: context.modernTheme.textColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      _getTimeAgo(video.createdAt.toDate()),
-                      style: TextStyle(
-                        color: context.modernTheme.textSecondaryColor,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -371,11 +440,11 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
       color: context.modernTheme.surfaceVariantColor,
       child: Center(
         child: SizedBox(
-          width: 24,
-          height: 24,
+          width: 32,
+          height: 32,
           child: CircularProgressIndicator(
             color: context.modernTheme.textColor,
-            strokeWidth: 2,
+            strokeWidth: 3,
           ),
         ),
       ),
@@ -389,7 +458,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         child: Icon(
           Icons.video_library,
           color: context.modernTheme.textSecondaryColor,
-          size: 32,
+          size: 48,
         ),
       ),
     );

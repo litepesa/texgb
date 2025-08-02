@@ -112,30 +112,6 @@ class _StatusScreenState extends State<StatusScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header section with privacy info
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.lock_outline,
-                    color: theme.textSecondaryColor,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Status updates are end-to-end encrypted',
-                      style: TextStyle(
-                        color: theme.textSecondaryColor,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
             // Status list
             Expanded(
               child: ListView(

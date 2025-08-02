@@ -7,14 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
-import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
+import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
@@ -38,7 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Chats',
     'Groups',
     'Status',
-    'Live'  // Changed from 'Duanju' to 'Live'
+    'Channels' 
   ];
   
   final List<IconData> _tabIcons = [
@@ -138,12 +139,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           // Discover tab (index 2) - Channels List
           Container(
             color: modernTheme.backgroundColor,
-            child: const ChannelsListScreen(),
+            child: const StatusScreen(),
           ),
-          // Live tab (index 3) - Changed from ShortDramasScreen to LiveScreen
           Container(
             color: modernTheme.surfaceColor,
-            child: const LiveScreen(),
+            child: const RecommendedPostsScreen(),
           ),
         ],
       ),
@@ -546,8 +546,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (_currentIndex == 0) {
       // Chats tab - New chat FAB
       return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
         child: const Icon(CupertinoIcons.chat_bubble_text),
@@ -555,8 +555,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     } else if (_currentIndex == 1) {
       // Groups tab - Create group FAB
       return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
         child: const Icon(Icons.group_add),
@@ -564,8 +564,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     } else if (_currentIndex == 2) {
       // Discover tab - Create post FAB
       return FloatingActionButton(
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () {
           Navigator.push(
@@ -578,20 +578,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: const Icon(Icons.add),
       );
     } else if (_currentIndex == 3) {
-      // Live tab - Go live FAB (import the GoLiveScreen)
+      // Channels tab - Create post FAB
       return FloatingActionButton(
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const LiveScreen(), // This could be GoLiveScreen for starting a stream
+              builder: (context) => const CreatePostScreen(),
             ),
           );
         },
-        child: const Icon(Icons.videocam),
+        child: const Icon(CupertinoIcons.camera),
       );
     }
     
