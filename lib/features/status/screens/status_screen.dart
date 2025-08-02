@@ -1,178 +1,82 @@
 // lib/features/status/screens/status_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/constants.dart';
+import 'package:textgb/features/status/models/status_model.dart';
+import 'package:textgb/features/status/providers/status_provider.dart';
+import 'package:textgb/features/status/screens/create_text_status_screen.dart';
+import 'package:textgb/features/status/screens/status_camera_screen.dart';
+import 'package:textgb/features/status/screens/status_viewer_screen.dart';
+import 'package:textgb/features/status/screens/my_status_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/utilities/time_utils.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
-class StatusScreen extends StatefulWidget {
+class StatusScreen extends ConsumerStatefulWidget {
   const StatusScreen({super.key});
 
   @override
-  State<StatusScreen> createState() => _StatusScreenState();
+  ConsumerState<StatusScreen> createState() => _StatusScreenState();
 }
 
-class _StatusScreenState extends State<StatusScreen> {
+class _StatusScreenState extends ConsumerState<StatusScreen> {
   final ScrollController _scrollController = ScrollController();
-  
-  // Dummy status data
-  final List<StatusData> recentStatuses = [
-    StatusData(
-      name: "My Status",
-      phoneNumber: "+254712345678",
-      time: "45m ago",
-      isMyStatus: true,
-      hasUnviewedStory: false,
-      statusCount: 2,
-      profileColor: Colors.blue,
-    ),
-  ];
-  
-  final List<StatusData> viewedStatuses = [
-    StatusData(
-      name: "Maya Fashion Hub",
-      phoneNumber: "+254787654321",
-      time: "12m ago",
-      isMyStatus: false,
-      hasUnviewedStory: false,
-      statusCount: 1,
-      profileColor: Colors.pink,
-    ),
-    StatusData(
-      name: "David Kiprotich",
-      phoneNumber: "+254798765432",
-      time: "1h ago",
-      isMyStatus: false,
-      hasUnviewedStory: false,
-      statusCount: 3,
-      profileColor: Colors.green,
-    ),
-    StatusData(
-      name: "Sarah Wanjiku",
-      phoneNumber: "+254723456789",
-      time: "2h ago",
-      isMyStatus: false,
-      hasUnviewedStory: false,
-      statusCount: 2,
-      profileColor: Colors.purple,
-    ),
-  ];
-  
-  final List<StatusData> recentUpdates = [
-    StatusData(
-      name: "John Mwangi",
-      phoneNumber: "+254734567890",
-      time: "3m ago",
-      isMyStatus: false,
-      hasUnviewedStory: true,
-      statusCount: 1,
-      profileColor: Colors.orange,
-    ),
-    StatusData(
-      name: "Grace Akinyi",
-      phoneNumber: "+254745678901",
-      time: "15m ago",
-      isMyStatus: false,
-      hasUnviewedStory: true,
-      statusCount: 4,
-      profileColor: Colors.teal,
-    ),
-    StatusData(
-      name: "Peter Kamau",
-      phoneNumber: "+254756789012",
-      time: "32m ago",
-      isMyStatus: false,
-      hasUnviewedStory: true,
-      statusCount: 2,
-      profileColor: Colors.indigo,
-    ),
-    StatusData(
-      name: "Faith Njeri",
-      phoneNumber: "+254767890123",
-      time: "1h ago",
-      isMyStatus: false,
-      hasUnviewedStory: true,
-      statusCount: 1,
-      profileColor: Colors.red,
-    ),
-    StatusData(
-      name: "Michael Ochieng",
-      phoneNumber: "+254778901234",
-      time: "2h ago",
-      isMyStatus: false,
-      hasUnviewedStory: true,
-      statusCount: 3,
-      profileColor: Colors.cyan,
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
-    
+    final statusState = ref.watch(statusNotifierProvider);
+    final contactsStatuses = ref.watch(contactsStatusesStreamProvider);
+    final myStatuses = ref.watch(myStatusesStreamProvider);
+
     return Scaffold(
       backgroundColor: theme.surfaceColor,
       body: SafeArea(
         child: Column(
           children: [
+            // Header section with privacy info
+            _buildHeader(theme),
+            
             // Status list
             Expanded(
-              child: ListView(
-                controller: _scrollController,
-                children: [
-                  // My Status Section
-                  if (recentStatuses.isNotEmpty) ...[
-                    _buildSectionHeader('My Status', theme),
-                    ...recentStatuses.map((status) => _buildStatusItem(status, theme)),
-                    const SizedBox(height: 8),
-                  ],
-                  
-                  // Recent Updates Section
-                  if (recentUpdates.isNotEmpty) ...[
-                    _buildSectionHeader('Recent updates', theme),
-                    ...recentUpdates.map((status) => _buildStatusItem(status, theme)),
-                    const SizedBox(height: 8),
-                  ],
-                  
-                  // Viewed Updates Section
-                  if (viewedStatuses.isNotEmpty) ...[
-                    _buildSectionHeader('Viewed updates', theme),
-                    ...viewedStatuses.map((status) => _buildStatusItem(status, theme)),
-                  ],
-                  
-                  const SizedBox(height: 100), // Bottom padding
-                ],
+              child: statusState.when(
+                data: (state) => _buildStatusList(
+                  theme, 
+                  state, 
+                  contactsStatuses, 
+                  myStatuses
+                ),
+                loading: () => _buildLoadingState(theme),
+                error: (error, stack) => _buildErrorState(theme, error.toString()),
               ),
             ),
           ],
         ),
       ),
       
-      // Floating action button for adding status
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
+      // Floating action buttons for adding status
+      floatingActionButton: _buildFloatingActionButtons(theme),
+    );
+  }
+
+  Widget _buildHeader(ModernThemeExtension theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
         children: [
-          // Text status button
-          FloatingActionButton(
-            heroTag: "text_status",
-            onPressed: () {
-              // Handle text status creation
-            },
-            backgroundColor: theme.surfaceVariantColor,
-            child: Icon(
-              Icons.edit,
-              color: theme.textColor,
-            ),
+          Icon(
+            Icons.lock_outline,
+            color: theme.textSecondaryColor,
+            size: 16,
           ),
-          const SizedBox(height: 16),
-          
-          // Camera status button
-          FloatingActionButton(
-            heroTag: "camera_status",
-            onPressed: () {
-              // Handle camera status creation
-            },
-            backgroundColor: theme.primaryColor,
-            child: const Icon(
-              Icons.camera_alt,
-              color: Colors.white,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Status updates are end-to-end encrypted',
+              style: TextStyle(
+                color: theme.textSecondaryColor,
+                fontSize: 13,
+              ),
             ),
           ),
         ],
@@ -180,32 +84,99 @@ class _StatusScreenState extends State<StatusScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, ModernThemeExtension theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: theme.textSecondaryColor,
-        ),
+  Widget _buildStatusList(
+    ModernThemeExtension theme,
+    StatusState state,
+    AsyncValue<List<UserStatusGroup>> contactsStatuses,
+    AsyncValue<List<StatusModel>> myStatuses,
+  ) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        await ref.read(statusNotifierProvider.notifier).refreshStatuses();
+      },
+      child: ListView(
+        controller: _scrollController,
+        children: [
+          // My Status Section
+          myStatuses.when(
+            data: (statuses) => _buildMyStatusSection(theme, statuses),
+            loading: () => _buildMyStatusSkeleton(theme),
+            error: (error, stack) => const SizedBox.shrink(),
+          ),
+          
+          const SizedBox(height: 8),
+          
+          // Recent Updates Section
+          contactsStatuses.when(
+            data: (statusGroups) {
+              final recentUpdates = statusGroups
+                  .where((group) => group.hasUnviewedStatus)
+                  .toList();
+              
+              final viewedUpdates = statusGroups
+                  .where((group) => !group.hasUnviewedStatus)
+                  .toList();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (recentUpdates.isNotEmpty) ...[
+                    _buildSectionHeader('Recent updates', theme),
+                    ...recentUpdates.map((group) => 
+                        _buildStatusGroupItem(group, theme, hasUnviewed: true)),
+                    const SizedBox(height: 8),
+                  ],
+                  
+                  if (viewedUpdates.isNotEmpty) ...[
+                    _buildSectionHeader('Viewed updates', theme),
+                    ...viewedUpdates.map((group) => 
+                        _buildStatusGroupItem(group, theme, hasUnviewed: false)),
+                  ],
+                ],
+              );
+            },
+            loading: () => _buildContactsStatusSkeleton(theme),
+            error: (error, stack) => _buildErrorMessage(theme, 'Failed to load statuses'),
+          ),
+          
+          const SizedBox(height: 100), // Bottom padding for FAB
+        ],
       ),
     );
   }
 
-  Widget _buildStatusItem(StatusData status, ModernThemeExtension theme) {
+  Widget _buildMyStatusSection(ModernThemeExtension theme, List<StatusModel> myStatuses) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('My Status', theme),
+        _buildMyStatusItem(theme, myStatuses),
+      ],
+    );
+  }
+
+  Widget _buildMyStatusItem(ModernThemeExtension theme, List<StatusModel> myStatuses) {
+    final hasStatuses = myStatuses.isNotEmpty;
+    
     return InkWell(
       onTap: () {
-        // Handle status view
-        _viewStatus(status);
+        if (hasStatuses) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MyStatusScreen(statuses: myStatuses),
+            ),
+          );
+        } else {
+          _showCreateStatusOptions();
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // Profile picture with status ring
-            _buildProfilePicture(status, theme),
+            // Profile picture with status ring or add button
+            _buildMyProfilePicture(theme, hasStatuses),
             
             const SizedBox(width: 12),
             
@@ -214,23 +185,19 @@ class _StatusScreenState extends State<StatusScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name
                   Text(
-                    status.name,
+                    'My Status',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: theme.textColor,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  
                   const SizedBox(height: 2),
-                  
-                  // Time
                   Text(
-                    status.time,
+                    hasStatuses 
+                        ? '${myStatuses.length} update${myStatuses.length == 1 ? '' : 's'}'
+                        : 'Tap to add status update',
                     style: TextStyle(
                       fontSize: 13,
                       color: theme.textSecondaryColor,
@@ -240,8 +207,8 @@ class _StatusScreenState extends State<StatusScreen> {
               ),
             ),
             
-            // Additional actions for my status
-            if (status.isMyStatus) ...[
+            // Options menu for my status
+            if (hasStatuses)
               PopupMenuButton<String>(
                 icon: Icon(
                   Icons.more_vert,
@@ -250,10 +217,10 @@ class _StatusScreenState extends State<StatusScreen> {
                 onSelected: (value) {
                   switch (value) {
                     case 'privacy':
-                      // Handle status privacy
+                      _showStatusPrivacyOptions();
                       break;
-                    case 'delete':
-                      // Handle status deletion
+                    case 'delete_all':
+                      _showDeleteAllStatusDialog();
                       break;
                   }
                 },
@@ -269,54 +236,50 @@ class _StatusScreenState extends State<StatusScreen> {
                     ),
                   ),
                   PopupMenuItem(
-                    value: 'delete',
+                    value: 'delete_all',
                     child: Row(
                       children: [
                         Icon(Icons.delete, color: theme.textSecondaryColor),
                         const SizedBox(width: 12),
-                        Text('Delete status', style: TextStyle(color: theme.textColor)),
+                        Text('Delete all', style: TextStyle(color: theme.textColor)),
                       ],
                     ),
                   ),
                 ],
               ),
-            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProfilePicture(StatusData status, ModernThemeExtension theme) {
+  Widget _buildMyProfilePicture(ModernThemeExtension theme, bool hasStatuses) {
     return Stack(
       children: [
-        // Status ring
         Container(
           width: 56,
           height: 56,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: status.hasUnviewedStory 
-                  ? theme.primaryColor! 
-                  : (status.isMyStatus ? Colors.transparent : theme.dividerColor!),
-              width: status.hasUnviewedStory ? 2.5 : 2,
+              color: hasStatuses ? theme.primaryColor! : Colors.transparent,
+              width: hasStatuses ? 2.5 : 0,
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(3),
+            padding: EdgeInsets.all(hasStatuses ? 3 : 0),
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: status.profileColor.withOpacity(0.1),
+                color: theme.primaryColor!.withOpacity(0.1),
               ),
               child: Center(
                 child: Text(
-                  status.name[0].toUpperCase(),
+                  'You',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: status.profileColor,
+                    color: theme.primaryColor,
                   ),
                 ),
               ),
@@ -324,8 +287,8 @@ class _StatusScreenState extends State<StatusScreen> {
           ),
         ),
         
-        // Add button for my status
-        if (status.isMyStatus)
+        // Add button
+        if (!hasStatuses)
           Positioned(
             bottom: 0,
             right: 0,
@@ -351,147 +314,271 @@ class _StatusScreenState extends State<StatusScreen> {
     );
   }
 
-  void _viewStatus(StatusData status) {
-    // Navigate to status viewer
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.black,
-      builder: (context) => _buildStatusViewer(status),
-    );
-  }
-
-  Widget _buildStatusViewer(StatusData status) {
-    final theme = context.modernTheme;
-    
-    return Container(
-      height: MediaQuery.of(context).size.height,
-      child: Stack(
-        children: [
-          // Status content (placeholder)
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: status.profileColor.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Status Content\n(${status.statusCount} ${status.statusCount == 1 ? 'update' : 'updates'})',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Top bar with progress indicator
-          SafeArea(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
+  Widget _buildStatusGroupItem(UserStatusGroup group, ModernThemeExtension theme, {required bool hasUnviewed}) {
+    return InkWell(
+      onTap: () => _viewStatusGroup(group),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // Profile picture with status ring
+            _buildStatusProfilePicture(group, theme, hasUnviewed),
+            
+            const SizedBox(width: 12),
+            
+            // Status info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Progress indicators
-                  Expanded(
-                    child: Row(
-                      children: List.generate(
-                        status.statusCount,
-                        (index) => Expanded(
-                          child: Container(
-                            height: 2,
-                            margin: EdgeInsets.only(right: index < status.statusCount - 1 ? 4 : 0),
-                            decoration: BoxDecoration(
-                              color: index == 0 ? Colors.white : Colors.white.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(1),
-                            ),
-                          ),
-                        ),
-                      ),
+                  Text(
+                    group.userName,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: theme.textColor,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  
-                  const SizedBox(width: 16),
-                  
-                  // Close button
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                  const SizedBox(height: 2),
+                  Text(
+                    TimeUtils.getStatusTimeAgo(group.lastStatusTime),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.textSecondaryColor,
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          
-          // User info overlay
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 60,
-            left: 16,
-            right: 16,
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
+            
+            // Unviewed count
+            if (hasUnviewed && group.unviewedCount > 1)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${group.unviewedCount}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusProfilePicture(UserStatusGroup group, ModernThemeExtension theme, bool hasUnviewed) {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: hasUnviewed ? theme.primaryColor! : theme.dividerColor!,
+          width: hasUnviewed ? 2.5 : 2,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: ClipOval(
+          child: group.userImage.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: group.userImage,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: theme.primaryColor!.withOpacity(0.1),
+                    child: Center(
+                      child: Text(
+                        group.userName.isNotEmpty ? group.userName[0].toUpperCase() : '?',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: theme.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: theme.primaryColor!.withOpacity(0.1),
+                    child: Center(
+                      child: Text(
+                        group.userName.isNotEmpty ? group.userName[0].toUpperCase() : '?',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: theme.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: status.profileColor.withOpacity(0.1),
+                    color: theme.primaryColor!.withOpacity(0.1),
                   ),
                   child: Center(
                     child: Text(
-                      status.name[0].toUpperCase(),
+                      group.userName.isNotEmpty ? group.userName[0].toUpperCase() : '?',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 20,
                         fontWeight: FontWeight.w600,
-                        color: status.profileColor,
+                        color: theme.primaryColor,
                       ),
                     ),
                   ),
                 ),
-                
-                const SizedBox(width: 12),
-                
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        status.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        status.time,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, ModernThemeExtension theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: theme.textSecondaryColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingActionButtons(ModernThemeExtension theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Text status button
+        FloatingActionButton(
+          heroTag: "text_status",
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CreateTextStatusScreen(),
+              ),
+            );
+          },
+          backgroundColor: theme.surfaceVariantColor,
+          child: Icon(
+            Icons.edit,
+            color: theme.textColor,
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // Camera status button
+        FloatingActionButton(
+          heroTag: "camera_status",
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const StatusCameraScreen(),
+              ),
+            );
+          },
+          backgroundColor: theme.primaryColor,
+          child: const Icon(
+            Icons.camera_alt,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingState(ModernThemeExtension theme) {
+    return const Center(
+      child: CircularProgressIndicator(),
+    );
+  }
+
+  Widget _buildErrorState(ModernThemeExtension theme, String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: theme.textSecondaryColor,
+            size: 48,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Something went wrong',
+            style: TextStyle(
+              color: theme.textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            error,
+            style: TextStyle(
+              color: theme.textSecondaryColor,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {
+              ref.read(statusNotifierProvider.notifier).refreshStatuses();
+            },
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMyStatusSkeleton(ModernThemeExtension theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.dividerColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 100,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: theme.dividerColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  width: 150,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: theme.dividerColor,
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
               ],
@@ -501,24 +588,437 @@ class _StatusScreenState extends State<StatusScreen> {
       ),
     );
   }
-}
 
-class StatusData {
-  final String name;
-  final String phoneNumber;
-  final String time;
-  final bool isMyStatus;
-  final bool hasUnviewedStory;
-  final int statusCount;
-  final Color profileColor;
+  Widget _buildContactsStatusSkeleton(ModernThemeExtension theme) {
+    return Column(
+      children: List.generate(3, (index) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.dividerColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: theme.dividerColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: 100,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: theme.dividerColor,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      )),
+    );
+  }
 
-  StatusData({
-    required this.name,
-    required this.phoneNumber,
-    required this.time,
-    required this.isMyStatus,
-    required this.hasUnviewedStory,
-    required this.statusCount,
-    required this.profileColor,
-  });
+  Widget _buildErrorMessage(ModernThemeExtension theme, String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: theme.textSecondaryColor,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: theme.textSecondaryColor,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _viewStatusGroup(UserStatusGroup group) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StatusViewerScreen(
+          statusGroup: group,
+          initialIndex: 0,
+        ),
+      ),
+    );
+  }
+
+  void _showCreateStatusOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildCreateStatusBottomSheet(),
+    );
+  }
+
+  Widget _buildCreateStatusBottomSheet() {
+    final theme = context.modernTheme;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                color: theme.dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Title
+            Text(
+              'Add Status Update',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: theme.textColor,
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Options
+            _buildStatusOption(
+              icon: Icons.edit,
+              title: 'Text',
+              subtitle: 'Share a text status',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CreateTextStatusScreen(),
+                  ),
+                );
+              },
+            ),
+            
+            _buildStatusOption(
+              icon: Icons.camera_alt,
+              title: 'Camera',
+              subtitle: 'Take a photo or video',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const StatusCameraScreen(),
+                  ),
+                );
+              },
+            ),
+            
+            _buildStatusOption(
+              icon: Icons.photo_library,
+              title: 'Gallery',
+              subtitle: 'Choose from gallery',
+              onTap: () {
+                Navigator.pop(context);
+                // Navigate to gallery picker
+              },
+            ),
+            
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final theme = context.modernTheme;
+    
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: theme.primaryColor!.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: theme.primaryColor,
+                size: 24,
+              ),
+            ),
+            
+            const SizedBox(width: 16),
+            
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: theme.textColor,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            Icon(
+              Icons.arrow_forward_ios,
+              color: theme.textSecondaryColor,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showStatusPrivacyOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildStatusPrivacyBottomSheet(),
+    );
+  }
+
+  Widget _buildStatusPrivacyBottomSheet() {
+    final theme = context.modernTheme;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                color: theme.dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Title
+            Text(
+              'Status Privacy',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: theme.textColor,
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Privacy options
+            _buildPrivacyOption(
+              title: 'My contacts',
+              subtitle: 'Share with all your contacts',
+              isSelected: true,
+              onTap: () {},
+            ),
+            
+            _buildPrivacyOption(
+              title: 'My contacts except...',
+              subtitle: 'Share with all contacts except selected',
+              isSelected: false,
+              onTap: () {},
+            ),
+            
+            _buildPrivacyOption(
+              title: 'Only share with...',
+              subtitle: 'Share with selected contacts only',
+              isSelected: false,
+              onTap: () {},
+            ),
+            
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrivacyOption({
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final theme = context.modernTheme;
+    
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? theme.primaryColor! : theme.dividerColor!,
+                  width: 2,
+                ),
+                color: isSelected ? theme.primaryColor : Colors.transparent,
+              ),
+              child: isSelected
+                  ? const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 16,
+                    )
+                  : null,
+            ),
+            
+            const SizedBox(width: 16),
+            
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: theme.textColor,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteAllStatusDialog() {
+    final theme = context.modernTheme;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.surfaceColor,
+        title: Text(
+          'Delete All Status Updates?',
+          style: TextStyle(color: theme.textColor),
+        ),
+        content: Text(
+          'This will delete all your status updates. This action cannot be undone.',
+          style: TextStyle(color: theme.textSecondaryColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: theme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Delete all statuses
+              _deleteAllStatuses();
+            },
+            child: Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteAllStatuses() async {
+    final myStatuses = await ref.read(myStatusesStreamProvider.future);
+    
+    for (final status in myStatuses) {
+      await ref.read(statusNotifierProvider.notifier).deleteStatus(status.statusId);
+    }
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All status updates deleted'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 }
