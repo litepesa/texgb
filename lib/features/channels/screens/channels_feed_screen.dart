@@ -65,6 +65,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   // Simple notifier for progress tracking
   final ValueNotifier<double> _progressNotifier = ValueNotifier<double>(0.0);
   
+  // Store original system UI for restoration
+  SystemUiOverlayStyle? _originalSystemUiStyle;
+  
   static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
   static const Duration _cacheCleanupInterval = Duration(minutes: 10);
 
@@ -79,6 +82,28 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _loadVideos();
     _setupCacheCleanup();
     _hasInitialized = true;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Store original system UI after dependencies are available
+    if (_originalSystemUiStyle == null) {
+      _storeOriginalSystemUI();
+    }
+  }
+
+  void _storeOriginalSystemUI() {
+    // Store the current system UI style before making changes
+    final brightness = Theme.of(context).brightness;
+    _originalSystemUiStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    );
   }
 
   @override
@@ -110,6 +135,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _isScreenActive = true;
     _isNavigatingAway = false; // Reset navigation state
     
+    // Setup system UI when becoming active
+    _setupSystemUI();
+    
     if (_isAppInForeground && !_isManuallyPaused) {
       _startFreshPlayback();
       _startIntelligentPreloading();
@@ -123,7 +151,28 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     debugPrint('ChannelsFeedScreen: Screen became inactive');
     _isScreenActive = false;
     _stopPlayback();
+    
+    // Restore original system UI when becoming inactive
+    _restoreOriginalSystemUI();
+    
     WakelockPlus.disable();
+  }
+
+  void _restoreOriginalSystemUI() {
+    if (_originalSystemUiStyle != null) {
+      SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
+    } else {
+      // Fallback: restore based on current theme
+      final brightness = Theme.of(context).brightness;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    }
   }
 
   // New method to handle navigation away from feed
@@ -235,12 +284,14 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _setupSystemUI() {
-    // Always black background with light status bar for TikTok-style
+    // Keep black navigation bar for immersive TikTok-style experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black,
+      systemNavigationBarColor: Colors.black, // Keep black for immersive experience
       systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
     ));
   }
 
@@ -475,6 +526,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     _stopPlayback();
     _cacheService.dispose();
+    
+    // Restore original system UI on dispose
+    _restoreOriginalSystemUI();
     
     WakelockPlus.disable();
     
