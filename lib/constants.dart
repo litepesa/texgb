@@ -255,11 +255,12 @@ class Constants {
   static const String statusTypeAudio = 'audio';
   static const String statusTypeGif = 'gif';
   
-  // Status privacy levels
-  static const String statusPrivacyPublic = 'public';
-  static const String statusPrivacyContacts = 'contacts';
-  static const String statusPrivacyCustom = 'custom';
-  static const String statusPrivacyClose = 'close_friends';
+  // Status privacy settings
+  //static const String statusPrivacySettings = 'statusPrivacySettings';
+  static const String defaultStatusPrivacy = 'defaultPrivacy';
+  static const String statusAllowedViewersList = 'allowedViewers';
+  static const String statusExcludedViewersList = 'excludedViewers';
+  static const String statusMutedUsers = 'mutedUsers';
 
   // ===== SHOP MODEL FIELD NAMES =====
   

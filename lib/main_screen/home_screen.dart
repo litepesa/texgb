@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
@@ -16,6 +17,7 @@ import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
+import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
@@ -136,11 +138,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             color: modernTheme.backgroundColor,
             child: const GroupsTab(),
           ),
-          // Discover tab (index 2) - Channels List
+          // Status tab (index 2)
           Container(
             color: modernTheme.backgroundColor,
             child: const StatusScreen(),
           ),
+          // Channels tab (index 3)
           Container(
             color: modernTheme.surfaceColor,
             child: const RecommendedPostsScreen(),
@@ -241,7 +244,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // For other tabs (Discover, Live), no badge needed
+    // For other tabs (Status, Channels), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
 
@@ -380,7 +383,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats, Groups, Discover, and Live tabs
+  // Show FAB on Chats, Groups, Status, and Channels tabs
   bool _shouldShowFab() {
     return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 2 || _currentIndex == 3;
   }
@@ -562,20 +565,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: const Icon(Icons.group_add),
       );
     } else if (_currentIndex == 2) {
-      // Discover tab - Create post FAB
+      // Status tab - Create status FAB
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreatePostScreen(),
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
+        onPressed: () => _createStatus(),
+        child: const Icon(Icons.camera_alt),
       );
     } else if (_currentIndex == 3) {
       // Channels tab - Create post FAB
@@ -596,5 +592,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
     
     return const SizedBox.shrink();
+  }
+
+  // Status creation method
+  void _createStatus() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CreateStatusScreen(),
+      ),
+    );
   }
 }
