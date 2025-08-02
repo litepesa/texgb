@@ -68,6 +68,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
   
+  // Progress bar constants
+  static const double _progressBarHeight = 3.0;
+  
   static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
   static const Duration _cacheCleanupInterval = Duration(minutes: 10);
 
@@ -510,6 +513,39 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     ref.read(channelVideosProvider.notifier).incrementViewCount(videos[index].id);
   }
 
+  // Progress bar widget
+  Widget _buildProgressBar(ModernThemeExtension modernTheme) {
+    return ValueListenableBuilder<double>(
+      valueListenable: _progressNotifier,
+      builder: (context, progress, child) {
+        return Container(
+          height: _progressBarHeight,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+          ),
+          child: Stack(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 100),
+                width: MediaQuery.of(context).size.width * progress.clamp(0.0, 1.0),
+                height: _progressBarHeight,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      modernTheme.primaryColor ?? Colors.blue,
+                      (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     debugPrint('ChannelsFeedScreen: Disposing');
@@ -544,6 +580,8 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     final channelVideosState = ref.watch(channelVideosProvider);
     final channelsState = ref.watch(channelsProvider);
+    final modernTheme = context.modernTheme;
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
     if (_isFirstLoad && channelVideosState.isLoading) {
       return const Scaffold(
@@ -558,8 +596,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Main content - full screen
+          // Main content - full screen with space for progress bar above system nav
           Positioned.fill(
+            bottom: systemBottomPadding + _progressBarHeight, // Reserve space for progress bar above system nav
             child: _buildBody(channelVideosState, channelsState),
           ),
           
@@ -568,6 +607,14 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           // TikTok-style right side menu
           _buildRightSideMenu(),
+          
+          // Progress bar positioned just above the system navigation bar
+          Positioned(
+            bottom: systemBottomPadding, // Position above system nav bar
+            left: 0,
+            right: 0,
+            child: _buildProgressBar(modernTheme),
+          ),
           
           // Cache performance indicator (debug mode only)
           if (kDebugMode)
@@ -834,10 +881,11 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
         ? videos[_currentVideoIndex] 
         : null;
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom: MediaQuery.of(context).padding.bottom + 16, // Account for system nav bar
+      bottom: systemBottomPadding + _progressBarHeight + 16, // Account for progress bar and system nav
       child: Column(
         children: [
           // Profile avatar with red ring

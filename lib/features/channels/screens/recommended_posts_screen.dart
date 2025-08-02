@@ -347,7 +347,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                         Row(
                           children: [
                             Text(
-                              _getTimeAgo(video.createdAt.toDate()),
+                              '${_formatCount(_getChannelFollowers(video.channelId))} followers',
                               style: TextStyle(
                                 color: context.modernTheme.textSecondaryColor,
                                 fontSize: 12,
@@ -365,6 +365,15 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         ),
       ),
     );
+  }
+
+  int _getChannelFollowers(String channelId) {
+    final channelsState = ref.read(channelsProvider);
+    final channel = channelsState.channels.firstWhere(
+      (channel) => channel.id == channelId,
+      orElse: () => throw StateError('Channel not found'),
+    );
+    return channel.followers;
   }
 
   Widget _buildThumbnailContent(ChannelVideoModel video) {
