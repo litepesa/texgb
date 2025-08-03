@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:video_player/video_player.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
+import 'package:textgb/features/status/widgets/video_status_widget.dart';
+import 'package:textgb/features/status/widgets/status_thumbnail_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
@@ -34,6 +37,12 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
   int _currentIndex = 0;
   bool _isPaused = false;
   bool _isLoading = true;
+  Duration _statusDuration = const Duration(seconds: 5);
+  Duration _currentStatusElapsed = Duration.zero;
+
+  // Video specific controllers
+  final Map<int, VideoPlayerController> _videoControllers = {};
+  final Map<int, bool> _videoInitialized = {};
 
   @override
   void initState() {
@@ -43,7 +52,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     _progressController = AnimationController(vsync: this);
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startStatusTimer();
+      _initializeCurrentStatus();
       _markCurrentStatusAsViewed();
     });
   }
@@ -53,19 +62,98 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     _pageController.dispose();
     _progressController.dispose();
     _progressTimer?.cancel();
+    _disposeVideoControllers();
     super.dispose();
+  }
+
+  void _disposeVideoControllers() {
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
+    _videoControllers.clear();
+    _videoInitialized.clear();
+  }
+
+  Future<void> _initializeCurrentStatus() async {
+    final currentStatus = widget.statusGroup.statuses[_currentIndex];
+    
+    if (currentStatus.type == StatusType.video) {
+      await _initializeVideoForStatus(_currentIndex);
+    }
+    
+    _startStatusTimer();
+  }
+
+  Future<void> _initializeVideoForStatus(int index) async {
+    if (_videoControllers.containsKey(index)) return;
+    
+    final status = widget.statusGroup.statuses[index];
+    if (status.type != StatusType.video) return;
+
+    try {
+      final controller = VideoPlayerController.networkUrl(Uri.parse(status.content));
+      await controller.initialize();
+      
+      _videoControllers[index] = controller;
+      _videoInitialized[index] = true;
+      
+      // Set video duration as status duration
+      _statusDuration = controller.value.duration;
+      
+      if (mounted) {
+        setState(() {});
+      }
+      
+      // Auto-play video when initialized
+      if (index == _currentIndex && !_isPaused) {
+        controller.play();
+        controller.addListener(() => _videoListener(index));
+      }
+    } catch (e) {
+      debugPrint('Error initializing video for status $index: $e');
+      _videoInitialized[index] = false;
+    }
+  }
+
+  void _videoListener(int index) {
+    final controller = _videoControllers[index];
+    if (controller == null || index != _currentIndex) return;
+
+    final position = controller.value.position;
+    final duration = controller.value.duration;
+
+    // Update progress based on video position
+    if (duration != Duration.zero) {
+      final progress = position.inMilliseconds / duration.inMilliseconds;
+      _progressController.value = progress.clamp(0.0, 1.0);
+    }
+
+    // Check if video ended
+    if (position >= duration && duration != Duration.zero) {
+      _nextStatus();
+    }
   }
 
   void _startStatusTimer() {
     _progressTimer?.cancel();
     _progressController.reset();
     
-    const duration = Duration(seconds: 5); // Each status shows for 5 seconds
-    _progressController.duration = duration;
+    final currentStatus = widget.statusGroup.statuses[_currentIndex];
     
+    if (currentStatus.type == StatusType.video) {
+      // For videos, let the video control the progress
+      final controller = _videoControllers[_currentIndex];
+      if (controller != null && _videoInitialized[_currentIndex] == true) {
+        controller.play();
+        return;
+      }
+    }
+    
+    // For non-video statuses, use timer
+    _progressController.duration = _statusDuration;
     _progressController.forward();
     
-    _progressTimer = Timer(duration, () {
+    _progressTimer = Timer(_statusDuration, () {
       if (mounted && !_isPaused) {
         _nextStatus();
       }
@@ -74,33 +162,51 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
 
   void _pauseStatus() {
     setState(() => _isPaused = true);
-    _progressController.stop();
-    _progressTimer?.cancel();
+    
+    final currentStatus = widget.statusGroup.statuses[_currentIndex];
+    if (currentStatus.type == StatusType.video) {
+      final controller = _videoControllers[_currentIndex];
+      controller?.pause();
+    } else {
+      _progressController.stop();
+      _progressTimer?.cancel();
+    }
   }
 
   void _resumeStatus() {
     setState(() => _isPaused = false);
-    _progressController.forward();
     
-    final remainingTime = Duration(
-      milliseconds: ((1 - _progressController.value) * 5000).round(),
-    );
-    
-    _progressTimer = Timer(remainingTime, () {
-      if (mounted && !_isPaused) {
-        _nextStatus();
-      }
-    });
+    final currentStatus = widget.statusGroup.statuses[_currentIndex];
+    if (currentStatus.type == StatusType.video) {
+      final controller = _videoControllers[_currentIndex];
+      controller?.play();
+    } else {
+      _progressController.forward();
+      
+      final remainingTime = Duration(
+        milliseconds: ((1 - _progressController.value) * _statusDuration.inMilliseconds).round(),
+      );
+      
+      _progressTimer = Timer(remainingTime, () {
+        if (mounted && !_isPaused) {
+          _nextStatus();
+        }
+      });
+    }
   }
 
   void _nextStatus() {
     if (_currentIndex < widget.statusGroup.statuses.length - 1) {
+      // Pause current video
+      final currentController = _videoControllers[_currentIndex];
+      currentController?.pause();
+      
       setState(() => _currentIndex++);
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-      _startStatusTimer();
+      _initializeCurrentStatus();
       _markCurrentStatusAsViewed();
     } else {
       Navigator.pop(context);
@@ -109,12 +215,16 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
 
   void _previousStatus() {
     if (_currentIndex > 0) {
+      // Pause current video
+      final currentController = _videoControllers[_currentIndex];
+      currentController?.pause();
+      
       setState(() => _currentIndex--);
       _pageController.previousPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-      _startStatusTimer();
+      _initializeCurrentStatus();
       _markCurrentStatusAsViewed();
     }
   }
@@ -155,13 +265,17 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
             PageView.builder(
               controller: _pageController,
               onPageChanged: (index) {
+                // Pause previous video
+                final prevController = _videoControllers[_currentIndex];
+                prevController?.pause();
+                
                 setState(() => _currentIndex = index);
-                _startStatusTimer();
+                _initializeCurrentStatus();
                 _markCurrentStatusAsViewed();
               },
               itemCount: widget.statusGroup.statuses.length,
               itemBuilder: (context, index) {
-                return _buildStatusContent(widget.statusGroup.statuses[index]);
+                return _buildStatusContent(widget.statusGroup.statuses[index], index);
               },
             ),
             
@@ -176,14 +290,14 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     );
   }
 
-  Widget _buildStatusContent(StatusModel status) {
+  Widget _buildStatusContent(StatusModel status, int index) {
     switch (status.type) {
       case StatusType.text:
         return _buildTextStatus(status);
       case StatusType.image:
         return _buildImageStatus(status);
       case StatusType.video:
-        return _buildVideoStatus(status);
+        return _buildVideoStatus(status, index);
       default:
         return _buildTextStatus(status);
     }
@@ -266,52 +380,46 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     );
   }
 
-  Widget _buildVideoStatus(StatusModel status) {
-    // For now, show a placeholder. In a real app, you'd implement video player
+  Widget _buildVideoStatus(StatusModel status, int index) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Container(
-          color: Colors.black,
-          child: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.play_circle_fill,
-                  color: Colors.white,
-                  size: 64,
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Video Placeholder',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ],
-            ),
-          ),
+        // Video player widget
+        VideoStatusWidget(
+          videoUrl: status.content,
+          caption: status.caption,
+          autoPlay: index == _currentIndex && !_isPaused,
+          showControls: false, // We handle controls in the overlay
+          onProgress: (duration) {
+            // Update progress based on video playback
+            final controller = _videoControllers[index];
+            if (controller != null && controller.value.duration != Duration.zero) {
+              final progress = duration.inMilliseconds / controller.value.duration.inMilliseconds;
+              _progressController.value = progress.clamp(0.0, 1.0);
+            }
+          },
+          onVideoEnd: () {
+            _nextStatus();
+          },
         ),
         
-        // Caption overlay
-        if (status.caption != null && status.caption!.isNotEmpty)
-          Positioned(
-            bottom: 100,
-            left: 16,
-            right: 16,
+        // Video controls overlay (tap to play/pause)
+        if (_videoInitialized[index] == true)
+          GestureDetector(
+            onTap: () {
+              final controller = _videoControllers[index];
+              if (controller != null) {
+                if (controller.value.isPlaying) {
+                  _pauseStatus();
+                } else {
+                  _resumeStatus();
+                }
+              }
+            },
             child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                status.caption!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-                textAlign: TextAlign.center,
-              ),
+              color: Colors.transparent,
+              width: double.infinity,
+              height: double.infinity,
             ),
           ),
       ],
@@ -405,6 +513,36 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                     ],
                   ),
                 ),
+                
+                // Mute button for videos
+                if (_currentIndex < widget.statusGroup.statuses.length &&
+                    widget.statusGroup.statuses[_currentIndex].type == StatusType.video)
+                  GestureDetector(
+                    onTap: () {
+                      final controller = _videoControllers[_currentIndex];
+                      if (controller != null) {
+                        final currentVolume = controller.value.volume;
+                        controller.setVolume(currentVolume > 0 ? 0.0 : 1.0);
+                        setState(() {});
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _videoControllers[_currentIndex]?.value.volume == 0
+                            ? Icons.volume_off
+                            : Icons.volume_up,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                
+                const SizedBox(width: 8),
                 
                 // Close button
                 GestureDetector(
