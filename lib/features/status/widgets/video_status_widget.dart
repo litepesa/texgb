@@ -220,7 +220,7 @@ class _VideoStatusWidgetState extends State<VideoStatusWidget> {
     if (_thumbnailPath != null) {
       return Image.file(
         File(_thumbnailPath!),
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         width: double.infinity,
         height: double.infinity,
       );
@@ -252,7 +252,7 @@ class _VideoStatusWidgetState extends State<VideoStatusWidget> {
   Widget _buildVideoPlayer() {
     return SizedBox.expand(
       child: FittedBox(
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         child: SizedBox(
           width: _controller!.value.size.width,
           height: _controller!.value.size.height,

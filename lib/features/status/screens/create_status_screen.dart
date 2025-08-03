@@ -8,6 +8,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
+import 'package:textgb/features/status/utils/video_processor.dart';
 import 'package:textgb/features/status/widgets/video_status_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -20,7 +21,7 @@ class CreateStatusScreen extends ConsumerStatefulWidget {
     super.key,
     this.initialType,
     this.initialFile,
-  });
+});
 
   @override
   ConsumerState<CreateStatusScreen> createState() => _CreateStatusScreenState();
@@ -33,10 +34,13 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
   final TextEditingController _captionController = TextEditingController();
   
   File? _selectedFile;
+  File? _processedFile; // Processed video file
   VideoPlayerController? _videoController;
+  VideoInfo? _videoInfo;
   String? _videoThumbnail;
-  Duration? _videoDuration;
   bool _isVideoInitialized = false;
+  bool _isProcessingVideo = false;
+  double _processingProgress = 0.0;
   
   String _backgroundColor = '#000000';
   String _fontColor = '#FFFFFF';
@@ -63,7 +67,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     if (widget.initialFile != null) {
       _selectedFile = widget.initialFile;
       if (_selectedType == StatusType.video) {
-        _initializeVideo();
+        _processVideoFile(widget.initialFile!);
       }
     }
   }
@@ -76,19 +80,82 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     super.dispose();
   }
 
+  Future<void> _processVideoFile(File videoFile) async {
+    // Just initialize the video player without processing
+    // Processing will happen when user clicks share
+    setState(() {
+      _selectedFile = videoFile;
+    });
+    
+    try {
+      // Get basic video info for display
+      final videoInfo = await VideoProcessor.getVideoInfo(videoFile.path);
+      if (videoInfo != null) {
+        setState(() {
+          _videoInfo = videoInfo;
+        });
+      }
+      
+      // Initialize video player for preview
+      await _initializeVideo();
+      await _generateVideoThumbnail();
+    } catch (e) {
+      debugPrint('Error getting video info: $e');
+      // Continue anyway, just won't show video info
+    }
+  }
+
+  void _showProcessingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final theme = context.modernTheme;
+        return AlertDialog(
+          backgroundColor: theme.surfaceColor,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                value: _processingProgress > 0 ? _processingProgress : null,
+                color: theme.primaryColor,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                style: TextStyle(color: theme.textColor),
+              ),
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: _processingProgress > 0 ? _processingProgress : null,
+                backgroundColor: theme.dividerColor,
+                valueColor: AlwaysStoppedAnimation(theme.primaryColor),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _processingProgress > 0 ? '${(_processingProgress * 100).toInt()}%' : '',
+                style: TextStyle(
+                  color: theme.textSecondaryColor,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _initializeVideo() async {
-    if (_selectedFile != null && _selectedType == StatusType.video) {
+    final videoFile = _selectedFile; // Use selected file, not processed
+    if (videoFile != null && _selectedType == StatusType.video) {
       try {
-        _videoController = VideoPlayerController.file(_selectedFile!);
+        _videoController = VideoPlayerController.file(videoFile);
         await _videoController!.initialize();
         
         setState(() {
           _isVideoInitialized = true;
-          _videoDuration = _videoController!.value.duration;
         });
-
-        // Generate thumbnail
-        _generateVideoThumbnail();
       } catch (e) {
         debugPrint('Error initializing video: $e');
         if (mounted) {
@@ -99,10 +166,11 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
   }
 
   Future<void> _generateVideoThumbnail() async {
-    if (_selectedFile != null) {
+    final videoFile = _selectedFile; // Use selected file, not processed
+    if (videoFile != null) {
       try {
         final thumbnail = await VideoThumbnail.thumbnailFile(
-          video: _selectedFile!.path,
+          video: videoFile.path,
           thumbnailPath: (await getTemporaryDirectory()).path,
           imageFormat: ImageFormat.JPEG,
           maxHeight: 400,
@@ -140,12 +208,12 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
         actions: [
           TextButton(
             onPressed: statusNotifier.when(
-              data: (state) => state.isCreating ? null : _createStatus,
+              data: (state) => state.isCreating || _isProcessingVideo ? null : _createStatus,
               loading: () => null,
               error: (_, __) => _createStatus,
             ),
             child: statusNotifier.when(
-              data: (state) => state.isCreating
+              data: (state) => state.isCreating || _isProcessingVideo
                   ? SizedBox(
                       width: 20,
                       height: 20,
@@ -218,7 +286,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          if (type != _selectedType) {
+          if (type != _selectedType && !_isProcessingVideo) {
             setState(() => _selectedType = type);
             if (type != StatusType.video) {
               _videoController?.dispose();
@@ -226,7 +294,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
               setState(() {
                 _isVideoInitialized = false;
                 _videoThumbnail = null;
-                _videoDuration = null;
+                _processedFile = null;
+                _videoInfo = null;
               });
             }
           }
@@ -271,6 +340,125 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
       default:
         return _buildTextStatus(theme);
     }
+  }
+
+  Widget _buildVideoStatus(ModernThemeExtension theme) {
+    return Column(
+      children: [
+        // Video preview
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.surfaceVariantColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: (_processedFile ?? _selectedFile) != null
+                ? _buildVideoPreview(theme)
+                : _buildMediaPicker(theme),
+          ),
+        ),
+        
+        // Video info and caption
+        if ((_processedFile ?? _selectedFile) != null) ...[
+          // Video info with enhanced features indicator
+          if (_videoInfo != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.videocam, color: theme.textSecondaryColor, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Duration: ${_videoInfo!.durationText}',
+                    style: TextStyle(
+                      color: theme.textSecondaryColor,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(Icons.graphic_eq, color: theme.primaryColor, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Enhanced Audio',
+                    style: TextStyle(
+                      color: theme.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (_videoInfo!.fileSize != (_selectedFile?.lengthSync() ?? 0))
+                    Expanded(
+                      child: Text(
+                        ' • Optimized ${_videoInfo!.fileSizeText}',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 12,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
+          
+          // Caption input
+          _buildCaptionInput(theme),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildVideoPreview(ModernThemeExtension theme) {
+    return Stack(
+      children: [
+        // Video preview with enhanced controls
+        Positioned.fill(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: VideoStatusWidget(
+              videoFile: _selectedFile, // Use selected file for preview
+              autoPlay: false,
+              showControls: true,
+            ),
+          ),
+        ),
+        
+        // Remove processing indicator and enhanced indicator as these are no longer needed
+        // Remove button
+        Positioned(
+          top: 16,
+          right: 16,
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedFile = null;
+                _processedFile = null;
+                _videoController?.dispose();
+                _videoController = null;
+                _isVideoInitialized = false;
+                _videoThumbnail = null;
+                _videoInfo = null;
+              });
+            },
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildTextStatus(ModernThemeExtension theme) {
@@ -358,63 +546,6 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     );
   }
 
-  Widget _buildVideoStatus(ModernThemeExtension theme) {
-    return Column(
-      children: [
-        // Video preview
-        Expanded(
-          child: Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.surfaceVariantColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: _selectedFile != null
-                ? _buildVideoPreview(theme)
-                : _buildMediaPicker(theme),
-          ),
-        ),
-        
-        // Video info and caption
-        if (_selectedFile != null) ...[
-          // Video duration info
-          if (_videoDuration != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Icon(Icons.videocam, color: theme.textSecondaryColor, size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Duration: ${_formatDuration(_videoDuration!)}',
-                    style: TextStyle(
-                      color: theme.textSecondaryColor,
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (_videoDuration!.inMinutes > 1)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Text(
-                        '(Max 1 minute for status)',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 8),
-          
-          // Caption input
-          _buildCaptionInput(theme),
-        ],
-      ],
-    );
-  }
-
   Widget _buildImagePreview(ModernThemeExtension theme) {
     return Stack(
       children: [
@@ -451,87 +582,6 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     );
   }
 
-  Widget _buildVideoPreview(ModernThemeExtension theme) {
-    return Stack(
-      children: [
-        // Video preview with thumbnail and controls
-        Positioned.fill(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: VideoStatusWidget(
-              videoFile: _selectedFile,
-              autoPlay: false,
-              showControls: true,
-            ),
-          ),
-        ),
-        
-        // Remove button
-        Positioned(
-          top: 16,
-          right: 16,
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedFile = null;
-                _videoController?.dispose();
-                _videoController = null;
-                _isVideoInitialized = false;
-                _videoThumbnail = null;
-                _videoDuration = null;
-              });
-            },
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: Colors.black54,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-        ),
-
-        // Video trim/edit button (optional)
-        if (_videoDuration != null && _videoDuration!.inMinutes > 1)
-          Positioned(
-            top: 16,
-            left: 16,
-            child: GestureDetector(
-              onTap: _showVideoTrimDialog,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.content_cut, color: Colors.white, size: 16),
-                    SizedBox(width: 4),
-                    Text(
-                      'Trim',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _buildMediaPicker(ModernThemeExtension theme) {
     return Center(
       child: Column(
@@ -553,7 +603,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
           const SizedBox(height: 8),
           if (_selectedType == StatusType.video)
             Text(
-              'Videos longer than 1 minute will be trimmed',
+              'Videos will be enhanced with crisp audio\nand optimized for sharing',
               style: TextStyle(
                 color: theme.textSecondaryColor,
                 fontSize: 12,
@@ -789,56 +839,6 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     );
   }
 
-  void _showVideoTrimDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final theme = context.modernTheme;
-        return AlertDialog(
-          backgroundColor: theme.surfaceColor,
-          title: Text(
-            'Video Too Long',
-            style: TextStyle(color: theme.textColor),
-          ),
-          content: Text(
-            'Videos for status updates must be 1 minute or less. Would you like to trim this video or select a different one?',
-            style: TextStyle(color: theme.textSecondaryColor),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() {
-                  _selectedFile = null;
-                  _videoController?.dispose();
-                  _videoController = null;
-                  _isVideoInitialized = false;
-                  _videoThumbnail = null;
-                  _videoDuration = null;
-                });
-              },
-              child: Text(
-                'Select Different',
-                style: TextStyle(color: theme.textSecondaryColor),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Implement video trimming functionality
-                showSnackBar(context, 'Video trimming feature coming soon!');
-              },
-              child: Text(
-                'Trim Video',
-                style: TextStyle(color: theme.primaryColor),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _pickFromGallery() async {
     try {
       if (_selectedType == StatusType.image) {
@@ -852,11 +852,11 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
       } else {
         final file = await pickVideo(
           onFail: (error) => showSnackBar(context, error),
-          maxDuration: const Duration(minutes: 5), // Allow longer videos, will show trim option
+          maxDuration: const Duration(minutes: 10), // Allow longer videos, will be processed
         );
         if (file != null) {
           setState(() => _selectedFile = file);
-          await _initializeVideo();
+          await _processVideoFile(file);
         }
       }
     } catch (e) {
@@ -877,11 +877,11 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
       } else {
         final file = await pickVideoFromCamera(
           onFail: (error) => showSnackBar(context, error),
-          maxDuration: const Duration(minutes: 5), // Allow longer videos, will show trim option
+          maxDuration: const Duration(minutes: 10), // Allow longer videos, will be processed
         );
         if (file != null) {
           setState(() => _selectedFile = file);
-          await _initializeVideo();
+          await _processVideoFile(file);
         }
       }
     } catch (e) {
@@ -890,6 +890,11 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
   }
 
   void _createStatus() async {
+    if (_isProcessingVideo) {
+      showSnackBar(context, 'Please wait for video processing to complete');
+      return;
+    }
+
     String content = '';
     String? caption;
 
@@ -901,14 +906,9 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
         return;
       }
     } else {
-      if (_selectedFile == null) {
+      final fileToUse = _processedFile ?? _selectedFile;
+      if (fileToUse == null) {
         showSnackBar(context, 'Please select a file');
-        return;
-      }
-      
-      // Check video duration for status
-      if (_selectedType == StatusType.video && _videoDuration != null && _videoDuration!.inSeconds > 60) {
-        showSnackBar(context, 'Please trim your video to 1 minute or less for status updates');
         return;
       }
       
@@ -918,6 +918,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     }
 
     try {
+      final fileToUpload = _processedFile ?? _selectedFile;
+      
       final statusId = await ref.read(statusNotifierProvider.notifier).createStatus(
         type: _selectedType,
         content: content,
@@ -926,13 +928,15 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
         fontColor: _selectedType == StatusType.text ? _fontColor : null,
         fontFamily: _selectedType == StatusType.text ? _fontFamily : null,
         privacyType: _privacyType,
-        mediaFile: _selectedFile,
+        mediaFile: fileToUpload,
       );
 
       if (statusId != null) {
         if (mounted) {
           Navigator.pop(context);
-          showSnackBar(context, 'Status shared successfully!');
+          showSnackBar(context, _selectedType == StatusType.video 
+              ? 'Status shared with enhanced audio!' 
+              : 'Status shared successfully!');
         }
       } else {
         showSnackBar(context, 'Failed to share status');
@@ -940,12 +944,4 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     } catch (e) {
       showSnackBar(context, 'Error sharing status: $e');
     }
-  }
-
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
-  }
-}
+  }}
