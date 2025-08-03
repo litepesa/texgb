@@ -35,6 +35,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
   int _currentIndex = 0;
   bool _isPaused = false;
   bool _isLoading = true;
+  bool _isNavigating = false; // Add navigation lock
   Duration _statusDuration = const Duration(seconds: 5);
 
   // Video specific controllers
@@ -117,7 +118,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
 
   void _videoProgressListener(int index) {
     final controller = _videoControllers[index];
-    if (controller == null || index != _currentIndex || !mounted) return;
+    if (controller == null || index != _currentIndex || !mounted || _isNavigating) return;
 
     final position = controller.value.position;
     final duration = controller.value.duration;
@@ -129,7 +130,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     }
 
     // Check if video ended
-    if (position >= duration && duration != Duration.zero) {
+    if (position >= duration && duration != Duration.zero && !_isNavigating) {
       _nextStatus();
     }
   }
@@ -157,7 +158,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       _progressController.forward();
       
       _progressTimer = Timer(_statusDuration, () {
-        if (mounted && !_isPaused) {
+        if (mounted && !_isPaused && !_isNavigating) {
           _nextStatus();
         }
       });
@@ -192,14 +193,17 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       );
       
       _progressTimer = Timer(remainingTime, () {
-        if (mounted && !_isPaused) {
+        if (mounted && !_isPaused && !_isNavigating) {
           _nextStatus();
         }
       });
     }
   }
 
-  void _nextStatus() {
+  void _nextStatus() async {
+    // Prevent multiple navigation calls
+    if (_isNavigating || !mounted) return;
+    
     if (_currentIndex < widget.statusGroup.statuses.length - 1) {
       // Pause current video
       final currentController = _videoControllers[_currentIndex];
@@ -210,19 +214,30 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-      _initializeCurrentStatus();
+      await _initializeCurrentStatus();
       _markCurrentStatusAsViewed();
     } else {
       // End of current user's statuses - navigate to next user or back to status screen
-      _handleStatusGroupComplete();
+      await _handleStatusGroupComplete();
     }
   }
 
-  void _handleStatusGroupComplete() async {
+  Future<void> _handleStatusGroupComplete() async {
     // Prevent multiple navigation calls
-    if (!mounted) return;
+    if (_isNavigating || !mounted) return;
+    
+    _isNavigating = true;
     
     try {
+      // Cancel any running timers first
+      _progressTimer?.cancel();
+      _progressController.stop();
+      
+      // Small delay to ensure any ongoing operations complete
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      if (!mounted) return;
+      
       // Get all status groups from the provider
       final statusGroups = await ref.read(statusStreamProvider.future);
       
@@ -249,7 +264,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       
       if (nextGroup != null && mounted) {
         // Navigate to next user's status
-        Navigator.pushReplacement(
+        await Navigator.pushReplacement(
           context,
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) => StatusViewerScreen(
@@ -282,6 +297,8 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       if (mounted) {
         Navigator.pop(context);
       }
+    } finally {
+      _isNavigating = false;
     }
   }
 
@@ -327,7 +344,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
         },
         onTapUp: (details) {
           // Prevent interaction during navigation
-          if (!mounted) return;
+          if (!mounted || _isNavigating) return;
           
           _resumeStatus();
           final screenWidth = MediaQuery.of(context).size.width;
@@ -706,7 +723,11 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                 
                 // Close button
                 GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    if (!_isNavigating && mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
