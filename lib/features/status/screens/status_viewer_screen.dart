@@ -7,8 +7,6 @@ import 'package:video_player/video_player.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
-import 'package:textgb/features/status/widgets/video_status_widget.dart';
-import 'package:textgb/features/status/widgets/status_thumbnail_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
@@ -38,11 +36,13 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
   bool _isPaused = false;
   bool _isLoading = true;
   Duration _statusDuration = const Duration(seconds: 5);
-  Duration _currentStatusElapsed = Duration.zero;
 
   // Video specific controllers
   final Map<int, VideoPlayerController> _videoControllers = {};
   final Map<int, bool> _videoInitialized = {};
+  
+  // Caption expansion state
+  final Map<int, bool> _captionExpanded = {};
 
   @override
   void initState() {
@@ -77,10 +77,13 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
   Future<void> _initializeCurrentStatus() async {
     final currentStatus = widget.statusGroup.statuses[_currentIndex];
     
+    setState(() => _isLoading = true);
+    
     if (currentStatus.type == StatusType.video) {
       await _initializeVideoForStatus(_currentIndex);
     }
     
+    setState(() => _isLoading = false);
     _startStatusTimer();
   }
 
@@ -100,14 +103,11 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       // Set video duration as status duration
       _statusDuration = controller.value.duration;
       
+      // Add listener for progress tracking
+      controller.addListener(() => _videoProgressListener(index));
+      
       if (mounted) {
         setState(() {});
-      }
-      
-      // Auto-play video when initialized
-      if (index == _currentIndex && !_isPaused) {
-        controller.play();
-        controller.addListener(() => _videoListener(index));
       }
     } catch (e) {
       debugPrint('Error initializing video for status $index: $e');
@@ -115,9 +115,9 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     }
   }
 
-  void _videoListener(int index) {
+  void _videoProgressListener(int index) {
     final controller = _videoControllers[index];
-    if (controller == null || index != _currentIndex) return;
+    if (controller == null || index != _currentIndex || !mounted) return;
 
     final position = controller.value.position;
     final duration = controller.value.duration;
@@ -144,20 +144,24 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       // For videos, let the video control the progress
       final controller = _videoControllers[_currentIndex];
       if (controller != null && _videoInitialized[_currentIndex] == true) {
-        controller.play();
+        if (!_isPaused) {
+          controller.play();
+        }
         return;
       }
     }
     
-    // For non-video statuses, use timer
+    // For non-video statuses, use timer-based progress
     _progressController.duration = _statusDuration;
-    _progressController.forward();
-    
-    _progressTimer = Timer(_statusDuration, () {
-      if (mounted && !_isPaused) {
-        _nextStatus();
-      }
-    });
+    if (!_isPaused) {
+      _progressController.forward();
+      
+      _progressTimer = Timer(_statusDuration, () {
+        if (mounted && !_isPaused) {
+          _nextStatus();
+        }
+      });
+    }
   }
 
   void _pauseStatus() {
@@ -209,7 +213,75 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       _initializeCurrentStatus();
       _markCurrentStatusAsViewed();
     } else {
-      Navigator.pop(context);
+      // End of current user's statuses - navigate to next user or back to status screen
+      _handleStatusGroupComplete();
+    }
+  }
+
+  void _handleStatusGroupComplete() async {
+    // Prevent multiple navigation calls
+    if (!mounted) return;
+    
+    try {
+      // Get all status groups from the provider
+      final statusGroups = await ref.read(statusStreamProvider.future);
+      
+      if (!mounted) return;
+      
+      // Find current user's index in the groups
+      int currentGroupIndex = -1;
+      for (int i = 0; i < statusGroups.length; i++) {
+        if (statusGroups[i].userId == widget.statusGroup.userId) {
+          currentGroupIndex = i;
+          break;
+        }
+      }
+      
+      // Look for next user with unviewed statuses
+      UserStatusGroup? nextGroup;
+      for (int i = currentGroupIndex + 1; i < statusGroups.length; i++) {
+        final group = statusGroups[i];
+        if (!group.isMyStatus && group.hasUnviewedStatuses(widget.currentUserId)) {
+          nextGroup = group;
+          break;
+        }
+      }
+      
+      if (nextGroup != null && mounted) {
+        // Navigate to next user's status
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => StatusViewerScreen(
+              statusGroup: nextGroup!,
+              currentUserId: widget.currentUserId,
+              initialIndex: 0,
+            ),
+            transitionDuration: const Duration(milliseconds: 200),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                )),
+                child: child,
+              );
+            },
+          ),
+        );
+      } else if (mounted) {
+        // No more unviewed statuses - go back to status screen
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint('Error handling status group completion: $e');
+      // Fallback: just go back to status screen
+      if (mounted) {
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -248,8 +320,15 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
-        onTapDown: (details) => _pauseStatus(),
+        onTapDown: (details) {
+          // Prevent interaction during navigation
+          if (!mounted) return;
+          _pauseStatus();
+        },
         onTapUp: (details) {
+          // Prevent interaction during navigation
+          if (!mounted) return;
+          
           _resumeStatus();
           final screenWidth = MediaQuery.of(context).size.width;
           if (details.localPosition.dx < screenWidth * 0.3) {
@@ -258,7 +337,9 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
             _nextStatus();
           }
         },
-        onTapCancel: () => _resumeStatus(),
+        onTapCancel: () {
+          if (mounted) _resumeStatus();
+        },
         child: Stack(
           children: [
             // Status content
@@ -295,7 +376,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       case StatusType.text:
         return _buildTextStatus(status);
       case StatusType.image:
-        return _buildImageStatus(status);
+        return _buildImageStatus(status, index);
       case StatusType.video:
         return _buildVideoStatus(status, index);
       default:
@@ -339,7 +420,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     );
   }
 
-  Widget _buildImageStatus(StatusModel status) {
+  Widget _buildImageStatus(StatusModel status, int index) {
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -354,75 +435,152 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
           ),
         ),
         
-        // Caption overlay
+        // Caption overlay - expandable style
         if (status.caption != null && status.caption!.isNotEmpty)
-          Positioned(
-            bottom: 100,
-            left: 16,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                status.caption!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
+          _buildExpandableCaption(status.caption!, index),
       ],
     );
   }
 
   Widget _buildVideoStatus(StatusModel status, int index) {
+    final controller = _videoControllers[index];
+    final isInitialized = _videoInitialized[index] == true;
+    
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Video player widget
-        VideoStatusWidget(
-          videoUrl: status.content,
-          caption: status.caption,
-          autoPlay: index == _currentIndex && !_isPaused,
-          showControls: false, // We handle controls in the overlay
-          onProgress: (duration) {
-            // Update progress based on video playback
-            final controller = _videoControllers[index];
-            if (controller != null && controller.value.duration != Duration.zero) {
-              final progress = duration.inMilliseconds / controller.value.duration.inMilliseconds;
-              _progressController.value = progress.clamp(0.0, 1.0);
-            }
-          },
-          onVideoEnd: () {
-            _nextStatus();
-          },
-        ),
-        
-        // Video controls overlay (tap to play/pause)
-        if (_videoInitialized[index] == true)
-          GestureDetector(
-            onTap: () {
-              final controller = _videoControllers[index];
-              if (controller != null) {
-                if (controller.value.isPlaying) {
-                  _pauseStatus();
-                } else {
-                  _resumeStatus();
-                }
-              }
-            },
-            child: Container(
-              color: Colors.transparent,
-              width: double.infinity,
-              height: double.infinity,
+        // Video player
+        if (isInitialized && controller != null)
+          Center(
+            child: AspectRatio(
+              aspectRatio: controller.value.aspectRatio,
+              child: VideoPlayer(controller),
+            ),
+          )
+        else
+          Container(
+            color: Colors.black,
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
             ),
           ),
+        
+        // Play/pause overlay - floating/transparent style
+        if (!_isLoading && (!isInitialized || _isPaused))
+          Center(
+            child: Icon(
+              Icons.play_arrow,
+              color: Colors.white.withOpacity(0.8),
+              size: 80,
+              shadows: const [
+                Shadow(
+                  offset: Offset(2, 2),
+                  blurRadius: 8,
+                  color: Colors.black54,
+                ),
+              ],
+            ),
+          ),
+        
+        // Caption overlay - expandable style
+        if (status.caption != null && status.caption!.isNotEmpty)
+          _buildExpandableCaption(status.caption!, index),
       ],
+    );
+  }
+
+  Widget _buildExpandableCaption(String caption, int statusIndex) {
+    // Check if caption needs truncation (more than 2 lines estimated)
+    final isLongCaption = caption.length > 100 || caption.split('\n').length > 2;
+    final isExpanded = _captionExpanded[statusIndex] ?? false;
+    
+    // Create truncated version
+    String displayText = caption;
+    if (isLongCaption && !isExpanded) {
+      // Split by lines first
+      final lines = caption.split('\n');
+      if (lines.length > 2) {
+        displayText = lines.take(2).join('\n');
+        // If the second line is too long, truncate it
+        final secondLineWords = displayText.split(' ');
+        if (secondLineWords.length > 15) {
+          displayText = secondLineWords.take(15).join(' ');
+        }
+      } else {
+        // Single long line - truncate by words
+        final words = caption.split(' ');
+        if (words.length > 15) {
+          displayText = words.take(15).join(' ');
+        }
+      }
+    }
+    
+    return Positioned(
+      bottom: 100,
+      left: 20,
+      right: 20,
+      child: GestureDetector(
+        onTap: () {
+          if (isLongCaption) {
+            setState(() {
+              _captionExpanded[statusIndex] = !isExpanded;
+            });
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          child: RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                shadows: [
+                  Shadow(
+                    offset: Offset(1, 1),
+                    blurRadius: 3,
+                    color: Colors.black54,
+                  ),
+                ],
+                height: 1.3,
+              ),
+              children: [
+                TextSpan(text: displayText),
+                if (isLongCaption) ...[
+                  if (!isExpanded) ...[
+                    const TextSpan(text: '... '),
+                    TextSpan(
+                      text: 'more',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ] else ...[
+                    if (displayText != caption)
+                      TextSpan(
+                        text: caption.substring(displayText.length),
+                      ),
+                    const TextSpan(text: ' '),
+                    TextSpan(
+                      text: 'less',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -438,7 +596,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                 widget.statusGroup.statuses.length,
                 (index) => Expanded(
                   child: Container(
-                    height: 2,
+                    height: 3,
                     margin: EdgeInsets.only(
                       right: index < widget.statusGroup.statuses.length - 1 ? 4 : 0,
                     ),
@@ -450,6 +608,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                               : 0.0,
                       backgroundColor: Colors.white.withOpacity(0.3),
                       valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      minHeight: 3,
                     ),
                   ),
                 ),
@@ -516,7 +675,8 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                 
                 // Mute button for videos
                 if (_currentIndex < widget.statusGroup.statuses.length &&
-                    widget.statusGroup.statuses[_currentIndex].type == StatusType.video)
+                    widget.statusGroup.statuses[_currentIndex].type == StatusType.video &&
+                    _videoControllers[_currentIndex] != null)
                   GestureDetector(
                     onTap: () {
                       final controller = _videoControllers[_currentIndex];
@@ -709,19 +869,44 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       content: 'Are you sure you want to delete this status?',
       textAction: 'Delete',
       onActionTap: (confirmed) async {
-        if (confirmed) {
-          await ref.read(statusNotifierProvider.notifier).deleteStatus(status.statusId);
-          if (mounted) {
-            // If this was the only status, close viewer
-            if (widget.statusGroup.statuses.length == 1) {
+        if (confirmed && mounted) {
+          try {
+            await ref.read(statusNotifierProvider.notifier).deleteStatus(status.statusId);
+            
+            if (!mounted) return;
+            
+            // If this was the only status, go back
+            if (widget.statusGroup.statuses.length <= 1) {
               Navigator.pop(context);
-            } else {
-              // Move to next status or close if this was the last
-              if (_currentIndex >= widget.statusGroup.statuses.length - 1) {
-                Navigator.pop(context);
+              return;
+            }
+            
+            // If this was the last status in the group, move to previous or handle completion
+            if (_currentIndex >= widget.statusGroup.statuses.length - 1) {
+              if (_currentIndex > 0) {
+                // Move to previous status
+                setState(() => _currentIndex--);
+                _pageController.previousPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+                _initializeCurrentStatus();
+                _markCurrentStatusAsViewed();
               } else {
-                _nextStatus();
+                // This was the first and last status, handle completion
+                _handleStatusGroupComplete();
               }
+            } else {
+              // Move to next status (same index since current was deleted)
+              _initializeCurrentStatus();
+              _markCurrentStatusAsViewed();
+            }
+          } catch (e) {
+            debugPrint('Error deleting status: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Failed to delete status')),
+              );
             }
           }
         }
