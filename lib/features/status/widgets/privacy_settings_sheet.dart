@@ -6,6 +6,7 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
+import 'package:textgb/features/status/services/status_privacy_service.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -18,14 +19,16 @@ class StatusPrivacySettingsSheet extends ConsumerStatefulWidget {
 }
 
 class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettingsSheet> {
+  final StatusPrivacyService _privacyService = StatusPrivacyService();
+  
   StatusPrivacyType _selectedPrivacy = StatusPrivacyType.all_contacts;
-  StatusPrivacyType _originalPrivacy = StatusPrivacyType.all_contacts; // Track original for changes
+  StatusPrivacyType _originalPrivacy = StatusPrivacyType.all_contacts;
   List<String> _allowedViewers = [];
-  List<String> _originalAllowedViewers = []; // Track original for changes
+  List<String> _originalAllowedViewers = [];
   List<String> _excludedViewers = [];
-  List<String> _originalExcludedViewers = []; // Track original for changes
+  List<String> _originalExcludedViewers = [];
   List<String> _mutedUsers = [];
-  List<String> _originalMutedUsers = []; // Track original for changes
+  List<String> _originalMutedUsers = [];
   bool _isLoading = false;
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
@@ -44,17 +47,18 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
     });
     
     try {
-      final settings = await ref.read(statusPrivacySettingsProvider.future);
+      // Load from local storage first (SharedPreferences)
+      final localSettings = await _privacyService.loadPrivacySettings();
       
       if (mounted) {
         setState(() {
-          // Load current settings
+          // Load current settings from SharedPreferences
           _selectedPrivacy = StatusPrivacyTypeExtension.fromString(
-            settings['defaultPrivacy']?.toString() ?? 'all_contacts'
+            localSettings['defaultPrivacy']?.toString() ?? 'all_contacts'
           );
-          _allowedViewers = List<String>.from(settings['allowedViewers'] ?? []);
-          _excludedViewers = List<String>.from(settings['excludedViewers'] ?? []);
-          _mutedUsers = List<String>.from(settings['mutedUsers'] ?? []);
+          _allowedViewers = List<String>.from(localSettings['allowedViewers'] ?? []);
+          _excludedViewers = List<String>.from(localSettings['excludedViewers'] ?? []);
+          _mutedUsers = List<String>.from(localSettings['mutedUsers'] ?? []);
           
           // Store original values for change detection
           _originalPrivacy = _selectedPrivacy;
@@ -66,16 +70,73 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
           _hasUnsavedChanges = false;
         });
       }
+      
+      // Try to sync with remote if available (background operation)
+      _syncWithRemoteInBackground();
+      
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _loadError = 'Failed to load privacy settings: ${e.toString()}';
+          _loadError = 'Failed to load privacy settings from local storage: ${e.toString()}';
         });
         
-        // Show error to user
-        showSnackBar(context, 'Failed to load privacy settings. Please try again.');
+        showSnackBar(context, 'Failed to load privacy settings. Using defaults.');
       }
+    }
+  }
+
+  /// Background sync with remote server (non-blocking)
+  void _syncWithRemoteInBackground() async {
+    try {
+      // Try to get settings from remote provider (if available)
+      final remoteSettings = await ref.read(statusPrivacySettingsProvider.future).timeout(
+        const Duration(seconds: 5), // Don't block UI for too long
+      );
+      
+      // Compare local vs remote timestamps to see which is newer
+      final localLastSync = await _privacyService.getLastSyncTime();
+      final remoteLastSync = remoteSettings['lastSyncTime'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch(remoteSettings['lastSyncTime'])
+          : null;
+      
+      // If remote is newer, update local
+      if (remoteLastSync != null && 
+          (localLastSync == null || remoteLastSync.isAfter(localLastSync))) {
+        
+        final remotePrivacy = StatusPrivacyTypeExtension.fromString(
+          remoteSettings['defaultPrivacy']?.toString() ?? 'all_contacts'
+        );
+        final remoteAllowed = List<String>.from(remoteSettings['allowedViewers'] ?? []);
+        final remoteExcluded = List<String>.from(remoteSettings['excludedViewers'] ?? []);
+        final remoteMuted = List<String>.from(remoteSettings['mutedUsers'] ?? []);
+        
+        // Update local storage with remote data
+        await _privacyService.savePrivacySettings(
+          privacyType: remotePrivacy,
+          allowedViewers: remoteAllowed,
+          excludedViewers: remoteExcluded,
+          mutedUsers: remoteMuted,
+        );
+        
+        // Update UI if still mounted and no unsaved changes
+        if (mounted && !_hasUnsavedChanges) {
+          setState(() {
+            _selectedPrivacy = remotePrivacy;
+            _allowedViewers = remoteAllowed;
+            _excludedViewers = remoteExcluded;
+            _mutedUsers = remoteMuted;
+            
+            _originalPrivacy = remotePrivacy;
+            _originalAllowedViewers = List.from(remoteAllowed);
+            _originalExcludedViewers = List.from(remoteExcluded);
+            _originalMutedUsers = List.from(remoteMuted);
+          });
+        }
+      }
+    } catch (e) {
+      // Silently handle remote sync errors - local data is still available
+      print('Background sync failed (non-critical): $e');
     }
   }
 
@@ -784,16 +845,22 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
     setState(() => _isSaving = true);
     
     try {
-      final settings = {
-        'defaultPrivacy': _selectedPrivacy.name,
-        'allowedViewers': _allowedViewers,
-        'excludedViewers': _excludedViewers,
-        'mutedUsers': _mutedUsers,
-      };
-      
-      await ref.read(statusNotifierProvider.notifier).updatePrivacySettings(settings);
-      
-      // Update original values after successful save
+      // Save to local storage first (most important)
+      final localSaveSuccess = await _privacyService.savePrivacySettings(
+        privacyType: _selectedPrivacy,
+        allowedViewers: _allowedViewers,
+        excludedViewers: _excludedViewers,
+        mutedUsers: _mutedUsers,
+      );
+
+      if (!localSaveSuccess) {
+        throw Exception('Failed to save settings locally');
+      }
+
+      // Try to sync with remote (background operation)
+      _syncWithRemoteInBackground();
+
+      // Update original values after successful local save
       setState(() {
         _originalPrivacy = _selectedPrivacy;
         _originalAllowedViewers = List.from(_allowedViewers);
@@ -802,11 +869,15 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
         _hasUnsavedChanges = false;
         _isSaving = false;
       });
-      
+
       if (mounted) {
         Navigator.pop(context);
         showSnackBar(context, 'Privacy settings saved successfully');
       }
+
+      // Try to update remote provider in background
+      _updateRemoteInBackground();
+      
     } catch (e) {
       setState(() => _isSaving = false);
       
@@ -825,7 +896,7 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
                 style: TextStyle(color: theme.textColor),
               ),
               content: Text(
-                'Your privacy settings could not be saved. Please try again.\n\nError: ${e.toString()}',
+                'Your privacy settings could not be saved locally. Please check your device storage and try again.\n\nError: ${e.toString()}',
                 style: TextStyle(color: theme.textSecondaryColor),
               ),
               actions: [
@@ -851,6 +922,25 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
           },
         );
       }
+    }
+  }
+
+  /// Update remote provider in background (non-blocking)
+  void _updateRemoteInBackground() async {
+    try {
+      final settings = {
+        'defaultPrivacy': _selectedPrivacy.name,
+        'allowedViewers': _allowedViewers,
+        'excludedViewers': _excludedViewers,
+        'mutedUsers': _mutedUsers,
+        'lastSyncTime': DateTime.now().millisecondsSinceEpoch,
+      };
+      
+      await ref.read(statusNotifierProvider.notifier).updatePrivacySettings(settings);
+      print('Successfully synced privacy settings to remote');
+    } catch (e) {
+      print('Background remote sync failed (non-critical): $e');
+      // Don't show error to user since local save was successful
     }
   }
 }

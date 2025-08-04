@@ -8,6 +8,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
+import 'package:textgb/features/status/services/status_privacy_service.dart';
 import 'package:textgb/features/status/utils/video_processor.dart';
 import 'package:textgb/features/status/widgets/video_status_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -29,6 +30,8 @@ class CreateStatusScreen extends ConsumerStatefulWidget {
 
 class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     with TickerProviderStateMixin {
+  final StatusPrivacyService _privacyService = StatusPrivacyService();
+  
   StatusType _selectedType = StatusType.text;
   final TextEditingController _textController = TextEditingController();
   final TextEditingController _captionController = TextEditingController();
@@ -222,7 +225,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
                       ),
                     )
                   : Text(
-                      'Share',
+                      'POST',
                       style: TextStyle(
                         color: theme.primaryColor,
                         fontWeight: FontWeight.bold,
@@ -693,6 +696,113 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     );
   }
 
+  Widget _buildPrivacyInfoPanel(ModernThemeExtension theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.surfaceColor,
+        border: Border(
+          top: BorderSide(color: theme.dividerColor!, width: 1),
+        ),
+      ),
+      child: FutureBuilder<Map<String, dynamic>>(
+        future: _privacyService.loadPrivacySettings(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Row(
+              children: [
+                Icon(
+                  Icons.visibility,
+                  color: theme.textSecondaryColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Status visibility',
+                        style: TextStyle(
+                          color: theme.textColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      SizedBox(
+                        width: 100,
+                        height: 12,
+                        child: LinearProgressIndicator(
+                          backgroundColor: theme.dividerColor,
+                          valueColor: AlwaysStoppedAnimation(theme.primaryColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+
+          final settings = snapshot.data ?? {
+            'defaultPrivacy': 'all_contacts',
+            'allowedViewers': <String>[],
+            'excludedViewers': <String>[],
+          };
+
+          final privacyType = StatusPrivacyTypeExtension.fromString(
+            settings['defaultPrivacy']?.toString() ?? 'all_contacts'
+          );
+          final allowedViewers = List<String>.from(settings['allowedViewers'] ?? []);
+          final excludedViewers = List<String>.from(settings['excludedViewers'] ?? []);
+          
+          return Row(
+            children: [
+              Icon(
+                Icons.visibility,
+                color: theme.textSecondaryColor,
+                size: 18,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Status visibility',
+                      style: TextStyle(
+                        color: theme.textColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _getPrivacyDisplayText(privacyType, allowedViewers, excludedViewers),
+                      style: TextStyle(
+                        color: theme.primaryColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                'Change in settings',
+                style: TextStyle(
+                  color: theme.textSecondaryColor,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _showBackgroundColorPicker() {
     showModalBottomSheet(
       context: context,
@@ -858,145 +968,6 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     } catch (e) {
       showSnackBar(context, 'Error sharing status: $e');
     }
-  }
-
-  Widget _buildPrivacyInfoPanel(ModernThemeExtension theme) {
-    final privacySettingsAsync = ref.watch(statusPrivacySettingsProvider);
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        border: Border(
-          top: BorderSide(color: theme.dividerColor!, width: 1),
-        ),
-      ),
-      child: privacySettingsAsync.when(
-        data: (settings) {
-          final privacyType = StatusPrivacyTypeExtension.fromString(
-            settings['defaultPrivacy']?.toString() ?? 'all_contacts'
-          );
-          final allowedViewers = List<String>.from(settings['allowedViewers'] ?? []);
-          final excludedViewers = List<String>.from(settings['excludedViewers'] ?? []);
-          
-          return Row(
-            children: [
-              Icon(
-                Icons.visibility,
-                color: theme.textSecondaryColor,
-                size: 18,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Status visibility',
-                      style: TextStyle(
-                        color: theme.textColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _getPrivacyDisplayText(privacyType, allowedViewers, excludedViewers),
-                      style: TextStyle(
-                        color: theme.primaryColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                'Change in settings',
-                style: TextStyle(
-                  color: theme.textSecondaryColor,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          );
-        },
-        loading: () => Row(
-          children: [
-            Icon(
-              Icons.visibility,
-              color: theme.textSecondaryColor,
-              size: 18,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Status visibility',
-                    style: TextStyle(
-                      color: theme.textColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  SizedBox(
-                    width: 100,
-                    height: 12,
-                    child: LinearProgressIndicator(
-                      backgroundColor: theme.dividerColor,
-                      valueColor: AlwaysStoppedAnimation(theme.primaryColor),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        error: (error, stack) => Row(
-          children: [
-            Icon(
-              Icons.visibility,
-              color: theme.textSecondaryColor,
-              size: 18,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Status visibility',
-                    style: TextStyle(
-                      color: theme.textColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'All contacts (default)',
-                    style: TextStyle(
-                      color: theme.textSecondaryColor,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              'Change in settings',
-              style: TextStyle(
-                color: theme.textSecondaryColor,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   String _getPrivacyDisplayText(StatusPrivacyType privacyType, List<String> allowedViewers, List<String> excludedViewers) {
