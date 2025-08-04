@@ -287,9 +287,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _setupSystemUI() {
-    // Keep black navigation bar for immersive TikTok-style experience
+    // Set both status bar and navigation bar to black for immersive TikTok-style experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
+      statusBarColor: Colors.black, // Changed from transparent to black
       statusBarIconBrightness: Brightness.light,
       systemNavigationBarColor: Colors.black, // Keep black for immersive experience
       systemNavigationBarIconBrightness: Brightness.light,
@@ -581,6 +581,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     final channelVideosState = ref.watch(channelVideosProvider);
     final channelsState = ref.watch(channelsProvider);
     final modernTheme = context.modernTheme;
+    final systemTopPadding = MediaQuery.of(context).padding.top;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
     if (_isFirstLoad && channelVideosState.isLoading) {
@@ -594,16 +595,29 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       extendBodyBehindAppBar: true,
       extendBody: true,
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Main content - full screen with space for progress bar above system nav
-          Positioned.fill(
-            bottom: systemBottomPadding + _progressBarHeight, // Reserve space for progress bar above system nav
-            child: _buildBody(channelVideosState, channelsState),
-          ),
+      body: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
+        child: Stack(
+          children: [
+            // Main content - positioned to avoid covering status bar and system nav
+            Positioned(
+              top: systemTopPadding, // Start below status bar
+              left: 0,
+              right: 0,
+              bottom: systemBottomPadding + _progressBarHeight, // Reserve space for progress bar above system nav
+              child: ClipRRect(
+                borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
+                child: _buildBody(channelVideosState, channelsState),
+              ),
+            ),
           
-          // Top navigation tabs and search
-          _buildTopNavigationBar(),
+          // Top navigation tabs and search - positioned to avoid status bar
+          Positioned(
+            top: systemTopPadding + 16, // Positioned below status bar with some padding
+            left: 16,
+            right: 16,
+            child: _buildTopNavigationContent(),
+          ),
           
           // TikTok-style right side menu
           _buildRightSideMenu(),
@@ -619,13 +633,13 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           // Cache performance indicator (debug mode only)
           if (kDebugMode)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 120,
+              top: systemTopPadding + 120,
               left: 16,
               child: _buildCacheDebugInfo(),
             ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildBody(ChannelVideosState videosState, ChannelsState channelsState) {
@@ -657,75 +671,70 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // Updated top navigation bar with back button and reduced spacing
-  Widget _buildTopNavigationBar() {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 16,
-      left: 16,
-      right: 16,
-      child: Row(
-        children: [
-          // Back button on the left
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).pop();
-            },
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              child: const Icon(
-                CupertinoIcons.chevron_back,
-                color: Colors.white,
-                size: 28,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Navigation tabs - centered with reduced spacing
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildNavTab('SHOP', 'Shop'),
-                const SizedBox(width: 16), // Reduced from 24
-                _buildNavTab('Series', 'Series'),
-                const SizedBox(width: 16), // Reduced from 24
-                _buildNavTab('Following', 'Following'),
-                const SizedBox(width: 16), // Reduced from 24
-                _buildNavTab('For You', 'For You'),
+  // Updated top navigation content (extracted for better positioning)
+  Widget _buildTopNavigationContent() {
+    return Row(
+      children: [
+        // Back button on the left
+        GestureDetector(
+          onTap: () {
+            Navigator.of(context).pop();
+          },
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            child: const Icon(
+              CupertinoIcons.chevron_back,
+              color: Colors.white,
+              size: 28,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
               ],
             ),
           ),
-          
-          // Search icon on the right
-          GestureDetector(
-            onTap: () {
-              // TODO: Navigate to search screen
-            },
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              child: const Icon(
-                CupertinoIcons.search,
-                color: Colors.white,
-                size: 28,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
+        ),
+        
+        // Navigation tabs - centered with reduced spacing
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildNavTab('SHOP', 'Shop'),
+              const SizedBox(width: 16), // Reduced from 24
+              _buildNavTab('Series', 'Series'),
+              const SizedBox(width: 16), // Reduced from 24
+              _buildNavTab('Following', 'Following'),
+              const SizedBox(width: 16), // Reduced from 24
+              _buildNavTab('For You', 'For You'),
+            ],
+          ),
+        ),
+        
+        // Search icon on the right
+        GestureDetector(
+          onTap: () {
+            // TODO: Navigate to search screen
+          },
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            child: const Icon(
+              CupertinoIcons.search,
+              color: Colors.white,
+              size: 28,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
