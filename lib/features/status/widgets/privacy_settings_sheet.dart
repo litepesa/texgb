@@ -19,10 +19,17 @@ class StatusPrivacySettingsSheet extends ConsumerStatefulWidget {
 
 class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettingsSheet> {
   StatusPrivacyType _selectedPrivacy = StatusPrivacyType.all_contacts;
+  StatusPrivacyType _originalPrivacy = StatusPrivacyType.all_contacts; // Track original for changes
   List<String> _allowedViewers = [];
+  List<String> _originalAllowedViewers = []; // Track original for changes
   List<String> _excludedViewers = [];
+  List<String> _originalExcludedViewers = []; // Track original for changes
   List<String> _mutedUsers = [];
+  List<String> _originalMutedUsers = []; // Track original for changes
   bool _isLoading = false;
+  bool _isSaving = false;
+  bool _hasUnsavedChanges = false;
+  String? _loadError;
 
   @override
   void initState() {
@@ -31,135 +38,331 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
   }
 
   void _loadPrivacySettings() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     
     try {
       final settings = await ref.read(statusPrivacySettingsProvider.future);
       
-      setState(() {
-        _selectedPrivacy = StatusPrivacyTypeExtension.fromString(
-          settings['defaultPrivacy'] ?? 'all_contacts'
-        );
-        _allowedViewers = List<String>.from(settings['allowedViewers'] ?? []);
-        _excludedViewers = List<String>.from(settings['excludedViewers'] ?? []);
-        _mutedUsers = List<String>.from(settings['mutedUsers'] ?? []);
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
-        showSnackBar(context, 'Failed to load privacy settings');
+        setState(() {
+          // Load current settings
+          _selectedPrivacy = StatusPrivacyTypeExtension.fromString(
+            settings['defaultPrivacy']?.toString() ?? 'all_contacts'
+          );
+          _allowedViewers = List<String>.from(settings['allowedViewers'] ?? []);
+          _excludedViewers = List<String>.from(settings['excludedViewers'] ?? []);
+          _mutedUsers = List<String>.from(settings['mutedUsers'] ?? []);
+          
+          // Store original values for change detection
+          _originalPrivacy = _selectedPrivacy;
+          _originalAllowedViewers = List.from(_allowedViewers);
+          _originalExcludedViewers = List.from(_excludedViewers);
+          _originalMutedUsers = List.from(_mutedUsers);
+          
+          _isLoading = false;
+          _hasUnsavedChanges = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadError = 'Failed to load privacy settings: ${e.toString()}';
+        });
+        
+        // Show error to user
+        showSnackBar(context, 'Failed to load privacy settings. Please try again.');
       }
     }
+  }
+
+  void _checkForChanges() {
+    final hasChanges = _selectedPrivacy != _originalPrivacy ||
+        !_listEquals(_allowedViewers, _originalAllowedViewers) ||
+        !_listEquals(_excludedViewers, _originalExcludedViewers) ||
+        !_listEquals(_mutedUsers, _originalMutedUsers);
+    
+    if (hasChanges != _hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = hasChanges;
+      });
+    }
+  }
+
+  bool _listEquals<T>(List<T> a, List<T> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  Future<bool> _onWillPop() async {
+    if (!_hasUnsavedChanges) return true;
+    
+    final theme = context.modernTheme;
+    final shouldDiscard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.surfaceColor,
+        title: Text(
+          'Discard Changes?',
+          style: TextStyle(color: theme.textColor),
+        ),
+        content: Text(
+          'You have unsaved changes. Are you sure you want to discard them?',
+          style: TextStyle(color: theme.textSecondaryColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Keep Editing',
+              style: TextStyle(color: theme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Discard',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    
+    return shouldDiscard ?? false;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
     
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.9, // Fixed height for better UX
+        decoration: BoxDecoration(
+          color: theme.surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: theme.dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            // Header with better state management
+            _buildHeader(theme),
+            
+            // Error state
+            if (_loadError != null)
+              _buildErrorState(theme)
+            else if (_isLoading)
+              _buildLoadingState(theme)
+            else
+              // Content
+              Expanded(
+                child: _buildContent(theme),
+              ),
+          ],
+        ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    );
+  }
+
+  Widget _buildHeader(ModernThemeExtension theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor!, width: 0.5),
+        ),
+      ),
+      child: Row(
         children: [
-          // Handle bar
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: theme.dividerColor,
-              borderRadius: BorderRadius.circular(2),
+          // Close button with unsaved changes warning
+          IconButton(
+            onPressed: _hasUnsavedChanges ? () async {
+              if (await _onWillPop()) {
+                Navigator.pop(context);
+              }
+            } : () => Navigator.pop(context),
+            icon: Icon(
+              Icons.close,
+              color: theme.textColor,
             ),
           ),
           
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+          Expanded(
+            child: Column(
               children: [
                 Text(
                   'Status Privacy',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: theme.textColor,
                   ),
                 ),
-                const Spacer(),
-                if (_isLoading)
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: theme.primaryColor,
-                    ),
-                  )
-                else
-                  TextButton(
-                    onPressed: _saveSettings,
-                    child: Text(
-                      'Save',
-                      style: TextStyle(
-                        color: theme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
+                if (_hasUnsavedChanges)
+                  Text(
+                    'Unsaved changes',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange,
                     ),
                   ),
               ],
             ),
           ),
           
-          const SizedBox(height: 16),
-          
-          // Content
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Who can see my status section
-                  _buildSectionTitle('Who can see my status', theme),
-                  const SizedBox(height: 12),
-                  
-                  // Privacy options
-                  ...StatusPrivacyType.values.map((type) => 
-                    _buildPrivacyOption(type, theme)
-                  ).toList(),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Excluded/Allowed viewers section
-                  if (_selectedPrivacy == StatusPrivacyType.except)
-                    _buildContactsSection(
-                      'Excluded from status',
-                      'These contacts will not see your status updates',
-                      _excludedViewers,
-                      theme,
-                    )
-                  else if (_selectedPrivacy == StatusPrivacyType.only)
-                    _buildContactsSection(
-                      'Share status with',
-                      'Only these contacts can see your status updates',
-                      _allowedViewers,
-                      theme,
-                    ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Muted statuses section
-                  _buildMutedSection(theme),
-                  
-                  const SizedBox(height: 32),
-                ],
+          // Save button with better states
+          if (_isSaving)
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.primaryColor,
+              ),
+            )
+          else
+            TextButton(
+              onPressed: _hasUnsavedChanges ? _saveSettings : null,
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  color: _hasUnsavedChanges ? theme.primaryColor : theme.textSecondaryColor,
+                  fontWeight: _hasUnsavedChanges ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
-          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(ModernThemeExtension theme) {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: theme.textSecondaryColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Failed to Load Settings',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: theme.textColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _loadError!,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: theme.textSecondaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadPrivacySettings,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState(ModernThemeExtension theme) {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: theme.primaryColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading privacy settings...',
+              style: TextStyle(
+                fontSize: 16,
+                color: theme.textSecondaryColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(ModernThemeExtension theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Who can see my status section
+          _buildSectionTitle('Who can see my status', theme),
+          const SizedBox(height: 12),
+          
+          // Privacy options
+          ...StatusPrivacyType.values.map((type) => 
+            _buildPrivacyOption(type, theme)
+          ).toList(),
+          
+          const SizedBox(height: 24),
+          
+          // Excluded/Allowed viewers section
+          if (_selectedPrivacy == StatusPrivacyType.except)
+            _buildContactsSection(
+              'Excluded from status',
+              'These contacts will not see your status updates',
+              _excludedViewers,
+              theme,
+            )
+          else if (_selectedPrivacy == StatusPrivacyType.only)
+            _buildContactsSection(
+              'Share status with',
+              'Only these contacts can see your status updates',
+              _allowedViewers,
+              theme,
+            ),
+          
+          const SizedBox(height: 24),
+          
+          // Muted statuses section
+          _buildMutedSection(theme),
+          
+          const SizedBox(height: 32),
         ],
       ),
     );
@@ -180,7 +383,12 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
     final isSelected = _selectedPrivacy == type;
     
     return InkWell(
-      onTap: () => setState(() => _selectedPrivacy = type),
+      onTap: () {
+        setState(() {
+          _selectedPrivacy = type;
+        });
+        _checkForChanges();
+      },
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
@@ -190,7 +398,12 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
               value: type,
               groupValue: _selectedPrivacy,
               activeColor: theme.primaryColor,
-              onChanged: (value) => setState(() => _selectedPrivacy = value!),
+              onChanged: (value) {
+                setState(() {
+                  _selectedPrivacy = value!;
+                });
+                _checkForChanges();
+              },
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -217,11 +430,19 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
               ),
             ),
             if (isSelected && (type == StatusPrivacyType.except || type == StatusPrivacyType.only))
-              Text(
-                '${type == StatusPrivacyType.except ? _excludedViewers.length : _allowedViewers.length} selected',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: theme.primaryColor,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor?.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${type == StatusPrivacyType.except ? _excludedViewers.length : _allowedViewers.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
           ],
@@ -263,6 +484,7 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
                   _allowedViewers = contacts;
                 }
               });
+              _checkForChanges();
             },
           ),
           borderRadius: BorderRadius.circular(8),
@@ -280,16 +502,17 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
                   size: 20,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  selectedContacts.isEmpty 
-                      ? 'Add contacts'
-                      : '${selectedContacts.length} contact${selectedContacts.length == 1 ? '' : 's'} selected',
-                  style: TextStyle(
-                    color: theme.primaryColor,
-                    fontSize: 16,
+                Expanded(
+                  child: Text(
+                    selectedContacts.isEmpty 
+                        ? 'Add contacts'
+                        : '${selectedContacts.length} contact${selectedContacts.length == 1 ? '' : 's'} selected',
+                    style: TextStyle(
+                      color: theme.primaryColor,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 Icon(
                   Icons.chevron_right,
                   color: theme.primaryColor,
@@ -314,6 +537,7 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
                     setState(() {
                       selectedContacts.removeAt(index);
                     });
+                    _checkForChanges();
                   },
                   theme,
                 );
@@ -510,6 +734,7 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
                   setState(() {
                     _mutedUsers.remove(userId);
                   });
+                  _checkForChanges();
                 },
                 child: Text(
                   'Unmute',
@@ -554,7 +779,9 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
   }
 
   void _saveSettings() async {
-    setState(() => _isLoading = true);
+    if (_isSaving) return; // Prevent double-saving
+    
+    setState(() => _isSaving = true);
     
     try {
       final settings = {
@@ -566,14 +793,63 @@ class _StatusPrivacySettingsSheetState extends ConsumerState<StatusPrivacySettin
       
       await ref.read(statusNotifierProvider.notifier).updatePrivacySettings(settings);
       
+      // Update original values after successful save
+      setState(() {
+        _originalPrivacy = _selectedPrivacy;
+        _originalAllowedViewers = List.from(_allowedViewers);
+        _originalExcludedViewers = List.from(_excludedViewers);
+        _originalMutedUsers = List.from(_mutedUsers);
+        _hasUnsavedChanges = false;
+        _isSaving = false;
+      });
+      
       if (mounted) {
         Navigator.pop(context);
-        showSnackBar(context, 'Privacy settings saved');
+        showSnackBar(context, 'Privacy settings saved successfully');
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() => _isSaving = false);
+      
       if (mounted) {
-        showSnackBar(context, 'Failed to save settings');
+        showSnackBar(context, 'Failed to save settings: ${e.toString()}');
+        
+        // Show detailed error dialog
+        showDialog(
+          context: context,
+          builder: (context) {
+            final theme = context.modernTheme;
+            return AlertDialog(
+              backgroundColor: theme.surfaceColor,
+              title: Text(
+                'Save Failed',
+                style: TextStyle(color: theme.textColor),
+              ),
+              content: Text(
+                'Your privacy settings could not be saved. Please try again.\n\nError: ${e.toString()}',
+                style: TextStyle(color: theme.textSecondaryColor),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'OK',
+                    style: TextStyle(color: theme.primaryColor),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _saveSettings(); // Retry
+                  },
+                  child: Text(
+                    'Retry',
+                    style: TextStyle(color: theme.primaryColor),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
       }
     }
   }
@@ -598,12 +874,72 @@ class ContactSelectorScreen extends ConsumerStatefulWidget {
 
 class _ContactSelectorScreenState extends ConsumerState<ContactSelectorScreen> {
   late List<String> _selectedContacts;
+  late List<String> _originalSelectedContacts; // Track original for changes
   String _searchQuery = '';
+  bool _hasUnsavedChanges = false;
 
   @override
   void initState() {
     super.initState();
     _selectedContacts = List.from(widget.selectedContacts);
+    _originalSelectedContacts = List.from(widget.selectedContacts);
+  }
+
+  void _checkForChanges() {
+    final hasChanges = !_listEquals(_selectedContacts, _originalSelectedContacts);
+    if (hasChanges != _hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = hasChanges;
+      });
+    }
+  }
+
+  bool _listEquals<T>(List<T> a, List<T> b) {
+    if (a.length != b.length) return false;
+    final sortedA = List<T>.from(a)..sort();
+    final sortedB = List<T>.from(b)..sort();
+    for (int i = 0; i < sortedA.length; i++) {
+      if (sortedA[i] != sortedB[i]) return false;
+    }
+    return true;
+  }
+
+  Future<bool> _onWillPop() async {
+    if (!_hasUnsavedChanges) return true;
+    
+    final theme = context.modernTheme;
+    final shouldDiscard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.surfaceColor,
+        title: Text(
+          'Discard Changes?',
+          style: TextStyle(color: theme.textColor),
+        ),
+        content: Text(
+          'You have unsaved changes to your contact selection. Are you sure you want to discard them?',
+          style: TextStyle(color: theme.textSecondaryColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Keep Editing',
+              style: TextStyle(color: theme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Discard',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    
+    return shouldDiscard ?? false;
   }
 
   @override
@@ -611,128 +947,314 @@ class _ContactSelectorScreenState extends ConsumerState<ContactSelectorScreen> {
     final theme = context.modernTheme;
     final contactsAsync = ref.watch(contactsNotifierProvider);
     
-    return Scaffold(
-      backgroundColor: theme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.surfaceColor,
-        title: Text(widget.title, style: TextStyle(color: theme.textColor)),
-        leading: IconButton(
-          icon: Icon(Icons.close, color: theme.textColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              widget.onSelectionChanged(_selectedContacts);
-              Navigator.pop(context);
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        backgroundColor: theme.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: theme.surfaceColor,
+          title: Column(
+            children: [
+              Text(widget.title, style: TextStyle(color: theme.textColor)),
+              if (_hasUnsavedChanges)
+                Text(
+                  'Unsaved changes',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.orange,
+                  ),
+                ),
+            ],
+          ),
+          leading: IconButton(
+            icon: Icon(Icons.close, color: theme.textColor),
+            onPressed: () async {
+              if (await _onWillPop()) {
+                Navigator.pop(context);
+              }
             },
-            child: Text(
-              'Done',
-              style: TextStyle(
-                color: theme.primaryColor,
-                fontWeight: FontWeight.bold,
+          ),
+          actions: [
+            TextButton(
+              onPressed: _hasUnsavedChanges ? () {
+                widget.onSelectionChanged(_selectedContacts);
+                Navigator.pop(context);
+              } : null,
+              child: Text(
+                'Done',
+                style: TextStyle(
+                  color: _hasUnsavedChanges ? theme.primaryColor : theme.textSecondaryColor,
+                  fontWeight: _hasUnsavedChanges ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      body: contactsAsync.when(
-        data: (contactsState) {
-          final contacts = contactsState.registeredContacts;
-          final filteredContacts = _searchQuery.isEmpty
-              ? contacts
-              : contacts.where((contact) =>
-                  contact.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
-          
-          return Column(
-            children: [
-              // Search bar
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  style: TextStyle(color: theme.textColor),
-                  decoration: InputDecoration(
-                    hintText: 'Search contacts...',
-                    hintStyle: TextStyle(color: theme.textSecondaryColor),
-                    prefixIcon: Icon(Icons.search, color: theme.textSecondaryColor),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25),
-                      borderSide: BorderSide(color: theme.dividerColor!),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25),
-                      borderSide: BorderSide(color: theme.dividerColor!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25),
-                      borderSide: BorderSide(color: theme.primaryColor!),
+          ],
+        ),
+        body: contactsAsync.when(
+          data: (contactsState) {
+            final contacts = contactsState.registeredContacts;
+            final filteredContacts = _searchQuery.isEmpty
+                ? contacts
+                : contacts.where((contact) =>
+                    contact.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+            
+            return Column(
+              children: [
+                // Search bar
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.surfaceColor,
+                    border: Border(
+                      bottom: BorderSide(color: theme.dividerColor!, width: 0.5),
                     ),
                   ),
-                  onChanged: (value) => setState(() => _searchQuery = value),
-                ),
-              ),
-              
-              // Selected count
-              if (_selectedContacts.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    '${_selectedContacts.length} contact${_selectedContacts.length == 1 ? '' : 's'} selected',
-                    style: TextStyle(
-                      color: theme.primaryColor,
-                      fontSize: 14,
+                  child: TextField(
+                    style: TextStyle(color: theme.textColor),
+                    decoration: InputDecoration(
+                      hintText: 'Search contacts...',
+                      hintStyle: TextStyle(color: theme.textSecondaryColor),
+                      prefixIcon: Icon(Icons.search, color: theme.textSecondaryColor),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25),
+                        borderSide: BorderSide(color: theme.dividerColor!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25),
+                        borderSide: BorderSide(color: theme.dividerColor!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25),
+                        borderSide: BorderSide(color: theme.primaryColor!),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
+                    onChanged: (value) => setState(() => _searchQuery = value),
                   ),
                 ),
-              
-              // Contacts list
-              Expanded(
-                child: ListView.builder(
-                  itemCount: filteredContacts.length,
-                  itemBuilder: (context, index) {
-                    final contact = filteredContacts[index];
-                    final isSelected = _selectedContacts.contains(contact.uid);
-                    
-                    return CheckboxListTile(
-                      value: isSelected,
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            _selectedContacts.add(contact.uid);
-                          } else {
-                            _selectedContacts.remove(contact.uid);
-                          }
-                        });
-                      },
-                      activeColor: theme.primaryColor,
-                      secondary: CircleAvatar(
-                        backgroundImage: contact.image.isNotEmpty
-                            ? CachedNetworkImageProvider(contact.image)
-                            : null,
-                        child: contact.image.isEmpty
-                            ? const Icon(Icons.person)
-                            : null,
+                
+                // Selected count and clear all
+                if (_selectedContacts.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor?.withOpacity(0.1),
+                      border: Border(
+                        bottom: BorderSide(color: theme.dividerColor!, width: 0.5),
                       ),
-                      title: Text(
-                        contact.name,
-                        style: TextStyle(color: theme.textColor),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          '${_selectedContacts.length} contact${_selectedContacts.length == 1 ? '' : 's'} selected',
+                          style: TextStyle(
+                            color: theme.primaryColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedContacts.clear();
+                            });
+                            _checkForChanges();
+                          },
+                          child: Text(
+                            'Clear All',
+                            style: TextStyle(
+                              color: theme.primaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                
+                // Contacts list
+                Expanded(
+                  child: filteredContacts.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _searchQuery.isEmpty ? Icons.contacts : Icons.search_off,
+                                size: 64,
+                                color: theme.textSecondaryColor,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _searchQuery.isEmpty 
+                                    ? 'No contacts available'
+                                    : 'No contacts found for "$_searchQuery"',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: theme.textSecondaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: filteredContacts.length,
+                          itemBuilder: (context, index) {
+                            final contact = filteredContacts[index];
+                            final isSelected = _selectedContacts.contains(contact.uid);
+                            
+                            return CheckboxListTile(
+                              value: isSelected,
+                              onChanged: (value) {
+                                setState(() {
+                                  if (value == true) {
+                                    _selectedContacts.add(contact.uid);
+                                  } else {
+                                    _selectedContacts.remove(contact.uid);
+                                  }
+                                });
+                                _checkForChanges();
+                              },
+                              activeColor: theme.primaryColor,
+                              secondary: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: theme.dividerColor!, width: 1),
+                                ),
+                                child: ClipOval(
+                                  child: contact.image.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: contact.image,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (context, url, error) => Container(
+                                            color: Colors.grey[300],
+                                            child: const Icon(Icons.person, size: 20),
+                                          ),
+                                        )
+                                      : Container(
+                                          color: Colors.grey[300],
+                                          child: const Icon(Icons.person, size: 20),
+                                        ),
+                                ),
+                              ),
+                              title: Text(
+                                contact.name,
+                                style: TextStyle(
+                                  color: theme.textColor,
+                                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                                ),
+                              ),
+                              subtitle: Text(
+                                contact.phoneNumber,
+                                style: TextStyle(color: theme.textSecondaryColor),
+                              ),
+                              tileColor: isSelected ? theme.primaryColor?.withOpacity(0.05) : null,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                
+                // Bottom action bar
+                if (_hasUnsavedChanges)
+                  Container(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      top: 16,
+                      bottom: 16 + MediaQuery.of(context).padding.bottom,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.surfaceColor,
+                      border: Border(
+                        top: BorderSide(color: theme.dividerColor!, width: 0.5),
                       ),
-                      subtitle: Text(
-                        contact.phoneNumber,
-                        style: TextStyle(color: theme.textSecondaryColor),
-                      ),
-                    );
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedContacts = List.from(_originalSelectedContacts);
+                                _hasUnsavedChanges = false;
+                              });
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: theme.primaryColor!),
+                            ),
+                            child: Text(
+                              'Reset',
+                              style: TextStyle(color: theme.primaryColor),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              widget.onSelectionChanged(_selectedContacts);
+                              Navigator.pop(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.primaryColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Apply Changes'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: theme.textSecondaryColor,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Failed to load contacts',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: theme.textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  error.toString(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: theme.textSecondaryColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    // Refresh contacts
+                    ref.refresh(contactsNotifierProvider);
                   },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Retry'),
                 ),
-              ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text(
-            'Failed to load contacts',
-            style: TextStyle(color: theme.textSecondaryColor),
+              ],
+            ),
           ),
         ),
       ),

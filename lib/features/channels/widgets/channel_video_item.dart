@@ -766,7 +766,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // TikTok-style bottom content overlay - moved to very bottom
+  // TikTok-style bottom content overlay - optimized positioning for better screen utilization
   Widget _buildBottomContentOverlay() {
     final channelsState = ref.watch(channelsProvider);
     final isFollowing = channelsState.followedChannels.contains(widget.video.channelId);
@@ -774,7 +774,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     final isOwner = userChannel != null && userChannel.id == widget.video.channelId;
     
     return Positioned(
-      bottom: MediaQuery.of(context).padding.bottom + 16, // Account for system nav bar
+      bottom: 8, // Fixed small padding from absolute bottom edge for maximum screen utilization
       left: 16,
       right: 80, // Leave space for right side menu
       child: Column(
@@ -857,14 +857,14 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             ],
           ),
           
-          const SizedBox(height: 8),
+          const SizedBox(height: 6), // Reduced spacing
           
           // Smart caption with hashtags (combined)
           _buildSmartCaption(),
           
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // Reduced spacing
           
-          // Music info (TikTok style)
+          // Music info (TikTok style) - now positioned right above system nav
           Row(
             children: [
               const Icon(

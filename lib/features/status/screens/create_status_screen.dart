@@ -45,7 +45,6 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
   String _backgroundColor = '#000000';
   String _fontColor = '#FFFFFF';
   String _fontFamily = 'default';
-  StatusPrivacyType _privacyType = StatusPrivacyType.all_contacts;
   
   final List<String> _backgroundColors = [
     '#000000', '#1A1A1A', '#333333', '#666666',
@@ -254,8 +253,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
             child: _buildContentArea(theme),
           ),
           
-          // Options panel
-          _buildOptionsPanel(theme),
+          // Privacy info panel (read-only)
+          _buildPrivacyInfoPanel(theme),
         ],
       ),
     );
@@ -405,6 +404,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
           
           // Caption input
           _buildCaptionInput(theme),
+          const SizedBox(height: 16), // Bottom padding
         ],
       ],
     );
@@ -425,7 +425,6 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
           ),
         ),
         
-        // Remove processing indicator and enhanced indicator as these are no longer needed
         // Remove button
         Positioned(
           top: 16,
@@ -484,11 +483,11 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
                 ),
                 maxLines: null,
                 textAlign: TextAlign.center,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   border: InputBorder.none,
                   hintText: 'Type your status...',
                   hintStyle: TextStyle(
-                    color: Colors.white54,
+                    color: theme.textColor,
                     fontSize: 24,
                   ),
                 ),
@@ -540,8 +539,10 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
         ),
         
         // Caption input
-        if (_selectedFile != null)
+        if (_selectedFile != null) ...[
           _buildCaptionInput(theme),
+          const SizedBox(height: 16), // Bottom padding
+        ],
       ],
     );
   }
@@ -692,47 +693,6 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     );
   }
 
-  Widget _buildOptionsPanel(ModernThemeExtension theme) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.surfaceColor,
-        border: Border(
-          top: BorderSide(color: theme.dividerColor!, width: 1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Privacy settings
-          Row(
-            children: [
-              Icon(Icons.visibility, color: theme.textSecondaryColor, size: 20),
-              const SizedBox(width: 12),
-              Text(
-                'Status privacy',
-                style: TextStyle(color: theme.textColor, fontSize: 16),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: _showPrivacySettings,
-                child: Row(
-                  children: [
-                    Text(
-                      _privacyType.displayName,
-                      style: TextStyle(color: theme.primaryColor),
-                    ),
-                    Icon(Icons.chevron_right, color: theme.primaryColor),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showBackgroundColorPicker() {
     showModalBottomSheet(
       context: context,
@@ -785,53 +745,6 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
                 },
               ),
               const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showPrivacySettings() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        final theme = context.modernTheme;
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Status Privacy',
-                style: TextStyle(
-                  color: theme.textColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ...StatusPrivacyType.values.map((type) {
-                return ListTile(
-                  leading: Radio<StatusPrivacyType>(
-                    value: type,
-                    groupValue: _privacyType,
-                    activeColor: theme.primaryColor,
-                    onChanged: (value) {
-                      setState(() => _privacyType = value!);
-                      Navigator.pop(context);
-                    },
-                  ),
-                  title: Text(
-                    type.displayName,
-                    style: TextStyle(color: theme.textColor),
-                  ),
-                  onTap: () {
-                    setState(() => _privacyType = type);
-                    Navigator.pop(context);
-                  },
-                );
-              }).toList(),
             ],
           ),
         );
@@ -920,6 +833,7 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     try {
       final fileToUpload = _processedFile ?? _selectedFile;
       
+      // Privacy settings will be determined by the global defaults in the status provider
       final statusId = await ref.read(statusNotifierProvider.notifier).createStatus(
         type: _selectedType,
         content: content,
@@ -927,8 +841,8 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
         backgroundColor: _selectedType == StatusType.text ? _backgroundColor : null,
         fontColor: _selectedType == StatusType.text ? _fontColor : null,
         fontFamily: _selectedType == StatusType.text ? _fontFamily : null,
-        privacyType: _privacyType,
         mediaFile: fileToUpload,
+        // Removed privacyType parameter - will use global defaults
       );
 
       if (statusId != null) {
@@ -944,4 +858,169 @@ class _CreateStatusScreenState extends ConsumerState<CreateStatusScreen>
     } catch (e) {
       showSnackBar(context, 'Error sharing status: $e');
     }
-  }}
+  }
+
+  Widget _buildPrivacyInfoPanel(ModernThemeExtension theme) {
+    final privacySettingsAsync = ref.watch(statusPrivacySettingsProvider);
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.surfaceColor,
+        border: Border(
+          top: BorderSide(color: theme.dividerColor!, width: 1),
+        ),
+      ),
+      child: privacySettingsAsync.when(
+        data: (settings) {
+          final privacyType = StatusPrivacyTypeExtension.fromString(
+            settings['defaultPrivacy']?.toString() ?? 'all_contacts'
+          );
+          final allowedViewers = List<String>.from(settings['allowedViewers'] ?? []);
+          final excludedViewers = List<String>.from(settings['excludedViewers'] ?? []);
+          
+          return Row(
+            children: [
+              Icon(
+                Icons.visibility,
+                color: theme.textSecondaryColor,
+                size: 18,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Status visibility',
+                      style: TextStyle(
+                        color: theme.textColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _getPrivacyDisplayText(privacyType, allowedViewers, excludedViewers),
+                      style: TextStyle(
+                        color: theme.primaryColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                'Change in settings',
+                style: TextStyle(
+                  color: theme.textSecondaryColor,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          );
+        },
+        loading: () => Row(
+          children: [
+            Icon(
+              Icons.visibility,
+              color: theme.textSecondaryColor,
+              size: 18,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Status visibility',
+                    style: TextStyle(
+                      color: theme.textColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  SizedBox(
+                    width: 100,
+                    height: 12,
+                    child: LinearProgressIndicator(
+                      backgroundColor: theme.dividerColor,
+                      valueColor: AlwaysStoppedAnimation(theme.primaryColor),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        error: (error, stack) => Row(
+          children: [
+            Icon(
+              Icons.visibility,
+              color: theme.textSecondaryColor,
+              size: 18,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Status visibility',
+                    style: TextStyle(
+                      color: theme.textColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'All contacts (default)',
+                    style: TextStyle(
+                      color: theme.textSecondaryColor,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              'Change in settings',
+              style: TextStyle(
+                color: theme.textSecondaryColor,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getPrivacyDisplayText(StatusPrivacyType privacyType, List<String> allowedViewers, List<String> excludedViewers) {
+    switch (privacyType) {
+      case StatusPrivacyType.all_contacts:
+        return 'All contacts';
+      case StatusPrivacyType.except:
+        final count = excludedViewers.length;
+        if (count == 0) {
+          return 'All contacts';
+        } else if (count == 1) {
+          return '1 contact excluded';
+        } else {
+          return '$count contacts excluded';
+        }
+      case StatusPrivacyType.only:
+        final count = allowedViewers.length;
+        if (count == 0) {
+          return 'No one selected';
+        } else if (count == 1) {
+          return 'Only 1 contact';
+        } else {
+          return 'Only $count contacts';
+        }
+    }
+  }
+}

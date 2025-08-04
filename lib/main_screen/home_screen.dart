@@ -18,6 +18,8 @@ import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/providers/status_provider.dart';
+import 'package:textgb/features/status/widgets/privacy_settings_sheet.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
@@ -244,7 +246,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // For other tabs (Status, Channels), no badge needed
+    // Status tab is at index 2 - show green dot for unviewed statuses
+    if (index == 2) {
+      final currentUser = ref.watch(currentUserProvider);
+      final statusStreamAsync = ref.watch(statusStreamProvider);
+      
+      return statusStreamAsync.when(
+        data: (statusGroups) {
+          if (currentUser == null) {
+            return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
+          }
+          
+          // Check if there are any unviewed statuses from other users
+          final hasUnviewedStatuses = statusGroups
+              .where((group) => !group.isMyStatus) // Exclude my own statuses
+              .any((group) => group.hasUnviewedStatuses(currentUser.uid));
+          
+          return _buildNavItemWithStatusDot(
+            index, 
+            isSelected, 
+            modernTheme, 
+            hasUnviewedStatuses
+          );
+        },
+        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
+      );
+    }
+    
+    // For Channels tab (index 3), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
 
@@ -311,6 +341,74 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            if (_tabNames[index].isNotEmpty)
+              Text(
+                _tabNames[index],
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItemWithStatusDot(
+    int index,
+    bool isSelected,
+    ModernThemeExtension modernTheme,
+    bool hasUnviewedStatuses,
+  ) {
+    final iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+    final textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+
+    return GestureDetector(
+      onTap: () => _onTabTapped(index),
+      behavior: HitTestBehavior.translucent,
+      child: SizedBox(
+        width: 60,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                      ? modernTheme.primaryColor!.withOpacity(0.2)
+                      : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _tabIcons[index],
+                    color: iconColor,
+                    size: 24,
+                  ),
+                ),
+                if (hasUnviewedStatuses)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ),
@@ -476,9 +574,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               builder: (context) => const WalletScreen(),
             ),
           );
+        } else if (value == 'status_privacy') {
+          _showStatusPrivacySettings();
         }
       },
       itemBuilder: (BuildContext context) => [
+        // Status Privacy option - only show when on Status tab (index 2)
+        if (_currentIndex == 2)
+          PopupMenuItem<String>(
+            value: 'status_privacy',
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: modernTheme.primaryColor?.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.visibility,
+                    color: modernTheme.primaryColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'Status Privacy',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        // Add divider after status privacy if it's shown
+        if (_currentIndex == 2)
+          PopupMenuItem<String>(
+            enabled: false,
+            height: 1,
+            padding: EdgeInsets.zero,
+            child: Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: modernTheme.dividerColor?.withOpacity(0.3),
+            ),
+          ),
         PopupMenuItem<String>(
           value: 'profile',
           height: 48,
@@ -601,6 +746,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       MaterialPageRoute(
         builder: (context) => const CreateStatusScreen(),
       ),
+    );
+  }
+
+  // Status privacy settings method
+  void _showStatusPrivacySettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const StatusPrivacySettingsSheet(),
     );
   }
 }

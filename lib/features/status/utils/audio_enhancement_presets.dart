@@ -1,37 +1,84 @@
 // lib/features/status/utils/audio_enhancement_presets.dart
 class AudioEnhancementPresets {
   
-  /// TikTok-style audio enhancement - maximum loudness with clarity
+  /// TikTok-style audio enhancement - based on proven create_post_screen processing with crispness refinements
   static List<String> get tiktokStyle => [
-    // 1. Clean up the audio first
-    'highpass=f=80', // Remove low rumble
-    'lowpass=f=16000', // Remove high frequency noise
+    // 1. Initial volume boost and EQ foundation (from create_post_screen)
+    'volume=2.2',
     
-    // 2. Initial normalization
-    'loudnorm=I=-16:TP=-1.5:LRA=7',
+    // 2. Enhanced frequency cleanup (refined from create_post_screen)
+    'highpass=f=42',    // Slightly tighter than original 40Hz for cleaner low end
+    'lowpass=f=14800',  // Slightly lower than original 15000Hz for smoother highs
     
-    // 3. Dynamic range compression for consistent levels
-    'acompressor=threshold=0.003:ratio=4:attack=200:release=1000',
+    // 3. Core EQ signature (from create_post_screen with micro-refinements)
+    'equalizer=f=60:width_type=h:width=2:g=3.2',   // Sub-bass (+0.2dB more punch)
+    'equalizer=f=150:width_type=h:width=2:g=2.2',  // Bass warmth (+0.2dB)
+    'equalizer=f=800:width_type=h:width=3:g=1.5',  // NEW: Lower-mid clarity
+    'equalizer=f=2500:width_type=h:width=4:g=2.8', // NEW: Vocal intelligibility  
+    'equalizer=f=8000:width_type=h:width=2:g=1.3', // High-freq clarity (+0.3dB)
+    'equalizer=f=12000:width_type=h:width=3:g=0.8', // NEW: Air and sparkle
     
-    // 4. Multi-band EQ for TikTok sound signature
-    'equalizer=f=100:width_type=h:width=50:g=1.5',   // Sub-bass presence
-    'equalizer=f=250:width_type=h:width=100:g=2',    // Bass warmth
-    'equalizer=f=1000:width_type=h:width=200:g=1',   // Vocal clarity
-    'equalizer=f=3000:width_type=h:width=800:g=3',   // Vocal presence (key frequency)
-    'equalizer=f=6000:width_type=h:width=1500:g=2',  // Consonant clarity
-    'equalizer=f=10000:width_type=h:width=2000:g=1.5', // Air and sparkle
+    // 4. Advanced dynamic processing (from create_post_screen with refinements)
+    'compand=attacks=0.18:decays=0.38:points=-80/-80|-50/-20|-30/-15|-20/-10|-5/-5|0/-2|20/-2', // Slightly faster attack/decay
     
-    // 5. Aggressive compression for punch
-    'acompressor=threshold=0.001:ratio=6:attack=50:release=500',
+    // 5. Additional crispness enhancements (new additions)
+    'acompressor=threshold=0.002:ratio=2.8:attack=120:release=800', // Gentle pre-compression
+    'deesser=i=0.06:m=0.35:f=6800:s=o', // Smooth sibilants without losing crispness
     
-    // 6. Harmonic exciter simulation for presence
-    'aexciter=level_in=1:level_out=1:amount=2:drive=8.5:blend=50:freq=7500:ceil=16000',
+    // 6. Harmonic enhancement for presence (new addition)
+    'aexciter=level_in=0.9:level_out=1:amount=1.8:drive=6.5:blend=35:freq=7800:ceil=15000',
     
-    // 7. Final limiter for maximum loudness
-    'alimiter=level_in=1.5:level_out=0.98:limit=0.98:attack=5:release=50',
+    // 7. Final broadcast normalization (from create_post_screen with minor refinement)
+    'loudnorm=I=-10.2:TP=-1.4:LRA=6.8:linear=true', // Slightly more controlled dynamics
     
-    // 8. Final broadcast normalization
-    'loudnorm=I=-14:TP=-1:LRA=4:linear=true'
+    // 8. Final polish compression (new addition for extra punch)
+    'acompressor=threshold=0.001:ratio=1.6:attack=25:release=350',
+  ];
+
+  /// TikTok Classic - exact copy of working create_post_screen audio filter
+  static List<String> get tiktokStyleClassic => [
+    'volume=2.2',
+    'equalizer=f=60:width_type=h:width=2:g=3',
+    'equalizer=f=150:width_type=h:width=2:g=2',
+    'equalizer=f=8000:width_type=h:width=2:g=1',
+    'compand=attacks=0.2:decays=0.4:points=-80/-80|-50/-20|-30/-15|-20/-10|-5/-5|0/-2|20/-2',
+    'highpass=f=40',
+    'lowpass=f=15000',
+    'loudnorm=I=-10:TP=-1.5:LRA=7:linear=true'
+  ];
+
+  /// TikTok Crisp - maximum crispness while maintaining loudness
+  static List<String> get tiktokStyleCrisp => [
+    // Stage 1: Foundation (from create_post_screen)
+    'volume=2.2',
+    
+    // Stage 2: Enhanced cleanup
+    'highpass=f=45',    // Tighter low-end cleanup
+    'lowpass=f=14500',  // Smoother high-end rolloff
+    
+    // Stage 3: Expanded EQ for maximum clarity
+    'equalizer=f=60:width_type=h:width=2:g=3.2',   // Extra sub-bass punch
+    'equalizer=f=150:width_type=h:width=2:g=2.1',  // Slightly more warmth
+    'equalizer=f=500:width_type=h:width=2.5:g=1.2', // NEW: Lower-mid definition
+    'equalizer=f=1200:width_type=h:width=3:g=1.8',  // NEW: Vocal intelligibility
+    'equalizer=f=3000:width_type=h:width=4:g=2.5',  // NEW: Vocal presence
+    'equalizer=f=5000:width_type=h:width=3:g=1.6',  // NEW: Consonant clarity
+    'equalizer=f=8000:width_type=h:width=2:g=1.4',  // Enhanced high-freq (+0.4dB)
+    'equalizer=f=11000:width_type=h:width=2.5:g=1.1', // NEW: Air and detail
+    
+    // Stage 4: Advanced dynamics (refined from create_post_screen)  
+    'compand=attacks=0.15:decays=0.35:points=-80/-80|-50/-19|-30/-14|-20/-9|-5/-4|0/-1.8|20/-1.8',
+    
+    // Stage 5: Crispness enhancements
+    'acompressor=threshold=0.0015:ratio=2.2:attack=80:release=600', // Gentle compression
+    'deesser=i=0.05:m=0.3:f=7000:s=o', // Subtle de-essing
+    'aexciter=level_in=0.85:level_out=1:amount=1.5:drive=5.8:blend=30:freq=8000:ceil=14500', // Harmonic excitement
+    
+    // Stage 6: Final normalization (maintaining same loudness as original)
+    'loudnorm=I=-10.1:TP=-1.45:LRA=6.9:linear=true',
+    
+    // Stage 7: Final punch
+    'acompressor=threshold=0.0008:ratio=1.4:attack=20:release=250', // Micro-compression for consistency
   ];
 
   /// Instagram Reels style - balanced and musical
@@ -117,6 +164,12 @@ class AudioEnhancementPresets {
       case 'tiktok':
       case 'tiktok_style':
         return tiktokStyle;
+      case 'tiktok_classic':
+      case 'tiktok_style_classic':
+        return tiktokStyleClassic;
+      case 'tiktok_crisp':
+      case 'tiktok_style_crisp':
+        return tiktokStyleCrisp;
       case 'instagram':
       case 'instagram_style':
         return instagramStyle;
@@ -139,6 +192,8 @@ class AudioEnhancementPresets {
   /// Get all available preset names
   static List<String> get availablePresets => [
     'tiktok_style',
+    'tiktok_style_classic',
+    'tiktok_style_crisp',
     'instagram_style', 
     'youtube_style',
     'voice_optimized',
@@ -151,7 +206,13 @@ class AudioEnhancementPresets {
     switch (presetName.toLowerCase()) {
       case 'tiktok':
       case 'tiktok_style':
-        return 'MAXIMUM loudness with crisp clarity - viral content ready!';
+        return 'Enhanced loudness with crisp clarity - viral content ready! (Based on proven create_post_screen processing)';
+      case 'tiktok_classic':
+      case 'tiktok_style_classic':
+        return 'Exact copy of working create_post_screen audio filter - proven performance';
+      case 'tiktok_crisp':
+      case 'tiktok_style_crisp':
+        return 'Maximum crispness and detail while maintaining viral loudness';
       case 'instagram':
       case 'instagram_style':
         return 'Loud and musical enhancement perfect for Reels';

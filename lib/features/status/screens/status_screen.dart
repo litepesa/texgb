@@ -7,7 +7,6 @@ import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/features/status/providers/status_provider.dart';
 import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/status/screens/status_viewer_screen.dart';
-import 'package:textgb/features/status/widgets/privacy_settings_sheet.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/enums/enums.dart';
 
@@ -186,31 +185,16 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                   ),
                 ),
                 
-                // Options menu for my status
+                // Options menu for my status - only show delete option now
                 if (myStatusGroup != null)
                   PopupMenuButton<String>(
                     icon: Icon(Icons.more_vert, color: theme.textSecondaryColor),
                     onSelected: (value) {
-                      switch (value) {
-                        case 'privacy':
-                          _showPrivacySettings();
-                          break;
-                        case 'delete_all':
-                          _deleteAllMyStatuses(myStatusGroup);
-                          break;
+                      if (value == 'delete_all') {
+                        _deleteAllMyStatuses(myStatusGroup);
                       }
                     },
                     itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'privacy',
-                        child: Row(
-                          children: [
-                            Icon(Icons.visibility, color: theme.textSecondaryColor),
-                            const SizedBox(width: 12),
-                            Text('Status privacy', style: TextStyle(color: theme.textColor)),
-                          ],
-                        ),
-                      ),
                       PopupMenuItem(
                         value: 'delete_all',
                         child: Row(
@@ -310,7 +294,6 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
 
   Widget _buildStatusItem(UserStatusGroup statusGroup, String currentUserId, ModernThemeExtension theme) {
     final hasUnviewed = statusGroup.hasUnviewedStatuses(currentUserId);
-    final unviewedCount = statusGroup.getUnviewedCount(currentUserId);
     
     return InkWell(
       onTap: () => _viewStatus(statusGroup, currentUserId),
@@ -319,74 +302,42 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
         child: Row(
           children: [
             // Profile picture with status ring
-            Stack(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: hasUnviewed ? theme.primaryColor! : theme.dividerColor!,
-                      width: hasUnviewed ? 2.5 : 2,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(3),
-                    child: ClipOval(
-                      child: statusGroup.userImage.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: statusGroup.userImage,
-                              fit: BoxFit.cover,
-                              errorWidget: (context, url, error) => Container(
-                                color: Colors.grey[300],
-                                child: Icon(
-                                  Icons.person,
-                                  color: Colors.grey[600],
-                                  size: 24,
-                                ),
-                              ),
-                            )
-                          : Container(
-                              color: Colors.grey[300],
-                              child: Icon(
-                                Icons.person,
-                                color: Colors.grey[600],
-                                size: 24,
-                              ),
-                            ),
-                    ),
-                  ),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: hasUnviewed ? theme.primaryColor! : theme.dividerColor!,
+                  width: hasUnviewed ? 2.5 : 2,
                 ),
-                
-                // Unviewed count indicator
-                if (hasUnviewed && unviewedCount > 1)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: theme.primaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Center(
-                        child: Text(
-                          unviewedCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: ClipOval(
+                  child: statusGroup.userImage.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: statusGroup.userImage,
+                          fit: BoxFit.cover,
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey[300],
+                            child: Icon(
+                              Icons.person,
+                              color: Colors.grey[600],
+                              size: 24,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          color: Colors.grey[300],
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.grey[600],
+                            size: 24,
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-              ],
+                ),
+              ),
             ),
             
             const SizedBox(width: 12),
@@ -631,15 +582,6 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
           currentUserId: currentUserId,
         ),
       ),
-    );
-  }
-
-  void _showPrivacySettings() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => const StatusPrivacySettingsSheet(),
     );
   }
 

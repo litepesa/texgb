@@ -18,13 +18,11 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class ChannelsFeedScreen extends ConsumerStatefulWidget {
-  final Function(double)? onVideoProgressChanged;
   final String? startVideoId; // For direct video navigation
   final String? channelId; // For channel-specific filtering (optional)
 
   const ChannelsFeedScreen({
     Key? key,
-    this.onVideoProgressChanged,
     this.startVideoId,
     this.channelId,
   }) : super(key: key);
@@ -38,7 +36,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   
   // Core controllers
   final PageController _pageController = PageController();
-  late AnimationController _progressController;
   late AnimationController _musicDiscController; // Add music disc animation controller
   
   // Cache service
@@ -54,24 +51,12 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
   
-  // Enhanced progress tracking
-  double _videoProgress = 0.0;
-  Duration _videoDuration = Duration.zero;
-  Duration _videoPosition = Duration.zero;
   VideoPlayerController? _currentVideoController;
-  Timer? _progressUpdateTimer;
   Timer? _cacheCleanupTimer;
-  
-  // Simple notifier for progress tracking
-  final ValueNotifier<double> _progressNotifier = ValueNotifier<double>(0.0);
   
   // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
   
-  // Progress bar constants
-  static const double _progressBarHeight = 3.0;
-  
-  static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
   static const Duration _cacheCleanupInterval = Duration(minutes: 10);
 
   @override
@@ -219,7 +204,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       }
     }
     
-    _setupVideoProgressTracking();
     _startIntelligentPreloading();
     
     // Start music disc animation only if controller is initialized
@@ -243,47 +227,14 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     if (_musicDiscController.isAnimating) {
       _musicDiscController.stop();
     }
-    
-    _progressUpdateTimer?.cancel();
-    
-    // Reset progress for fresh start
-    _updateProgress(0.0);
   }
 
   void _initializeControllers() {
-    _progressController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 15),
-    );
-    
     // Initialize music disc rotation controller
     _musicDiscController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 8), // Slow, hypnotic rotation
     );
-    
-    _progressController.addListener(_onProgressControllerUpdate);
-  }
-
-  void _onProgressControllerUpdate() {
-    if (!mounted) return;
-    
-    // Update progress for images or fallback
-    if (_currentVideoController == null || !_currentVideoController!.value.isInitialized) {
-      final progress = _progressController.value;
-      setState(() {
-        _videoProgress = progress;
-      });
-      _progressNotifier.value = progress;
-      _updateProgress(progress);
-    }
-  }
-
-  void _updateProgress(double progress) {
-    // Call the callback to update the home screen progress indicator
-    if (widget.onVideoProgressChanged != null && _isScreenActive && !_isNavigatingAway) {
-      widget.onVideoProgressChanged!(progress);
-    }
   }
 
   void _setupSystemUI() {
@@ -318,8 +269,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         if (widget.startVideoId != null) {
           _jumpToVideo(widget.startVideoId!);
         }
-        
-        _progressController.forward();
         
         if (_isScreenActive && _isAppInForeground && !_isNavigatingAway) {
           Timer(const Duration(milliseconds: 500), () {
@@ -358,55 +307,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     }
   }
 
-  void _setupVideoProgressTracking() {
-    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
-    
-    _progressUpdateTimer?.cancel();
-    
-    _progressUpdateTimer = Timer.periodic(_progressUpdateInterval, (timer) {
-      if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway) {
-        timer.cancel();
-        return;
-      }
-      
-      if (_currentVideoController?.value.isInitialized == true) {
-        final controller = _currentVideoController!;
-        final position = controller.value.position;
-        final duration = controller.value.duration;
-        
-        if (duration.inMilliseconds > 0) {
-          final progress = (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
-          
-          if (mounted) {
-            setState(() {
-              _videoPosition = position;
-              _videoDuration = duration;
-              _videoProgress = progress;
-            });
-            
-            _progressNotifier.value = progress;
-            _updateProgress(progress);
-          }
-          
-          // Trigger next batch preloading when halfway through
-          if (progress > 0.5 && _isScreenActive && _isAppInForeground && !_isNavigatingAway) {
-            _preloadNextBatch();
-          }
-        }
-      } else {
-        // For images or when video is not ready, use animation controller
-        if (mounted) {
-          final progress = _progressController.value;
-          setState(() {
-            _videoProgress = progress;
-          });
-          _progressNotifier.value = progress;
-          _updateProgress(progress);
-        }
-      }
-    });
-  }
-
   void _startIntelligentPreloading() {
     if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
     
@@ -431,17 +331,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     setState(() {
       _currentVideoController = controller;
-      _videoProgress = 0.0;
     });
 
     // Always start fresh from the beginning for NEW videos
     controller.seekTo(Duration.zero);
-    _setupVideoProgressTracking();
-    
-    if (_progressController.isAnimating) {
-      _progressController.stop();
-      _progressController.reset();
-    }
     
     WakelockPlus.enable();
     
@@ -481,25 +374,8 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     setState(() {
       _currentVideoIndex = index;
       _currentVideoController = null;
-      _videoProgress = 0.0;
-      _videoPosition = Duration.zero;
-      _videoDuration = Duration.zero;
       _isManuallyPaused = false; // Reset manual pause state for new video
     });
-
-    _progressNotifier.value = 0.0;
-    _updateProgress(0.0);
-
-    _progressUpdateTimer?.cancel();
-    _progressController.reset();
-    
-    // Handle different content types
-    if (videos[index].isMultipleImages || videos[index].videoUrl.isEmpty) {
-      _progressController.forward();
-      debugPrint('Starting image progress animation');
-    } else {
-      debugPrint('Waiting for video to initialize for progress tracking');
-    }
 
     if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
       _startIntelligentPreloading();
@@ -513,52 +389,16 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     ref.read(channelVideosProvider.notifier).incrementViewCount(videos[index].id);
   }
 
-  // Progress bar widget
-  Widget _buildProgressBar(ModernThemeExtension modernTheme) {
-    return ValueListenableBuilder<double>(
-      valueListenable: _progressNotifier,
-      builder: (context, progress, child) {
-        return Container(
-          height: _progressBarHeight,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-          ),
-          child: Stack(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 100),
-                width: MediaQuery.of(context).size.width * progress.clamp(0.0, 1.0),
-                height: _progressBarHeight,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      modernTheme.primaryColor ?? Colors.blue,
-                      (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   void dispose() {
     debugPrint('ChannelsFeedScreen: Disposing');
     
     WidgetsBinding.instance.removeObserver(this);
     
-    _progressUpdateTimer?.cancel();
     _cacheCleanupTimer?.cancel();
     
-    _progressController.dispose();
     _musicDiscController.dispose(); // Dispose music disc controller
     _pageController.dispose();
-    _progressNotifier.dispose();
     
     _stopPlayback();
     _cacheService.dispose();
@@ -580,7 +420,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     final channelVideosState = ref.watch(channelVideosProvider);
     final channelsState = ref.watch(channelsProvider);
-    final modernTheme = context.modernTheme;
     final systemTopPadding = MediaQuery.of(context).padding.top;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
@@ -604,7 +443,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               top: systemTopPadding, // Start below status bar
               left: 0,
               right: 0,
-              bottom: systemBottomPadding + _progressBarHeight, // Reserve space for progress bar above system nav
+              bottom: systemBottomPadding, // Reserve space above system nav
               child: ClipRRect(
                 borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
                 child: _buildBody(channelVideosState, channelsState),
@@ -621,14 +460,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           // TikTok-style right side menu
           _buildRightSideMenu(),
-          
-          // Progress bar positioned just above the system navigation bar
-          Positioned(
-            bottom: systemBottomPadding, // Position above system nav bar
-            left: 0,
-            right: 0,
-            child: _buildProgressBar(modernTheme),
-          ),
           
           // Cache performance indicator (debug mode only)
           if (kDebugMode)
@@ -884,7 +715,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // TikTok-style right side menu (Douyin icons) - moved to very bottom
+  // TikTok-style right side menu (Douyin icons) - optimized positioning
   Widget _buildRightSideMenu() {
     final videos = ref.watch(channelVideosProvider).videos;
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
@@ -894,7 +725,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom: systemBottomPadding + _progressBarHeight + 16, // Account for progress bar and system nav
+      bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
       child: Column(
         children: [
           // Profile avatar with red ring
@@ -1124,13 +955,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               ),
               Text(
                 'Queue: ${stats['queueLength']} | Loading: ${stats['preloadingCount']}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                ),
-              ),
-              Text(
-                'Progress: ${(_videoProgress * 100).toStringAsFixed(1)}%',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10,
