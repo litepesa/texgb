@@ -1437,7 +1437,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
               ),
               child: Center(
                 child: Text(
-                  'GIFT',
+                  'DM',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
