@@ -50,15 +50,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
     'Channels',  // Index 1 - Channels List
     '',          // Index 2 - Post (no label, special design)
-    'Notifications',     // Index 3 - Chats/Wallet switcher
-    'Me'    // Index 4 - Profile
+    'Inbox',     // Index 3 - Chats/Wallet switcher
+    'Profile'    // Index 4 - Profile
   ];
   
   final List<IconData> _tabIcons = [
     Icons.home_rounded,                  // Home
     Icons.radio_button_on_rounded,       // Channels
     Icons.add,                           // Post (will be styled specially)
-    CupertinoIcons.bell,        // Chats
+    CupertinoIcons.chat_bubble_2,        // Chats
     Icons.person_outline                 // Me/Profile
   ];
 
