@@ -47,9 +47,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   bool _isAppInForeground = true;
   bool _isScreenActive = true;
   
-  // Caption expansion state
-  Map<int, bool> _expandedCaptions = {};
-  
   // Like animation state
   bool _showLikeAnimation = false;
   late AnimationController _likeAnimationController;
@@ -79,11 +76,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   // Animation controllers
   late AnimationController _imageProgressController;
   late AnimationController _progressController;
-  
-  // Bottom nav bar constants
-  static const double _bottomNavContentHeight = 60.0;
-  static const double _progressBarHeight = 3.0;
-  final ValueNotifier<double> _progressNotifier = ValueNotifier<double>(0.0);
 
   // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
@@ -173,10 +165,11 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   }
 
   void _setupSystemUI() {
+    // Set both status bar and navigation bar to black for immersive experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
+      statusBarColor: Colors.black,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.transparent, // Changed to transparent
+      systemNavigationBarColor: Colors.black,
       systemNavigationBarIconBrightness: Brightness.light,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
@@ -360,7 +353,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     setState(() {
       _currentVideoIndex = index;
       _currentProgress = 0.0;
-      _progressNotifier.value = 0.0;
     });
 
     // Play new video (this will enable wakelock if appropriate)
@@ -442,7 +434,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
             setState(() {
               _currentProgress = progress;
             });
-            _progressNotifier.value = progress;
           }
         }
       });
@@ -462,7 +453,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     setState(() {
       _currentProgress = progress;
     });
-    _progressNotifier.value = progress;
   }
 
   void _playCurrentVideo() {
@@ -549,37 +539,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     
     // Haptic feedback
     HapticFeedback.mediumImpact();
-  }
-
-  void _toggleFollow() async {
-    if (_channel == null) return;
-    
-    setState(() {
-      _isFollowing = !_isFollowing;
-    });
-    
-    await ref.read(channelsProvider.notifier).toggleFollowChannel(_channel!.id);
-  }
-
-  void _toggleCaptionExpansion(int index) {
-    setState(() {
-      _expandedCaptions[index] = !(_expandedCaptions[index] ?? false);
-    });
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF424242),
-        margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height * 0.8,
-          left: 16,
-          right: 16,
-        ),
-      ),
-    );
   }
 
   // Enhanced back navigation with proper system UI restoration
@@ -840,7 +799,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     _heartScaleController.dispose();
     _burstAnimationController.dispose();
     _sparkleAnimationController.dispose();
-    _progressNotifier.dispose();
     
     for (final controller in _videoControllers.values) {
       controller.dispose();
@@ -876,9 +834,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
       );
     }
     
-    final modernTheme = context.modernTheme;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final totalBottomNavHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
+    final systemTopPadding = MediaQuery.of(context).padding.top;
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
     return WillPopScope(
       onWillPop: () async {
@@ -889,53 +846,32 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
         backgroundColor: Colors.black,
         extendBodyBehindAppBar: true,
         extendBody: true,
-        body: Stack(
-          children: [
-            // Main video content - FULL SCREEN
-            Positioned.fill(
-              bottom: totalBottomNavHeight,
-              child: _buildVideoFeed(),
-            ),
-            
-            // Top bar overlay - Reliable back button and search
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 4,
-              left: 4, // Adjusted for better tap area
-              right: 8,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Enhanced back button with larger tap area
-                  Material(
-                    type: MaterialType.transparency,
-                    child: IconButton(
-                      onPressed: _handleBackNavigation,
-                      icon: const Icon(
-                        CupertinoIcons.chevron_left,
-                        color: Colors.white,
-                        size: 28,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 3,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      iconSize: 28,
-                      padding: const EdgeInsets.all(12), // Larger tap area
-                      constraints: const BoxConstraints(
-                        minWidth: 44,
-                        minHeight: 44,
-                      ),
-                      splashRadius: 24,
-                      tooltip: 'Back',
-                    ),
-                  ),
-                  /*IconButton(
-                    onPressed: () {},
+        body: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
+          child: Stack(
+            children: [
+              // Main video content - positioned to avoid covering status bar and system nav
+              Positioned(
+                top: systemTopPadding, // Start below status bar
+                left: 0,
+                right: 0,
+                bottom: systemBottomPadding, // Reserve space above system nav
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
+                  child: _buildVideoFeed(),
+                ),
+              ),
+              
+              // Top bar overlay - Enhanced back button
+              Positioned(
+                top: systemTopPadding + 16,
+                left: 4,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: IconButton(
+                    onPressed: _handleBackNavigation,
                     icon: const Icon(
-                      Icons.search,
+                      CupertinoIcons.chevron_left,
                       color: Colors.white,
                       size: 28,
                       shadows: [
@@ -947,28 +883,21 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
                       ],
                     ),
                     iconSize: 28,
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(12), // Larger tap area
                     constraints: const BoxConstraints(
                       minWidth: 44,
                       minHeight: 44,
                     ),
                     splashRadius: 24,
-                  ),*/
-                ],
+                    tooltip: 'Back',
+                  ),
+                ),
               ),
-            ),
-            
-            // Bottom content overlay
-            _buildBottomContent(),
-            
-            // Bottom navigation bar with progress indicator
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _buildBottomNavigationBar(modernTheme),
-            ),
-          ],
+              
+              // TikTok-style right side menu - simplified to 3 items only
+              _buildRightSideMenu(),
+            ],
+          ),
         ),
       ),
     );
@@ -1092,478 +1021,78 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     );
   }
 
-  // Bottom content overlay - Profile + Follow + Caption (positioned from progress bar level)
-  Widget _buildBottomContent() {
-    if (_channelVideos.isEmpty || _currentVideoIndex >= _channelVideos.length || _channel == null) {
-      return const SizedBox.shrink();
-    }
-    
-    final currentVideo = _channelVideos[_currentVideoIndex];
-    final isExpanded = _expandedCaptions[_currentVideoIndex] ?? false;
-    
-    return Positioned(
-      bottom: _bottomNavContentHeight + _progressBarHeight + MediaQuery.of(context).padding.bottom + 16, // Start from progress bar level
-      left: 16,
-      right: 80, // Leave space for right side interactions
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Channel name with follow button (TikTok style) - Now clickable
-          Row(
-            children: [
-              Flexible(
-                child: GestureDetector(
-                  onTap: _navigateToChannelProfile, // Add navigation function
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          _channel!.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      // Verified badge if applicable
-                      if (_channel!.isVerified)
-                        Container(
-                          margin: const EdgeInsets.only(left: 4),
-                          child: const Icon(
-                            Icons.verified,
-                            color: Colors.blue,
-                            size: 16,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Follow button with red fill when not following
-              if (!_isOwner)
-                GestureDetector(
-                  onTap: _toggleFollow,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _isFollowing ? Colors.transparent : const Color(0xFFFF3040), // Red fill when not following
-                      border: Border.all(color: Colors.white, width: 1),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Text(
-                      _isFollowing ? 'Following' : 'Follow',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          
-          const SizedBox(height: 8),
-          
-          // Caption with hashtags (exactly like channels feed screen)
-          _buildSmartCaption(currentVideo, isExpanded),
-        ],
-      ),
-    );
-  }
-
-  // Smart caption exactly like in channel_video_item.dart
-  Widget _buildSmartCaption(ChannelVideoModel video, bool isExpanded) {
-    if (video.caption.isEmpty) return const SizedBox.shrink();
-
-    final captionStyle = TextStyle(
-      color: Colors.white,
-      fontSize: 14,
-      height: 1.3,
-      shadows: [
-        Shadow(
-          color: Colors.black.withOpacity(0.7),
-          blurRadius: 3,
-          offset: const Offset(0, 1),
-        ),
-      ],
-    );
-
-    final moreStyle = captionStyle.copyWith(
-      color: Colors.white.withOpacity(0.7),
-      fontWeight: FontWeight.w500,
-    );
-
-    // Combine caption with hashtags on new line
-    String fullText = video.caption;
-    if (video.tags.isNotEmpty) {
-      final hashtags = video.tags.map((tag) => '#$tag').join(' ');
-      fullText += '\n$hashtags';
-    }
-
-    return GestureDetector(
-      onTap: () => _toggleCaptionExpansion(_currentVideoIndex),
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        child: isExpanded 
-          ? _buildExpandedText(fullText, captionStyle, moreStyle)
-          : _buildTruncatedText(fullText, captionStyle, moreStyle),
-      ),
-    );
-  }
-
-  Widget _buildExpandedText(String fullText, TextStyle captionStyle, TextStyle moreStyle) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: fullText,
-            style: captionStyle,
-          ),
-          TextSpan(
-            text: ' less',
-            style: moreStyle,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTruncatedText(String fullText, TextStyle captionStyle, TextStyle moreStyle) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth;
-        
-        final textPainter = TextPainter(
-          text: TextSpan(text: fullText, style: captionStyle),
-          textDirection: TextDirection.ltr,
-          maxLines: 2,
-        );
-        textPainter.layout(maxWidth: maxWidth);
-        
-        // If text doesn't exceed 2 lines, show it fully
-        if (!textPainter.didExceedMaxLines) {
-          return Text(fullText, style: captionStyle);
-        }
-        
-        // Find where the text should be cut for 1.5 lines
-        final firstLineHeight = textPainter.preferredLineHeight;
-        final oneAndHalfLineHeight = firstLineHeight * 1.5;
-        
-        final cutPosition = textPainter.getPositionForOffset(
-          Offset(maxWidth * 0.7, oneAndHalfLineHeight)
-        );
-        
-        var cutIndex = cutPosition.offset;
-        
-        // Find the last space before cut position to avoid cutting words
-        while (cutIndex > 0 && fullText[cutIndex] != ' ') {
-          cutIndex--;
-        }
-        
-        // Ensure we have some text to show
-        if (cutIndex < 10) {
-          cutIndex = fullText.indexOf(' ', 10);
-          if (cutIndex == -1) cutIndex = fullText.length ~/ 3;
-        }
-        
-        final truncatedText = fullText.substring(0, cutIndex);
-        
-        return RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: truncatedText,
-                style: captionStyle,
-              ),
-              TextSpan(
-                text: '... more',
-                style: moreStyle,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Progress bar widget for the bottom nav divider
-  Widget _buildProgressBar(ModernThemeExtension modernTheme) {
-    return ValueListenableBuilder<double>(
-      valueListenable: _progressNotifier,
-      builder: (context, progress, child) {
-        return Container(
-          height: _progressBarHeight,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-          ),
-          child: Stack(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 100),
-                width: MediaQuery.of(context).size.width * progress.clamp(0.0, 1.0),
-                height: _progressBarHeight,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      modernTheme.primaryColor ?? Colors.blue,
-                      (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.8),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Bottom navigation bar widget - Updated with only 3 tabs: Comments, DM, Likes
-  Widget _buildBottomNavigationBar(ModernThemeExtension modernTheme) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final totalHeight = _bottomNavContentHeight + _progressBarHeight + bottomPadding;
-    
-    // Get current video for likes and comments count
+  // TikTok-style right side menu - simplified to 2 items only (like, comment)
+  Widget _buildRightSideMenu() {
     final videos = _channelVideos;
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
         ? videos[_currentVideoIndex] 
         : null;
-    
-    return Container(
-      height: totalHeight,
-      decoration: const BoxDecoration(
-        color: Colors.black,
-      ),
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Positioned(
+      right: 4, // Close to edge like channels feed
+      bottom: systemBottomPadding + 16, // Position above system nav bar with padding
       child: Column(
         children: [
-          // Progress bar as divider
-          _buildProgressBar(modernTheme),
-          
-          // Navigation content with only 3 items
-          Container(
-            height: _bottomNavContentHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                // Comments tab with badge
-                _buildNavItemWithBadge(
-                  icon: CupertinoIcons.ellipses_bubble_fill,
-                  activeIcon: CupertinoIcons.ellipses_bubble_fill,
-                  label: 'Comments',
-                  isActive: false,
-                  onTap: () => _showCommentsForCurrentVideo(currentVideo),
-                  iconColor: Colors.white,
-                  labelColor: Colors.white,
-                  badgeCount: currentVideo?.comments ?? 0,
-                ),
-                
-                // DM button (custom style)
-                _buildDMButton(),
-                
-                // Likes tab with badge
-                _buildNavItemWithBadge(
-                  icon: Icons.favorite,
-                  activeIcon: Icons.favorite,
-                  label: 'Like  Post',
-                  isActive: false,
-                  onTap: () => _likeCurrentVideo(currentVideo),
-                  iconColor: currentVideo?.isLiked == true ? Colors.red : Colors.white,
-                  labelColor: Colors.white,
-                  badgeCount: currentVideo?.likes ?? 0,
-                ),
-              ],
+          // Like button
+          _buildRightMenuItem(
+            child: Icon(
+              currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite_border,
+              color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
+              size: 26,
             ),
+            label: _formatCount(currentVideo?.likes ?? 0),
+            onTap: () => _likeCurrentVideo(currentVideo),
           ),
           
-          // System navigation bar space
-          SizedBox(height: bottomPadding),
+          const SizedBox(height: 10),
+          
+          // Comment button
+          _buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.chat_bubble,
+              color: Colors.white,
+              size: 26,
+            ),
+            label: _formatCount(currentVideo?.comments ?? 0),
+            onTap: () => _showCommentsForCurrentVideo(currentVideo),
+          ),
         ],
       ),
     );
   }
 
-  // Custom DM button similar to the post button in home screen
-  Widget _buildDMButton() {
+  Widget _buildRightMenuItem({
+    required Widget child,
+    String? label,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: () {
-        // TODO: Navigate to DM screen when implemented
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 45,
-              height: 32,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.blue.shade500,
-                    Colors.cyan.shade400,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            child: child,
+          ),
+          if (label != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
                   ),
                 ],
               ),
-              child: Center(
-                child: Text(
-                  'DM',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            /*Text(
-              'DM',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 10,
-                fontWeight: FontWeight.w400,
-              ),
-            ),*/
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? labelColor,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isActive ? activeIcon : icon,
-              color: iconColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: labelColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItemWithBadge({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? labelColor,
-    required int badgeCount,
-  }) {
-    final modernTheme = context.modernTheme;
-    
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  isActive ? activeIcon : icon,
-                  color: iconColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
-                  size: 24,
-                ),
-                if (badgeCount > 0)
-                  Positioned(
-                    right: -8,
-                    top: -6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor ?? Colors.blue,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.black, width: 1),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      child: Text(
-                        _formatCount(badgeCount),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: labelColor ?? (isActive ? Colors.white : Colors.white.withOpacity(0.6)),
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -1698,35 +1227,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           _playCurrentVideo();
         }
       });
-    }
-  }
-
-  void _navigateToCreatePost() async {
-    // Pause current video and disable wakelock
-    _pauseCurrentVideo();
-    
-    final result = await Navigator.pushNamed(context, Constants.createChannelPostScreen);
-    if (result == true) {
-      // Reload channel videos
-      await _loadChannelData();
-      
-      // Reset progress and restart playback
-      setState(() {
-        _currentProgress = 0.0;
-      });
-      _progressNotifier.value = 0.0;
-      _progressTimer?.cancel();
-      _imageProgressController.reset();
-      
-      if (_channelVideos.isNotEmpty && _isScreenActive && _isAppInForeground) {
-        _imageProgressController.forward();
-        _playCurrentVideo(); // This will handle wakelock
-      }
-    } else {
-      // Resume video if user cancelled (this will re-enable wakelock)
-      if (_isScreenActive && _isAppInForeground) {
-        _playCurrentVideo();
-      }
     }
   }
 
