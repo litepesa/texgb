@@ -538,7 +538,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                         // TODO: Add search functionality
                       },
                       icon: const Icon(
-                        Icons.search,
+                        CupertinoIcons.search,
                         color: Colors.white,
                         size: 28,
                         shadows: [
@@ -910,12 +910,12 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           _buildRightMenuItem(
             child: Icon(
               currentMoment?.likedBy.contains(ref.read(currentUserProvider)?.uid) == true 
-                  ? Icons.favorite 
-                  : Icons.favorite_border,
+                  ? CupertinoIcons.heart 
+                  : CupertinoIcons.heart,
               color: currentMoment?.likedBy.contains(ref.read(currentUserProvider)?.uid) == true 
                   ? Colors.red 
                   : Colors.white,
-              size: 26,
+              size: 28,
             ),
             label: _formatCount(currentMoment?.likesCount ?? 0),
             onTap: () => _likeCurrentMoment(currentMoment),
@@ -926,9 +926,9 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           // Comment button
           _buildRightMenuItem(
             child: const Icon(
-              CupertinoIcons.chat_bubble,
+              CupertinoIcons.captions_bubble,
               color: Colors.white,
-              size: 26,
+              size: 28,
             ),
             label: _formatCount(currentMoment?.commentsCount ?? 0),
             onTap: () => _showCommentsForCurrentMoment(currentMoment),
@@ -939,11 +939,11 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           // Gift button
           _buildRightMenuItem(
             child: const Icon(
-              Icons.card_giftcard,
+              CupertinoIcons.gift,
               color: Colors.white,
-              size: 26,
+              size: 28,
             ),
-            label: null,
+            label: 'Gift',
             onTap: () {
               // TODO: Add gift functionality
             },
@@ -954,8 +954,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           // DM button - custom white rounded square with 'DM' text
           _buildRightMenuItem(
             child: Container(
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.white, width: 2),
                 borderRadius: BorderRadius.circular(6),
@@ -971,7 +971,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                 ),
               ),
             ),
-            label: null,
+            label: 'Inbox',
             onTap: () {
               // TODO: Add DM functionality
             },

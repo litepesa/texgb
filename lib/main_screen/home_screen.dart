@@ -549,13 +549,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 0) {
-      // Chats tab - New chat FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
-        child: const Icon(CupertinoIcons.chat_bubble_2_fill),
+      // Chats tab - Show both New chat and Wallet FABs
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Wallet FAB
+          FloatingActionButton(
+            heroTag: "wallet_fab",
+            backgroundColor: modernTheme.backgroundColor,
+            foregroundColor: modernTheme.primaryColor,
+            elevation: 4,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WalletScreen(),
+                ),
+              );
+            },
+            child: const Icon(Icons.account_balance_wallet_outlined),
+          ),
+          const SizedBox(height: 16),
+          // New chat FAB
+          FloatingActionButton(
+            heroTag: "chat_fab",
+            backgroundColor: modernTheme.backgroundColor,
+            foregroundColor: modernTheme.primaryColor,
+            elevation: 4,
+            onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
+            child: const Icon(CupertinoIcons.bubble_left_bubble_right),
+          ),
+        ],
       );
     } else if (_currentIndex == 1) {
       // Groups tab - Create group FAB
