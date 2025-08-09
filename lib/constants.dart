@@ -99,10 +99,8 @@ class Constants {
   // Moments feature routes (keeping for backward compatibility)
   static const String momentsFeedScreen = '/momentsFeedScreen';
   static const String createMomentScreen = '/createMomentScreen';
-  static const String momentDetailScreen = '/momentDetailScreen';
-  static const String mediaViewerScreen = '/mediaViewerScreen';
   static const String myMomentsScreen = '/myMomentsScreen';
-  static const String momentsDetailScreen = '/momentsDetailScreen';
+
   
   // Payment screen routes
   static const String paymentScreen = '/paymentScreen';
@@ -164,7 +162,6 @@ class Constants {
   // Moments collections
   static const String moments = 'moments';
   static const String momentComments = 'moment_comments';
-  static const String momentReactions = 'moment_reactions';
   static const String momentFiles = 'moment_files';
   static const String momentLikes = 'moment_likes';
 
@@ -391,14 +388,12 @@ class Constants {
   static const String momentContent = 'momentContent';
   static const String momentMediaUrls = 'momentMediaUrls';
   static const String momentMediaType = 'momentMediaType';
-  static const String momentLocation = 'momentLocation';
   static const String momentPrivacy = 'momentPrivacy';
   static const String momentVisibleTo = 'momentVisibleTo';
-  static const String momentHiddenFrom = 'momentHiddenFrom';
   static const String momentCreatedAt = 'momentCreatedAt';
   static const String momentLikesCount = 'momentLikesCount';
   static const String momentCommentsCount = 'momentCommentsCount';
-  static const String momentLikedBy = 'momentLikedBy';
+
 
   // ===== COMMENT MODEL FIELD NAMES =====
   
