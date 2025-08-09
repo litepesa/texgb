@@ -1,16 +1,19 @@
 // lib/features/moments/screens/moments_feed_screen.dart
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/providers/moments_provider.dart';
 import 'package:textgb/features/moments/widgets/moment_actions.dart';
-//import 'package:textgb/features/moments/widgets/moment_info.dart';
-//import 'package:textgb/features/moments/widgets/image_carousel.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/constants.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 
 class MomentsFeedScreen extends ConsumerStatefulWidget {
   final String? startMomentId;
@@ -24,60 +27,456 @@ class MomentsFeedScreen extends ConsumerStatefulWidget {
   ConsumerState<MomentsFeedScreen> createState() => _MomentsFeedScreenState();
 }
 
-class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
-  late PageController _pageController;
+class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> 
+    with TickerProviderStateMixin, WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  
+  // Core controllers
+  final PageController _pageController = PageController();
+  
+  // State management
   int _currentIndex = 0;
-  final Map<String, VideoPlayerController> _videoControllers = {};
-  final Map<String, ChewieController> _chewieControllers = {};
+  bool _isScreenActive = true;
+  bool _isAppInForeground = true;
+  bool _hasInitialized = false;
+  
+  // Video controllers
+  Map<int, VideoPlayerController> _videoControllers = {};
+  Map<int, bool> _videoInitialized = {};
+  Map<int, bool> _videoHasError = {};
+  
+  // Animation controllers for like effect
+  late AnimationController _likeAnimationController;
+  late AnimationController _heartScaleController;
+  late Animation<double> _heartScaleAnimation;
+  late AnimationController _burstAnimationController;
+  late Animation<double> _burstAnimation;
+  bool _showLikeAnimation = false;
+  
+  // Store original system UI for restoration
+  SystemUiOverlayStyle? _originalSystemUiStyle;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeAnimationControllers();
+    _setupSystemUI();
+    
+    // Enable wakelock for video playback
+    WakelockPlus.enable();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Store original system UI after dependencies are available
+    if (_originalSystemUiStyle == null) {
+      _storeOriginalSystemUI();
+    }
+    
+    // Initialize the starting moment if specified
+    if (!_hasInitialized && widget.startMomentId != null) {
+      final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
+      if (momentsAsyncValue.hasValue) {
+        final moments = momentsAsyncValue.value!;
+        final startIndex = moments.indexWhere((m) => m.id == widget.startMomentId!);
+        if (startIndex != -1) {
+          _currentIndex = startIndex;
+          final moment = moments[startIndex];
+          if (moment.hasVideo) {
+            _initializeVideoController(startIndex, moment.videoUrl!);
+          }
+        }
+      }
+      _hasInitialized = true;
+    }
+  }
+
+  void _storeOriginalSystemUI() {
+    // Store the current system UI style before making changes
+    final brightness = Theme.of(context).brightness;
+    _originalSystemUiStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    );
+  }
+
+  void _setupSystemUI() {
+    // Set both status bar and navigation bar to black for immersive TikTok-style experience
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.black,
+      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ));
+  }
+
+  void _restoreOriginalSystemUI() {
+    if (_originalSystemUiStyle != null) {
+      SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
+    } else {
+      // Fallback: restore based on current theme
+      final brightness = Theme.of(context).brightness;
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ));
+    }
+  }
+
+  void _initializeAnimationControllers() {
+    // Like animation controllers
+    _likeAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _heartScaleController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    
+    _heartScaleAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.3,
+    ).animate(CurvedAnimation(
+      parent: _heartScaleController,
+      curve: Curves.elasticOut,
+    ));
+    
+    _burstAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _burstAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _burstAnimationController,
+      curve: Curves.easeOut,
+    ));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _isAppInForeground = true;
+        if (_isScreenActive) {
+          _playCurrentVideo();
+        }
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        _isAppInForeground = false;
+        _pauseAllVideos();
+        break;
+      case AppLifecycleState.hidden:
+        break;
+    }
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
-    _disposeVideoControllers();
-    super.dispose();
-  }
-
-  void _disposeVideoControllers() {
+    WidgetsBinding.instance.removeObserver(this);
+    
+    // Stop all playback and disable wakelock before disposing
+    _pauseAllVideos();
+    
+    // Restore original system UI on dispose
+    _restoreOriginalSystemUI();
+    
+    // Dispose animation controllers
+    _likeAnimationController.dispose();
+    _heartScaleController.dispose();
+    _burstAnimationController.dispose();
+    
+    // Dispose video controllers
     for (final controller in _videoControllers.values) {
       controller.dispose();
     }
-    for (final controller in _chewieControllers.values) {
-      controller.dispose();
-    }
     _videoControllers.clear();
-    _chewieControllers.clear();
+    _videoInitialized.clear();
+    _videoHasError.clear();
+    
+    _pageController.dispose();
+    
+    // Final wakelock disable
+    WakelockPlus.disable();
+    
+    super.dispose();
+  }
+
+  void _pauseAllVideos() {
+    for (final controller in _videoControllers.values) {
+      controller.pause();
+    }
+    WakelockPlus.disable();
+  }
+
+  void _playCurrentVideo() {
+    if (!_isScreenActive || !_isAppInForeground) {
+      WakelockPlus.disable();
+      return;
+    }
+    
+    final controller = _videoControllers[_currentIndex];
+    if (controller != null && _videoInitialized[_currentIndex] == true && !_videoHasError[_currentIndex]!) {
+      controller.seekTo(Duration.zero);
+      controller.play();
+      WakelockPlus.enable();
+    } else {
+      // For images or when video is not ready, still enable wakelock
+      WakelockPlus.enable();
+    }
+  }
+
+  void _pauseCurrentVideo() {
+    final controller = _videoControllers[_currentIndex];
+    if (controller != null && _videoInitialized[_currentIndex] == true) {
+      controller.pause();
+    }
+    WakelockPlus.disable();
+  }
+
+  void _togglePlayPause() {
+    final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
+    if (!momentsAsyncValue.hasValue) return;
+    
+    final moments = momentsAsyncValue.value!;
+    if (_currentIndex >= moments.length) return;
+    
+    final currentMoment = moments[_currentIndex];
+    if (!currentMoment.hasVideo) return;
+    
+    final controller = _videoControllers[_currentIndex];
+    if (controller != null && _videoInitialized[_currentIndex] == true && !_videoHasError[_currentIndex]!) {
+      if (controller.value.isPlaying) {
+        controller.pause();
+        WakelockPlus.disable();
+      } else {
+        controller.play();
+        WakelockPlus.enable();
+      }
+    }
+  }
+
+  void _handleDoubleTap() {
+    final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
+    if (!momentsAsyncValue.hasValue) return;
+    
+    final moments = momentsAsyncValue.value!;
+    if (_currentIndex >= moments.length) return;
+    
+    // Trigger like animation
+    setState(() {
+      _showLikeAnimation = true;
+    });
+    
+    // Start all animations
+    _heartScaleController.forward().then((_) {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _heartScaleController.reverse();
+      });
+    });
+    
+    _burstAnimationController.forward().then((_) {
+      _burstAnimationController.reset();
+    });
+    
+    _likeAnimationController.forward().then((_) {
+      _likeAnimationController.reset();
+      if (mounted) {
+        setState(() {
+          _showLikeAnimation = false;
+        });
+      }
+    });
+    
+    // Like the current moment
+    final currentMoment = moments[_currentIndex];
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser != null && !currentMoment.likedBy.contains(currentUser.uid)) {
+      ref.read(momentsProvider.notifier).toggleLikeMoment(currentMoment.id, false);
+    }
+    
+    // Haptic feedback
+    HapticFeedback.mediumImpact();
+  }
+
+  void _handleBackNavigation() {
+    // Pause playback and disable wakelock before leaving
+    _pauseCurrentVideo();
+    
+    // Restore the original system UI style
+    _restoreOriginalSystemUI();
+    
+    // Small delay to ensure system UI is properly restored
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  Future<void> _initializeVideoController(int index, String videoUrl) async {
+    try {
+      // Dispose existing controller if any
+      _videoControllers[index]?.dispose();
+      
+      final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      _videoControllers[index] = controller;
+      
+      await controller.initialize();
+      controller.setLooping(true);
+      
+      if (mounted) {
+        setState(() {
+          _videoInitialized[index] = true;
+          _videoHasError[index] = false;
+        });
+      }
+      
+      if (index == _currentIndex && _isScreenActive && _isAppInForeground) {
+        controller.play();
+        WakelockPlus.enable();
+      }
+    } catch (e) {
+      debugPrint('Error initializing video $index: $e');
+      if (mounted) {
+        setState(() {
+          _videoInitialized[index] = false;
+          _videoHasError[index] = true;
+        });
+      }
+    }
+  }
+
+  void _onPageChanged(int index) {
+    final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
+    if (!momentsAsyncValue.hasValue) return;
+    
+    final moments = momentsAsyncValue.value!;
+    if (index >= moments.length) return;
+
+    // Pause current video and disable wakelock
+    _pauseCurrentVideo();
+    
+    setState(() {
+      _currentIndex = index;
+    });
+
+    // Initialize video controller if needed
+    final moment = moments[index];
+    if (moment.hasVideo) {
+      // Dispose existing controller if any
+      _videoControllers[index]?.dispose();
+      _initializeVideoController(index, moment.videoUrl!);
+    } else {
+      // For non-video content, ensure wakelock is enabled
+      if (_isScreenActive && _isAppInForeground) {
+        WakelockPlus.enable();
+      }
+    }
+
+    // Play new video (this will enable wakelock if appropriate)
+    _playCurrentVideo();
+    
+    // Record view
+    ref.read(momentsProvider.notifier).recordView(moment.id);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Moments',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.camera_alt, color: Colors.white),
-            onPressed: () => _navigateToCreateMoment(),
+    super.build(context);
+    
+    // Ensure system UI is properly set
+    _setupSystemUI();
+    
+    final systemTopPadding = MediaQuery.of(context).padding.top;
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return WillPopScope(
+      onWillPop: () async {
+        _handleBackNavigation();
+        return false; // Prevent default pop behavior
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        extendBodyBehindAppBar: true,
+        extendBody: true,
+        body: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          child: Stack(
+            children: [
+              // Main content - positioned to avoid covering status bar and system nav
+              Positioned(
+                top: systemTopPadding,
+                left: 0,
+                right: 0,
+                bottom: systemBottomPadding,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.all(Radius.circular(12)),
+                  child: _buildBody(),
+                ),
+              ),
+              
+              // Top bar overlay - Enhanced back button
+              Positioned(
+                top: systemTopPadding + 16,
+                left: 4,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: IconButton(
+                    onPressed: _handleBackNavigation,
+                    icon: const Icon(
+                      CupertinoIcons.chevron_left,
+                      color: Colors.white,
+                      size: 28,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    iconSize: 28,
+                    padding: const EdgeInsets.all(12),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    splashRadius: 24,
+                    tooltip: 'Back',
+                  ),
+                ),
+              ),
+              
+              // TikTok-style right side menu
+              _buildRightSideMenu(),
+            ],
           ),
-        ],
+        ),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -85,9 +484,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
     final momentsStream = ref.watch(momentsFeedStreamProvider);
 
     return momentsStream.when(
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      ),
+      loading: () => _buildLoadingState(),
       error: (error, stackTrace) => _buildErrorState(error.toString()),
       data: (moments) {
         if (moments.isEmpty) {
@@ -105,103 +502,159 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
           controller: _pageController,
           scrollDirection: Axis.vertical,
           itemCount: moments.length,
-          onPageChanged: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-            _handlePageChange(moments[index]);
-          },
+          //initialPage: startIndex,
+          onPageChanged: _onPageChanged,
           itemBuilder: (context, index) {
-            return _buildMomentPage(moments[index]);
+            final moment = moments[index];
+            
+            return GestureDetector(
+              onTap: _togglePlayPause,
+              onDoubleTap: _handleDoubleTap,
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.black,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _buildMomentContent(moment, index),
+                    
+                    // Like animation overlay
+                    if (_showLikeAnimation && index == _currentIndex)
+                      _buildLikeAnimationOverlay(),
+                    
+                    // Gradient overlay for better text readability
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.3),
+                              Colors.transparent,
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.7),
+                            ],
+                            stops: const [0.0, 0.3, 0.7, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Content overlay - positioned at bottom
+                    Positioned(
+                      left: 16,
+                      right: 80,
+                      bottom: 16,
+                      child: _buildMomentInfo(moment),
+                    ),
+                  ],
+                ),
+              ),
+            );
           },
         );
       },
     );
   }
 
-  Widget _buildMomentPage(MomentModel moment) {
-    return Stack(
-      children: [
-        // Background content (video or image)
-        Positioned.fill(
-          child: _buildMomentContent(moment),
-        ),
-
-        // Gradient overlay
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withOpacity(0.3),
-                  Colors.transparent,
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.7),
-                ],
-                stops: const [0.0, 0.3, 0.7, 1.0],
-              ),
-            ),
-          ),
-        ),
-
-        // Content overlay
-        Positioned(
-          left: 16,
-          right: 80,
-          bottom: 100,
-          child: MomentInfo(moment: moment),
-        ),
-
-        // Actions panel
-        Positioned(
-          right: 8,
-          bottom: 100,
-          child: MomentActions(
-            moment: moment,
-            onLike: () => _handleLike(moment),
-            onComment: () => _showCommentsSheet(moment),
-            onShare: () => _handleShare(moment),
-            onMore: () => _showMoreOptions(moment),
-          ),
-        ),
-
-        // Progress indicator
-        if (moment.hasVideo)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 60,
-            left: 16,
-            right: 16,
-            child: _buildProgressIndicator(moment),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildMomentContent(MomentModel moment) {
+  Widget _buildMomentContent(MomentModel moment, int index) {
     if (moment.hasVideo) {
-      return _buildVideoContent(moment);
+      return _buildVideoPlayer(index);
     } else if (moment.hasImages) {
-      return ImageCarousel(imageUrls: moment.imageUrls);
+      return _buildImageCarousel(moment.imageUrls);
     } else {
       return _buildTextContent(moment);
     }
   }
 
-  Widget _buildVideoContent(MomentModel moment) {
-    if (!_videoControllers.containsKey(moment.id)) {
-      _initializeVideoController(moment);
-    }
-
-    final chewieController = _chewieControllers[moment.id];
-    if (chewieController == null) {
+  Widget _buildVideoPlayer(int index) {
+    final controller = _videoControllers[index];
+    final isInitialized = _videoInitialized[index] ?? false;
+    final hasError = _videoHasError[index] ?? false;
+    
+    if (controller == null || !isInitialized) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.white),
       );
     }
+    
+    if (hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 48),
+            const SizedBox(height: 16),
+            const Text(
+              'Failed to load video',
+              style: TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
+                if (momentsAsyncValue.hasValue) {
+                  final moments = momentsAsyncValue.value!;
+                  if (index < moments.length && moments[index].hasVideo) {
+                    _initializeVideoController(index, moments[index].videoUrl!);
+                  }
+                }
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: controller.value.size.width,
+          height: controller.value.size.height,
+          child: VideoPlayer(controller),
+        ),
+      ),
+    );
+  }
 
-    return Chewie(controller: chewieController);
+  Widget _buildImageCarousel(List<String> imageUrls) {
+    if (imageUrls.isEmpty) return _buildPlaceholder();
+    
+    return CarouselSlider(
+      options: CarouselOptions(
+        height: double.infinity,
+        viewportFraction: 1.0,
+        enableInfiniteScroll: imageUrls.length > 1,
+        autoPlay: imageUrls.length > 1,
+        autoPlayInterval: const Duration(seconds: 4),
+      ),
+      items: imageUrls.map((imageUrl) {
+        return SizedBox.expand(
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.black,
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   Widget _buildTextContent(MomentModel moment) {
@@ -225,33 +678,378 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
     );
   }
 
-  Widget _buildProgressIndicator(MomentModel moment) {
+  Widget _buildPlaceholder() {
     return Container(
-      height: 3,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: _getProgressFactor(moment),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(2),
-          ),
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.black,
+      child: const Center(
+        child: Icon(
+          Icons.broken_image,
+          color: Colors.white,
+          size: 64,
         ),
       ),
     );
   }
 
-  double _getProgressFactor(MomentModel moment) {
-    final totalDuration = const Duration(hours: 72);
-    final elapsed = DateTime.now().difference(moment.createdAt);
-    final remaining = totalDuration - elapsed;
+  Widget _buildMomentInfo(MomentModel moment) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Author info
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundImage: moment.authorImage.isNotEmpty
+                  ? NetworkImage(moment.authorImage)
+                  : null,
+              backgroundColor: Colors.grey[300],
+              child: moment.authorImage.isEmpty
+                  ? Text(
+                      moment.authorName.isNotEmpty 
+                          ? moment.authorName[0].toUpperCase()
+                          : "U",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    moment.authorName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    _getTimeAgo(moment.createdAt),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 12,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        
+        if (moment.content.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            moment.content,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              height: 1.3,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 8),
+        
+        // Time remaining and privacy info
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.timer,
+                    color: Colors.white.withOpacity(0.7),
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    moment.timeRemainingText,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getPrivacyIcon(moment.privacy),
+                    color: Colors.white.withOpacity(0.7),
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    moment.privacy.displayName,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRightSideMenu() {
+    final momentsAsyncValue = ref.watch(momentsFeedStreamProvider);
+    if (!momentsAsyncValue.hasValue) return const SizedBox.shrink();
     
-    if (remaining.isNegative) return 0.0;
-    return remaining.inMilliseconds / totalDuration.inMilliseconds;
+    final moments = momentsAsyncValue.value!;
+    final currentMoment = moments.isNotEmpty && _currentIndex < moments.length 
+        ? moments[_currentIndex] 
+        : null;
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Positioned(
+      right: 4,
+      bottom: systemBottomPadding + 16,
+      child: Column(
+        children: [
+          // Like button
+          _buildRightMenuItem(
+            child: Icon(
+              currentMoment?.likedBy.contains(ref.read(currentUserProvider)?.uid) == true 
+                  ? Icons.favorite 
+                  : Icons.favorite_border,
+              color: currentMoment?.likedBy.contains(ref.read(currentUserProvider)?.uid) == true 
+                  ? Colors.red 
+                  : Colors.white,
+              size: 26,
+            ),
+            label: _formatCount(currentMoment?.likesCount ?? 0),
+            onTap: () => _likeCurrentMoment(currentMoment),
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // Comment button
+          _buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.chat_bubble,
+              color: Colors.white,
+              size: 26,
+            ),
+            label: _formatCount(currentMoment?.commentsCount ?? 0),
+            onTap: () => _showCommentsForCurrentMoment(currentMoment),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRightMenuItem({
+    required Widget child,
+    String? label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            child: child,
+          ),
+          if (label != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLikeAnimationOverlay() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            // Burst effect background
+            Center(
+              child: AnimatedBuilder(
+                animation: _burstAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _burstAnimation.value * 3,
+                    child: Opacity(
+                      opacity: (1 - _burstAnimation.value).clamp(0.0, 0.5),
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.red.withOpacity(0.6),
+                              Colors.pink.withOpacity(0.4),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Center heart that scales
+            Center(
+              child: AnimatedBuilder(
+                animation: _heartScaleAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _heartScaleAnimation.value,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.red.withOpacity(0.6),
+                            blurRadius: 20,
+                            spreadRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.favorite,
+                        color: Colors.red,
+                        size: 100,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Floating hearts
+            ..._buildFloatingHearts(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildFloatingHearts() {
+    const heartCount = 8;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    return List.generate(heartCount, (index) {
+      final offsetX = (index * 0.25 - 1) * screenWidth * 0.5;
+      final startY = screenHeight * 0.6;
+      final endY = screenHeight * 0.1;
+      
+      return AnimatedBuilder(
+        animation: _likeAnimationController,
+        builder: (context, child) {
+          final progress = _likeAnimationController.value;
+          final opacity = (1.0 - progress).clamp(0.0, 1.0);
+          final y = startY + (endY - startY) * progress;
+          
+          return Positioned(
+            left: screenWidth / 2 + offsetX,
+            top: y,
+            child: Transform.rotate(
+              angle: (index - 4) * 0.3 + progress * 2,
+              child: Opacity(
+                opacity: opacity,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.5),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.favorite,
+                    color: index % 2 == 0 ? Colors.red : Colors.pink,
+                    size: 25 + (index % 3) * 10.0,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    });
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(color: Colors.white),
+    );
   }
 
   Widget _buildEmptyState() {
@@ -283,7 +1081,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
           ),
           const SizedBox(height: 32),
           ElevatedButton.icon(
-            onPressed: _navigateToCreateMoment,
+            onPressed: () => Navigator.pushNamed(context, Constants.createMomentScreen),
             icon: const Icon(Icons.add),
             label: const Text('Create Moment'),
             style: ElevatedButton.styleFrom(
@@ -337,168 +1135,96 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
     );
   }
 
-  void _initializeVideoController(MomentModel moment) {
-    if (moment.videoUrl == null) return;
-
-    final videoController = VideoPlayerController.networkUrl(
-      Uri.parse(moment.videoUrl!),
-    );
-
-    final chewieController = ChewieController(
-      videoPlayerController: videoController,
-      autoPlay: _currentIndex == 0, // Only autoplay first video
-      looping: true,
-      showControls: false,
-      aspectRatio: 9 / 16,
-      placeholder: moment.videoThumbnail != null
-          ? Image.network(
-              moment.videoThumbnail!,
-              fit: BoxFit.cover,
-            )
-          : const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-    );
-
-    _videoControllers[moment.id] = videoController;
-    _chewieControllers[moment.id] = chewieController;
-
-    videoController.initialize().then((_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  void _handlePageChange(MomentModel moment) {
-    // Pause all videos
-    for (final controller in _videoControllers.values) {
-      controller.pause();
-    }
-
-    // Play current video if it's a video moment
-    if (moment.hasVideo) {
-      final controller = _videoControllers[moment.id];
-      controller?.play();
-    }
-
-    // Record view
-    ref.read(momentsProvider.notifier).recordView(moment.id);
-  }
-
-  void _handleLike(MomentModel moment) {
+  void _likeCurrentMoment(MomentModel? moment) {
+    if (moment == null) return;
+    
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
     final isLiked = moment.likedBy.contains(currentUser.uid);
     ref.read(momentsProvider.notifier).toggleLikeMoment(moment.id, isLiked);
+    
+    // Trigger animation when liking via button
+    if (!isLiked) {
+      setState(() {
+        _showLikeAnimation = true;
+      });
+      
+      // Start all animations
+      _heartScaleController.forward().then((_) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          _heartScaleController.reverse();
+        });
+      });
+      
+      _burstAnimationController.forward().then((_) {
+        _burstAnimationController.reset();
+      });
+      
+      _likeAnimationController.forward().then((_) {
+        _likeAnimationController.reset();
+        if (mounted) {
+          setState(() {
+            _showLikeAnimation = false;
+          });
+        }
+      });
+      
+      HapticFeedback.mediumImpact();
+    }
   }
 
-  void _handleShare(MomentModel moment) {
-    // Implement share functionality
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Share Moment'),
-        content: const Text('Share functionality will be implemented here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+  void _showCommentsForCurrentMoment(MomentModel? moment) {
+    if (moment == null) return;
+    
+    // Pause current video and disable wakelock when showing comments
+    _pauseCurrentVideo();
+    
+    // Navigate to comments screen
+    Navigator.pushNamed(
+      context,
+      Constants.momentCommentsScreen,
+      arguments: moment,
+    ).whenComplete(() {
+      // Resume video and re-enable wakelock when comments are closed
+      if (_isScreenActive && _isAppInForeground) {
+        _playCurrentVideo();
+      }
+    });
   }
 
-  void _showCommentsSheet(MomentModel moment) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => MomentCommentsSheet(moment: moment),
-    );
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
   }
 
-  void _showMoreOptions(MomentModel moment) {
-    final currentUser = ref.read(currentUserProvider);
-    final isOwner = currentUser?.uid == moment.authorId;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isOwner) ...[
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Delete Moment'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmDeleteMoment(moment);
-                },
-              ),
-            ],
-            ListTile(
-              leading: const Icon(Icons.report),
-              title: const Text('Report'),
-              onTap: () {
-                Navigator.pop(context);
-                // Implement report functionality
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+  IconData _getPrivacyIcon(MomentPrivacy privacy) {
+    switch (privacy) {
+      case MomentPrivacy.public:
+        return Icons.public;
+      case MomentPrivacy.contacts:
+        return Icons.contacts;
+      case MomentPrivacy.selectedContacts:
+        return Icons.people;
+      case MomentPrivacy.exceptSelected:
+        return Icons.people_outline;
+    }
   }
 
-  void _confirmDeleteMoment(MomentModel moment) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Moment'),
-        content: const Text('Are you sure you want to delete this moment? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(momentsProvider.notifier).deleteMoment(moment.id);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _navigateToCreateMoment() {
-    Navigator.pushNamed(context, Constants.createMomentScreen);
-  }
-}
-
-// Placeholder for comments sheet - implement separately
-class MomentCommentsSheet extends StatelessWidget {
-  final MomentModel moment;
-
-  const MomentCommentsSheet({super.key, required this.moment});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: const Center(
-        child: Text('Comments sheet - to be implemented'),
-      ),
-    );
+  String _formatCount(int count) {
+    if (count == 0) return '0';
+    if (count < 1000) return count.toString();
+    if (count < 1000000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return '${(count / 1000000).toStringAsFixed(1)}M';
   }
 }

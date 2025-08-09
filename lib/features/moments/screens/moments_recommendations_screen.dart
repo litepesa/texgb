@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:textgb/features/moments/providers/moments_provider.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -30,10 +31,7 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
   @override
   void initState() {
     super.initState();
-    // Load recommended moments when screen initializes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRecommendedMoments();
-    });
+    // Don't load moments immediately - wait for auth state
   }
 
   @override
@@ -54,9 +52,12 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
     });
 
     try {
-      final currentUser = ref.read(currentUserProvider);
+      // Wait for authentication state to be available
+      final authState = await ref.read(authenticationProvider.future);
+      final currentUser = authState.userModel;
+      
       if (currentUser == null) {
-        throw Exception('User not authenticated');
+        throw Exception('Please sign in to view moments');
       }
 
       // Get moments directly from repository
@@ -147,18 +148,40 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
 
   @override
   Widget build(BuildContext context) {
+    // Watch the authentication state
+    final authState = ref.watch(authenticationProvider);
+    
     return Scaffold(
       backgroundColor: context.modernTheme.surfaceColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(top: 12.0),
-          child: _buildBody(),
+          child: authState.when(
+            loading: () => _buildLoadingState(),
+            error: (error, stack) => _buildAuthErrorState(error.toString()),
+            data: (authData) {
+              // Check if user is authenticated
+              if (authData.userModel == null) {
+                return _buildNotAuthenticatedState();
+              }
+              
+              // User is authenticated, now show moments
+              return _buildAuthenticatedBody();
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildAuthenticatedBody() {
+    // Load moments when we know user is authenticated
+    if (_recommendedMoments.isEmpty && !_isLoadingRecommendations && _error == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadRecommendedMoments();
+      });
+    }
+    
     if (_isLoadingRecommendations && _recommendedMoments.isEmpty) {
       return _buildLoadingState();
     }
@@ -197,6 +220,79 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                 );
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotAuthenticatedState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.login,
+            size: 64,
+            color: context.modernTheme.textSecondaryColor,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Sign in required',
+            style: TextStyle(
+              color: context.modernTheme.textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Please sign in to view moments',
+            style: TextStyle(color: context.modernTheme.textSecondaryColor),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => Navigator.pushNamedAndRemoveUntil(
+              context, 
+              Constants.landingScreen, 
+              (route) => false,
+            ),
+            child: const Text('Sign In'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuthErrorState(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            color: Colors.red,
+            size: 64,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Authentication Error',
+            style: TextStyle(
+              color: context.modernTheme.textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            error,
+            style: TextStyle(color: context.modernTheme.textSecondaryColor),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => ref.invalidate(authenticationProvider),
+            child: const Text('Retry'),
           ),
         ],
       ),
