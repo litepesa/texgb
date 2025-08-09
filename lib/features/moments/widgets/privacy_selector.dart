@@ -19,7 +19,7 @@ class PrivacySelector extends ConsumerWidget {
     required this.selectedPrivacy,
     required this.selectedContacts,
     required this.onPrivacyChanged,
-    required this.onContactsChanged,
+    required this.onContactsChanged, required bool enabled,
   });
 
   @override
