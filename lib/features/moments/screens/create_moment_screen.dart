@@ -31,13 +31,6 @@ class VideoInfo {
     this.currentBitrate,
     required this.frameRate,
   });
-  
-  @override
-  String toString() {
-    return 'Duration: ${duration.inSeconds}s, Resolution: ${resolution.width}x${resolution.height}, '
-           'Size: ${fileSizeMB.toStringAsFixed(1)}MB, Bitrate: ${currentBitrate ?? 'unknown'}kbps, '
-           'FPS: ${frameRate.toStringAsFixed(1)}';
-  }
 }
 
 class CreateMomentScreen extends ConsumerStatefulWidget {
@@ -60,7 +53,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
     ),
   );
   
-  MomentType _selectedType = MomentType.images;
+  // Default to video as primary content type
+  MomentType _selectedType = MomentType.video;
   MomentPrivacy _selectedPrivacy = MomentPrivacy.public;
   List<String> _selectedContacts = [];
   
@@ -94,9 +88,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       try {
         await WakelockPlus.enable();
         _wakelockActive = true;
-        print('DEBUG: Wakelock enabled for moment creation');
       } catch (e) {
-        print('DEBUG: Failed to enable wakelock: $e');
+        // Silent failure
       }
     }
   }
@@ -106,9 +99,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       try {
         await WakelockPlus.disable();
         _wakelockActive = false;
-        print('DEBUG: Wakelock disabled');
       } catch (e) {
-        print('DEBUG: Failed to disable wakelock: $e');
+        // Silent failure
       }
     }
   }
@@ -140,7 +132,6 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         frameRate: 30.0, // Default assumption
       );
     } catch (e) {
-      print('DEBUG: Video analysis error: $e');
       final fileSizeBytes = await videoFile.length();
       return VideoInfo(
         duration: const Duration(seconds: 60),
@@ -161,11 +152,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       
       setState(() {
         _isProcessing = true;
-        _processingStatus = 'Enhancing audio quality...';
         _processingProgress = 0.0;
       });
-
-      print('DEBUG: Starting audio processing for moment video');
 
       // Audio-only processing command (keeping video as-is)
       final audioCommand = '-y -i "${inputFile.path}" '
@@ -180,10 +168,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
           '-movflags +faststart '
           '-f mp4 "$outputPath"';
 
-      print('DEBUG: Audio processing command: ffmpeg $audioCommand');
-
       setState(() {
-        _processingStatus = 'Processing audio enhancement...';
         _processingProgress = 0.3;
       });
 
@@ -193,16 +178,12 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       FFmpegKit.executeAsync(
         audioCommand,
         (session) async {
-          print('DEBUG: Audio processing completed for moment');
           final returnCode = await session.getReturnCode();
           
           if (mounted) {
             setState(() {
               _isProcessing = false;
               _processingProgress = 1.0;
-              _processingStatus = ReturnCode.isSuccess(returnCode) 
-                  ? 'Audio enhanced successfully!'
-                  : 'Audio processing failed';
             });
           }
           
@@ -211,7 +192,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
           }
         },
         (log) {
-          // Optional logging
+          // Silent logging
         },
         (statistics) {
           if (mounted && _isProcessing && statistics.getTime() > 0 && videoDurationMs > 0) {
@@ -222,7 +203,6 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
             setState(() {
               _processingProgress = totalProgress.clamp(0.0, 1.0);
             });
-            print('DEBUG: Audio processing progress: ${(totalProgress * 100).toStringAsFixed(1)}%');
           }
         },
       );
@@ -231,14 +211,8 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       
       final outputFile = File(outputPath);
       if (await outputFile.exists()) {
-        final originalSizeMB = info.fileSizeMB;
-        final newSizeMB = await outputFile.length() / (1024 * 1024);
-        
-        print('DEBUG: Audio processing successful for moment!');
-        print('DEBUG: Original: ${originalSizeMB.toStringAsFixed(1)}MB → New: ${newSizeMB.toStringAsFixed(1)}MB');
-        
         // Hide processing status after delay
-        Future.delayed(const Duration(seconds: 2), () {
+        Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             setState(() {
               _processingStatus = '';
@@ -250,25 +224,14 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         return outputFile;
       }
       
-      print('DEBUG: Audio processing failed - output file not found');
       await _disableWakelock();
       return null;
       
     } catch (e) {
-      print('DEBUG: Audio processing error: $e');
       if (mounted) {
         setState(() {
           _isProcessing = false;
           _processingProgress = 0.0;
-          _processingStatus = 'Audio processing failed';
-        });
-        
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) {
-            setState(() {
-              _processingStatus = '';
-            });
-          }
         });
       }
       await _disableWakelock();
@@ -302,9 +265,27 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
             TextButton(
               onPressed: (_isUploading || _isProcessing) ? null : _createMoment,
               child: _isProcessing
-                  ? const Text('Processing...')
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          context.modernTheme.primaryColor!,
+                        ),
+                      ),
+                    )
                   : (_isUploading
-                      ? const Text('Sharing...')
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              context.modernTheme.primaryColor!,
+                            ),
+                          ),
+                        )
                       : Text(
                           'Share',
                           style: TextStyle(
@@ -318,222 +299,116 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       ),
       body: Column(
         children: [
+          // Content type selector - more subtle design
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: context.modernTheme.surfaceVariantColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildCompactTypeOption(
+                    icon: Icons.videocam,
+                    label: 'Video',
+                    isSelected: _selectedType == MomentType.video,
+                    onTap: () => setState(() => _selectedType = MomentType.video),
+                    enabled: !_isProcessing && !_isUploading,
+                  ),
+                ),
+                Expanded(
+                  child: _buildCompactTypeOption(
+                    icon: Icons.photo_library,
+                    label: 'Photos',
+                    isSelected: _selectedType == MomentType.images,
+                    onTap: () => setState(() => _selectedType = MomentType.images),
+                    enabled: !_isProcessing && !_isUploading,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Content type selector
-                  _buildTypeSelector(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
-                  // Duration tip for videos
-                  if (_selectedType == MomentType.video)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 24),
-                      decoration: BoxDecoration(
-                        color: context.modernTheme.primaryColor!.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: context.modernTheme.primaryColor!.withOpacity(0.2),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: context.modernTheme.primaryColor,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Max 1 minute • Audio will be enhanced automatically',
-                              style: TextStyle(
-                                color: context.modernTheme.textSecondaryColor,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  // Media content area
+                  // Media content area - optimized for vertical video
                   _buildMediaContent(),
-                  const SizedBox(height: 24),
+                  
+                  const SizedBox(height: 20),
 
-                  // Processing progress indicator
-                  if (_isProcessing)
-                    Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: context.modernTheme.primaryColor!.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: context.modernTheme.primaryColor!.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.audiotrack,
-                                    color: context.modernTheme.primaryColor,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _processingStatus.isEmpty 
-                                          ? 'Processing audio...'
-                                          : _processingStatus,
-                                      style: TextStyle(
-                                        color: context.modernTheme.textColor,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              LinearProgressIndicator(
-                                value: _processingProgress,
-                                backgroundColor: context.modernTheme.borderColor,
-                                valueColor: AlwaysStoppedAnimation<Color>(context.modernTheme.primaryColor!),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${(_processingProgress * 100).toStringAsFixed(0)}% complete',
-                                style: TextStyle(
-                                  color: context.modernTheme.textSecondaryColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-
-                  // Upload progress indicator
-                  if (_isUploading)
-                    Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: context.modernTheme.primaryColor!.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: context.modernTheme.primaryColor!.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.cloud_upload,
-                                    color: context.modernTheme.primaryColor,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Uploading moment...',
-                                      style: TextStyle(
-                                        color: context.modernTheme.textColor,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              LinearProgressIndicator(
-                                value: _uploadProgress,
-                                backgroundColor: context.modernTheme.borderColor,
-                                valueColor: AlwaysStoppedAnimation<Color>(context.modernTheme.primaryColor!),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${(_uploadProgress * 100).toStringAsFixed(0)}% uploaded',
-                                style: TextStyle(
-                                  color: context.modernTheme.textSecondaryColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-
-                  // Caption input
+                  // Caption input - more prominent
                   _buildCaptionInput(),
-                  const SizedBox(height: 24),
+                  
+                  const SizedBox(height: 20),
 
-                  // Privacy settings
+                  // Privacy settings - simplified
                   _buildPrivacySettings(),
+                  
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
 
-          // Action buttons
-          _buildActionButtons(),
+          // Action buttons - cleaner design
+          if (!_hasContent() || _selectedType == MomentType.video && _videoFile == null || 
+              _selectedType == MomentType.images && _imageFiles.isEmpty)
+            _buildActionButtons(),
         ],
       ),
     );
   }
 
-  Widget _buildTypeSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Content Type',
-          style: TextStyle(
-            color: context.modernTheme.textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+  Widget _buildCompactTypeOption({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool enabled,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? context.modernTheme.primaryColor
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
-        const SizedBox(height: 12),
-        Row(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: _TypeOption(
-                icon: Icons.photo_library,
-                label: 'Photos',
-                isSelected: _selectedType == MomentType.images,
-                onTap: () => setState(() => _selectedType = MomentType.images),
-                enabled: !_isProcessing && !_isUploading,
-              ),
+            Icon(
+              icon,
+              color: isSelected 
+                  ? Colors.white
+                  : context.modernTheme.textSecondaryColor,
+              size: 18,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _TypeOption(
-                icon: Icons.videocam,
-                label: 'Video',
-                isSelected: _selectedType == MomentType.video,
-                onTap: () => setState(() => _selectedType = MomentType.video),
-                enabled: !_isProcessing && !_isUploading,
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected 
+                    ? Colors.white
+                    : context.modernTheme.textSecondaryColor,
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
         ),
-      ],
+      ),
     );
   }
 
@@ -546,45 +421,53 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
   }
 
   Widget _buildVideoContent() {
-    return Container(
-      width: double.infinity,
-      height: 300,
-      decoration: BoxDecoration(
-        color: context.modernTheme.surfaceVariantColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: context.modernTheme.borderColor!,
-          width: 1,
+    // Use 9:16 aspect ratio for TikTok-style vertical video
+    return AspectRatio(
+      aspectRatio: 9 / 16,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.grey.shade900,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: _videoFile == null
+              ? _buildMediaPlaceholder(
+                  icon: Icons.videocam_outlined,
+                  title: 'Add Video',
+                  subtitle: 'Select video 1 Minute Max',
+                  onTap: _selectVideo,
+                )
+              : _buildVideoPreview(),
         ),
       ),
-      child: _videoFile == null
-          ? _buildMediaPlaceholder(
-              icon: Icons.videocam,
-              title: 'Add Video',
-              subtitle: 'Tap to select a video (max 1 minute)',
-              onTap: _selectVideo,
-            )
-          : _buildVideoPreview(),
     );
   }
 
   Widget _buildImageContent() {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 200),
+      constraints: const BoxConstraints(minHeight: 300),
       decoration: BoxDecoration(
         color: context.modernTheme.surfaceVariantColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: context.modernTheme.borderColor!,
+          color: context.modernTheme.borderColor!.withOpacity(0.5),
           width: 1,
         ),
       ),
       child: _imageFiles.isEmpty
           ? _buildMediaPlaceholder(
-              icon: Icons.photo_library,
+              icon: Icons.photo_library_outlined,
               title: 'Add Photos',
-              subtitle: 'Tap to select photos (max 9)',
+              subtitle: 'Select up to 9 photos',
               onTap: _selectImages,
             )
           : _buildImageGrid(),
@@ -601,27 +484,32 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
     
     return InkWell(
       onTap: isEnabled ? onTap : null,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 48,
-              color: isEnabled 
-                  ? context.modernTheme.textSecondaryColor
-                  : context.modernTheme.textSecondaryColor!.withOpacity(0.5),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: context.modernTheme.primaryColor!.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 40,
+                color: context.modernTheme.primaryColor,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Text(
               title,
               style: TextStyle(
                 color: isEnabled 
                     ? context.modernTheme.textColor
                     : context.modernTheme.textColor!.withOpacity(0.5),
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -629,9 +517,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
             Text(
               subtitle,
               style: TextStyle(
-                color: isEnabled 
-                    ? context.modernTheme.textSecondaryColor
-                    : context.modernTheme.textSecondaryColor!.withOpacity(0.5),
+                color: context.modernTheme.textSecondaryColor,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -644,103 +530,152 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
 
   Widget _buildVideoPreview() {
     return Stack(
+      fit: StackFit.expand,
       children: [
+        // Video player - fills the entire 9:16 container
         if (_videoController != null && _videoController!.value.isInitialized)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: AspectRatio(
-              aspectRatio: _videoController!.value.aspectRatio,
+          FittedBox(
+            fit: BoxFit.cover, // Cover ensures no black bars
+            child: SizedBox(
+              width: _videoController!.value.size.width,
+              height: _videoController!.value.size.height,
               child: VideoPlayer(_videoController!),
             ),
           )
         else
           const Center(
-            child: CircularProgressIndicator(),
+            child: CircularProgressIndicator(color: Colors.white),
           ),
 
-        // Controls overlay
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withOpacity(0.3),
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.3),
+        // Gradient overlay for better UI
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.4),
+                Colors.transparent,
+                Colors.transparent,
+                Colors.black.withOpacity(0.6),
+              ],
+              stops: const [0.0, 0.2, 0.8, 1.0],
+            ),
+          ),
+        ),
+
+        // Top controls
+        Positioned(
+          top: 12,
+          right: 12,
+          child: Row(
+            children: [
+              // Duration badge
+              if (_videoInfo != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.timer_outlined,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${_videoInfo!.duration.inSeconds}s',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(width: 8),
+              // Remove button
+              GestureDetector(
+                onTap: (!_isProcessing && !_isUploading) ? _removeVideo : null,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Play/pause button - centered
+        Center(
+          child: GestureDetector(
+            onTap: (!_isProcessing && !_isUploading) ? _toggleVideoPlayback : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _videoController?.value.isPlaying == true
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 40,
+              ),
+            ),
+          ),
+        ),
+
+        // Bottom action to change video
+        Positioned(
+          bottom: 16,
+          left: 16,
+          right: 16,
+          child: GestureDetector(
+            onTap: (!_isProcessing && !_isUploading) ? _selectVideo : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.refresh,
+                    color: context.modernTheme.primaryColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Change Video',
+                    style: TextStyle(
+                      color: context.modernTheme.primaryColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
         ),
-
-        // Remove button
-        Positioned(
-          top: 8,
-          right: 8,
-          child: GestureDetector(
-            onTap: (!_isProcessing && !_isUploading) ? _removeVideo : null,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Colors.black54,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.close,
-                color: (!_isProcessing && !_isUploading) ? Colors.white : Colors.grey,
-                size: 20,
-              ),
-            ),
-          ),
-        ),
-
-        // Play/pause button
-        Positioned.fill(
-          child: Center(
-            child: GestureDetector(
-              onTap: (!_isProcessing && !_isUploading) ? _toggleVideoPlayback : null,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _videoController?.value.isPlaying == true
-                      ? Icons.pause
-                      : Icons.play_arrow,
-                  color: (!_isProcessing && !_isUploading) ? Colors.white : Colors.grey,
-                  size: 32,
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // Video info overlay (shows processing will be applied)
-        if (_videoInfo != null)
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '${_videoInfo!.duration.inSeconds}s • Audio will be enhanced',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -781,16 +716,14 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
           color: context.modernTheme.surfaceColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: context.modernTheme.borderColor!,
+            color: context.modernTheme.borderColor!.withOpacity(0.3),
             style: BorderStyle.solid,
             width: 2,
           ),
         ),
         child: Icon(
-          Icons.add,
-          color: isEnabled 
-              ? context.modernTheme.textSecondaryColor
-              : context.modernTheme.textSecondaryColor!.withOpacity(0.5),
+          Icons.add_rounded,
+          color: context.modernTheme.primaryColor,
           size: 32,
         ),
       ),
@@ -816,13 +749,13 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
             onTap: (!_isProcessing && !_isUploading) ? () => _removeImage(index) : null,
             child: Container(
               padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.black54,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.close,
-                color: (!_isProcessing && !_isUploading) ? Colors.white : Colors.grey,
+                color: Colors.white,
                 size: 16,
               ),
             ),
@@ -836,42 +769,36 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Caption',
-          style: TextStyle(
-            color: context.modernTheme.textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
         TextField(
           controller: _captionController,
           maxLines: 3,
           maxLength: 500,
           enabled: !_isProcessing && !_isUploading,
           decoration: InputDecoration(
-            hintText: 'Write a caption...',
-            hintStyle: TextStyle(color: context.modernTheme.textSecondaryColor),
+            hintText: 'Add a caption...',
+            hintStyle: TextStyle(
+              color: context.modernTheme.textSecondaryColor,
+              fontSize: 16,
+            ),
             filled: true,
-            fillColor: context.modernTheme.surfaceColor,
+            fillColor: context.modernTheme.surfaceVariantColor,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: context.modernTheme.borderColor!),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: context.modernTheme.primaryColor!),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: context.modernTheme.primaryColor!,
+                width: 2,
+              ),
             ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: context.modernTheme.borderColor!.withOpacity(0.5)),
-            ),
+            contentPadding: const EdgeInsets.all(16),
+            counterText: '',
           ),
           style: TextStyle(
-            color: (_isProcessing || _isUploading) 
-                ? context.modernTheme.textColor!.withOpacity(0.5)
-                : context.modernTheme.textColor,
+            color: context.modernTheme.textColor,
+            fontSize: 16,
           ),
         ),
       ],
@@ -879,37 +806,54 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
   }
 
   Widget _buildPrivacySettings() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Privacy',
-          style: TextStyle(
-            color: context.modernTheme.textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: context.modernTheme.surfaceVariantColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.lock_outline,
+                color: context.modernTheme.textSecondaryColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Privacy',
+                style: TextStyle(
+                  color: context.modernTheme.textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 12),
-        PrivacySelector(
-          selectedPrivacy: _selectedPrivacy,
-          selectedContacts: _selectedContacts,
-          enabled: !_isProcessing && !_isUploading,
-          onPrivacyChanged: (privacy) {
-            setState(() {
-              _selectedPrivacy = privacy;
-              if (privacy == MomentPrivacy.public || privacy == MomentPrivacy.contacts) {
-                _selectedContacts.clear();
-              }
-            });
-          },
-          onContactsChanged: (contacts) {
-            setState(() {
-              _selectedContacts = contacts;
-            });
-          },
-        ),
-      ],
+          const SizedBox(height: 12),
+          PrivacySelector(
+            selectedPrivacy: _selectedPrivacy,
+            selectedContacts: _selectedContacts,
+            enabled: !_isProcessing && !_isUploading,
+            onPrivacyChanged: (privacy) {
+              setState(() {
+                _selectedPrivacy = privacy;
+                if (privacy == MomentPrivacy.public || privacy == MomentPrivacy.contacts) {
+                  _selectedContacts.clear();
+                }
+              });
+            },
+            onContactsChanged: (contacts) {
+              setState(() {
+                _selectedContacts = contacts;
+              });
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -920,96 +864,67 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: context.modernTheme.surfaceColor,
-        border: Border(
-          top: BorderSide(
-            color: context.modernTheme.borderColor!,
-            width: 1,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: ElevatedButton(
+          onPressed: !isProcessingOrUploading 
+              ? (_selectedType == MomentType.video ? _selectVideo : _selectImages)
+              : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: context.modernTheme.primaryColor,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            elevation: 0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_selectedType == MomentType.video ? Icons.videocam : Icons.photo_library),
+              const SizedBox(width: 8),
+              Text(
+                _selectedType == MomentType.video ? 'Select a Video' : 'Select Photos',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: !isProcessingOrUploading 
-                  ? (_selectedType == MomentType.video ? _selectVideo : _selectImages)
-                  : null,
-              icon: Icon(_selectedType == MomentType.video ? Icons.videocam : Icons.photo_library),
-              label: Text(_selectedType == MomentType.video ? 'Select Video' : 'Select Photos'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: !isProcessingOrUploading 
-                    ? context.modernTheme.textColor 
-                    : context.modernTheme.textColor!.withOpacity(0.5),
-                side: BorderSide(
-                  color: !isProcessingOrUploading 
-                      ? context.modernTheme.borderColor! 
-                      : context.modernTheme.borderColor!.withOpacity(0.5),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-            ),
-          ),
-          if (_hasContent()) ...[
-            const SizedBox(width: 16),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: !isProcessingOrUploading ? _createMoment : null,
-                icon: _isProcessing
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : (_isUploading 
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.send)),
-                label: Text(_isProcessing 
-                    ? 'Processing...' 
-                    : (_isUploading ? 'Sharing...' : 'Share Moment')),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: !isProcessingOrUploading 
-                      ? context.modernTheme.primaryColor 
-                      : context.modernTheme.primaryColor!.withOpacity(0.5),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }
 
   bool _hasContent() {
     return (_selectedType == MomentType.video && _videoFile != null) ||
-           (_selectedType == MomentType.images && _imageFiles.isNotEmpty) ||
-           _captionController.text.trim().isNotEmpty;
+           (_selectedType == MomentType.images && _imageFiles.isNotEmpty);
   }
 
   Future<void> _selectVideo() async {
     if (_isProcessing || _isUploading) return;
     
     try {
-      print('DEBUG: Starting video selection for moment...');
-      
       final XFile? video = await _picker.pickVideo(
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 1),
       );
 
       if (video != null) {
-        print('DEBUG: Video selected for moment: ${video.path}');
         final videoFile = File(video.path);
         
         if (await videoFile.exists()) {
           // Analyze video immediately for info display
           final videoInfo = await _analyzeVideo(videoFile);
-          print('DEBUG: Moment video analysis - ${videoInfo.toString()}');
           
           setState(() {
             _videoFile = videoFile;
@@ -1019,14 +934,12 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
           });
           
           _initializeVideoController();
-          print('DEBUG: Moment video set successfully');
         } else {
           showSnackBar(context, 'Selected video file not found');
         }
       }
     } catch (e) {
-      print('DEBUG: Video selection error: $e');
-      showSnackBar(context, 'Failed to select video: ${e.toString()}');
+      showSnackBar(context, 'Failed to select video');
     }
   }
 
@@ -1034,8 +947,6 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
     if (_isProcessing || _isUploading) return;
     
     try {
-      print('DEBUG: Starting image selection for moment...');
-      
       final List<XFile> images = await _picker.pickMultiImage(
         maxWidth: 1920,
         maxHeight: 1920,
@@ -1059,29 +970,23 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         
         _videoController?.dispose();
         _videoController = null;
-        
-        print('DEBUG: ${images.length} images selected for moment');
       }
     } catch (e) {
-      print('DEBUG: Image selection error: $e');
-      showSnackBar(context, 'Failed to select images: ${e.toString()}');
+      showSnackBar(context, 'Failed to select images');
     }
   }
 
   void _initializeVideoController() {
     if (_videoFile == null) return;
 
-    print('DEBUG: Initializing video controller for moment');
     _videoController?.dispose();
     _videoController = VideoPlayerController.file(_videoFile!);
     _videoController!.initialize().then((_) {
       if (mounted) {
         setState(() {});
         _videoController!.setLooping(true);
-        print('DEBUG: Moment video controller initialized');
       }
     }).catchError((error) {
-      print('DEBUG: Video controller initialization failed: $error');
       showSnackBar(context, 'Failed to initialize video player');
     });
   }
@@ -1100,7 +1005,6 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
   void _removeVideo() {
     if (_isProcessing || _isUploading) return;
     
-    print('DEBUG: Removing moment video');
     setState(() {
       _videoFile = null;
       _videoInfo = null;
@@ -1115,13 +1019,10 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
     setState(() {
       _imageFiles.removeAt(index);
     });
-    print('DEBUG: Removed image at index $index');
   }
 
   Future<void> _createMoment() async {
     if (!_hasContent() || _isProcessing || _isUploading) return;
-
-    print('DEBUG: Starting moment creation process');
 
     try {
       // Enable wakelock for the entire process
@@ -1131,16 +1032,10 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       
       // Process video audio if we have a video
       if (_selectedType == MomentType.video && _videoFile != null && _videoInfo != null) {
-        print('DEBUG: Processing video audio before upload...');
-        
         final processedVideo = await _processVideoAudio(_videoFile!, _videoInfo!);
         
         if (processedVideo != null) {
           finalVideoFile = processedVideo;
-          print('DEBUG: Using audio-processed video for moment upload');
-        } else {
-          print('DEBUG: Using original video for moment upload');
-          // Continue with original video even if processing failed
         }
       }
 
@@ -1150,9 +1045,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         _uploadProgress = 0.0;
       });
 
-      print('DEBUG: Uploading moment to server...');
-
-      // Simulate upload progress (replace with actual upload progress tracking)
+      // Simulate upload progress
       _simulateUploadProgress();
 
       final momentId = await ref.read(momentsProvider.notifier).createMoment(
@@ -1165,13 +1058,12 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       );
 
       if (momentId != null) {
-        print('DEBUG: Moment created successfully with ID: $momentId');
         setState(() {
           _uploadProgress = 1.0;
         });
         
         // Show success message
-        showSnackBar(context, 'Moment created successfully!');
+        showSnackBar(context, 'Moment shared successfully!');
         
         // Small delay to show completion, then navigate back
         await Future.delayed(const Duration(milliseconds: 500));
@@ -1185,8 +1077,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
         throw Exception(momentsState.error ?? 'Failed to create moment');
       }
     } catch (e) {
-      print('DEBUG: Moment creation error: $e');
-      showSnackBar(context, 'Failed to create moment: ${e.toString()}');
+      showSnackBar(context, 'Failed to share moment');
     } finally {
       if (mounted) {
         setState(() {
@@ -1198,7 +1089,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
     }
   }
 
-  // Simulate upload progress (replace with actual progress tracking from your upload service)
+  // Simulate upload progress
   void _simulateUploadProgress() {
     const totalSteps = 20;
     int currentStep = 0;
@@ -1210,7 +1101,7 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       }
       
       currentStep++;
-      final progress = (currentStep / totalSteps).clamp(0.0, 0.95); // Stop at 95%, let actual completion set to 100%
+      final progress = (currentStep / totalSteps).clamp(0.0, 0.95);
       
       setState(() {
         _uploadProgress = progress;
@@ -1221,89 +1112,4 @@ class _CreateMomentScreenState extends ConsumerState<CreateMomentScreen> {
       }
     });
   }
-
-  void _showError(String message) {
-    print('DEBUG: Showing error: $message');
-    showSnackBar(context, message);
-  }
-
-  void _showSuccess(String message) {
-    print('DEBUG: Showing success: $message');
-    showSnackBar(context, message);
-  }
 }
-
-class _TypeOption extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool enabled;
-
-  const _TypeOption({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    this.enabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        decoration: BoxDecoration(
-          color: isSelected 
-              ? (enabled 
-                  ? context.modernTheme.primaryColor?.withOpacity(0.1)
-                  : context.modernTheme.primaryColor?.withOpacity(0.05))
-              : (enabled 
-                  ? context.modernTheme.surfaceColor
-                  : context.modernTheme.surfaceColor!.withOpacity(0.5)),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected 
-                ? (enabled 
-                    ? context.modernTheme.primaryColor!
-                    : context.modernTheme.primaryColor!.withOpacity(0.5))
-                : (enabled 
-                    ? context.modernTheme.borderColor!
-                    : context.modernTheme.borderColor!.withOpacity(0.5)),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected 
-                  ? (enabled 
-                      ? context.modernTheme.primaryColor
-                      : context.modernTheme.primaryColor!.withOpacity(0.5))
-                  : (enabled 
-                      ? context.modernTheme.textSecondaryColor
-                      : context.modernTheme.textSecondaryColor!.withOpacity(0.5)),
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected 
-                    ? (enabled 
-                        ? context.modernTheme.primaryColor
-                        : context.modernTheme.primaryColor!.withOpacity(0.5))
-                    : (enabled 
-                        ? context.modernTheme.textColor
-                        : context.modernTheme.textColor!.withOpacity(0.5)),
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }}
