@@ -42,7 +42,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   // Video controllers
   Map<int, VideoPlayerController> _videoControllers = {};
   Map<int, bool> _videoInitialized = {};
-  Map<int, bool> _videoHasError = {};
   
   // Animation controllers for like effect
   late AnimationController _likeAnimationController;
@@ -64,6 +63,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeAnimationControllers();
     _setupSystemUI();
+    _hasInitialized = true;
     
     // Enable wakelock for video playback
     WakelockPlus.enable();
@@ -72,27 +72,9 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
     // Store original system UI after dependencies are available
     if (_originalSystemUiStyle == null) {
       _storeOriginalSystemUI();
-    }
-    
-    // Initialize the starting moment if specified
-    if (!_hasInitialized && widget.startMomentId != null) {
-      final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
-      if (momentsAsyncValue.hasValue) {
-        final moments = momentsAsyncValue.value!;
-        final startIndex = moments.indexWhere((m) => m.id == widget.startMomentId!);
-        if (startIndex != -1) {
-          _currentIndex = startIndex;
-          final moment = moments[startIndex];
-          if (moment.hasVideo) {
-            _initializeVideoController(startIndex, moment.videoUrl!);
-          }
-        }
-      }
-      _hasInitialized = true;
     }
   }
 
@@ -215,7 +197,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
     _videoControllers.clear();
     _videoInitialized.clear();
-    _videoHasError.clear();
     
     _pageController.dispose();
     
@@ -239,7 +220,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
     
     final controller = _videoControllers[_currentIndex];
-    if (controller != null && _videoInitialized[_currentIndex] == true && !_videoHasError[_currentIndex]!) {
+    if (controller != null && _videoInitialized[_currentIndex] == true) {
       controller.seekTo(Duration.zero);
       controller.play();
       WakelockPlus.enable();
@@ -268,7 +249,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     if (!currentMoment.hasVideo) return;
     
     final controller = _videoControllers[_currentIndex];
-    if (controller != null && _videoInitialized[_currentIndex] == true && !_videoHasError[_currentIndex]!) {
+    if (controller != null && _videoInitialized[_currentIndex] == true) {
       if (controller.value.isPlaying) {
         controller.pause();
         WakelockPlus.disable();
@@ -322,6 +303,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     HapticFeedback.mediumImpact();
   }
 
+  // Enhanced back navigation with proper system UI restoration
   void _handleBackNavigation() {
     // Pause playback and disable wakelock before leaving
     _pauseCurrentVideo();
@@ -339,9 +321,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
 
   Future<void> _initializeVideoController(int index, String videoUrl) async {
     try {
-      // Dispose existing controller if any
-      _videoControllers[index]?.dispose();
-      
       final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
       _videoControllers[index] = controller;
       
@@ -351,7 +330,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       if (mounted) {
         setState(() {
           _videoInitialized[index] = true;
-          _videoHasError[index] = false;
         });
       }
       
@@ -361,12 +339,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       }
     } catch (e) {
       debugPrint('Error initializing video $index: $e');
-      if (mounted) {
-        setState(() {
-          _videoInitialized[index] = false;
-          _videoHasError[index] = true;
-        });
-      }
     }
   }
 
@@ -386,15 +358,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
 
     // Initialize video controller if needed
     final moment = moments[index];
-    if (moment.hasVideo) {
-      // Dispose existing controller if any
-      _videoControllers[index]?.dispose();
+    if (moment.hasVideo && !_videoControllers.containsKey(index)) {
       _initializeVideoController(index, moment.videoUrl!);
-    } else {
-      // For non-video content, ensure wakelock is enabled
-      if (_isScreenActive && _isAppInForeground) {
-        WakelockPlus.enable();
-      }
     }
 
     // Play new video (this will enable wakelock if appropriate)
@@ -424,17 +389,17 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         extendBodyBehindAppBar: true,
         extendBody: true,
         body: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
           child: Stack(
             children: [
               // Main content - positioned to avoid covering status bar and system nav
               Positioned(
-                top: systemTopPadding,
+                top: systemTopPadding, // Start below status bar
                 left: 0,
                 right: 0,
-                bottom: systemBottomPadding,
+                bottom: systemBottomPadding, // Reserve space above system nav
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(12)),
+                  borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
                   child: _buildBody(),
                 ),
               ),
@@ -460,7 +425,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                       ],
                     ),
                     iconSize: 28,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(12), // Larger tap area
                     constraints: const BoxConstraints(
                       minWidth: 44,
                       minHeight: 44,
@@ -502,7 +467,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           controller: _pageController,
           scrollDirection: Axis.vertical,
           itemCount: moments.length,
-          //initialPage: startIndex,
           onPageChanged: _onPageChanged,
           itemBuilder: (context, index) {
             final moment = moments[index];
@@ -545,10 +509,12 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                     // Content overlay - positioned at bottom
                     Positioned(
                       left: 16,
-                      right: 80,
+                      right: 80, // Leave space for right side menu
                       bottom: 16,
                       child: _buildMomentInfo(moment),
                     ),
+
+
                   ],
                 ),
               ),
@@ -572,40 +538,10 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   Widget _buildVideoPlayer(int index) {
     final controller = _videoControllers[index];
     final isInitialized = _videoInitialized[index] ?? false;
-    final hasError = _videoHasError[index] ?? false;
     
     if (controller == null || !isInitialized) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.white),
-      );
-    }
-    
-    if (hasError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.white, size: 48),
-            const SizedBox(height: 16),
-            const Text(
-              'Failed to load video',
-              style: TextStyle(color: Colors.white),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
-                if (momentsAsyncValue.hasValue) {
-                  final moments = momentsAsyncValue.value!;
-                  if (index < moments.length && moments[index].hasVideo) {
-                    _initializeVideoController(index, moments[index].videoUrl!);
-                  }
-                }
-              },
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
       );
     }
     
@@ -838,6 +774,9 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
+
+
+  // TikTok-style right side menu - simplified to 2 items only (like, comment)
   Widget _buildRightSideMenu() {
     final momentsAsyncValue = ref.watch(momentsFeedStreamProvider);
     if (!momentsAsyncValue.hasValue) return const SizedBox.shrink();
@@ -849,8 +788,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
-      right: 4,
-      bottom: systemBottomPadding + 16,
+      right: 4, // Close to edge like channels feed
+      bottom: systemBottomPadding + 16, // Position above system nav bar with padding
       child: Column(
         children: [
           // Like button
@@ -920,6 +859,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
+  // Like animation overlay - More exciting with burst effect and floating hearts
   Widget _buildLikeAnimationOverlay() {
     return Positioned.fill(
       child: IgnorePointer(
