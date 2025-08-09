@@ -29,6 +29,11 @@ import 'package:textgb/features/groups/screens/group_information_screen.dart';
 import 'package:textgb/features/groups/screens/group_settings_screen.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/groups/screens/pending_requests_screen.dart';
+import 'package:textgb/features/moments/models/moment_model.dart';
+import 'package:textgb/features/moments/screens/create_moment_screen.dart';
+import 'package:textgb/features/moments/screens/moment_comments_screen.dart';
+import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
+import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
@@ -174,6 +179,29 @@ class AppRoot extends ConsumerWidget {
               group: args['group'] as GroupModel,
             );
           },
+
+          // Moments routes
+          Constants.momentsRecommendationsScreen: (context) => const MomentsRecommendationsScreen(),
+
+          Constants.momentsFeedScreen: (context) {
+            final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+            return MomentsFeedScreen(
+              startMomentId: args?['startMomentId'] as String?,
+            );
+          },
+
+          Constants.createMomentScreen: (context) => const CreateMomentScreen(),
+
+          Constants.momentCommentsScreen: (context) {
+            final moment = ModalRoute.of(context)!.settings.arguments as MomentModel;
+            return MomentCommentsScreen(moment: moment);
+          },
+
+          Constants.myMomentsScreen: (context) => const Scaffold(
+            body: Center(
+              child: Text('My Moments Screen - To be implemented'),
+            ),
+          ), // Placeholder for MyMomentsScreen
           
           // Channel routes with enhanced navigation support
           Constants.channelsFeedScreen: (context) {

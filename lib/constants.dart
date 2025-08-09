@@ -100,6 +100,8 @@ class Constants {
   static const String momentsFeedScreen = '/momentsFeedScreen';
   static const String createMomentScreen = '/createMomentScreen';
   static const String myMomentsScreen = '/myMomentsScreen';
+  static const String momentsRecommendationsScreen = '/momentsRecommendationsScreen';
+  static const String momentCommentsScreen = '/momentCommentsScreen';
 
   
   // Payment screen routes
