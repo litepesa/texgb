@@ -852,13 +852,12 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
     );
   }
 
+  // Fixed navigation method to properly pass the startMomentId
   void _navigateToMomentsFeed(MomentModel moment) {
     Navigator.pushNamed(
       context,
       Constants.momentsFeedScreen,
-      arguments: {
-        'startMomentId': moment.id,
-      },
+      arguments: {'startMomentId': moment.id}, // Pass as Map
     );
   }
 

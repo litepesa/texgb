@@ -23,6 +23,18 @@ class MomentsFeedScreen extends ConsumerStatefulWidget {
     this.startMomentId,
   });
 
+  // Static method to create from route arguments
+  static MomentsFeedScreen fromRoute(BuildContext context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    String? startMomentId;
+    
+    if (args is Map<String, dynamic>) {
+      startMomentId = args['startMomentId'] as String?;
+    }
+    
+    return MomentsFeedScreen(startMomentId: startMomentId);
+  }
+
   @override
   ConsumerState<MomentsFeedScreen> createState() => _MomentsFeedScreenState();
 }
@@ -35,9 +47,11 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   
   // State management
   int _currentIndex = 0;
+  int _targetStartIndex = 0; // Add this to track the target starting index
   bool _isScreenActive = true;
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
+  bool _hasNavigatedToStart = false; // Add this to track if we've navigated to start
   
   // Video controllers
   Map<int, VideoPlayerController> _videoControllers = {};
@@ -369,6 +383,48 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     ref.read(momentsProvider.notifier).recordView(moment.id);
   }
 
+  // Add this method to handle initial navigation to start moment
+  void _navigateToStartMoment(List<MomentModel> moments) {
+    if (_hasNavigatedToStart || widget.startMomentId == null) return;
+    
+    final startIndex = moments.indexWhere((m) => m.id == widget.startMomentId!);
+    if (startIndex != -1) {
+      _targetStartIndex = startIndex;
+      _hasNavigatedToStart = true;
+      
+      // Use post frame callback to ensure PageView is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageController.hasClients) {
+          _pageController.animateToPage(
+            startIndex,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+          
+          // Set current index and initialize video if needed
+          setState(() {
+            _currentIndex = startIndex;
+          });
+          
+          final moment = moments[startIndex];
+          if (moment.hasVideo && !_videoControllers.containsKey(startIndex)) {
+            _initializeVideoController(startIndex, moment.videoUrl!);
+          }
+          
+          // Play the video immediately
+          Future.delayed(const Duration(milliseconds: 100), () {
+            _playCurrentVideo();
+          });
+          
+          // Record view
+          ref.read(momentsProvider.notifier).recordView(moment.id);
+        }
+      });
+    } else {
+      _hasNavigatedToStart = true; // Mark as navigated even if not found
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -392,7 +448,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
           child: Stack(
             children: [
-              // Main content - positioned to avoid covering status bar and system nav
+              // Main video content - positioned to avoid covering status bar and system nav
               Positioned(
                 top: systemTopPadding, // Start below status bar
                 left: 0,
@@ -404,35 +460,105 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                 ),
               ),
               
-              // Top bar overlay - Enhanced back button
+              // Top bar with back button, feed filter tabs, and search icon
               Positioned(
                 top: systemTopPadding + 16,
-                left: 4,
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: IconButton(
-                    onPressed: _handleBackNavigation,
-                    icon: const Icon(
-                      CupertinoIcons.chevron_left,
-                      color: Colors.white,
-                      size: 28,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
+                left: 0,
+                right: 0,
+                child: Row(
+                  children: [
+                    // Back button
+                    Material(
+                      type: MaterialType.transparency,
+                      child: IconButton(
+                        onPressed: _handleBackNavigation,
+                        icon: const Icon(
+                          CupertinoIcons.chevron_left,
+                          color: Colors.white,
+                          size: 28,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 3,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
                         ),
-                      ],
+                        iconSize: 28,
+                        padding: const EdgeInsets.all(12),
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        splashRadius: 24,
+                        tooltip: 'Back',
+                      ),
                     ),
-                    iconSize: 28,
-                    padding: const EdgeInsets.all(12), // Larger tap area
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 44,
+                    
+                    // "Moments" title with camera icon in center
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            CupertinoIcons.camera,
+                            color: Colors.white.withOpacity(0.7),
+                            size: 20,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.7),
+                                blurRadius: 3,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Moments',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.7),
+                                  blurRadius: 3,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    splashRadius: 24,
-                    tooltip: 'Back',
-                  ),
+                    
+                    // Search button
+                    IconButton(
+                      onPressed: () {
+                        // TODO: Add search functionality
+                      },
+                      icon: const Icon(
+                        Icons.search,
+                        color: Colors.white,
+                        size: 28,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 3,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      iconSize: 28,
+                      padding: const EdgeInsets.all(12),
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
+                      splashRadius: 24,
+                      tooltip: 'Search',
+                    ),
+                  ],
                 ),
               ),
               
@@ -456,12 +582,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           return _buildEmptyState();
         }
 
-        // Find starting index if startMomentId is provided
-        int startIndex = 0;
-        if (widget.startMomentId != null) {
-          startIndex = moments.indexWhere((m) => m.id == widget.startMomentId!);
-          if (startIndex == -1) startIndex = 0;
-        }
+        // Handle navigation to start moment when data is available
+        _navigateToStartMoment(moments);
 
         return PageView.builder(
           controller: _pageController,
@@ -486,35 +608,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                     // Like animation overlay
                     if (_showLikeAnimation && index == _currentIndex)
                       _buildLikeAnimationOverlay(),
-                    
-                    // Gradient overlay for better text readability
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withOpacity(0.3),
-                              Colors.transparent,
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.7),
-                            ],
-                            stops: const [0.0, 0.3, 0.7, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // Content overlay - positioned at bottom
-                    Positioned(
-                      left: 16,
-                      right: 80, // Leave space for right side menu
-                      bottom: 16,
-                      child: _buildMomentInfo(moment),
-                    ),
-
-
                   ],
                 ),
               ),
@@ -526,13 +619,26 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   }
 
   Widget _buildMomentContent(MomentModel moment, int index) {
-    if (moment.hasVideo) {
-      return _buildVideoPlayer(index);
-    } else if (moment.hasImages) {
-      return _buildImageCarousel(moment.imageUrls);
-    } else {
-      return _buildTextContent(moment);
-    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Main content
+        if (moment.hasVideo)
+          _buildVideoPlayer(index)
+        else if (moment.hasImages)
+          _buildImageCarousel(moment.imageUrls)
+        else
+          _buildTextContent(moment),
+        
+        // Bottom info overlay - minimal like ChannelFeedScreen
+        Positioned(
+          left: 16,
+          right: 80, // Leave space for right side menu  
+          bottom: 16,
+          child: _buildMomentInfo(moment),
+        ),
+      ],
+    );
   }
 
   Widget _buildVideoPlayer(int index) {
@@ -658,37 +764,19 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    moment.authorName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 2,
-                        ),
-                      ],
+              child: Text(
+                moment.authorName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
                     ),
-                  ),
-                  Text(
-                    _getTimeAgo(moment.createdAt),
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 12,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -717,6 +805,32 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         // Time remaining and privacy info
         Row(
           children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    color: Colors.white.withOpacity(0.7),
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _getTimeAgo(moment.createdAt),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -776,7 +890,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
 
 
 
-  // TikTok-style right side menu - simplified to 2 items only (like, comment)
+  // TikTok-style right side menu - with Gift and DM icons
   Widget _buildRightSideMenu() {
     final momentsAsyncValue = ref.watch(momentsFeedStreamProvider);
     if (!momentsAsyncValue.hasValue) return const SizedBox.shrink();
@@ -818,6 +932,49 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
             ),
             label: _formatCount(currentMoment?.commentsCount ?? 0),
             onTap: () => _showCommentsForCurrentMoment(currentMoment),
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // Gift button
+          _buildRightMenuItem(
+            child: const Icon(
+              Icons.card_giftcard,
+              color: Colors.white,
+              size: 26,
+            ),
+            label: null,
+            onTap: () {
+              // TODO: Add gift functionality
+            },
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // DM button - custom white rounded square with 'DM' text
+          _buildRightMenuItem(
+            child: Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Center(
+                child: Text(
+                  'DM',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            label: null,
+            onTap: () {
+              // TODO: Add DM functionality
+            },
           ),
         ],
       ),
