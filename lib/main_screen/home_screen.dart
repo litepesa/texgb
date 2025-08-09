@@ -15,9 +15,11 @@ import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/live/screens/live_screen.dart';
+import 'package:textgb/features/moments/screens/create_moment_screen.dart';
+import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
-import 'package:textgb/features/status/screens/status_screen.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
+//import 'package:textgb/features/status/screens/status_screen.dart';
+//import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
@@ -141,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           // Status tab (index 2)
           Container(
             color: modernTheme.backgroundColor,
-            child: const StatusScreen(),
+            child: const MomentsRecommendationsScreen(),
           ),
           // Channels tab (index 3)
           Container(
@@ -599,7 +601,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const CreateStatusScreen(),
+        builder: (context) => const CreateMomentScreen(),
       ),
     );
   }

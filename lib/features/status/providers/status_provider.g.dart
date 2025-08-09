@@ -1,4 +1,3 @@
-// lib/features/status/providers/status_provider.g.dart
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'status_provider.dart';
@@ -7,11 +6,12 @@ part of 'status_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$statusStreamHash() => r'8a9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b';
+String _$statusStreamHash() => r'2cbc0f6f885d793890d898d4992ba2d84ccf8c56';
 
 /// See also [statusStream].
 @ProviderFor(statusStream)
-final statusStreamProvider = AutoDisposeStreamProvider<List<UserStatusGroup>>.internal(
+final statusStreamProvider =
+    AutoDisposeStreamProvider<List<UserStatusGroup>>.internal(
   statusStream,
   name: r'statusStreamProvider',
   debugGetCreateSourceHash:
@@ -20,8 +20,10 @@ final statusStreamProvider = AutoDisposeStreamProvider<List<UserStatusGroup>>.in
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef StatusStreamRef = AutoDisposeStreamProviderRef<List<UserStatusGroup>>;
-String _$userStatusesHash() => r'9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c';
+String _$userStatusesHash() => r'12b1e6e127909671dfbe0f7f01dc42a41969a1b0';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -87,7 +89,8 @@ class UserStatusesFamily extends Family<AsyncValue<List<StatusModel>>> {
 }
 
 /// See also [userStatuses].
-class UserStatusesProvider extends AutoDisposeFutureProvider<List<StatusModel>> {
+class UserStatusesProvider
+    extends AutoDisposeFutureProvider<List<StatusModel>> {
   /// See also [userStatuses].
   UserStatusesProvider(
     String userId,
@@ -157,6 +160,8 @@ class UserStatusesProvider extends AutoDisposeFutureProvider<List<StatusModel>> 
   }
 }
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 mixin UserStatusesRef on AutoDisposeFutureProviderRef<List<StatusModel>> {
   /// The parameter `userId` of this provider.
   String get userId;
@@ -172,7 +177,7 @@ class _UserStatusesProviderElement
 }
 
 String _$statusPrivacySettingsHash() =>
-    r'1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d';
+    r'70f9fa18ff9e645f818d9a33f033491f93916966';
 
 /// See also [statusPrivacySettings].
 @ProviderFor(statusPrivacySettings)
@@ -187,9 +192,11 @@ final statusPrivacySettingsProvider =
   allTransitiveDependencies: null,
 );
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 typedef StatusPrivacySettingsRef
     = AutoDisposeFutureProviderRef<Map<String, dynamic>>;
-String _$statusNotifierHash() => r'2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e';
+String _$statusNotifierHash() => r'f1f62173c6336d2c32ba8664b350c0a954a88952';
 
 /// See also [StatusNotifier].
 @ProviderFor(StatusNotifier)

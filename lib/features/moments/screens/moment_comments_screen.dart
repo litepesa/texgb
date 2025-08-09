@@ -499,7 +499,7 @@ class _MomentCommentsScreenState extends ConsumerState<MomentCommentsScreen> {
     if (currentUser == null) return;
 
     final isLiked = comment.likedBy.contains(currentUser.uid);
-    ref.read(momentCommentsProvider(widget.moment.id).notifier)
+    ref.read(momentCommentActionsProvider)
         .toggleLikeComment(comment.id, isLiked);
   }
 
@@ -532,7 +532,7 @@ class _MomentCommentsScreenState extends ConsumerState<MomentCommentsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              ref.read(momentCommentsProvider(widget.moment.id).notifier)
+              ref.read(momentCommentActionsProvider)
                   .deleteComment(comment.id);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -548,7 +548,7 @@ class _MomentCommentsScreenState extends ConsumerState<MomentCommentsScreen> {
     if (content.isEmpty) return;
 
     final success = await ref
-        .read(momentCommentsProvider(widget.moment.id).notifier)
+        .read(momentCommentActionsProvider)
         .addComment(
           momentId: widget.moment.id,
           content: content,

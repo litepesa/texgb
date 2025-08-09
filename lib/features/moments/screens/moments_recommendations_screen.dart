@@ -59,78 +59,89 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
         throw Exception('User not authenticated');
       }
 
-      // Get the moments stream and convert to list
-      final momentsStream = ref.read(momentsFeedStreamProvider);
+      // Get moments directly from repository
+      final repository = ref.read(momentsRepositoryProvider);
+      final momentsStream = repository.getMomentsStream(currentUser.uid, currentUser.contactsUIDs);
       
-      await for (final moments in momentsStream) {
-        if (moments.isNotEmpty) {
-          // Filter and sort moments for recommendations
-          final activeMoments = moments
-              .where((moment) => moment.isActive && !moment.isExpired)
-              .toList();
+      // Listen to the first emission from the stream
+      final moments = await momentsStream.first;
+      
+      if (moments.isNotEmpty) {
+        // Filter and sort moments for recommendations
+        final activeMoments = moments
+            .where((moment) => moment.isActive && !moment.isExpired)
+            .toList();
 
-          // Sort by creation time (most recent first) and apply recommendation logic
-          activeMoments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        // Sort by creation time (most recent first) and apply recommendation logic
+        activeMoments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-          // Apply recommendation algorithm
-          final List<MomentModel> recommendedMoments = [];
-          
-          // 1. Prioritize moments from contacts with high engagement
-          final contactMoments = activeMoments
-              .where((moment) => 
-                  currentUser.contactsUIDs.contains(moment.authorId) &&
-                  (moment.likesCount > 0 || moment.commentsCount > 0 || moment.viewsCount > 5))
-              .take(15)
-              .toList();
-          recommendedMoments.addAll(contactMoments);
+        // Apply recommendation algorithm
+        final List<MomentModel> recommendedMoments = [];
+        
+        // 1. Prioritize moments from contacts with high engagement
+        final contactMoments = activeMoments
+            .where((moment) => 
+                currentUser.contactsUIDs.contains(moment.authorId) &&
+                (moment.likesCount > 0 || moment.commentsCount > 0 || moment.viewsCount > 5))
+            .take(15)
+            .toList();
+        recommendedMoments.addAll(contactMoments);
 
-          // 2. Add recent public moments with high engagement
-          final publicMoments = activeMoments
-              .where((moment) => 
-                  moment.privacy == MomentPrivacy.public &&
-                  !recommendedMoments.contains(moment) &&
-                  (moment.likesCount > 2 || moment.commentsCount > 1 || moment.viewsCount > 10))
-              .take(10)
-              .toList();
-          recommendedMoments.addAll(publicMoments);
+        // 2. Add recent public moments with high engagement
+        final publicMoments = activeMoments
+            .where((moment) => 
+                moment.privacy == MomentPrivacy.public &&
+                !recommendedMoments.contains(moment) &&
+                (moment.likesCount > 2 || moment.commentsCount > 1 || moment.viewsCount > 10))
+            .take(10)
+            .toList();
+        recommendedMoments.addAll(publicMoments);
 
-          // 3. Fill with recent moments from contacts (even with low engagement)
-          final recentContactMoments = activeMoments
-              .where((moment) => 
-                  currentUser.contactsUIDs.contains(moment.authorId) &&
-                  !recommendedMoments.contains(moment))
-              .take(10)
-              .toList();
-          recommendedMoments.addAll(recentContactMoments);
+        // 3. Fill with recent moments from contacts (even with low engagement)
+        final recentContactMoments = activeMoments
+            .where((moment) => 
+                currentUser.contactsUIDs.contains(moment.authorId) &&
+                !recommendedMoments.contains(moment))
+            .take(10)
+            .toList();
+        recommendedMoments.addAll(recentContactMoments);
 
-          // 4. Add some trending public moments
-          final trendingPublicMoments = activeMoments
-              .where((moment) => 
-                  moment.privacy == MomentPrivacy.public &&
-                  !recommendedMoments.contains(moment))
-              .take(5)
-              .toList();
-          recommendedMoments.addAll(trendingPublicMoments);
+        // 4. Add some trending public moments
+        final trendingPublicMoments = activeMoments
+            .where((moment) => 
+                moment.privacy == MomentPrivacy.public &&
+                !recommendedMoments.contains(moment))
+            .take(5)
+            .toList();
+        recommendedMoments.addAll(trendingPublicMoments);
 
-          // Limit total recommendations for performance
-          final maxTotalMoments = 50;
-          final finalRecommendations = recommendedMoments.take(maxTotalMoments).toList();
+        // Limit total recommendations for performance
+        final maxTotalMoments = 50;
+        final finalRecommendations = recommendedMoments.take(maxTotalMoments).toList();
 
+        if (mounted) {
           setState(() {
             _recommendedMoments = finalRecommendations;
             _isLoadingRecommendations = false;
           });
-          
-          break; // Exit the stream loop after getting data
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _recommendedMoments = [];
+            _isLoadingRecommendations = false;
+          });
         }
       }
 
     } catch (e) {
       debugPrint('Error loading moment recommendations: $e');
-      setState(() {
-        _error = e.toString();
-        _isLoadingRecommendations = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoadingRecommendations = false;
+        });
+      }
     }
   }
 

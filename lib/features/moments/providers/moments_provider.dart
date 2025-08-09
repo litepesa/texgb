@@ -237,15 +237,22 @@ Stream<List<MomentModel>> userMomentsStream(UserMomentsStreamRef ref, String use
   return repository.getUserMomentsStream(userId);
 }
 
-// Comments provider
+// Stream provider for moment comments
 @riverpod
-class MomentComments extends _$MomentComments {
-  MomentsRepository get _repository => ref.read(momentsRepositoryProvider);
+Stream<List<MomentCommentModel>> momentCommentsStream(MomentCommentsStreamRef ref, String momentId) {
+  final repository = ref.watch(momentsRepositoryProvider);
+  return repository.getMomentCommentsStream(momentId);
+}
 
-  @override
-  List<MomentCommentModel> build(String momentId) {
-    return [];
-  }
+// Simple comment actions provider (not a family provider)
+final momentCommentActionsProvider = Provider<MomentCommentActions>((ref) {
+  return MomentCommentActions(ref);
+});
+
+class MomentCommentActions {
+  final Ref ref;
+  
+  MomentCommentActions(this.ref);
 
   // Add a comment
   Future<bool> addComment({
@@ -258,6 +265,7 @@ class MomentComments extends _$MomentComments {
     if (currentUser == null) return false;
 
     try {
+      final repository = ref.read(momentsRepositoryProvider);
       final commentId = const Uuid().v4();
       final comment = MomentCommentModel(
         id: commentId,
@@ -273,7 +281,7 @@ class MomentComments extends _$MomentComments {
         likedBy: const [],
       );
 
-      await _repository.addComment(comment);
+      await repository.addComment(comment);
       return true;
     } on MomentsRepositoryException catch (e) {
       debugPrint('Failed to add comment: ${e.message}');
@@ -287,7 +295,8 @@ class MomentComments extends _$MomentComments {
     if (currentUser == null) return false;
 
     try {
-      await _repository.deleteComment(commentId, currentUser.uid);
+      final repository = ref.read(momentsRepositoryProvider);
+      await repository.deleteComment(commentId, currentUser.uid);
       return true;
     } on MomentsRepositoryException catch (e) {
       debugPrint('Failed to delete comment: ${e.message}');
@@ -301,16 +310,10 @@ class MomentComments extends _$MomentComments {
     if (currentUser == null) return;
 
     try {
-      await _repository.likeComment(commentId, currentUser.uid, !isCurrentlyLiked);
+      final repository = ref.read(momentsRepositoryProvider);
+      await repository.likeComment(commentId, currentUser.uid, !isCurrentlyLiked);
     } on MomentsRepositoryException catch (e) {
       debugPrint('Failed to toggle comment like: ${e.message}');
     }
   }
-}
-
-// Stream provider for moment comments
-@riverpod
-Stream<List<MomentCommentModel>> momentCommentsStream(MomentCommentsStreamRef ref, String momentId) {
-  final repository = ref.watch(momentsRepositoryProvider);
-  return repository.getMomentCommentsStream(momentId);
 }
