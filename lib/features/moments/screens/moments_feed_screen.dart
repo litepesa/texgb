@@ -9,7 +9,7 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/providers/moments_provider.dart';
-import 'package:textgb/features/moments/widgets/moment_actions.dart';
+import 'package:textgb/features/moments/widgets/moment_comments_bottom_sheet.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/constants.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -47,11 +47,12 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   
   // State management
   int _currentIndex = 0;
-  int _targetStartIndex = 0; // Add this to track the target starting index
+  int _targetStartIndex = 0;
   bool _isScreenActive = true;
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
-  bool _hasNavigatedToStart = false; // Add this to track if we've navigated to start
+  bool _hasNavigatedToStart = false;
+  bool _isCommentsSheetOpen = false;
   
   // Video controllers
   Map<int, VideoPlayerController> _videoControllers = {};
@@ -175,7 +176,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     switch (state) {
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
-        if (_isScreenActive) {
+        if (_isScreenActive && !_isCommentsSheetOpen) {
           _playCurrentVideo();
         }
         break;
@@ -228,7 +229,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   }
 
   void _playCurrentVideo() {
-    if (!_isScreenActive || !_isAppInForeground) {
+    if (!_isScreenActive || !_isAppInForeground || _isCommentsSheetOpen) {
       WakelockPlus.disable();
       return;
     }
@@ -253,6 +254,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   }
 
   void _togglePlayPause() {
+    if (_isCommentsSheetOpen) return; // Don't toggle when comments are open
+    
     final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
     if (!momentsAsyncValue.hasValue) return;
     
@@ -275,6 +278,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   }
 
   void _handleDoubleTap() {
+    if (_isCommentsSheetOpen) return; // Don't handle double tap when comments are open
+    
     final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
     if (!momentsAsyncValue.hasValue) return;
     
@@ -319,6 +324,12 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
 
   // Enhanced back navigation with proper system UI restoration
   void _handleBackNavigation() {
+    // Close comments sheet if open
+    if (_isCommentsSheetOpen) {
+      Navigator.of(context).pop();
+      return;
+    }
+    
     // Pause playback and disable wakelock before leaving
     _pauseCurrentVideo();
     
@@ -347,7 +358,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         });
       }
       
-      if (index == _currentIndex && _isScreenActive && _isAppInForeground) {
+      if (index == _currentIndex && _isScreenActive && _isAppInForeground && !_isCommentsSheetOpen) {
         controller.play();
         WakelockPlus.enable();
       }
@@ -357,6 +368,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   }
 
   void _onPageChanged(int index) {
+    if (_isCommentsSheetOpen) return; // Don't change pages when comments are open
+    
     final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
     if (!momentsAsyncValue.hasValue) return;
     
@@ -425,6 +438,24 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
   }
 
+  Widget _buildCurrentVideoWidget() {
+    final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
+    if (!momentsAsyncValue.hasValue) return const SizedBox.shrink();
+    
+    final moments = momentsAsyncValue.value!;
+    if (_currentIndex >= moments.length) return const SizedBox.shrink();
+    
+    final currentMoment = moments[_currentIndex];
+    
+    if (currentMoment.hasVideo) {
+      return _buildVideoPlayer(_currentIndex);
+    } else if (currentMoment.hasImages) {
+      return _buildImageCarousel(currentMoment.imageUrls);
+    } else {
+      return _buildTextContent(currentMoment);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -445,17 +476,17 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         extendBodyBehindAppBar: true,
         extendBody: true,
         body: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
           child: Stack(
             children: [
               // Main video content - positioned to avoid covering status bar and system nav
               Positioned(
-                top: systemTopPadding, // Start below status bar
+                top: systemTopPadding,
                 left: 0,
                 right: 0,
-                bottom: systemBottomPadding, // Reserve space above system nav
+                bottom: systemBottomPadding,
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
+                  borderRadius: const BorderRadius.all(Radius.circular(12)),
                   child: _buildBody(),
                 ),
               ),
@@ -590,6 +621,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           scrollDirection: Axis.vertical,
           itemCount: moments.length,
           onPageChanged: _onPageChanged,
+          physics: _isCommentsSheetOpen ? const NeverScrollableScrollPhysics() : null,
           itemBuilder: (context, index) {
             final moment = moments[index];
             
@@ -888,8 +920,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
-
-
   // TikTok-style right side menu - with Gift and DM icons
   Widget _buildRightSideMenu() {
     final momentsAsyncValue = ref.watch(momentsFeedStreamProvider);
@@ -902,15 +932,15 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
-      right: 4, // Close to edge like channels feed
-      bottom: systemBottomPadding + 16, // Position above system nav bar with padding
+      right: 4,
+      bottom: systemBottomPadding + 16,
       child: Column(
         children: [
           // Like button
           _buildRightMenuItem(
             child: Icon(
               currentMoment?.likedBy.contains(ref.read(currentUserProvider)?.uid) == true 
-                  ? CupertinoIcons.heart 
+                  ? CupertinoIcons.heart_fill 
                   : CupertinoIcons.heart,
               color: currentMoment?.likedBy.contains(ref.read(currentUserProvider)?.uid) == true 
                   ? Colors.red 
@@ -1272,21 +1302,31 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   }
 
   void _showCommentsForCurrentMoment(MomentModel? moment) {
-    if (moment == null) return;
+    if (moment == null || _isCommentsSheetOpen) return;
     
-    // Pause current video and disable wakelock when showing comments
-    _pauseCurrentVideo();
+    setState(() {
+      _isCommentsSheetOpen = true;
+    });
     
-    // Navigate to comments screen
-    Navigator.pushNamed(
-      context,
-      Constants.momentCommentsScreen,
-      arguments: moment,
+    // Don't pause the video - it will continue playing in the small window
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      builder: (context) => MomentCommentsBottomSheet(
+        moment: moment,
+        videoWidget: _buildCurrentVideoWidget(),
+        onClose: () {
+          setState(() {
+            _isCommentsSheetOpen = false;
+          });
+        },
+      ),
     ).whenComplete(() {
-      // Resume video and re-enable wakelock when comments are closed
-      if (_isScreenActive && _isAppInForeground) {
-        _playCurrentVideo();
-      }
+      setState(() {
+        _isCommentsSheetOpen = false;
+      });
     });
   }
 
