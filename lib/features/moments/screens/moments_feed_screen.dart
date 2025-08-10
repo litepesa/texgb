@@ -456,6 +456,73 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
   }
 
+  // Add this method to control video window mode
+  void _setVideoWindowMode(bool isSmallWindow) {
+    setState(() {
+      _isCommentsSheetOpen = isSmallWindow;
+    });
+  }
+
+  // Add this new method to build the small video window
+  Widget _buildSmallVideoWindow() {
+    final systemTopPadding = MediaQuery.of(context).padding.top;
+    
+    return Positioned(
+      top: systemTopPadding + 20,
+      right: 20,
+      child: GestureDetector(
+        onTap: () {
+          // Close comments and return to full screen
+          Navigator.of(context).pop();
+          _setVideoWindowMode(false);
+        },
+        child: Container(
+          width: 120,
+          height: 180,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 15,
+                spreadRadius: 3,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                // Video content
+                Positioned.fill(
+                  child: _buildCurrentVideoWidget(),
+                ),
+                
+                // Close button overlay
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -491,20 +558,89 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                 ),
               ),
               
+              // Small video window when comments are open
+              if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+              
               // Top bar with back button, feed filter tabs, and search icon
-              Positioned(
-                top: systemTopPadding + 16,
-                left: 0,
-                right: 0,
-                child: Row(
-                  children: [
-                    // Back button
-                    Material(
-                      type: MaterialType.transparency,
-                      child: IconButton(
-                        onPressed: _handleBackNavigation,
+              if (!_isCommentsSheetOpen) // Hide top bar when comments are open
+                Positioned(
+                  top: systemTopPadding + 16,
+                  left: 0,
+                  right: 0,
+                  child: Row(
+                    children: [
+                      // Back button
+                      Material(
+                        type: MaterialType.transparency,
+                        child: IconButton(
+                          onPressed: _handleBackNavigation,
+                          icon: const Icon(
+                            CupertinoIcons.chevron_left,
+                            color: Colors.white,
+                            size: 28,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 3,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          iconSize: 28,
+                          padding: const EdgeInsets.all(12),
+                          constraints: const BoxConstraints(
+                            minWidth: 44,
+                            minHeight: 44,
+                          ),
+                          splashRadius: 24,
+                          tooltip: 'Back',
+                        ),
+                      ),
+                      
+                      // "Moments" title with camera icon in center
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              CupertinoIcons.camera,
+                              color: Colors.white.withOpacity(0.7),
+                              size: 20,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.7),
+                                  blurRadius: 3,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Moments',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black.withOpacity(0.7),
+                                    blurRadius: 3,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Search button
+                      IconButton(
+                        onPressed: () {
+                          // TODO: Add search functionality
+                        },
                         icon: const Icon(
-                          CupertinoIcons.chevron_left,
+                          CupertinoIcons.search,
                           color: Colors.white,
                           size: 28,
                           shadows: [
@@ -522,79 +658,14 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                           minHeight: 44,
                         ),
                         splashRadius: 24,
-                        tooltip: 'Back',
+                        tooltip: 'Search',
                       ),
-                    ),
-                    
-                    // "Moments" title with camera icon in center
-                    Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            CupertinoIcons.camera,
-                            color: Colors.white.withOpacity(0.7),
-                            size: 20,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withOpacity(0.7),
-                                blurRadius: 3,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Moments',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black.withOpacity(0.7),
-                                  blurRadius: 3,
-                                  offset: Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Search button
-                    IconButton(
-                      onPressed: () {
-                        // TODO: Add search functionality
-                      },
-                      icon: const Icon(
-                        CupertinoIcons.search,
-                        color: Colors.white,
-                        size: 28,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 3,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      iconSize: 28,
-                      padding: const EdgeInsets.all(12),
-                      constraints: const BoxConstraints(
-                        minWidth: 44,
-                        minHeight: 44,
-                      ),
-                      splashRadius: 24,
-                      tooltip: 'Search',
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               
-              // TikTok-style right side menu
-              _buildRightSideMenu(),
+              // TikTok-style right side menu (hide when comments are open)
+              if (!_isCommentsSheetOpen) _buildRightSideMenu(),
             ],
           ),
         ),
@@ -1301,14 +1372,13 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
   }
 
+  // Updated method to control video window mode
   void _showCommentsForCurrentMoment(MomentModel? moment) {
     if (moment == null || _isCommentsSheetOpen) return;
     
-    setState(() {
-      _isCommentsSheetOpen = true;
-    });
+    // Set video to small window mode
+    _setVideoWindowMode(true);
     
-    // Don't pause the video - it will continue playing in the small window
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1316,17 +1386,14 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       barrierColor: Colors.transparent,
       builder: (context) => MomentCommentsBottomSheet(
         moment: moment,
-        videoWidget: _buildCurrentVideoWidget(),
         onClose: () {
-          setState(() {
-            _isCommentsSheetOpen = false;
-          });
+          // Reset video to full screen mode
+          _setVideoWindowMode(false);
         },
       ),
     ).whenComplete(() {
-      setState(() {
-        _isCommentsSheetOpen = false;
-      });
+      // Ensure video returns to full screen mode
+      _setVideoWindowMode(false);
     });
   }
 

@@ -11,13 +11,11 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 
 class MomentCommentsBottomSheet extends ConsumerStatefulWidget {
   final MomentModel moment;
-  final Widget videoWidget;
   final VoidCallback? onClose;
 
   const MomentCommentsBottomSheet({
     super.key,
     required this.moment,
-    required this.videoWidget,
     this.onClose,
   });
 
@@ -33,14 +31,10 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
   
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
-  late AnimationController _videoSizeController;
-  late Animation<double> _videoScaleAnimation;
-  late Animation<Offset> _videoPositionAnimation;
   
   String? _replyingToCommentId;
   String? _replyingToAuthorName;
   bool _isExpanded = false;
-  double _keyboardHeight = 0;
 
   @override
   void initState() {
@@ -64,30 +58,8 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
       curve: Curves.easeOutCubic,
     ));
 
-    _videoSizeController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    
-    _videoScaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.35,
-    ).animate(CurvedAnimation(
-      parent: _videoSizeController,
-      curve: Curves.easeOutCubic,
-    ));
-    
-    _videoPositionAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0.6, -0.7),
-    ).animate(CurvedAnimation(
-      parent: _videoSizeController,
-      curve: Curves.easeOutCubic,
-    ));
-
-    // Start animations
+    // Start animation
     _slideController.forward();
-    _videoSizeController.forward();
   }
 
   void _setupKeyboardListener() {
@@ -115,7 +87,6 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
   @override
   void dispose() {
     _slideController.dispose();
-    _videoSizeController.dispose();
     _commentController.dispose();
     _commentFocusNode.dispose();
     _scrollController.dispose();
@@ -124,10 +95,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
 
   Future<void> _closeSheet() async {
     // Animate out
-    await Future.wait([
-      _slideController.reverse(),
-      _videoSizeController.reverse(),
-    ]);
+    await _slideController.reverse();
     
     if (mounted) {
       widget.onClose?.call();
@@ -154,53 +122,12 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
         resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
-            // Dimmed background with video
+            // Dimmed background
             Positioned.fill(
               child: GestureDetector(
                 onTap: _closeSheet,
                 child: Container(
                   color: Colors.black.withOpacity(0.5),
-                  child: Stack(
-                    children: [
-                      // Small video player in top-right corner
-                      AnimatedBuilder(
-                        animation: Listenable.merge([_videoScaleAnimation, _videoPositionAnimation]),
-                        builder: (context, child) {
-                          return Positioned(
-                            top: MediaQuery.of(context).padding.top + 20,
-                            right: 20,
-                            child: Transform.scale(
-                              scale: _videoScaleAnimation.value,
-                              child: Transform.translate(
-                                offset: Offset(
-                                  _videoPositionAnimation.value.dx * MediaQuery.of(context).size.width,
-                                  _videoPositionAnimation.value.dy * MediaQuery.of(context).size.height,
-                                ),
-                                child: Container(
-                                  width: 120,
-                                  height: 180,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.4),
-                                        blurRadius: 15,
-                                        spreadRadius: 3,
-                                      ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: widget.videoWidget,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -1014,7 +941,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                       isDense: true,
                     ),
                     style: const TextStyle(
-                      color: Colors.black,
+                      color: Colors.white,
                       fontSize: 14,
                     ),
                     maxLines: null,
