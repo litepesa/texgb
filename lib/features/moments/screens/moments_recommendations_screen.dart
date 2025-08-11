@@ -1,4 +1,4 @@
-// lib/features/moments/screens/moments_recommendations_screen.dart
+// lib/features/moments/screens/moments_recommendations_screen.dart - Updated with user grouping
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
@@ -22,17 +22,7 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
     viewportFraction: 0.85, // Shows part of adjacent pages
   );
   
-  // Cache for recommended moments to avoid reloading
-  List<MomentModel> _recommendedMoments = [];
-  bool _isLoadingRecommendations = false;
-  String? _error;
   int _currentIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    // Don't load moments immediately - wait for auth state
-  }
 
   @override
   void dispose() {
@@ -40,115 +30,9 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
     super.dispose();
   }
 
-  /// Load recommended moments efficiently
-  /// This method selects moments from contacts and public moments with recent activity
-  Future<void> _loadRecommendedMoments({bool forceRefresh = false}) async {
-    if (_isLoadingRecommendations && !forceRefresh) return;
-
-    setState(() {
-      _isLoadingRecommendations = true;
-      _error = null;
-      if (forceRefresh) _recommendedMoments.clear();
-    });
-
-    try {
-      // Wait for authentication state to be available
-      final authState = await ref.read(authenticationProvider.future);
-      final currentUser = authState.userModel;
-      
-      if (currentUser == null) {
-        throw Exception('Please sign in to view moments');
-      }
-
-      // Get moments directly from repository
-      final repository = ref.read(momentsRepositoryProvider);
-      final momentsStream = repository.getMomentsStream(currentUser.uid, currentUser.contactsUIDs);
-      
-      // Listen to the first emission from the stream
-      final moments = await momentsStream.first;
-      
-      if (moments.isNotEmpty) {
-        // Filter and sort moments for recommendations
-        final activeMoments = moments
-            .where((moment) => moment.isActive && !moment.isExpired)
-            .toList();
-
-        // Sort by creation time (most recent first) and apply recommendation logic
-        activeMoments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-        // Apply recommendation algorithm
-        final List<MomentModel> recommendedMoments = [];
-        
-        // 1. Prioritize moments from contacts with high engagement
-        final contactMoments = activeMoments
-            .where((moment) => 
-                currentUser.contactsUIDs.contains(moment.authorId) &&
-                (moment.likesCount > 0 || moment.commentsCount > 0 || moment.viewsCount > 5))
-            .take(15)
-            .toList();
-        recommendedMoments.addAll(contactMoments);
-
-        // 2. Add recent public moments with high engagement
-        final publicMoments = activeMoments
-            .where((moment) => 
-                moment.privacy == MomentPrivacy.public &&
-                !recommendedMoments.contains(moment) &&
-                (moment.likesCount > 2 || moment.commentsCount > 1 || moment.viewsCount > 10))
-            .take(10)
-            .toList();
-        recommendedMoments.addAll(publicMoments);
-
-        // 3. Fill with recent moments from contacts (even with low engagement)
-        final recentContactMoments = activeMoments
-            .where((moment) => 
-                currentUser.contactsUIDs.contains(moment.authorId) &&
-                !recommendedMoments.contains(moment))
-            .take(10)
-            .toList();
-        recommendedMoments.addAll(recentContactMoments);
-
-        // 4. Add some trending public moments
-        final trendingPublicMoments = activeMoments
-            .where((moment) => 
-                moment.privacy == MomentPrivacy.public &&
-                !recommendedMoments.contains(moment))
-            .take(5)
-            .toList();
-        recommendedMoments.addAll(trendingPublicMoments);
-
-        // Limit total recommendations for performance
-        final maxTotalMoments = 50;
-        final finalRecommendations = recommendedMoments.take(maxTotalMoments).toList();
-
-        if (mounted) {
-          setState(() {
-            _recommendedMoments = finalRecommendations;
-            _isLoadingRecommendations = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _recommendedMoments = [];
-            _isLoadingRecommendations = false;
-          });
-        }
-      }
-
-    } catch (e) {
-      debugPrint('Error loading moment recommendations: $e');
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoadingRecommendations = false;
-        });
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Watch the authentication state
+    // Watch the authentication state and user-grouped moments
     final authState = ref.watch(authenticationProvider);
     
     return Scaffold(
@@ -165,7 +49,7 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                 return _buildNotAuthenticatedState();
               }
               
-              // User is authenticated, now show moments
+              // User is authenticated, show grouped moments
               return _buildAuthenticatedBody();
             },
           ),
@@ -175,54 +59,49 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
   }
 
   Widget _buildAuthenticatedBody() {
-    // Load moments when we know user is authenticated
-    if (_recommendedMoments.isEmpty && !_isLoadingRecommendations && _error == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadRecommendedMoments();
-      });
-    }
+    final userGroupsStream = ref.watch(userGroupedMomentsStreamProvider);
     
-    if (_isLoadingRecommendations && _recommendedMoments.isEmpty) {
-      return _buildLoadingState();
-    }
+    return userGroupsStream.when(
+      loading: () => _buildLoadingState(),
+      error: (error, stackTrace) => _buildErrorState(error.toString()),
+      data: (userGroups) {
+        if (userGroups.isEmpty) {
+          return _buildEmptyState();
+        }
 
-    if (_error != null && _recommendedMoments.isEmpty) {
-      return _buildErrorState(_error!);
-    }
-
-    if (_recommendedMoments.isEmpty && !_isLoadingRecommendations) {
-      return _buildEmptyState();
-    }
-
-    return RefreshIndicator(
-      onRefresh: () => _loadRecommendedMoments(forceRefresh: true),
-      backgroundColor: context.modernTheme.surfaceColor,
-      color: context.modernTheme.textColor,
-      child: Column(
-        children: [
-          // Page indicator dots
-          if (_recommendedMoments.isNotEmpty) _buildPageIndicator(),
-          
-          // Main carousel
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              itemCount: _recommendedMoments.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
-                  child: _buildMomentThumbnail(_recommendedMoments[index], index),
-                );
-              },
-            ),
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(userGroupedMomentsStreamProvider);
+          },
+          backgroundColor: context.modernTheme.surfaceColor,
+          color: context.modernTheme.textColor,
+          child: Column(
+            children: [
+              // Page indicator dots
+              if (userGroups.isNotEmpty) _buildPageIndicator(userGroups.length),
+              
+              // Main carousel
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                  },
+                  itemCount: userGroups.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+                      child: _buildUserMomentThumbnail(userGroups[index], index),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -299,17 +178,17 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
     );
   }
 
-  Widget _buildPageIndicator() {
+  Widget _buildPageIndicator(int totalItems) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(
-          _recommendedMoments.length > 10 ? 10 : _recommendedMoments.length, // Limit dots to 10
+          totalItems > 10 ? 10 : totalItems, // Limit dots to 10
           (index) {
             // For more than 10 items, show relative position
-            int displayIndex = _recommendedMoments.length > 10 
-                ? (_currentIndex < 5 ? index : (_currentIndex > _recommendedMoments.length - 6 ? index + _recommendedMoments.length - 10 : index + _currentIndex - 4))
+            int displayIndex = totalItems > 10 
+                ? (_currentIndex < 5 ? index : (_currentIndex > totalItems - 6 ? index + totalItems - 10 : index + _currentIndex - 4))
                 : index;
             
             bool isActive = displayIndex == _currentIndex;
@@ -332,17 +211,27 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
     );
   }
 
-  Widget _buildMomentThumbnail(MomentModel moment, int index) {
+  Widget _buildUserMomentThumbnail(UserMomentGroup userGroup, int index) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return const SizedBox.shrink();
+    
     // Calculate scale based on current page position
     double scale = 1.0;
     if (_pageController.hasClients && _pageController.page != null) {
       scale = 1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
     }
 
+    // Get the moment to display as thumbnail
+    final thumbnailMoment = userGroup.getThumbnailMoment(currentUser.uid);
+    if (thumbnailMoment == null) return const SizedBox.shrink();
+    
+    // Check if user has unviewed moments for ring indicator
+    final hasUnviewedMoments = userGroup.hasUnviewedMoments(currentUser.uid);
+
     return Transform.scale(
       scale: scale,
       child: GestureDetector(
-        onTap: () => _navigateToMomentsFeed(moment),
+        onTap: () => _navigateToUserMoments(userGroup),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -369,7 +258,7 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                       Container(
                         width: double.infinity,
                         height: double.infinity,
-                        child: _buildThumbnailContent(moment),
+                        child: _buildThumbnailContent(thumbnailMoment),
                       ),
                       
                       // Gradient overlay for caption and stats
@@ -394,7 +283,9 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                moment.content.isNotEmpty ? moment.content : 'Moment by ${moment.authorName}',
+                                thumbnailMoment.content.isNotEmpty 
+                                    ? thumbnailMoment.content 
+                                    : 'Moment by ${thumbnailMoment.authorName}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -408,13 +299,13 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                               Row(
                                 children: [
                                   Icon(
-                                    Icons.favorite,
+                                    Icons.photo_library,
                                     color: Colors.white,
                                     size: 14,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    '${_formatCount(moment.likesCount)}',
+                                    '${userGroup.activeMomentsCount} posts',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 12,
@@ -423,13 +314,13 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                                   ),
                                   const SizedBox(width: 16),
                                   Icon(
-                                    Icons.visibility,
+                                    Icons.favorite,
                                     color: Colors.white,
                                     size: 14,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    '${_formatCount(moment.viewsCount)}',
+                                    '${_formatCount(thumbnailMoment.likesCount)}',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 12,
@@ -443,55 +334,7 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                         ),
                       ),
 
-                      // Time remaining indicator
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.timer,
-                                color: Colors.white,
-                                size: 12,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                moment.timeRemainingText,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
 
-                      // Privacy indicator
-                      Positioned(
-                        top: 12,
-                        left: 12,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            _getPrivacyIcon(moment.privacy),
-                            color: Colors.white,
-                            size: 12,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -500,29 +343,50 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
             
             const SizedBox(height: 12),
             
-            // Author info outside thumbnail
+            // Author info outside thumbnail with ring
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundImage: moment.authorImage.isNotEmpty
-                        ? NetworkImage(moment.authorImage)
-                        : null,
-                    backgroundColor: context.modernTheme.surfaceVariantColor,
-                    child: moment.authorImage.isEmpty
-                        ? Text(
-                            moment.authorName.isNotEmpty 
-                                ? moment.authorName[0].toUpperCase()
-                                : "U",
-                            style: TextStyle(
-                              color: context.modernTheme.textColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
+                  // Profile picture with ring indicator
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: hasUnviewedMoments 
+                            ? context.modernTheme.primaryColor! 
+                            : context.modernTheme.dividerColor!,
+                        width: hasUnviewedMoments ? 2.5 : 2,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(3),
+                      child: ClipOval(
+                        child: userGroup.userImage.isNotEmpty
+                            ? Image.network(
+                                userGroup.userImage,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: context.modernTheme.surfaceVariantColor,
+                                  child: Icon(
+                                    Icons.person,
+                                    color: context.modernTheme.textColor,
+                                    size: 16,
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                color: context.modernTheme.surfaceVariantColor,
+                                child: Icon(
+                                  Icons.person,
+                                  color: context.modernTheme.textColor,
+                                  size: 16,
+                                ),
+                              ),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -530,7 +394,7 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          moment.authorName,
+                          userGroup.userName,
                           style: TextStyle(
                             color: context.modernTheme.textColor,
                             fontSize: 14,
@@ -540,7 +404,7 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _getTimeAgo(moment.createdAt),
+                          userGroup.latestMomentTime,
                           style: TextStyle(
                             color: context.modernTheme.textSecondaryColor,
                             fontSize: 12,
@@ -804,7 +668,7 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => _loadRecommendedMoments(forceRefresh: true),
+            onPressed: () => ref.invalidate(userGroupedMomentsStreamProvider),
             child: const Text('Retry'),
           ),
         ],
@@ -852,12 +716,30 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
     );
   }
 
-  // Fixed navigation method to properly pass the startMomentId
-  void _navigateToMomentsFeed(MomentModel moment) {
+  // Navigation method to show user's unviewed moments first
+  void _navigateToUserMoments(UserMomentGroup userGroup) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+    
+    // Get the first unviewed moment ID to start viewing from
+    final unviewedMoments = userGroup.getUnviewedMoments(currentUser.uid);
+    String? startMomentId;
+    
+    if (unviewedMoments.isNotEmpty) {
+      // Start with first unviewed moment
+      startMomentId = unviewedMoments.first.id;
+    } else {
+      // If all viewed, start with latest moment
+      startMomentId = userGroup.latestMoment?.id;
+    }
+    
     Navigator.pushNamed(
       context,
       Constants.momentsFeedScreen,
-      arguments: {'startMomentId': moment.id}, // Pass as Map
+      arguments: {
+        'startMomentId': startMomentId,
+        'prioritizeUser': userGroup.userId, // NEW: Prioritize this user's content
+      },
     );
   }
 
@@ -881,24 +763,6 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
       return '${(count / 1000).toStringAsFixed(1)}K';
     } else {
       return '${(count / 1000000).toStringAsFixed(1)}M';
-    }
-  }
-
-  String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 30) {
-      final months = (difference.inDays / 30).floor();
-      return '$months month${months == 1 ? '' : 's'} ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
-    } else {
-      return 'Just now';
     }
   }
 }

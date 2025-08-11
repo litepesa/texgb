@@ -6,6 +6,26 @@ part of 'moments_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
+String _$userGroupedMomentsStreamHash() =>
+    r'8a3b2f1c9d7e5a4b6c8d9e0f1a2b3c4d5e6f7a8b';
+
+/// See also [userGroupedMomentsStream].
+@ProviderFor(userGroupedMomentsStream)
+final userGroupedMomentsStreamProvider =
+    AutoDisposeStreamProvider<List<UserMomentGroup>>.internal(
+  userGroupedMomentsStream,
+  name: r'userGroupedMomentsStreamProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$userGroupedMomentsStreamHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef UserGroupedMomentsStreamRef
+    = AutoDisposeStreamProviderRef<List<UserMomentGroup>>;
 String _$momentsFeedStreamHash() => r'701d73e3a8db93044bfa17879bc4e0393bd86f54';
 
 /// See also [momentsFeedStream].

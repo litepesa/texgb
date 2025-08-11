@@ -321,6 +321,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   void _handleFollowToggle() {
     // Toggle follow for the channel
     ref.read(channelsProvider.notifier).toggleFollowChannel(widget.video.channelId);
+    
+    // Optional: Add haptic feedback
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _toggleCaptionExpansion() {
@@ -851,23 +856,32 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                 ),
               ),
               const SizedBox(width: 8),
-              // Follow button with red fill when not following (like channel feed)
+              // Animated Follow button that disappears when following
               if (!isOwner)
-                GestureDetector(
-                  onTap: _handleFollowToggle,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isFollowing ? Colors.transparent : const Color(0xFFFF3040), // Red fill when not following
-                      border: Border.all(color: Colors.white, width: 1),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      isFollowing ? 'Following' : 'Follow',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                AnimatedScale(
+                  scale: isFollowing ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  child: AnimatedOpacity(
+                    opacity: isFollowing ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: GestureDetector(
+                      onTap: _handleFollowToggle,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent, // Removed red fill
+                          border: Border.all(color: Colors.white, width: 1),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: const Text(
+                          'Follow',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
                     ),
                   ),

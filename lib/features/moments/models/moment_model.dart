@@ -1,4 +1,4 @@
-// lib/features/moments/models/moment_model.dart
+// lib/features/moments/models/moment_model.dart - Updated with viewing logic
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:textgb/constants.dart';
 
@@ -273,6 +273,9 @@ class MomentModel {
     }
   }
 
+  // NEW: Check if moment has been viewed by user
+  bool hasUserViewed(String userId) => viewedBy.contains(userId);
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -285,5 +288,119 @@ class MomentModel {
   @override
   String toString() {
     return 'MomentModel(id: $id, authorName: $authorName, type: $type, privacy: $privacy)';
+  }
+}
+
+// NEW: Helper class for grouping moments by user (similar to UserStatusGroup)
+class UserMomentGroup {
+  final String userId;
+  final String userName;
+  final String userImage;
+  final List<MomentModel> moments;
+  final bool isMyMoments;
+
+  UserMomentGroup({
+    required this.userId,
+    required this.userName,
+    required this.userImage,
+    required this.moments,
+    this.isMyMoments = false,
+  });
+
+  // Get the latest moment for preview
+  MomentModel? get latestMoment {
+    if (moments.isEmpty) return null;
+    return moments.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b);
+  }
+
+  // Get the moment to display as thumbnail
+  MomentModel? getThumbnailMoment(String currentUserId) {
+    // First try to get latest unviewed moment
+    final unviewedMoments = moments
+        .where((moment) => !moment.hasUserViewed(currentUserId))
+        .toList();
+    
+    if (unviewedMoments.isNotEmpty) {
+      // Return latest unviewed moment
+      return unviewedMoments.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b);
+    }
+    
+    // If all viewed, return latest moment
+    return latestMoment;
+  }
+
+  // Get active moments count
+  int get activeMomentsCount {
+    return moments.where((moment) => moment.isActive && !moment.isExpired).length;
+  }
+
+  // Get all unviewed moments sorted by creation time
+  List<MomentModel> getUnviewedMoments(String currentUserId) {
+    final unviewedMoments = moments
+        .where((moment) => !moment.hasUserViewed(currentUserId))
+        .toList();
+    
+    // Sort by creation time (oldest first for viewing experience)
+    unviewedMoments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return unviewedMoments;
+  }
+
+  // Get total unviewed moments count for this user
+  int getUnviewedCount(String currentUserId) {
+    return moments.where((moment) => !moment.hasUserViewed(currentUserId)).length;
+  }
+
+  // Check if there are any unviewed moments
+  bool hasUnviewedMoments(String currentUserId) {
+    return getUnviewedCount(currentUserId) > 0;
+  }
+
+  // Get time of latest moment
+  String get latestMomentTime {
+    final latest = latestMoment;
+    if (latest == null) return '';
+    
+    final now = DateTime.now();
+    final difference = now.difference(latest.createdAt);
+    
+    if (difference.inMinutes < 1) {
+      return 'now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
+  }
+
+  UserMomentGroup copyWith({
+    String? userId,
+    String? userName,
+    String? userImage,
+    List<MomentModel>? moments,
+    bool? isMyMoments,
+  }) {
+    return UserMomentGroup(
+      userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      userImage: userImage ?? this.userImage,
+      moments: moments ?? this.moments,
+      isMyMoments: isMyMoments ?? this.isMyMoments,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is UserMomentGroup && other.userId == userId;
+  }
+
+  @override
+  int get hashCode => userId.hashCode;
+
+  @override
+  String toString() {
+    return 'UserMomentGroup(userId: $userId, userName: $userName, momentsCount: ${moments.length})';
   }
 }

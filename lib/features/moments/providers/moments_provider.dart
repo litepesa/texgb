@@ -1,4 +1,4 @@
-// lib/features/moments/providers/moments_provider.dart
+// lib/features/moments/providers/moments_provider.dart - Updated with user grouping
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +20,7 @@ final momentsRepositoryProvider = Provider<MomentsRepository>((ref) {
 class MomentsState {
   final List<MomentModel> moments;
   final List<MomentModel> userMoments;
+  final List<UserMomentGroup> userGroups; // NEW: User-grouped moments
   final bool isLoading;
   final bool isCreating;
   final String? error;
@@ -27,6 +28,7 @@ class MomentsState {
   const MomentsState({
     this.moments = const [],
     this.userMoments = const [],
+    this.userGroups = const [], // NEW
     this.isLoading = false,
     this.isCreating = false,
     this.error,
@@ -35,6 +37,7 @@ class MomentsState {
   MomentsState copyWith({
     List<MomentModel>? moments,
     List<MomentModel>? userMoments,
+    List<UserMomentGroup>? userGroups, // NEW
     bool? isLoading,
     bool? isCreating,
     String? error,
@@ -42,6 +45,7 @@ class MomentsState {
     return MomentsState(
       moments: moments ?? this.moments,
       userMoments: userMoments ?? this.userMoments,
+      userGroups: userGroups ?? this.userGroups, // NEW
       isLoading: isLoading ?? this.isLoading,
       isCreating: isCreating ?? this.isCreating,
       error: error,
@@ -217,7 +221,70 @@ class Moments extends _$Moments {
   }
 }
 
-// Stream provider for moments feed
+// NEW: Stream provider for user-grouped moments (for recommendations)
+@riverpod
+Stream<List<UserMomentGroup>> userGroupedMomentsStream(UserGroupedMomentsStreamRef ref) {
+  final currentUser = ref.watch(currentUserProvider);
+  final repository = ref.watch(momentsRepositoryProvider);
+  
+  if (currentUser == null) {
+    return Stream.value([]);
+  }
+
+  return repository.getMomentsStream(currentUser.uid, currentUser.contactsUIDs)
+      .map((moments) => _groupMomentsByUser(moments, currentUser.uid));
+}
+
+// Helper function to group moments by user
+List<UserMomentGroup> _groupMomentsByUser(List<MomentModel> moments, String currentUserId) {
+  // Group moments by author
+  final Map<String, List<MomentModel>> groupedMoments = {};
+  
+  for (final moment in moments) {
+    if (!groupedMoments.containsKey(moment.authorId)) {
+      groupedMoments[moment.authorId] = [];
+    }
+    groupedMoments[moment.authorId]!.add(moment);
+  }
+
+  // Convert to UserMomentGroup list
+  final List<UserMomentGroup> userGroups = [];
+  
+  for (final entry in groupedMoments.entries) {
+    final userId = entry.key;
+    final userMoments = entry.value;
+    
+    if (userMoments.isNotEmpty) {
+      final firstMoment = userMoments.first;
+      userGroups.add(UserMomentGroup(
+        userId: userId,
+        userName: firstMoment.authorName,
+        userImage: firstMoment.authorImage,
+        moments: userMoments,
+        isMyMoments: userId == currentUserId,
+      ));
+    }
+  }
+
+  // Sort: Users with unviewed moments first, then by latest moment time
+  userGroups.sort((a, b) {
+    final aHasUnviewed = a.hasUnviewedMoments(currentUserId);
+    final bHasUnviewed = b.hasUnviewedMoments(currentUserId);
+    
+    // Prioritize users with unviewed moments
+    if (aHasUnviewed && !bHasUnviewed) return -1;
+    if (!aHasUnviewed && bHasUnviewed) return 1;
+    
+    // Then sort by latest moment time
+    final aLatest = a.latestMoment?.createdAt ?? DateTime(1970);
+    final bLatest = b.latestMoment?.createdAt ?? DateTime(1970);
+    return bLatest.compareTo(aLatest);
+  });
+
+  return userGroups;
+}
+
+// Stream provider for moments feed (existing - for backwards compatibility)
 @riverpod
 Stream<List<MomentModel>> momentsFeedStream(MomentsFeedStreamRef ref) {
   final currentUser = ref.watch(currentUserProvider);

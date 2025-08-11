@@ -17,22 +17,29 @@ import 'package:carousel_slider/carousel_slider.dart';
 
 class MomentsFeedScreen extends ConsumerStatefulWidget {
   final String? startMomentId;
+  final String? prioritizeUser; // NEW: User to prioritize viewing
 
   const MomentsFeedScreen({
     super.key,
     this.startMomentId,
+    this.prioritizeUser, // NEW
   });
 
   // Static method to create from route arguments
   static MomentsFeedScreen fromRoute(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
     String? startMomentId;
+    String? prioritizeUser; // NEW
     
     if (args is Map<String, dynamic>) {
       startMomentId = args['startMomentId'] as String?;
+      prioritizeUser = args['prioritizeUser'] as String?; // NEW
     }
     
-    return MomentsFeedScreen(startMomentId: startMomentId);
+    return MomentsFeedScreen(
+      startMomentId: startMomentId,
+      prioritizeUser: prioritizeUser, // NEW
+    );
   }
 
   @override
@@ -54,11 +61,16 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   bool _hasNavigatedToStart = false;
   bool _isCommentsSheetOpen = false;
   
+  // NEW: User prioritization
+  String? _prioritizedUserId; // User to prioritize viewing
+  List<MomentModel> _prioritizedUserMoments = []; // Unviewed moments from prioritized user
+  bool _viewingPrioritizedUser = false; // Currently viewing prioritized user's content
+  
   // Video controllers
   Map<int, VideoPlayerController> _videoControllers = {};
   Map<int, bool> _videoInitialized = {};
   
-  // Caption expansion state - add this
+  // Caption expansion state
   final Map<int, bool> _captionExpanded = {};
   
   // Animation controllers for like effect
@@ -370,6 +382,32 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
   }
 
+  // NEW: Method to setup user-prioritized viewing
+  void _setupUserPrioritizedViewing(List<MomentModel> allMoments) {
+    if (widget.prioritizeUser == null) return;
+    
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    // Filter moments from prioritized user that are unviewed
+    _prioritizedUserMoments = allMoments
+        .where((moment) => 
+            moment.authorId == widget.prioritizeUser! &&
+            !moment.hasUserViewed(currentUser.uid) &&
+            moment.isActive &&
+            !moment.isExpired)
+        .toList();
+    
+    // Sort by creation time (oldest first for better viewing experience)
+    _prioritizedUserMoments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    
+    _viewingPrioritizedUser = _prioritizedUserMoments.isNotEmpty;
+    _prioritizedUserId = widget.prioritizeUser;
+    
+    debugPrint('Setup prioritized viewing for ${widget.prioritizeUser}: ${_prioritizedUserMoments.length} unviewed moments');
+  }
+
+  // UPDATED: Page change method with user prioritization logic
   void _onPageChanged(int index) {
     if (_isCommentsSheetOpen) return; // Don't change pages when comments are open
     
@@ -378,6 +416,14 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     
     final moments = momentsAsyncValue.value!;
     if (index >= moments.length) return;
+
+    final currentMoment = moments[index];
+    final currentUser = ref.read(currentUserProvider);
+    
+    // Check if we finished viewing prioritized user's unviewed content
+    if (_viewingPrioritizedUser && currentUser != null) {
+      _checkPrioritizedUserProgress(currentMoment, currentUser.uid);
+    }
 
     // Pause current video and disable wakelock
     _pauseCurrentVideo();
@@ -399,46 +445,98 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     ref.read(momentsProvider.notifier).recordView(moment.id);
   }
 
-  // Add this method to handle initial navigation to start moment
-  void _navigateToStartMoment(List<MomentModel> moments) {
-    if (_hasNavigatedToStart || widget.startMomentId == null) return;
+  // NEW: Check progress through prioritized user's content
+  void _checkPrioritizedUserProgress(MomentModel currentMoment, String currentUserId) {
+    if (!_viewingPrioritizedUser || _prioritizedUserId == null) return;
     
-    final startIndex = moments.indexWhere((m) => m.id == widget.startMomentId!);
-    if (startIndex != -1) {
-      _targetStartIndex = startIndex;
-      _hasNavigatedToStart = true;
-      
-      // Use post frame callback to ensure PageView is built
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _pageController.hasClients) {
-          _pageController.animateToPage(
-            startIndex,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
-          
-          // Set current index and initialize video if needed
-          setState(() {
-            _currentIndex = startIndex;
-          });
-          
-          final moment = moments[startIndex];
-          if (moment.hasVideo && !_videoControllers.containsKey(startIndex)) {
-            _initializeVideoController(startIndex, moment.videoUrl!);
-          }
-          
-          // Play the video immediately
-          Future.delayed(const Duration(milliseconds: 100), () {
-            _playCurrentVideo();
-          });
-          
-          // Record view
-          ref.read(momentsProvider.notifier).recordView(moment.id);
-        }
-      });
-    } else {
-      _hasNavigatedToStart = true; // Mark as navigated even if not found
+    // If we moved away from prioritized user's content
+    if (currentMoment.authorId != _prioritizedUserId) {
+      _viewingPrioritizedUser = false;
+      debugPrint('Finished viewing prioritized user content');
+      return;
     }
+    
+    // Mark current moment as viewed and remove from unviewed list
+    _prioritizedUserMoments.removeWhere((moment) => moment.id == currentMoment.id);
+    
+    // If no more unviewed moments from this user, we're done with prioritized viewing
+    if (_prioritizedUserMoments.isEmpty) {
+      _viewingPrioritizedUser = false;
+      debugPrint('All prioritized user moments viewed, switching to general feed');
+      
+      // Optional: Show a subtle notification that we're moving to general feed
+      _showTransitionMessage();
+    }
+  }
+
+  // NEW: Show transition message when moving from prioritized to general feed
+  void _showTransitionMessage() {
+    // You can implement a subtle overlay or toast here if desired
+    // For now, just log the transition
+    debugPrint('Transitioning from user-specific viewing to general feed');
+  }
+
+  // UPDATED: Navigation method with user prioritization
+  void _navigateToStartMoment(List<MomentModel> moments) {
+    if (_hasNavigatedToStart) return;
+    
+    // Setup user prioritization first
+    _setupUserPrioritizedViewing(moments);
+    
+    // If we're prioritizing a user and have unviewed content, start with that
+    if (_viewingPrioritizedUser && _prioritizedUserMoments.isNotEmpty) {
+      final startMoment = widget.startMomentId != null 
+          ? _prioritizedUserMoments.where((m) => m.id == widget.startMomentId!).firstOrNull ?? _prioritizedUserMoments.first
+          : _prioritizedUserMoments.first;
+      
+      final startIndex = moments.indexWhere((m) => m.id == startMoment.id);
+      if (startIndex != -1) {
+        _navigateToIndex(startIndex, moments);
+        return;
+      }
+    }
+    
+    // Fallback to original logic
+    if (widget.startMomentId != null) {
+      final startIndex = moments.indexWhere((m) => m.id == widget.startMomentId!);
+      if (startIndex != -1) {
+        _navigateToIndex(startIndex, moments);
+        return;
+      }
+    }
+    
+    _hasNavigatedToStart = true;
+  }
+
+  // Helper method to navigate to specific index
+  void _navigateToIndex(int index, List<MomentModel> moments) {
+    _targetStartIndex = index;
+    _hasNavigatedToStart = true;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _pageController.hasClients) {
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+        
+        setState(() {
+          _currentIndex = index;
+        });
+        
+        final moment = moments[index];
+        if (moment.hasVideo && !_videoControllers.containsKey(index)) {
+          _initializeVideoController(index, moment.videoUrl!);
+        }
+        
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _playCurrentVideo();
+        });
+        
+        ref.read(momentsProvider.notifier).recordView(moment.id);
+      }
+    });
   }
 
   Widget _buildCurrentVideoWidget() {
@@ -654,112 +752,136 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
               
               // Top bar with back button, feed filter tabs, and search icon
               if (!_isCommentsSheetOpen) // Hide top bar when comments are open
-                Positioned(
-                  top: systemTopPadding + 16,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    children: [
-                      // Back button
-                      Material(
-                        type: MaterialType.transparency,
-                        child: IconButton(
-                          onPressed: _handleBackNavigation,
-                          icon: const Icon(
-                            CupertinoIcons.chevron_left,
-                            color: Colors.white,
-                            size: 28,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 3,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          iconSize: 28,
-                          padding: const EdgeInsets.all(12),
-                          constraints: const BoxConstraints(
-                            minWidth: 44,
-                            minHeight: 44,
-                          ),
-                          splashRadius: 24,
-                          tooltip: 'Back',
-                        ),
-                      ),
-                      
-                      // "Moments" title with camera icon in center
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              CupertinoIcons.camera,
-                              color: Colors.white.withOpacity(0.7),
-                              size: 20,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black.withOpacity(0.7),
-                                  blurRadius: 3,
-                                  offset: Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Moments',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withOpacity(0.7),
-                                    blurRadius: 3,
-                                    offset: Offset(0, 1),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      // Search button
-                      IconButton(
-                        onPressed: () {
-                          // TODO: Add search functionality
-                        },
-                        icon: const Icon(
-                          CupertinoIcons.search,
-                          color: Colors.white,
-                          size: 28,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 3,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        iconSize: 28,
-                        padding: const EdgeInsets.all(12),
-                        constraints: const BoxConstraints(
-                          minWidth: 44,
-                          minHeight: 44,
-                        ),
-                        splashRadius: 24,
-                        tooltip: 'Search',
-                      ),
-                    ],
-                  ),
-                ),
+                _buildTopBar(systemTopPadding),
               
               // TikTok-style right side menu (hide when comments are open)
               if (!_isCommentsSheetOpen) _buildRightSideMenu(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // UPDATED: Top bar with user context
+  Widget _buildTopBar(double systemTopPadding) {
+    return Positioned(
+      top: systemTopPadding + 16,
+      left: 0,
+      right: 0,
+      child: Row(
+        children: [
+          // Back button
+          Material(
+            type: MaterialType.transparency,
+            child: IconButton(
+              onPressed: _handleBackNavigation,
+              icon: const Icon(
+                CupertinoIcons.chevron_left,
+                color: Colors.white,
+                size: 28,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              iconSize: 28,
+              padding: const EdgeInsets.all(12),
+              constraints: const BoxConstraints(
+                minWidth: 44,
+                minHeight: 44,
+              ),
+              splashRadius: 24,
+              tooltip: 'Back',
+            ),
+          ),
+          
+          // Title with user context
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  CupertinoIcons.camera,
+                  color: Colors.white.withOpacity(0.7),
+                  size: 20,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.7),
+                      blurRadius: 3,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _viewingPrioritizedUser ? 'Viewing Updates' : 'Moments',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.7),
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+                // Show remaining count for prioritized user
+                if (_viewingPrioritizedUser && _prioritizedUserMoments.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_prioritizedUserMoments.length}',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          
+          // Search button
+          IconButton(
+            onPressed: () {
+              // TODO: Add search functionality
+            },
+            icon: const Icon(
+              CupertinoIcons.search,
+              color: Colors.white,
+              size: 28,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+            iconSize: 28,
+            padding: const EdgeInsets.all(12),
+            constraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: 44,
+            ),
+            splashRadius: 24,
+            tooltip: 'Search',
+          ),
+        ],
       ),
     );
   }
