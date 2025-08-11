@@ -1,4 +1,4 @@
-// lib/features/moments/repositories/moments_repository.dart
+// lib/features/moments/repositories/moments_repository.dart - Updated with chronological queries
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -24,8 +24,10 @@ abstract class MomentsRepository {
   Future<void> deleteComment(String commentId, String authorId);
   Future<void> likeComment(String commentId, String userId, bool isLiked);
   Future<void> recordView(String momentId, String userId);
-  Stream<List<MomentModel>> getMomentsStream(String userId, List<String> userContacts);
-  Stream<List<MomentModel>> getUserMomentsStream(String userId);
+  
+  // Updated chronological methods
+  Stream<List<MomentModel>> getMomentsStreamChronological(String userId, List<String> userContacts);
+  Stream<List<MomentModel>> getUserMomentsStreamChronological(String userId);
   Stream<List<MomentCommentModel>> getMomentCommentsStream(String momentId);
   Future<List<MomentModel>> getExpiredMoments();
   Future<void> cleanupExpiredMoments();
@@ -232,33 +234,43 @@ class FirebaseMomentsRepository implements MomentsRepository {
     }
   }
 
+  // NEW: Pure chronological stream for moments feed
   @override
-  Stream<List<MomentModel>> getMomentsStream(String userId, List<String> userContacts) {
+  Stream<List<MomentModel>> getMomentsStreamChronological(String userId, List<String> userContacts) {
     return _firestore
         .collection(Constants.moments)
         .where('isActive', isEqualTo: true)
         .where('expiresAt', isGreaterThan: Timestamp.now())
         .orderBy('expiresAt')
-        .orderBy(Constants.momentCreatedAt, descending: true)
+        .orderBy(Constants.momentCreatedAt, descending: false) // Changed to ascending for chronological
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      final moments = snapshot.docs
           .map((doc) => MomentModel.fromMap(doc.data()))
           .where((moment) => moment.isVisibleTo(userId, userContacts))
           .toList();
+      
+      // Ensure pure chronological order (earliest first)
+      moments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return moments;
     });
   }
 
+  // NEW: Chronological stream for user's moments
   @override
-  Stream<List<MomentModel>> getUserMomentsStream(String userId) {
+  Stream<List<MomentModel>> getUserMomentsStreamChronological(String userId) {
     return _firestore
         .collection(Constants.moments)
         .where(Constants.userId, isEqualTo: userId)
         .where('isActive', isEqualTo: true)
-        .orderBy(Constants.momentCreatedAt, descending: true)
+        .orderBy(Constants.momentCreatedAt, descending: false) // Changed to ascending for chronological
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => MomentModel.fromMap(doc.data())).toList();
+      final moments = snapshot.docs.map((doc) => MomentModel.fromMap(doc.data())).toList();
+      
+      // Ensure chronological order (earliest first)
+      moments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return moments;
     });
   }
 
@@ -308,6 +320,15 @@ class FirebaseMomentsRepository implements MomentsRepository {
       throw MomentsRepositoryException('Failed to cleanup expired moments: ${e.toString()}');
     }
   }
+
+  // Deprecated methods for backward compatibility
+  @deprecated
+  Stream<List<MomentModel>> getMomentsStream(String userId, List<String> userContacts) =>
+      getMomentsStreamChronological(userId, userContacts);
+  
+  @deprecated
+  Stream<List<MomentModel>> getUserMomentsStream(String userId) =>
+      getUserMomentsStreamChronological(userId);
 
   // Helper methods
 

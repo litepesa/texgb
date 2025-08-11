@@ -1,4 +1,4 @@
-// lib/features/moments/providers/moments_provider.dart - Updated with user grouping
+// lib/features/moments/providers/moments_provider.dart - Simplified with chronological logic
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +20,7 @@ final momentsRepositoryProvider = Provider<MomentsRepository>((ref) {
 class MomentsState {
   final List<MomentModel> moments;
   final List<MomentModel> userMoments;
-  final List<UserMomentGroup> userGroups; // NEW: User-grouped moments
+  final List<UserMomentGroup> userGroups; // User-grouped moments
   final bool isLoading;
   final bool isCreating;
   final String? error;
@@ -28,7 +28,7 @@ class MomentsState {
   const MomentsState({
     this.moments = const [],
     this.userMoments = const [],
-    this.userGroups = const [], // NEW
+    this.userGroups = const [],
     this.isLoading = false,
     this.isCreating = false,
     this.error,
@@ -37,7 +37,7 @@ class MomentsState {
   MomentsState copyWith({
     List<MomentModel>? moments,
     List<MomentModel>? userMoments,
-    List<UserMomentGroup>? userGroups, // NEW
+    List<UserMomentGroup>? userGroups,
     bool? isLoading,
     bool? isCreating,
     String? error,
@@ -45,7 +45,7 @@ class MomentsState {
     return MomentsState(
       moments: moments ?? this.moments,
       userMoments: userMoments ?? this.userMoments,
-      userGroups: userGroups ?? this.userGroups, // NEW
+      userGroups: userGroups ?? this.userGroups,
       isLoading: isLoading ?? this.isLoading,
       isCreating: isCreating ?? this.isCreating,
       error: error,
@@ -62,7 +62,7 @@ class Moments extends _$Moments {
     return const MomentsState();
   }
 
-  // Create a new moment
+  // Create a new moment (24h expiration)
   Future<String?> createMoment({
     required String content,
     required MomentType type,
@@ -94,7 +94,7 @@ class Moments extends _$Moments {
         privacy: privacy,
         selectedContacts: selectedContacts,
         createdAt: now,
-        expiresAt: now.add(const Duration(hours: 72)),
+        expiresAt: now.add(const Duration(hours: 24)), // Changed to 24h
         likesCount: 0,
         commentsCount: 0,
         viewsCount: 0,
@@ -221,7 +221,7 @@ class Moments extends _$Moments {
   }
 }
 
-// NEW: Stream provider for user-grouped moments (for recommendations)
+// Simplified stream provider for user-grouped moments (chronological)
 @riverpod
 Stream<List<UserMomentGroup>> userGroupedMomentsStream(UserGroupedMomentsStreamRef ref) {
   final currentUser = ref.watch(currentUserProvider);
@@ -231,12 +231,12 @@ Stream<List<UserMomentGroup>> userGroupedMomentsStream(UserGroupedMomentsStreamR
     return Stream.value([]);
   }
 
-  return repository.getMomentsStream(currentUser.uid, currentUser.contactsUIDs)
-      .map((moments) => _groupMomentsByUser(moments, currentUser.uid));
+  return repository.getMomentsStreamChronological(currentUser.uid, currentUser.contactsUIDs)
+      .map((moments) => _groupMomentsByUserChronological(moments, currentUser.uid));
 }
 
-// Helper function to group moments by user
-List<UserMomentGroup> _groupMomentsByUser(List<MomentModel> moments, String currentUserId) {
+// Helper function to group moments by user with chronological logic
+List<UserMomentGroup> _groupMomentsByUserChronological(List<MomentModel> moments, String currentUserId) {
   // Group moments by author
   final Map<String, List<MomentModel>> groupedMoments = {};
   
@@ -255,6 +255,9 @@ List<UserMomentGroup> _groupMomentsByUser(List<MomentModel> moments, String curr
     final userMoments = entry.value;
     
     if (userMoments.isNotEmpty) {
+      // Sort user's moments chronologically (earliest first)
+      userMoments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      
       final firstMoment = userMoments.first;
       userGroups.add(UserMomentGroup(
         userId: userId,
@@ -266,25 +269,17 @@ List<UserMomentGroup> _groupMomentsByUser(List<MomentModel> moments, String curr
     }
   }
 
-  // Sort: Users with unviewed moments first, then by latest moment time
+  // Sort user groups by earliest moment time (pure chronological)
   userGroups.sort((a, b) {
-    final aHasUnviewed = a.hasUnviewedMoments(currentUserId);
-    final bHasUnviewed = b.hasUnviewedMoments(currentUserId);
-    
-    // Prioritize users with unviewed moments
-    if (aHasUnviewed && !bHasUnviewed) return -1;
-    if (!aHasUnviewed && bHasUnviewed) return 1;
-    
-    // Then sort by latest moment time
-    final aLatest = a.latestMoment?.createdAt ?? DateTime(1970);
-    final bLatest = b.latestMoment?.createdAt ?? DateTime(1970);
-    return bLatest.compareTo(aLatest);
+    final aEarliest = a.earliestMoment?.createdAt ?? DateTime(1970);
+    final bEarliest = b.earliestMoment?.createdAt ?? DateTime(1970);
+    return aEarliest.compareTo(bEarliest);
   });
 
   return userGroups;
 }
 
-// Stream provider for moments feed (existing - for backwards compatibility)
+// Stream provider for moments feed (pure chronological)
 @riverpod
 Stream<List<MomentModel>> momentsFeedStream(MomentsFeedStreamRef ref) {
   final currentUser = ref.watch(currentUserProvider);
@@ -294,14 +289,14 @@ Stream<List<MomentModel>> momentsFeedStream(MomentsFeedStreamRef ref) {
     return Stream.value([]);
   }
 
-  return repository.getMomentsStream(currentUser.uid, currentUser.contactsUIDs);
+  return repository.getMomentsStreamChronological(currentUser.uid, currentUser.contactsUIDs);
 }
 
-// Stream provider for user's moments
+// Stream provider for user's moments (chronological)
 @riverpod
 Stream<List<MomentModel>> userMomentsStream(UserMomentsStreamRef ref, String userId) {
   final repository = ref.watch(momentsRepositoryProvider);
-  return repository.getUserMomentsStream(userId);
+  return repository.getUserMomentsStreamChronological(userId);
 }
 
 // Stream provider for moment comments

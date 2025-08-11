@@ -1,4 +1,4 @@
-// lib/features/moments/screens/moments_feed_screen.dart
+// lib/features/moments/screens/moments_feed_screen.dart - Simplified chronological version
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -17,28 +17,23 @@ import 'package:carousel_slider/carousel_slider.dart';
 
 class MomentsFeedScreen extends ConsumerStatefulWidget {
   final String? startMomentId;
-  final String? prioritizeUser; // NEW: User to prioritize viewing
 
   const MomentsFeedScreen({
     super.key,
     this.startMomentId,
-    this.prioritizeUser, // NEW
   });
 
   // Static method to create from route arguments
   static MomentsFeedScreen fromRoute(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
     String? startMomentId;
-    String? prioritizeUser; // NEW
     
     if (args is Map<String, dynamic>) {
       startMomentId = args['startMomentId'] as String?;
-      prioritizeUser = args['prioritizeUser'] as String?; // NEW
     }
     
     return MomentsFeedScreen(
       startMomentId: startMomentId,
-      prioritizeUser: prioritizeUser, // NEW
     );
   }
 
@@ -54,17 +49,10 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   
   // State management
   int _currentIndex = 0;
-  int _targetStartIndex = 0;
   bool _isScreenActive = true;
   bool _isAppInForeground = true;
-  bool _hasInitialized = false;
   bool _hasNavigatedToStart = false;
   bool _isCommentsSheetOpen = false;
-  
-  // NEW: User prioritization
-  String? _prioritizedUserId; // User to prioritize viewing
-  List<MomentModel> _prioritizedUserMoments = []; // Unviewed moments from prioritized user
-  bool _viewingPrioritizedUser = false; // Currently viewing prioritized user's content
   
   // Video controllers
   Map<int, VideoPlayerController> _videoControllers = {};
@@ -93,7 +81,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeAnimationControllers();
     _setupSystemUI();
-    _hasInitialized = true;
     
     // Enable wakelock for video playback
     WakelockPlus.enable();
@@ -382,32 +369,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
   }
 
-  // NEW: Method to setup user-prioritized viewing
-  void _setupUserPrioritizedViewing(List<MomentModel> allMoments) {
-    if (widget.prioritizeUser == null) return;
-    
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-
-    // Filter moments from prioritized user that are unviewed
-    _prioritizedUserMoments = allMoments
-        .where((moment) => 
-            moment.authorId == widget.prioritizeUser! &&
-            !moment.hasUserViewed(currentUser.uid) &&
-            moment.isActive &&
-            !moment.isExpired)
-        .toList();
-    
-    // Sort by creation time (oldest first for better viewing experience)
-    _prioritizedUserMoments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    
-    _viewingPrioritizedUser = _prioritizedUserMoments.isNotEmpty;
-    _prioritizedUserId = widget.prioritizeUser;
-    
-    debugPrint('Setup prioritized viewing for ${widget.prioritizeUser}: ${_prioritizedUserMoments.length} unviewed moments');
-  }
-
-  // UPDATED: Page change method with user prioritization logic
+  // Simplified page change method (pure chronological)
   void _onPageChanged(int index) {
     if (_isCommentsSheetOpen) return; // Don't change pages when comments are open
     
@@ -415,14 +377,14 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     if (!momentsAsyncValue.hasValue) return;
     
     final moments = momentsAsyncValue.value!;
-    if (index >= moments.length) return;
-
-    final currentMoment = moments[index];
-    final currentUser = ref.read(currentUserProvider);
-    
-    // Check if we finished viewing prioritized user's unviewed content
-    if (_viewingPrioritizedUser && currentUser != null) {
-      _checkPrioritizedUserProgress(currentMoment, currentUser.uid);
+    if (index >= moments.length) {
+      // Loop back to beginning when reaching the end
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageController.hasClients) {
+          _pageController.jumpToPage(0);
+        }
+      });
+      return;
     }
 
     // Pause current video and disable wakelock
@@ -445,89 +407,36 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     ref.read(momentsProvider.notifier).recordView(moment.id);
   }
 
-  // NEW: Check progress through prioritized user's content
-  void _checkPrioritizedUserProgress(MomentModel currentMoment, String currentUserId) {
-    if (!_viewingPrioritizedUser || _prioritizedUserId == null) return;
-    
-    // If we moved away from prioritized user's content
-    if (currentMoment.authorId != _prioritizedUserId) {
-      _viewingPrioritizedUser = false;
-      debugPrint('Finished viewing prioritized user content');
-      return;
-    }
-    
-    // Mark current moment as viewed and remove from unviewed list
-    _prioritizedUserMoments.removeWhere((moment) => moment.id == currentMoment.id);
-    
-    // If no more unviewed moments from this user, we're done with prioritized viewing
-    if (_prioritizedUserMoments.isEmpty) {
-      _viewingPrioritizedUser = false;
-      debugPrint('All prioritized user moments viewed, switching to general feed');
-      
-      // Optional: Show a subtle notification that we're moving to general feed
-      _showTransitionMessage();
-    }
-  }
-
-  // NEW: Show transition message when moving from prioritized to general feed
-  void _showTransitionMessage() {
-    // You can implement a subtle overlay or toast here if desired
-    // For now, just log the transition
-    debugPrint('Transitioning from user-specific viewing to general feed');
-  }
-
-  // UPDATED: Navigation method with user prioritization
+  // Simplified navigation method (chronological)
   void _navigateToStartMoment(List<MomentModel> moments) {
     if (_hasNavigatedToStart) return;
     
-    // Setup user prioritization first
-    _setupUserPrioritizedViewing(moments);
-    
-    // If we're prioritizing a user and have unviewed content, start with that
-    if (_viewingPrioritizedUser && _prioritizedUserMoments.isNotEmpty) {
-      final startMoment = widget.startMomentId != null 
-          ? _prioritizedUserMoments.where((m) => m.id == widget.startMomentId!).firstOrNull ?? _prioritizedUserMoments.first
-          : _prioritizedUserMoments.first;
-      
-      final startIndex = moments.indexWhere((m) => m.id == startMoment.id);
-      if (startIndex != -1) {
-        _navigateToIndex(startIndex, moments);
-        return;
-      }
-    }
-    
-    // Fallback to original logic
+    // Find start moment index or use 0 (chronologically first)
+    int startIndex = 0;
     if (widget.startMomentId != null) {
-      final startIndex = moments.indexWhere((m) => m.id == widget.startMomentId!);
-      if (startIndex != -1) {
-        _navigateToIndex(startIndex, moments);
-        return;
+      final foundIndex = moments.indexWhere((m) => m.id == widget.startMomentId!);
+      if (foundIndex != -1) {
+        startIndex = foundIndex;
       }
     }
     
-    _hasNavigatedToStart = true;
-  }
-
-  // Helper method to navigate to specific index
-  void _navigateToIndex(int index, List<MomentModel> moments) {
-    _targetStartIndex = index;
     _hasNavigatedToStart = true;
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _pageController.hasClients) {
         _pageController.animateToPage(
-          index,
+          startIndex,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
         
         setState(() {
-          _currentIndex = index;
+          _currentIndex = startIndex;
         });
         
-        final moment = moments[index];
-        if (moment.hasVideo && !_videoControllers.containsKey(index)) {
-          _initializeVideoController(index, moment.videoUrl!);
+        final moment = moments[startIndex];
+        if (moment.hasVideo && !_videoControllers.containsKey(startIndex)) {
+          _initializeVideoController(startIndex, moment.videoUrl!);
         }
         
         Future.delayed(const Duration(milliseconds: 100), () {
@@ -750,7 +659,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
               // Small video window when comments are open
               if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
               
-              // Top bar with back button, feed filter tabs, and search icon
+              // Top bar with back button and title
               if (!_isCommentsSheetOpen) // Hide top bar when comments are open
                 _buildTopBar(systemTopPadding),
               
@@ -763,7 +672,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
-  // UPDATED: Top bar with user context
+  // Simplified top bar
   Widget _buildTopBar(double systemTopPadding) {
     return Positioned(
       top: systemTopPadding + 16,
@@ -799,7 +708,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
             ),
           ),
           
-          // Title with user context
+          // Title
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -818,7 +727,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _viewingPrioritizedUser ? 'Viewing Updates' : 'Moments',
+                  'Moments',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
                     fontSize: 16,
@@ -832,25 +741,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
                     ],
                   ),
                 ),
-                // Show remaining count for prioritized user
-                if (_viewingPrioritizedUser && _prioritizedUserMoments.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${_prioritizedUserMoments.length}',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -903,10 +793,15 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         return PageView.builder(
           controller: _pageController,
           scrollDirection: Axis.vertical,
-          itemCount: moments.length,
+          itemCount: moments.length + 1, // +1 for loop detection
           onPageChanged: _onPageChanged,
           physics: _isCommentsSheetOpen ? const NeverScrollableScrollPhysics() : null,
           itemBuilder: (context, index) {
+            // Handle loop back to beginning
+            if (index >= moments.length) {
+              return const SizedBox.shrink();
+            }
+            
             final moment = moments[index];
             
             return GestureDetector(
@@ -1554,19 +1449,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       return '${difference.inMinutes}m ago';
     } else {
       return 'Just now';
-    }
-  }
-
-  IconData _getPrivacyIcon(MomentPrivacy privacy) {
-    switch (privacy) {
-      case MomentPrivacy.public:
-        return Icons.public;
-      case MomentPrivacy.contacts:
-        return Icons.contacts;
-      case MomentPrivacy.selectedContacts:
-        return Icons.people;
-      case MomentPrivacy.exceptSelected:
-        return Icons.people_outline;
     }
   }
 

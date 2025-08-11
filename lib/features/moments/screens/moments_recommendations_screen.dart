@@ -1,4 +1,4 @@
-// lib/features/moments/screens/moments_recommendations_screen.dart - Updated with user grouping
+// lib/features/moments/screens/moments_recommendations_screen.dart - Simplified chronological version
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
@@ -69,6 +69,45 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
           return _buildEmptyState();
         }
 
+        // Find the single earliest unviewed moment across all users, or earliest viewed if all viewed
+        final currentUser = ref.read(currentUserProvider);
+        if (currentUser == null) return _buildEmptyState();
+
+        MomentModel? singleThumbnailMoment;
+        UserMomentGroup? singleThumbnailGroup;
+
+        // First, try to find the earliest unviewed moment across all users
+        for (final userGroup in userGroups) {
+          final unviewedMoments = userGroup.getUnviewedMomentsChronologically(currentUser.uid);
+          if (unviewedMoments.isNotEmpty) {
+            final earliestUnviewed = unviewedMoments.first;
+            if (singleThumbnailMoment == null || earliestUnviewed.createdAt.isBefore(singleThumbnailMoment.createdAt)) {
+              singleThumbnailMoment = earliestUnviewed;
+              singleThumbnailGroup = userGroup;
+            }
+          }
+        }
+
+        // If no unviewed moments found, find the earliest viewed moment across all users
+        if (singleThumbnailMoment == null) {
+          for (final userGroup in userGroups) {
+            final earliestMoment = userGroup.earliestMoment;
+            if (earliestMoment != null) {
+              if (singleThumbnailMoment == null || earliestMoment.createdAt.isBefore(singleThumbnailMoment.createdAt)) {
+                singleThumbnailMoment = earliestMoment;
+                singleThumbnailGroup = userGroup;
+              }
+            }
+          }
+        }
+
+        if (singleThumbnailMoment == null || singleThumbnailGroup == null) {
+          return _buildEmptyState();
+        }
+
+        // Create a single-item list for the existing UI
+        final singleItemList = [singleThumbnailGroup];
+
         return RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(userGroupedMomentsStreamProvider);
@@ -77,10 +116,10 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
           color: context.modernTheme.textColor,
           child: Column(
             children: [
-              // Page indicator dots
-              if (userGroups.isNotEmpty) _buildPageIndicator(userGroups.length),
+              // Page indicator dots (single dot)
+              _buildPageIndicator(1),
               
-              // Main carousel
+              // Main carousel (single item)
               Expanded(
                 child: PageView.builder(
                   controller: _pageController,
@@ -89,11 +128,11 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                       _currentIndex = index;
                     });
                   },
-                  itemCount: userGroups.length,
+                  itemCount: 1,
                   itemBuilder: (context, index) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
-                      child: _buildUserMomentThumbnail(userGroups[index], index),
+                      child: _buildUserMomentThumbnail(singleItemList[0], 0),
                     );
                   },
                 ),
@@ -221,8 +260,8 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
       scale = 1.0 - ((_pageController.page! - index).abs() * 0.1).clamp(0.0, 0.3);
     }
 
-    // Get the moment to display as thumbnail
-    final thumbnailMoment = userGroup.getThumbnailMoment(currentUser.uid);
+    // Get the earliest unviewed moment, or earliest viewed moment if all viewed
+    final thumbnailMoment = userGroup.getEarliestMomentForUser(currentUser.uid);
     if (thumbnailMoment == null) return const SizedBox.shrink();
     
     // Check if user has unviewed moments for ring indicator
@@ -333,8 +372,6 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                           ),
                         ),
                       ),
-
-
                     ],
                   ),
                 ),
@@ -404,7 +441,7 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          userGroup.latestMomentTime,
+                          userGroup.earliestMomentTime,
                           style: TextStyle(
                             color: context.modernTheme.textSecondaryColor,
                             fontSize: 12,
@@ -716,44 +753,21 @@ class _MomentsRecommendationsScreenState extends ConsumerState<MomentsRecommenda
     );
   }
 
-  // Navigation method to show user's unviewed moments first
+  // Simplified navigation method - start with earliest unviewed/viewed moment
   void _navigateToUserMoments(UserMomentGroup userGroup) {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
     
-    // Get the first unviewed moment ID to start viewing from
-    final unviewedMoments = userGroup.getUnviewedMoments(currentUser.uid);
-    String? startMomentId;
-    
-    if (unviewedMoments.isNotEmpty) {
-      // Start with first unviewed moment
-      startMomentId = unviewedMoments.first.id;
-    } else {
-      // If all viewed, start with latest moment
-      startMomentId = userGroup.latestMoment?.id;
-    }
+    // Get the earliest unviewed moment, or earliest viewed if all viewed
+    final startMoment = userGroup.getEarliestMomentForUser(currentUser.uid);
     
     Navigator.pushNamed(
       context,
       Constants.momentsFeedScreen,
       arguments: {
-        'startMomentId': startMomentId,
-        'prioritizeUser': userGroup.userId, // NEW: Prioritize this user's content
+        'startMomentId': startMoment?.id,
       },
     );
-  }
-
-  IconData _getPrivacyIcon(MomentPrivacy privacy) {
-    switch (privacy) {
-      case MomentPrivacy.public:
-        return Icons.public;
-      case MomentPrivacy.contacts:
-        return Icons.contacts;
-      case MomentPrivacy.selectedContacts:
-        return Icons.people;
-      case MomentPrivacy.exceptSelected:
-        return Icons.people_outline;
-    }
   }
 
   String _formatCount(int count) {

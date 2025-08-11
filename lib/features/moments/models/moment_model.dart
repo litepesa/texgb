@@ -1,4 +1,4 @@
-// lib/features/moments/models/moment_model.dart - Updated with viewing logic
+// lib/features/moments/models/moment_model.dart - Updated with 24h expiration and simplified logic
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:textgb/constants.dart';
 
@@ -147,7 +147,7 @@ class MomentModel {
       privacy: MomentPrivacy.fromString(map[Constants.momentPrivacy]?.toString() ?? 'public'),
       selectedContacts: List<String>.from(map[Constants.momentVisibleTo] ?? []),
       createdAt: (map[Constants.momentCreatedAt] as Timestamp?)?.toDate() ?? DateTime.now(),
-      expiresAt: (map['expiresAt'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(hours: 72)),
+      expiresAt: (map['expiresAt'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(hours: 24)), // Changed to 24h
       likesCount: map[Constants.momentLikesCount]?.toInt() ?? 0,
       commentsCount: map[Constants.momentCommentsCount]?.toInt() ?? 0,
       viewsCount: map['viewsCount']?.toInt() ?? 0,
@@ -246,9 +246,7 @@ class MomentModel {
     final remaining = timeRemaining;
     if (remaining == Duration.zero) return 'Expired';
     
-    if (remaining.inDays > 0) {
-      return '${remaining.inDays}d ${remaining.inHours % 24}h left';
-    } else if (remaining.inHours > 0) {
+    if (remaining.inHours > 0) {
       return '${remaining.inHours}h ${remaining.inMinutes % 60}m left';
     } else {
       return '${remaining.inMinutes}m left';
@@ -273,7 +271,7 @@ class MomentModel {
     }
   }
 
-  // NEW: Check if moment has been viewed by user
+  // Check if moment has been viewed by user
   bool hasUserViewed(String userId) => viewedBy.contains(userId);
 
   @override
@@ -291,7 +289,7 @@ class MomentModel {
   }
 }
 
-// NEW: Helper class for grouping moments by user (similar to UserStatusGroup)
+// Simplified helper class for grouping moments by user (chronological within user)
 class UserMomentGroup {
   final String userId;
   final String userName;
@@ -307,26 +305,31 @@ class UserMomentGroup {
     this.isMyMoments = false,
   });
 
-  // Get the latest moment for preview
-  MomentModel? get latestMoment {
+  // Get the earliest moment (for chronological display)
+  MomentModel? get earliestMoment {
     if (moments.isEmpty) return null;
-    return moments.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b);
+    return moments.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
   }
 
-  // Get the moment to display as thumbnail
-  MomentModel? getThumbnailMoment(String currentUserId) {
-    // First try to get latest unviewed moment
-    final unviewedMoments = moments
+  // Get the earliest unviewed moment, or earliest viewed if all viewed
+  MomentModel? getEarliestMomentForUser(String currentUserId) {
+    if (moments.isEmpty) return null;
+    
+    // Sort moments chronologically (earliest first)
+    final sortedMoments = List<MomentModel>.from(moments);
+    sortedMoments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    
+    // Find earliest unviewed moment
+    final unviewedMoments = sortedMoments
         .where((moment) => !moment.hasUserViewed(currentUserId))
         .toList();
     
     if (unviewedMoments.isNotEmpty) {
-      // Return latest unviewed moment
-      return unviewedMoments.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b);
+      return unviewedMoments.first; // Earliest unviewed
     }
     
-    // If all viewed, return latest moment
-    return latestMoment;
+    // If all viewed, return earliest moment
+    return sortedMoments.first;
   }
 
   // Get active moments count
@@ -334,13 +337,13 @@ class UserMomentGroup {
     return moments.where((moment) => moment.isActive && !moment.isExpired).length;
   }
 
-  // Get all unviewed moments sorted by creation time
-  List<MomentModel> getUnviewedMoments(String currentUserId) {
+  // Get all unviewed moments sorted chronologically
+  List<MomentModel> getUnviewedMomentsChronologically(String currentUserId) {
     final unviewedMoments = moments
         .where((moment) => !moment.hasUserViewed(currentUserId))
         .toList();
     
-    // Sort by creation time (oldest first for viewing experience)
+    // Sort chronologically (earliest first)
     unviewedMoments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return unviewedMoments;
   }
@@ -355,13 +358,13 @@ class UserMomentGroup {
     return getUnviewedCount(currentUserId) > 0;
   }
 
-  // Get time of latest moment
-  String get latestMomentTime {
-    final latest = latestMoment;
-    if (latest == null) return '';
+  // Get time of earliest moment
+  String get earliestMomentTime {
+    final earliest = earliestMoment;
+    if (earliest == null) return '';
     
     final now = DateTime.now();
-    final difference = now.difference(latest.createdAt);
+    final difference = now.difference(earliest.createdAt);
     
     if (difference.inMinutes < 1) {
       return 'now';
@@ -370,7 +373,7 @@ class UserMomentGroup {
     } else if (difference.inHours < 24) {
       return '${difference.inHours}h ago';
     } else {
-      return '${difference.inDays}d ago';
+      return '1d ago'; // Should not happen with 24h expiration
     }
   }
 
