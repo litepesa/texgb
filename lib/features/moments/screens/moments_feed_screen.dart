@@ -1011,7 +1011,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           _buildRightMenuItem(
             child: Icon(
               currentMoment?.likedBy.contains(ref.read(currentUserProvider)?.uid) == true 
-                  ? CupertinoIcons.heart_fill 
+                  ? CupertinoIcons.heart
                   : CupertinoIcons.heart,
               color: currentMoment?.likedBy.contains(ref.read(currentUserProvider)?.uid) == true 
                   ? Colors.red 

@@ -36,6 +36,16 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
   String? _replyingToAuthorName;
   bool _isExpanded = false;
 
+  // Custom theme-independent colors
+  static const Color _pureWhite = Color(0xFFFFFFFF);
+  static const Color _pureBlack = Color(0xFF000000);
+  static const Color _darkGray = Color(0xFF3C3C43);
+  static const Color _mediumGray = Color(0xFF8E8E93);
+  static const Color _lightGray = Color(0xFFF2F2F7);
+  static const Color _borderGray = Color(0xFFE5E5E7);
+  static const Color _iosBlue = Color(0xFF007AFF);
+  static const Color _iosRed = Color(0xFFFF3B30);
+
   @override
   void initState() {
     super.initState();
@@ -117,56 +127,69 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
           _closeSheet();
         }
       },
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        resizeToAvoidBottomInset: false,
-        body: Stack(
-          children: [
-            // Dimmed background
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _closeSheet,
-                child: Container(
-                  color: Colors.black.withOpacity(0.5),
+      child: Theme(
+        // Force light theme for the bottom sheet regardless of app theme
+        data: ThemeData(
+          brightness: Brightness.light,
+          scaffoldBackgroundColor: Colors.transparent,
+          colorScheme: const ColorScheme.light(
+            surface: _pureWhite,
+            onSurface: _pureBlack,
+            primary: _iosBlue,
+            onPrimary: _pureWhite,
+          ),
+        ),
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          resizeToAvoidBottomInset: false,
+          body: Stack(
+            children: [
+              // Dimmed background
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: _closeSheet,
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5),
+                  ),
                 ),
               ),
-            ),
-            
-            // Comments bottom sheet with custom white theme
-            SlideTransition(
-              position: _slideAnimation,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Container(
-                  height: sheetHeight + bottomInset + systemBottomPadding,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        spreadRadius: 0,
-                        offset: const Offset(0, -5),
+              
+              // Comments bottom sheet with custom white theme
+              SlideTransition(
+                position: _slideAnimation,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    height: sheetHeight + bottomInset + systemBottomPadding,
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: _pureWhite,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      _buildSheetHeader(),
-                      _buildMomentInfo(),
-                      Expanded(child: _buildCommentsList()),
-                      _buildCommentInput(bottomInset, systemBottomPadding),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x1A000000), // 10% black shadow
+                          blurRadius: 20,
+                          spreadRadius: 0,
+                          offset: Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildSheetHeader(),
+                        _buildMomentInfo(),
+                        Expanded(child: _buildCommentsList()),
+                        _buildCommentInput(bottomInset, systemBottomPadding),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -176,7 +199,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: _pureWhite,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
@@ -189,7 +212,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: _borderGray,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -205,7 +228,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                   child: Text(
                     'Comments',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: _pureBlack,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -215,13 +238,13 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                   onTap: _closeSheet,
                   child: Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
+                    decoration: const BoxDecoration(
+                      color: _lightGray,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.close,
-                      color: Colors.black54,
+                      color: _mediumGray,
                       size: 20,
                     ),
                   ),
@@ -237,11 +260,11 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
   Widget _buildMomentInfo() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+      decoration: const BoxDecoration(
+        color: _pureWhite,
         border: Border(
           bottom: BorderSide(
-            color: Colors.grey[200]!,
+            color: _borderGray,
             width: 1,
           ),
         ),
@@ -253,14 +276,14 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             backgroundImage: widget.moment.authorImage.isNotEmpty
                 ? NetworkImage(widget.moment.authorImage)
                 : null,
-            backgroundColor: Colors.grey[200],
+            backgroundColor: _lightGray,
             child: widget.moment.authorImage.isEmpty
                 ? Text(
                     widget.moment.authorName.isNotEmpty 
                         ? widget.moment.authorName[0].toUpperCase()
                         : "U",
                     style: const TextStyle(
-                      color: Colors.black54,
+                      color: _mediumGray,
                       fontWeight: FontWeight.bold,
                     ),
                   )
@@ -274,7 +297,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                 Text(
                   widget.moment.authorName,
                   style: const TextStyle(
-                    color: Colors.black,
+                    color: _pureBlack,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -283,8 +306,8 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                   const SizedBox(height: 4),
                   Text(
                     widget.moment.content,
-                    style: TextStyle(
-                      color: Colors.grey[600],
+                    style: const TextStyle(
+                      color: _darkGray,
                       fontSize: 14,
                     ),
                     maxLines: 2,
@@ -294,8 +317,8 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                 const SizedBox(height: 4),
                 Text(
                   timeago.format(widget.moment.createdAt),
-                  style: TextStyle(
-                    color: Colors.grey[500],
+                  style: const TextStyle(
+                    color: _mediumGray,
                     fontSize: 12,
                   ),
                 ),
@@ -311,7 +334,11 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
     final commentsStream = ref.watch(momentCommentsStreamProvider(widget.moment.id));
 
     return commentsStream.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(
+        child: CircularProgressIndicator(
+          color: _iosBlue,
+        ),
+      ),
       error: (error, stack) => _buildErrorState(error.toString()),
       data: (comments) {
         if (comments.isEmpty) {
@@ -322,7 +349,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
         final groupedComments = _groupCommentsByReplies(comments);
 
         return Container(
-          color: Colors.white,
+          color: _pureWhite,
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -409,13 +436,13 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             Container(
               width: 20,
               height: 1,
-              color: Colors.grey[300],
+              color: _borderGray,
             ),
             const SizedBox(width: 8),
             Text(
               'View ${group.replies.length - 2} more replies',
               style: const TextStyle(
-                color: Colors.blue,
+                color: _iosBlue,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -423,7 +450,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             const SizedBox(width: 4),
             const Icon(
               Icons.keyboard_arrow_down,
-              color: Colors.blue,
+              color: _iosBlue,
               size: 16,
             ),
           ],
@@ -445,7 +472,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
     return Container(
       height: MediaQuery.of(context).size.height * 0.8,
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: _pureWhite,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
@@ -456,10 +483,10 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
+            decoration: const BoxDecoration(
+              color: _pureWhite,
               border: Border(
-                bottom: BorderSide(color: Colors.grey[200]!),
+                bottom: BorderSide(color: _borderGray),
               ),
             ),
             child: Row(
@@ -468,7 +495,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                   child: Text(
                     'Replies to ${group.mainComment.authorName}',
                     style: const TextStyle(
-                      color: Colors.black,
+                      color: _pureBlack,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -478,7 +505,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                   onTap: () => Navigator.pop(context),
                   child: const Icon(
                     Icons.close,
-                    color: Colors.black54,
+                    color: _mediumGray,
                   ),
                 ),
               ],
@@ -488,10 +515,10 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
           // Original comment (condensed)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
+            decoration: const BoxDecoration(
+              color: _lightGray,
               border: Border(
-                bottom: BorderSide(color: Colors.grey[200]!),
+                bottom: BorderSide(color: _borderGray),
               ),
             ),
             child: Row(
@@ -501,7 +528,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                   backgroundImage: group.mainComment.authorImage.isNotEmpty
                       ? NetworkImage(group.mainComment.authorImage)
                       : null,
-                  backgroundColor: Colors.grey[200],
+                  backgroundColor: _borderGray,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -511,15 +538,15 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                       Text(
                         group.mainComment.authorName,
                         style: const TextStyle(
-                          color: Colors.black,
+                          color: _pureBlack,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         group.mainComment.content,
-                        style: TextStyle(
-                          color: Colors.grey[600],
+                        style: const TextStyle(
+                          color: _darkGray,
                           fontSize: 13,
                         ),
                         maxLines: 2,
@@ -535,7 +562,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
           // All replies
           Expanded(
             child: Container(
-              color: Colors.white,
+              color: _pureWhite,
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: group.replies.length,
@@ -562,7 +589,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
         top: 12,
         bottom: isReply ? 8 : 12,
       ),
-      color: Colors.white,
+      color: _pureWhite,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -571,14 +598,14 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             backgroundImage: comment.authorImage.isNotEmpty
                 ? NetworkImage(comment.authorImage)
                 : null,
-            backgroundColor: Colors.grey[200],
+            backgroundColor: _lightGray,
             child: comment.authorImage.isEmpty
                 ? Text(
                     comment.authorName.isNotEmpty 
                         ? comment.authorName[0].toUpperCase()
                         : "U",
                     style: TextStyle(
-                      color: Colors.black54,
+                      color: _mediumGray,
                       fontSize: isReply ? 10 : 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -590,15 +617,15 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Comment bubble with enhanced styling
+                // Comment bubble
                 Container(
                   padding: EdgeInsets.all(isReply ? 10 : 12),
                   decoration: BoxDecoration(
-                    color: isReply ? Colors.grey[50] : Colors.grey[100],
+                    color: isReply ? _lightGray : const Color(0xFFEBEBF0),
                     borderRadius: BorderRadius.circular(isReply ? 14 : 16),
                     border: comment.isReply && comment.repliedToAuthorName != null 
                         ? Border.all(
-                            color: Colors.blue.withOpacity(0.3),
+                            color: _iosBlue.withOpacity(0.3),
                             width: 1,
                           )
                         : null,
@@ -607,34 +634,30 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Author name
-                      Row(
-                        children: [
-                          Text(
-                            comment.authorName,
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: isReply ? 13 : 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        comment.authorName,
+                        style: TextStyle(
+                          color: _pureBlack,
+                          fontSize: isReply ? 13 : 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       
-                      // Reply indicator with better styling
+                      // Reply indicator
                       if (comment.isReply && comment.repliedToAuthorName != null) ...[
                         const SizedBox(height: 3),
                         Row(
                           children: [
                             const Icon(
                               Icons.reply,
-                              color: Colors.blue,
+                              color: _iosBlue,
                               size: 11,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               'Replying to ${comment.repliedToAuthorName}',
                               style: const TextStyle(
-                                color: Colors.blue,
+                                color: _iosBlue,
                                 fontSize: 10,
                                 fontStyle: FontStyle.italic,
                                 fontWeight: FontWeight.w500,
@@ -646,11 +669,11 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                       
                       const SizedBox(height: 4),
                       
-                      // Comment content with better formatting
+                      // Comment content
                       Text(
                         comment.content,
                         style: TextStyle(
-                          color: Colors.black87,
+                          color: _pureBlack,
                           fontSize: isReply ? 13 : 14,
                           height: 1.3,
                         ),
@@ -661,14 +684,14 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                 
                 const SizedBox(height: 8),
                 
-                // Enhanced comment actions with animations
+                // Comment actions
                 Row(
                   children: [
-                    // Time with more precise formatting
+                    // Time
                     Text(
                       _formatTimeAgo(comment.createdAt),
-                      style: TextStyle(
-                        color: Colors.grey[500],
+                      style: const TextStyle(
+                        color: _mediumGray,
                         fontSize: 11,
                         fontWeight: FontWeight.w400,
                       ),
@@ -676,7 +699,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                     
                     const SizedBox(width: 16),
                     
-                    // Enhanced like button with count
+                    // Like button
                     GestureDetector(
                       onTap: () => _likeComment(comment),
                       child: AnimatedContainer(
@@ -690,7 +713,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                               child: Icon(
                                 isLiked ? Icons.favorite : Icons.favorite_border,
                                 key: ValueKey(isLiked),
-                                color: isLiked ? Colors.red : Colors.grey[500],
+                                color: isLiked ? _iosRed : _mediumGray,
                                 size: 14,
                               ),
                             ),
@@ -702,7 +725,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                                   comment.likesCount.toString(),
                                   key: ValueKey(comment.likesCount),
                                   style: TextStyle(
-                                    color: isLiked ? Colors.red : Colors.grey[500],
+                                    color: isLiked ? _iosRed : _mediumGray,
                                     fontSize: 11,
                                     fontWeight: isLiked ? FontWeight.w600 : FontWeight.normal,
                                   ),
@@ -724,7 +747,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                           child: const Text(
                             'Reply',
                             style: TextStyle(
-                              color: Colors.blue,
+                              color: _iosBlue,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -733,17 +756,17 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                       ),
                     ],
                     
-                    // Delete button with better styling
+                    // Delete button
                     if (isOwn) ...[
                       const SizedBox(width: 16),
                       GestureDetector(
                         onTap: () => _deleteComment(comment),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          child: Text(
+                          child: const Text(
                             'Delete',
                             style: TextStyle(
-                              color: Colors.red.withOpacity(0.8),
+                              color: _iosRed,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -779,29 +802,29 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
   }
 
   Widget _buildEmptyCommentsState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.chat_bubble_outline,
             size: 48,
-            color: Colors.grey[400],
+            color: Color(0xFFAEAEB2),
           ),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 16),
+          Text(
             'No comments yet',
             style: TextStyle(
-              color: Colors.black,
+              color: _pureBlack,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             'Be the first to comment!',
             style: TextStyle(
-              color: Colors.grey[600],
+              color: _darkGray,
               fontSize: 14,
             ),
           ),
@@ -818,13 +841,13 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
           const Icon(
             Icons.error_outline,
             size: 48,
-            color: Colors.red,
+            color: _iosRed,
           ),
           const SizedBox(height: 16),
           const Text(
             'Failed to load comments',
             style: TextStyle(
-              color: Colors.black,
+              color: _pureBlack,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -832,8 +855,8 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
           const SizedBox(height: 8),
           Text(
             error,
-            style: TextStyle(
-              color: Colors.grey[600],
+            style: const TextStyle(
+              color: _darkGray,
               fontSize: 12,
             ),
             textAlign: TextAlign.center,
@@ -844,8 +867,8 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
               ref.invalidate(momentCommentsStreamProvider(widget.moment.id));
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
+              backgroundColor: _iosBlue,
+              foregroundColor: _pureWhite,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -865,19 +888,19 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
         top: 12,
         bottom: 12 + bottomInset + systemBottomPadding,
       ),
-      decoration: BoxDecoration(
-        color: Colors.white,
+      decoration: const BoxDecoration(
+        color: _pureWhite,
         border: Border(
           top: BorderSide(
-            color: Colors.grey[200]!,
+            color: _borderGray,
             width: 1,
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Color(0x0D000000), // 5% black shadow
             blurRadius: 10,
-            offset: const Offset(0, -2),
+            offset: Offset(0, -2),
           ),
         ],
       ),
@@ -890,7 +913,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
               // User avatar
               CircleAvatar(
                 radius: 16,
-                backgroundColor: Colors.grey[200],
+                backgroundColor: _lightGray,
                 child: ref.watch(currentUserProvider)?.image.isNotEmpty == true
                     ? ClipOval(
                         child: Image.network(
@@ -900,9 +923,9 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                           fit: BoxFit.cover,
                         ),
                       )
-                    : Icon(
+                    : const Icon(
                         Icons.person,
-                        color: Colors.grey[600],
+                        color: _mediumGray,
                         size: 18,
                       ),
               ),
@@ -913,11 +936,11 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 100),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: _lightGray,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: _commentFocusNode.hasFocus 
-                          ? Colors.blue.withOpacity(0.5)
+                          ? _iosBlue.withOpacity(0.5)
                           : Colors.transparent,
                       width: 1,
                     ),
@@ -929,8 +952,8 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                       hintText: _replyingToCommentId != null 
                           ? 'Reply to $_replyingToAuthorName...'
                           : 'Add a comment...',
-                      hintStyle: TextStyle(
-                        color: Colors.grey[500],
+                      hintStyle: const TextStyle(
+                        color: _mediumGray,
                         fontSize: 14,
                       ),
                       border: InputBorder.none,
@@ -941,24 +964,19 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                       isDense: true,
                     ),
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: _pureBlack,
                       fontSize: 14,
                     ),
                     maxLines: null,
                     maxLength: 500,
                     buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
-                      return null; // Hide default counter, we'll show our own
+                      return null; // Hide default counter
                     },
                     textCapitalization: TextCapitalization.sentences,
                     onTap: _expandSheet,
-                    onChanged: (text) {
-                      // Add typing indicator or other real-time features here
-                    },
                   ),
                 ),
-              ),
-              
-              const SizedBox(width: 8),
+              ),const SizedBox(width: 8),
               
               // Send button with animation
               AnimatedContainer(
@@ -969,15 +987,15 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: _commentController.text.trim().isNotEmpty
-                          ? Colors.blue
-                          : Colors.grey[300],
+                          ? _iosBlue
+                          : _borderGray,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.send,
                       color: _commentController.text.trim().isNotEmpty
-                          ? Colors.white
-                          : Colors.grey[600],
+                          ? _pureWhite
+                          : _mediumGray,
                       size: 16,
                     ),
                   ),
@@ -986,7 +1004,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             ],
           ),
           
-          // Character count and typing indicators (optional)
+          // Character count
           if (_commentController.text.length > 200) ...[
             const SizedBox(height: 4),
             Align(
@@ -995,8 +1013,8 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                 '${_commentController.text.length}/500',
                 style: TextStyle(
                   color: _commentController.text.length > 450 
-                      ? Colors.red 
-                      : Colors.grey[500],
+                      ? _iosRed
+                      : _mediumGray,
                   fontSize: 10,
                 ),
               ),
@@ -1013,10 +1031,10 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
       padding: const EdgeInsets.all(8),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
+        color: _iosBlue.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.blue.withOpacity(0.2),
+          color: _iosBlue.withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -1024,7 +1042,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
         children: [
           const Icon(
             Icons.reply,
-            color: Colors.blue,
+            color: _iosBlue,
             size: 14,
           ),
           const SizedBox(width: 8),
@@ -1032,7 +1050,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             child: Text(
               'Replying to $_replyingToAuthorName',
               style: const TextStyle(
-                color: Colors.blue,
+                color: _iosBlue,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -1043,12 +1061,12 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             child: Container(
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color: _iosBlue.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.close,
-                color: Colors.blue,
+                color: _iosBlue,
                 size: 12,
               ),
             ),
@@ -1089,52 +1107,58 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
   void _deleteComment(MomentCommentModel comment) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+      builder: (context) => Theme(
+        data: ThemeData(
+          brightness: Brightness.light,
+          dialogBackgroundColor: _pureWhite,
         ),
-        title: const Text(
-          'Delete Comment',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w600,
+        child: AlertDialog(
+          backgroundColor: _pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-        ),
-        content: Text(
-          'Are you sure you want to delete this comment? This action cannot be undone.',
-          style: TextStyle(
-            color: Colors.grey[600],
+          title: const Text(
+            'Delete Comment',
+            style: TextStyle(
+              color: _pureBlack,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: Colors.grey[600],
+          content: const Text(
+            'Are you sure you want to delete this comment? This action cannot be undone.',
+            style: TextStyle(
+              color: _darkGray,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: _mediumGray,
+                ),
               ),
             ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(momentCommentActionsProvider)
-                  .deleteComment(comment.id);
-              HapticFeedback.lightImpact();
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            child: const Text(
-              'Delete',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ref.read(momentCommentActionsProvider)
+                    .deleteComment(comment.id);
+                HapticFeedback.lightImpact();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: _iosRed,
+              ),
+              child: const Text(
+                'Delete',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1170,7 +1194,9 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
         }
       });
     } else {
-      showSnackBar(context, 'Failed to send comment');
+      if (mounted) {
+        showSnackBar(context, 'Failed to send comment');
+      }
     }
   }
 }
