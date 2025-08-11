@@ -329,6 +329,24 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     });
   }
 
+  // Helper method to get dummy price data
+  String _getDummyPrice() {
+    // Dummy prices for different video IDs - will be replaced with actual data later
+    final prices = [
+      'KES 1,999',
+      'KES 2,499', 
+      'KES 3,999',
+      'KES 899',
+      'KES 5,499',
+      'KES 1,299',
+      'KES 4,799',
+    ];
+    
+    // Use video ID hash to get consistent price for same video
+    final index = widget.video.id.hashCode.abs() % prices.length;
+    return prices[index];
+  }
+
   @override
   void dispose() {
     _likeAnimationController.dispose();
@@ -864,32 +882,69 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 8), // Reduced spacing
           
-          // Music info (TikTok style) - now positioned right above system nav
-          Row(
-            children: [
-              const Icon(
-                Icons.music_note,
-                color: Colors.white,
-                size: 16,
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  'Original sound - ${widget.video.channelName}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                      ),
-                    ],
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+          // Price display instead of music info
+          _buildPriceDisplay(),
+        ],
+      ),
+    );
+  }
+
+  // New method to build price display with styling
+  Widget _buildPriceDisplay() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF4CAF50), // Green start
+            Color(0xFF2E7D32), // Darker green end
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Price icon
+          const Icon(
+            Icons.local_offer,
+            color: Colors.white,
+            size: 16,
+            shadows: [
+              Shadow(
+                color: Colors.black,
+                blurRadius: 2,
               ),
             ],
+          ),
+          const SizedBox(width: 6),
+          // Price text
+          Text(
+            _getDummyPrice(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 2,
+                ),
+              ],
+            ),
           ),
         ],
       ),

@@ -8,6 +8,158 @@ import 'package:textgb/features/moments/providers/moments_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
+class ExpandableCommentText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+  final bool isMainComment;
+
+  const ExpandableCommentText({
+    super.key,
+    required this.text,
+    required this.style,
+    this.maxLines = 3,
+    this.isMainComment = true,
+  });
+
+  @override
+  State<ExpandableCommentText> createState() => _ExpandableCommentTextState();
+}
+
+class _ExpandableCommentTextState extends State<ExpandableCommentText>
+    with TickerProviderStateMixin {
+  bool _isExpanded = false;
+  bool _needsExpansion = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Check if text needs expansion after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfNeedsExpansion();
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _checkIfNeedsExpansion() {
+    final TextPainter textPainter = TextPainter(
+      text: TextSpan(text: widget.text, style: widget.style),
+      maxLines: widget.maxLines,
+      textDirection: TextDirection.ltr,
+    );
+    
+    textPainter.layout(maxWidth: MediaQuery.of(context).size.width - 120); // Account for avatar and padding
+    
+    if (textPainter.didExceedMaxLines) {
+      setState(() {
+        _needsExpansion = true;
+      });
+    }
+  }
+
+  void _toggleExpansion() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+    
+    if (_isExpanded) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
+    
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
+  }
+
+  String _getTruncatedText() {
+    if (!_needsExpansion || _isExpanded) return widget.text;
+    
+    final words = widget.text.split(' ');
+    if (words.length <= 20) return widget.text; // Don't truncate very short texts
+    
+    // Find a good breaking point (roughly 2-3 lines worth)
+    final targetLength = widget.isMainComment ? 120 : 100;
+    int currentLength = 0;
+    int wordIndex = 0;
+    
+    for (int i = 0; i < words.length; i++) {
+      currentLength += words[i].length + 1; // +1 for space
+      if (currentLength > targetLength) {
+        wordIndex = i;
+        break;
+      }
+    }
+    
+    if (wordIndex == 0) wordIndex = words.length ~/ 2; // Fallback
+    
+    return '${words.take(wordIndex).join(' ')}...';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = _getTruncatedText();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedCrossFade(
+          firstChild: Text(
+            displayText,
+            style: widget.style,
+          ),
+          secondChild: Text(
+            widget.text,
+            style: widget.style,
+          ),
+          crossFadeState: _isExpanded 
+              ? CrossFadeState.showSecond 
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
+        ),
+        
+        if (_needsExpansion) ...[
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: _toggleExpansion,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              child: Text(
+                _isExpanded ? 'Show less' : 'Read more',
+                style: TextStyle(
+                  color: context.modernTheme.primaryColor ?? const Color(0xFF007AFF),
+                  fontSize: widget.isMainComment ? 12 : 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class CommentThreadWidget extends ConsumerStatefulWidget {
   final MomentCommentModel comment;
   final List<MomentCommentModel> replies;
@@ -93,7 +245,7 @@ class _CommentThreadWidgetState extends ConsumerState<CommentThreadWidget>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildCommentBubble(widget.comment, isMainComment: true),
+                _buildEnhancedCommentBubble(widget.comment, isMainComment: true),
                 const SizedBox(height: 8),
                 _buildCommentActions(widget.comment, isLiked, isOwn, isMainComment: true),
               ],
@@ -129,7 +281,7 @@ class _CommentThreadWidgetState extends ConsumerState<CommentThreadWidget>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildCommentBubble(reply, isMainComment: false),
+                _buildEnhancedCommentBubble(reply, isMainComment: false),
                 const SizedBox(height: 6),
                 _buildCommentActions(reply, isLiked, isOwn, isMainComment: false),
               ],
@@ -162,7 +314,7 @@ class _CommentThreadWidgetState extends ConsumerState<CommentThreadWidget>
     );
   }
 
-  Widget _buildCommentBubble(MomentCommentModel comment, {required bool isMainComment}) {
+  Widget _buildEnhancedCommentBubble(MomentCommentModel comment, {required bool isMainComment}) {
     return Container(
       padding: EdgeInsets.all(isMainComment ? 12 : 10),
       decoration: BoxDecoration(
@@ -213,14 +365,16 @@ class _CommentThreadWidgetState extends ConsumerState<CommentThreadWidget>
           
           const SizedBox(height: 4),
           
-          // Comment content
-          Text(
-            comment.content,
+          // Enhanced expandable comment content
+          ExpandableCommentText(
+            text: comment.content,
             style: TextStyle(
               color: context.modernTheme.textColor,
               fontSize: isMainComment ? 14 : 13,
               height: 1.3,
             ),
+            maxLines: isMainComment ? 3 : 2,
+            isMainComment: isMainComment,
           ),
         ],
       ),
@@ -246,7 +400,7 @@ class _CommentThreadWidgetState extends ConsumerState<CommentThreadWidget>
         
         const SizedBox(width: 16),
         
-        // Like button with animation
+        // Like button with enhanced animation
         GestureDetector(
           onTap: () => _likeComment(comment, isLiked),
           child: AnimatedBuilder(
@@ -256,28 +410,44 @@ class _CommentThreadWidgetState extends ConsumerState<CommentThreadWidget>
                 scale: _showLikeAnimation && comment.id == widget.comment.id 
                     ? _likeScaleAnimation.value 
                     : 1.0,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isLiked ? Icons.favorite : Icons.favorite_border,
-                      color: isLiked 
-                          ? Colors.red 
-                          : context.modernTheme.textTertiaryColor,
-                      size: 14,
-                    ),
-                    if (comment.likesCount > 0) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatCount(comment.likesCount),
-                        style: TextStyle(
-                          color: context.modernTheme.textTertiaryColor,
-                          fontSize: 11,
-                          fontWeight: isLiked ? FontWeight.w600 : FontWeight.normal,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isLiked ? Colors.red.withOpacity(0.1) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          isLiked ? Icons.favorite : Icons.favorite_border,
+                          key: ValueKey(isLiked),
+                          color: isLiked 
+                              ? Colors.red 
+                              : context.modernTheme.textTertiaryColor,
+                          size: 14,
                         ),
                       ),
+                      if (comment.likesCount > 0) ...[
+                        const SizedBox(width: 4),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Text(
+                            _formatCount(comment.likesCount),
+                            key: ValueKey(comment.likesCount),
+                            style: TextStyle(
+                              color: isLiked ? Colors.red : context.modernTheme.textTertiaryColor,
+                              fontSize: 11,
+                              fontWeight: isLiked ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               );
             },
@@ -289,12 +459,19 @@ class _CommentThreadWidgetState extends ConsumerState<CommentThreadWidget>
           const SizedBox(width: 16),
           GestureDetector(
             onTap: () => widget.onReply(comment),
-            child: Text(
-              'Reply',
-              style: TextStyle(
-                color: context.modernTheme.textTertiaryColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Reply',
+                style: TextStyle(
+                  color: context.modernTheme.textTertiaryColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
@@ -305,12 +482,19 @@ class _CommentThreadWidgetState extends ConsumerState<CommentThreadWidget>
           const SizedBox(width: 16),
           GestureDetector(
             onTap: () => _deleteComment(comment),
-            child: const Text(
-              'Delete',
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'Delete',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),

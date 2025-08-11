@@ -9,6 +9,158 @@ import 'package:textgb/features/moments/providers/moments_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
+class ExpandableCommentText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+  final bool isMainComment;
+
+  const ExpandableCommentText({
+    super.key,
+    required this.text,
+    required this.style,
+    this.maxLines = 3,
+    this.isMainComment = true,
+  });
+
+  @override
+  State<ExpandableCommentText> createState() => _ExpandableCommentTextState();
+}
+
+class _ExpandableCommentTextState extends State<ExpandableCommentText>
+    with TickerProviderStateMixin {
+  bool _isExpanded = false;
+  bool _needsExpansion = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Check if text needs expansion after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfNeedsExpansion();
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _checkIfNeedsExpansion() {
+    final TextPainter textPainter = TextPainter(
+      text: TextSpan(text: widget.text, style: widget.style),
+      maxLines: widget.maxLines,
+      textDirection: TextDirection.ltr,
+    );
+    
+    textPainter.layout(maxWidth: MediaQuery.of(context).size.width - 120); // Account for avatar and padding
+    
+    if (textPainter.didExceedMaxLines) {
+      setState(() {
+        _needsExpansion = true;
+      });
+    }
+  }
+
+  void _toggleExpansion() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+    
+    if (_isExpanded) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
+    
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
+  }
+
+  String _getTruncatedText() {
+    if (!_needsExpansion || _isExpanded) return widget.text;
+    
+    final words = widget.text.split(' ');
+    if (words.length <= 20) return widget.text; // Don't truncate very short texts
+    
+    // Find a good breaking point (roughly 2-3 lines worth)
+    final targetLength = widget.isMainComment ? 120 : 100;
+    int currentLength = 0;
+    int wordIndex = 0;
+    
+    for (int i = 0; i < words.length; i++) {
+      currentLength += words[i].length + 1; // +1 for space
+      if (currentLength > targetLength) {
+        wordIndex = i;
+        break;
+      }
+    }
+    
+    if (wordIndex == 0) wordIndex = words.length ~/ 2; // Fallback
+    
+    return '${words.take(wordIndex).join(' ')}...';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = _getTruncatedText();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedCrossFade(
+          firstChild: Text(
+            displayText,
+            style: widget.style,
+          ),
+          secondChild: Text(
+            widget.text,
+            style: widget.style,
+          ),
+          crossFadeState: _isExpanded 
+              ? CrossFadeState.showSecond 
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
+        ),
+        
+        if (_needsExpansion) ...[
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: _toggleExpansion,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              child: Text(
+                _isExpanded ? 'Show less' : 'Read more',
+                style: TextStyle(
+                  color: const Color(0xFF007AFF), // iOS blue
+                  fontSize: widget.isMainComment ? 12 : 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class MomentCommentsBottomSheet extends ConsumerStatefulWidget {
   final MomentModel moment;
   final VoidCallback? onClose;
@@ -302,18 +454,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (widget.moment.content.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.moment.content,
-                    style: const TextStyle(
-                      color: _darkGray,
-                      fontSize: 14,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+
                 const SizedBox(height: 4),
                 Text(
                   timeago.format(widget.moment.createdAt),
@@ -405,14 +546,14 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
   Widget _buildCommentThread(CommentGroup group) {
     return Column(
       children: [
-        _buildCommentItem(group.mainComment),
+        _buildEnhancedCommentItem(group.mainComment),
         if (group.replies.isNotEmpty) ...[
           // Show first 2 replies directly
           Padding(
             padding: const EdgeInsets.only(left: 48),
             child: Column(
               children: group.replies.take(2).map((reply) => 
-                _buildCommentItem(reply, isReply: true)
+                _buildEnhancedCommentItem(reply, isReply: true)
               ).toList(),
             ),
           ),
@@ -567,7 +708,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: group.replies.length,
                 itemBuilder: (context, index) {
-                  return _buildCommentItem(group.replies[index], isReply: true);
+                  return _buildEnhancedCommentItem(group.replies[index], isReply: true);
                 },
               ),
             ),
@@ -577,7 +718,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
     );
   }
 
-  Widget _buildCommentItem(MomentCommentModel comment, {bool isReply = false}) {
+  Widget _buildEnhancedCommentItem(MomentCommentModel comment, {bool isReply = false}) {
     final currentUser = ref.watch(currentUserProvider);
     final isLiked = currentUser != null && comment.likedBy.contains(currentUser.uid);
     final isOwn = currentUser?.uid == comment.authorId;
@@ -617,7 +758,7 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Comment bubble
+                // Enhanced comment bubble with expandable text
                 Container(
                   padding: EdgeInsets.all(isReply ? 10 : 12),
                   decoration: BoxDecoration(
@@ -669,14 +810,16 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                       
                       const SizedBox(height: 4),
                       
-                      // Comment content
-                      Text(
-                        comment.content,
+                      // Enhanced expandable comment content
+                      ExpandableCommentText(
+                        text: comment.content,
                         style: TextStyle(
                           color: _pureBlack,
                           fontSize: isReply ? 13 : 14,
                           height: 1.3,
                         ),
+                        maxLines: isReply ? 2 : 3,
+                        isMainComment: !isReply,
                       ),
                     ],
                   ),
@@ -699,12 +842,16 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                     
                     const SizedBox(width: 16),
                     
-                    // Like button
+                    // Like button with enhanced animation
                     GestureDetector(
                       onTap: () => _likeComment(comment),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isLiked ? _iosRed.withOpacity(0.1) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -744,6 +891,10 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                         onTap: () => _replyToComment(comment),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                           child: const Text(
                             'Reply',
                             style: TextStyle(
@@ -763,6 +914,10 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                         onTap: () => _deleteComment(comment),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                           child: const Text(
                             'Delete',
                             style: TextStyle(
@@ -976,7 +1131,8 @@ class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottom
                     onTap: _expandSheet,
                   ),
                 ),
-              ),const SizedBox(width: 8),
+              ),
+              const SizedBox(width: 8),
               
               // Send button with animation
               AnimatedContainer(

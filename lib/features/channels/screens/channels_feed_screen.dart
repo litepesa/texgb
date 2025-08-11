@@ -36,7 +36,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   
   // Core controllers
   final PageController _pageController = PageController();
-  late AnimationController _musicDiscController; // Add music disc animation controller
   
   // Cache service
   final VideoCacheService _cacheService = VideoCacheService();
@@ -47,7 +46,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _isScreenActive = true;
   bool _isAppInForeground = true;
   bool _hasInitialized = false;
-  String _selectedFeedType = 'For You'; // Track selected feed type
   bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
   
@@ -206,11 +204,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     _startIntelligentPreloading();
     
-    // Start music disc animation only if controller is initialized
-    if (_musicDiscController.isAnimating != true) {
-      _musicDiscController.repeat();
-    }
-    
     WakelockPlus.enable();
   }
 
@@ -222,19 +215,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       // Seek to beginning for fresh start next time
       _currentVideoController!.seekTo(Duration.zero);
     }
-    
-    // Stop music disc animation safely
-    if (_musicDiscController.isAnimating) {
-      _musicDiscController.stop();
-    }
   }
 
   void _initializeControllers() {
-    // Initialize music disc rotation controller
-    _musicDiscController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 8), // Slow, hypnotic rotation
-    );
+    // Controllers initialization if needed in the future
   }
 
   void _setupSystemUI() {
@@ -379,10 +363,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
 
     if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
       _startIntelligentPreloading();
-      // Restart music disc animation for new video - check if controller is ready
-      if (!_musicDiscController.isAnimating) {
-        _musicDiscController.repeat();
-      }
       WakelockPlus.enable();
     }
     
@@ -397,7 +377,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     _cacheCleanupTimer?.cancel();
     
-    _musicDiscController.dispose(); // Dispose music disc controller
     _pageController.dispose();
     
     _stopPlayback();
@@ -450,12 +429,12 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               ),
             ),
           
-          // Top navigation tabs and search - positioned to avoid status bar
+          // Top navigation - simplified header matching moments feed style
           Positioned(
             top: systemTopPadding + 16, // Positioned below status bar with some padding
-            left: 16,
-            right: 16,
-            child: _buildTopNavigationContent(),
+            left: 0,
+            right: 0,
+            child: _buildSimplifiedHeader(),
           ),
           
           // TikTok-style right side menu
@@ -502,19 +481,17 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // Updated top navigation content (extracted for better positioning)
-  Widget _buildTopNavigationContent() {
+  // New simplified header matching moments feed screen style
+  Widget _buildSimplifiedHeader() {
     return Row(
       children: [
-        // Back button on the left
-        GestureDetector(
-          onTap: () {
-            Navigator.of(context).pop();
-          },
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            child: const Icon(
-              CupertinoIcons.chevron_back,
+        // Back button
+        Material(
+          type: MaterialType.transparency,
+          child: IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(
+              CupertinoIcons.chevron_left,
               color: Colors.white,
               size: 28,
               shadows: [
@@ -525,100 +502,82 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
                 ),
               ],
             ),
+            iconSize: 28,
+            padding: const EdgeInsets.all(12),
+            constraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: 44,
+            ),
+            splashRadius: 24,
+            tooltip: 'Back',
           ),
         ),
         
-        // Navigation tabs - centered with reduced spacing
+        // "Businesses" title with store icon in center - matching moments style
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildNavTab('SHOP', 'Shop'),
-              const SizedBox(width: 16), // Reduced from 24
-              _buildNavTab('Series', 'Series'),
-              const SizedBox(width: 16), // Reduced from 24
-              _buildNavTab('Following', 'Following'),
-              const SizedBox(width: 16), // Reduced from 24
-              _buildNavTab('For You', 'For You'),
+              Icon(
+                Icons.store_outlined,
+                color: Colors.white.withOpacity(0.7),
+                size: 20,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.7),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Businesses',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.7),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
         
-        // Search icon on the right
-        GestureDetector(
-          onTap: () {
-            // TODO: Navigate to search screen
+        // Search button
+        IconButton(
+          onPressed: () {
+            // TODO: Add search functionality
           },
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            child: const Icon(
-              CupertinoIcons.search,
-              color: Colors.white,
-              size: 28,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
+          icon: const Icon(
+            CupertinoIcons.search,
+            color: Colors.white,
+            size: 28,
+            shadows: [
+              Shadow(
+                color: Colors.black,
+                blurRadius: 3,
+                offset: Offset(0, 1),
+              ),
+            ],
           ),
+          iconSize: 28,
+          padding: const EdgeInsets.all(12),
+          constraints: const BoxConstraints(
+            minWidth: 44,
+            minHeight: 44,
+          ),
+          splashRadius: 24,
+          tooltip: 'Search',
         ),
       ],
     );
-  }
-
-  Widget _buildNavTab(String title, String value) {
-    final isSelected = _selectedFeedType == value;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedFeedType = value;
-        });
-        // TODO: Filter feed based on selected type
-        _loadVideosForFeedType(value);
-      },
-      child: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
-          fontSize: 16,
-          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-          shadows: [
-            Shadow(
-              color: Colors.black.withOpacity(0.7),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Method to load videos based on feed type
-  void _loadVideosForFeedType(String feedType) {
-    // TODO: Implement different loading logic based on feed type
-    switch (feedType) {
-      case 'For You':
-        // Load personalized feed
-        ref.read(channelVideosProvider.notifier).loadVideos();
-        break;
-      case 'Following':
-        // Load videos from followed channels
-        ref.read(channelVideosProvider.notifier).loadVideos();//.loadFollowingVideos();
-        break;
-      case 'Shop':
-        // Load shopping/product videos
-        ref.read(channelVideosProvider.notifier).loadVideos();//.loadShopVideos();
-        break;
-      case 'Series':
-        // Load series content
-        ref.read(channelVideosProvider.notifier).loadVideos();//.loadSeriesVideos();
-        break;
-    }
   }
 
   // Show feed options menu with the previous options
@@ -648,17 +607,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             ),
             const SizedBox(height: 20),
             
-            // Feed type options
-            _buildFeedOption('Today', 'Today'),
-            const SizedBox(height: 12),
-            _buildFeedOption('Following', 'Following'),
-            const SizedBox(height: 12),
-            _buildFeedOption('For You', 'For You'),
-            
-            const SizedBox(height: 20),
-            const Divider(color: Colors.grey),
-            const SizedBox(height: 12),
-            
             // Additional options
             _buildMenuOption(Icons.settings, 'Settings', () {
               Navigator.pop(context);
@@ -669,46 +617,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               Navigator.pop(context);
               // TODO: Navigate to help
             }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeedOption(String title, String value) {
-    final isSelected = _selectedFeedType == value;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedFeedType = value;
-        });
-        Navigator.pop(context);
-        // TODO: Filter feed based on selected type
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: isSelected ? Border.all(color: Colors.blue, width: 1) : null,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: isSelected ? Colors.blue : Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                color: isSelected ? Colors.blue : Colors.white,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
           ],
         ),
       ),
@@ -728,43 +636,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
       child: Column(
         children: [
-          // Profile avatar with red ring
-          _buildRightMenuItem(
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.red, width: 2),
-              ),
-              child: CircleAvatar(
-                backgroundImage: currentVideo?.channelImage.isNotEmpty == true
-                    ? NetworkImage(currentVideo!.channelImage)
-                    : null,
-                backgroundColor: Colors.grey,
-                child: currentVideo?.channelImage.isEmpty == true
-                    ? Text(
-                        currentVideo?.channelName.isNotEmpty == true
-                            ? currentVideo!.channelName[0].toUpperCase()
-                            : "U",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      )
-                    : null,
-              ),
-            ),
-            onTap: () => _navigateToChannelProfile(),
-          ),
-          
-          const SizedBox(height: 10),
-          
           // Like button
           _buildRightMenuItem(
             child: Icon(
-              currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite_border,
+              currentVideo?.isLiked == true ? CupertinoIcons.heart : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
             ),
@@ -777,7 +652,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           // Comment button
           _buildRightMenuItem(
             child: const Icon(
-              CupertinoIcons.chat_bubble,
+              CupertinoIcons.text_bubble,
               color: Colors.white,
               size: 26,
             ),
@@ -787,33 +662,120 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Share button
+          // Star button (new)
           _buildRightMenuItem(
             child: const Icon(
-              CupertinoIcons.paperplane,
+              CupertinoIcons.star,
               color: Colors.white,
               size: 26,
             ),
-            label: 'Share',
+            label: '0',
+            onTap: () {
+              // TODO: Add save/bookmark functionality
+            },
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // Share button
+          _buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.arrowshape_turn_up_right,
+              color: Colors.white,
+              size: 26,
+            ),
+            label: '0',
             onTap: () => _showShareOptions(),
           ),
           
           const SizedBox(height: 10),
           
-          // More button (three dots horizontal)
+          // DM button - custom white rounded square with 'DM' text (from moments feed)
           _buildRightMenuItem(
-            child: const Icon(
-              Icons.more_horiz,
-              color: Colors.white,
-              size: 26,
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Center(
+                child: Text(
+                  'DM',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
-            onTap: () => _showVideoOptionsMenu(),
+            label: 'Inbox',
+            onTap: () {
+              // TODO: Add DM functionality
+            },
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           
-          // Music disc (rotating)
-          _buildMusicDisc(),
+          // Profile avatar with red border - moved to bottom and changed to rounded square
+          _buildRightMenuItem(
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8), // Rounded square instead of circle
+                border: Border.all(color: Colors.red, width: 2),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6), // Slightly smaller radius for the image
+                child: currentVideo?.channelImage.isNotEmpty == true
+                    ? Image.network(
+                        currentVideo!.channelImage,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 44,
+                            height: 44,
+                            color: Colors.grey,
+                            child: Center(
+                              child: Text(
+                                currentVideo?.channelName.isNotEmpty == true
+                                    ? currentVideo!.channelName[0].toUpperCase()
+                                    : "U",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : Container(
+                        width: 44,
+                        height: 44,
+                        color: Colors.grey,
+                        child: Center(
+                          child: Text(
+                            currentVideo?.channelName.isNotEmpty == true
+                                ? currentVideo!.channelName[0].toUpperCase()
+                                : "U",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+            onTap: () => _navigateToChannelProfile(),
+          ),
         ],
       ),
     );
@@ -851,82 +813,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildMusicDisc() {
-    return AnimatedBuilder(
-      animation: _musicDiscController,
-      builder: (context, child) {
-        return Transform.rotate(
-          angle: _musicDiscController.value * 2 * 3.14159, // Full rotation
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  Colors.grey.shade300,
-                  Colors.grey.shade600,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-              // Add animated ring border like TikTok
-              border: Border.all(
-                color: Colors.white.withOpacity(0.8),
-                width: 2,
-              ),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Outer rotating ring (dotted pattern like TikTok)
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.6),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                // Inner disc with music note
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.grey.shade400,
-                        Colors.grey.shade700,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.music_note,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 

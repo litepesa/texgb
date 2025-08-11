@@ -58,6 +58,9 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   Map<int, VideoPlayerController> _videoControllers = {};
   Map<int, bool> _videoInitialized = {};
   
+  // Caption expansion state - add this
+  final Map<int, bool> _captionExpanded = {};
+  
   // Animation controllers for like effect
   late AnimationController _likeAnimationController;
   late AnimationController _heartScaleController;
@@ -523,6 +526,94 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
+  // Add the expandable caption method from status viewer
+  Widget _buildExpandableCaption(String caption, int momentIndex) {
+    // Check if caption needs truncation (more than 2 lines estimated)
+    final isLongCaption = caption.length > 100 || caption.split('\n').length > 2;
+    final isExpanded = _captionExpanded[momentIndex] ?? false;
+    
+    // Create truncated version
+    String displayText = caption;
+    if (isLongCaption && !isExpanded) {
+      // Split by lines first
+      final lines = caption.split('\n');
+      if (lines.length > 2) {
+        displayText = lines.take(2).join('\n');
+        // If the second line is too long, truncate it
+        final secondLineWords = displayText.split(' ');
+        if (secondLineWords.length > 15) {
+          displayText = secondLineWords.take(15).join(' ');
+        }
+      } else {
+        // Single long line - truncate by words
+        final words = caption.split(' ');
+        if (words.length > 15) {
+          displayText = words.take(15).join(' ');
+        }
+      }
+    }
+    
+    return GestureDetector(
+      onTap: () {
+        if (isLongCaption) {
+          setState(() {
+            _captionExpanded[momentIndex] = !isExpanded;
+          });
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        child: RichText(
+          text: TextSpan(
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              height: 1.3,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+            children: [
+              TextSpan(text: displayText),
+              if (isLongCaption) ...[
+                if (!isExpanded) ...[
+                  const TextSpan(text: '... '),
+                  TextSpan(
+                    text: 'more',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ] else ...[
+                  if (displayText != caption)
+                    TextSpan(
+                      text: caption.substring(displayText.length),
+                    ),
+                  const TextSpan(text: ' '),
+                  TextSpan(
+                    text: 'less',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -738,7 +829,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           left: 16,
           right: 80, // Leave space for right side menu  
           bottom: 16,
-          child: _buildMomentInfo(moment),
+          child: _buildMomentInfo(moment, index),
         ),
       ],
     );
@@ -838,7 +929,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
-  Widget _buildMomentInfo(MomentModel moment) {
+  Widget _buildMomentInfo(MomentModel moment, int momentIndex) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -885,107 +976,39 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           ],
         ),
         
+        // Expandable caption with professional styling like status viewer
         if (moment.content.isNotEmpty) ...[
           const SizedBox(height: 12),
-          Text(
-            moment.content,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              height: 1.3,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 2,
-                ),
-              ],
-            ),
-          ),
+          _buildExpandableCaption(moment.content, momentIndex),
         ],
 
         const SizedBox(height: 8),
         
-        // Time remaining and privacy info
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
+        // Simple timestamp only - keeping same styling as before
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.schedule,
+                color: Colors.white.withOpacity(0.7),
+                size: 14,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.schedule,
-                    color: Colors.white.withOpacity(0.7),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _getTimeAgo(moment.createdAt),
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 4),
+              Text(
+                _getTimeAgo(moment.createdAt),
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 12,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.timer,
-                    color: Colors.white.withOpacity(0.7),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    moment.timeRemainingText,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _getPrivacyIcon(moment.privacy),
-                    color: Colors.white.withOpacity(0.7),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    moment.privacy.displayName,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
