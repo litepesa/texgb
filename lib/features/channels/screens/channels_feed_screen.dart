@@ -518,21 +518,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.store_outlined,
-                color: Colors.white.withOpacity(0.7),
-                size: 20,
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withOpacity(0.7),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
               const SizedBox(width: 8),
               Text(
-                'Businesses',
+                'Business Feed',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 16,

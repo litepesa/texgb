@@ -860,7 +860,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                     decoration: BoxDecoration(
                       color: isFollowing ? Colors.transparent : const Color(0xFFFF3040), // Red fill when not following
                       border: Border.all(color: Colors.white, width: 1),
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(5),
                     ),
                     child: Text(
                       isFollowing ? 'Following' : 'Follow',

@@ -12,6 +12,7 @@ import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
+import 'package:textgb/features/channels/widgets/channel_video_item.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -46,15 +47,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   int _currentVideoIndex = 0;
   bool _isAppInForeground = true;
   bool _isScreenActive = true;
-  
-  // Like animation state
-  bool _showLikeAnimation = false;
-  late AnimationController _likeAnimationController;
-  late AnimationController _heartScaleController;
-  late Animation<double> _heartScaleAnimation;
-  late AnimationController _burstAnimationController;
-  late Animation<double> _burstAnimation;
-  late AnimationController _sparkleAnimationController;
+  bool _isNavigatingAway = false;
+  bool _isManuallyPaused = false;
   
   // Channel data
   ChannelModel? _channel;
@@ -65,18 +59,9 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   bool _isOwner = false;
   
   // Video controllers
-  Map<int, VideoPlayerController> _videoControllers = {};
-  Map<int, bool> _videoInitialized = {};
+  VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
   
-  // Progress tracking
-  Timer? _progressTimer;
-  double _currentProgress = 0.0;
-  
-  // Animation controllers
-  late AnimationController _imageProgressController;
-  late AnimationController _progressController;
-
   // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
 
@@ -90,7 +75,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     _setupSystemUI();
     _loadChannelData();
     _setupCacheCleanup();
-    _initializeAnimationControllers();
   }
 
   @override
@@ -112,55 +96,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
       systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
-    );
-  }
-  
-  void _initializeAnimationControllers() {
-    _imageProgressController = AnimationController(
-      duration: const Duration(seconds: 15),
-      vsync: this,
-    );
-    
-    _progressController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 15),
-    );
-    
-    // Like animation controllers
-    _likeAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    
-    _heartScaleController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    
-    _heartScaleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.3,
-    ).animate(CurvedAnimation(
-      parent: _heartScaleController,
-      curve: Curves.elasticOut,
-    ));
-    
-    _burstAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    
-    _burstAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _burstAnimationController,
-      curve: Curves.easeOut,
-    ));
-    
-    _sparkleAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
     );
   }
 
@@ -189,15 +124,15 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     switch (state) {
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
-        if (_isScreenActive) {
-          _playCurrentVideo();
+        if (_isScreenActive && !_isNavigatingAway) {
+          _startFreshPlayback();
         }
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
         _isAppInForeground = false;
-        _pauseCurrentVideo();
+        _stopPlayback();
         break;
       case AppLifecycleState.hidden:
         break;
@@ -261,8 +196,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           });
         }
         
-        // Initialize video controllers with performance optimization
-        _initializeVideoControllersOptimized();
+        // Initialize intelligent preloading
+        _startIntelligentPreloading();
       }
     } catch (e) {
       if (mounted) {
@@ -274,277 +209,115 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     }
   }
 
-  void _initializeVideoControllersOptimized() {
+  void _startIntelligentPreloading() {
+    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
+    
     if (_channelVideos.isEmpty) return;
     
-    // Only initialize current video and next 2 videos for performance
-    final maxInitialize = (_channelVideos.length).clamp(0, 3);
-    final startIndex = _currentVideoIndex;
-    
-    for (int i = 0; i < maxInitialize; i++) {
-      final index = startIndex + i;
-      if (index < _channelVideos.length) {
-        final video = _channelVideos[index];
-        if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
-          _initializeVideoController(index, video.videoUrl);
-        }
-      }
-    }
-    
-    // Wait for the next frame before starting playback
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_channelVideos.isNotEmpty && mounted) {
-        _playCurrentVideo(); // This will handle wakelock
-        _startProgressTracking();
-      }
-    });
+    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
+    _cacheService.preloadVideosIntelligently(_channelVideos, _currentVideoIndex);
   }
 
-  Future<void> _initializeVideoController(int index, String videoUrl) async {
-    try {
-      File? cachedFile;
-      try {
-        if (await _cacheService.isVideoCached(videoUrl)) {
-          cachedFile = await _cacheService.getCachedVideo(videoUrl);
-        } else {
-          // Only preload if within first 3 videos for performance
-          if (index < 3) {
-            cachedFile = await _cacheService.preloadVideo(videoUrl);
-          }
-        }
-      } catch (e) {
-        debugPrint('Cache error for video $index, falling back to network: $e');
+  void _startFreshPlayback() {
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused) return;
+    
+    debugPrint('ChannelFeedScreen: Starting fresh playback');
+    
+    if (_currentVideoController?.value.isInitialized == true) {
+      _currentVideoController!.play();
+      debugPrint('ChannelFeedScreen: Video controller playing');
+    } else {
+      // If video controller isn't ready, trigger a re-initialization
+      debugPrint('ChannelFeedScreen: Video controller not ready, attempting initialization');
+      if (_channelVideos.isNotEmpty && _currentVideoIndex < _channelVideos.length) {
+        // This will trigger the video item to reinitialize if needed
+        setState(() {});
       }
-
-      VideoPlayerController controller;
-      if (cachedFile != null && await cachedFile.exists()) {
-        controller = VideoPlayerController.file(cachedFile);
-      } else {
-        controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-      }
-      
-      _videoControllers[index] = controller;
-      
-      await controller.initialize();
-      controller.setLooping(true);
-      
-      if (mounted) {
-        setState(() {
-          _videoInitialized[index] = true;
-        });
-      }
-      
-      if (index == _currentVideoIndex && _isScreenActive && _isAppInForeground) {
-        controller.play();
-        WakelockPlus.enable();
-      }
-    } catch (e) {
-      debugPrint('Error initializing video $index: $e');
     }
+    
+    _startIntelligentPreloading();
+    
+    WakelockPlus.enable();
+  }
+
+  void _stopPlayback() {
+    debugPrint('ChannelFeedScreen: Stopping playback');
+    
+    if (_currentVideoController?.value.isInitialized == true) {
+      _currentVideoController!.pause();
+      // Seek to beginning for fresh start next time
+      _currentVideoController!.seekTo(Duration.zero);
+    }
+  }
+
+  void _pauseForNavigation() {
+    debugPrint('ChannelFeedScreen: Pausing for navigation');
+    _isNavigatingAway = true;
+    _stopPlayback();
+  }
+
+  void _resumeFromNavigation() {
+    debugPrint('ChannelFeedScreen: Resuming from navigation');
+    _isNavigatingAway = false;
+    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+      // Add a small delay to ensure the screen is fully visible before starting playback
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+          _startFreshPlayback();
+        }
+      });
+    }
+  }
+
+  void _onVideoControllerReady(VideoPlayerController controller) {
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
+    
+    debugPrint('Video controller ready, setting up fresh playback');
+    
+    setState(() {
+      _currentVideoController = controller;
+    });
+
+    // Always start fresh from the beginning for NEW videos
+    controller.seekTo(Duration.zero);
+    
+    WakelockPlus.enable();
+    
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
+      _startIntelligentPreloading();
+    }
+  }
+
+  void onManualPlayPause(bool isPlaying) {
+    debugPrint('ChannelFeedScreen: Manual play/pause - isPlaying: $isPlaying');
+    setState(() {
+      _isManuallyPaused = !isPlaying;
+    });
   }
 
   void _onPageChanged(int index) {
-    if (index >= _channelVideos.length) return;
+    if (index >= _channelVideos.length || !_isScreenActive) return;
 
-    // Pause current video and disable wakelock
-    _pauseCurrentVideo();
-    _stopProgressTracking();
-    
+    debugPrint('Page changed to: $index');
+
     setState(() {
       _currentVideoIndex = index;
-      _currentProgress = 0.0;
+      _currentVideoController = null;
+      _isManuallyPaused = false; // Reset manual pause state for new video
     });
 
-    // Play new video (this will enable wakelock if appropriate)
-    _playCurrentVideo();
-    _startProgressTracking();
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
+      _startIntelligentPreloading();
+      WakelockPlus.enable();
+    }
     
-    // Intelligent preloading: initialize next video controller if needed
-    _preloadNextVideos(index);
-    
-    // Increment view count
     ref.read(channelVideosProvider.notifier).incrementViewCount(_channelVideos[index].id);
-  }
-  
-  void _preloadNextVideos(int currentIndex) {
-    // Preload next 2 videos if not already initialized
-    for (int i = 1; i <= 2; i++) {
-      final nextIndex = currentIndex + i;
-      if (nextIndex < _channelVideos.length && 
-          !_videoInitialized.containsKey(nextIndex) &&
-          !_channelVideos[nextIndex].isMultipleImages &&
-          _channelVideos[nextIndex].videoUrl.isNotEmpty) {
-        _initializeVideoController(nextIndex, _channelVideos[nextIndex].videoUrl);
-      }
-    }
-    
-    // Clean up old controllers to save memory (keep only current and next 2)
-    _cleanupOldControllers(currentIndex);
-  }
-  
-  void _cleanupOldControllers(int currentIndex) {
-    final controllersToRemove = <int>[];
-    
-    _videoControllers.forEach((index, controller) {
-      // Keep current video and next 2 videos
-      if (index < currentIndex - 1 || index > currentIndex + 2) {
-        controllersToRemove.add(index);
-      }
-    });
-    
-    for (final index in controllersToRemove) {
-      _videoControllers[index]?.dispose();
-      _videoControllers.remove(index);
-      _videoInitialized.remove(index);
-    }
-  }
-  
-  void _startProgressTracking() {
-    _progressTimer?.cancel();
-    
-    if (_currentVideoIndex >= _channelVideos.length) return;
-    final currentVideo = _channelVideos[_currentVideoIndex];
-    
-    if (currentVideo.isMultipleImages) {
-      // For images, use animation controller and enable wakelock
-      _imageProgressController.reset();
-      _imageProgressController.forward();
-      _imageProgressController.addListener(_updateImageProgress);
-      
-      // Enable wakelock for images too to prevent screen from sleeping
-      if (_isScreenActive && _isAppInForeground) {
-        WakelockPlus.enable();
-      }
-    } else {
-      // For videos, track actual video progress
-      _progressTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
-        if (!mounted || !_isScreenActive || !_isAppInForeground) {
-          timer.cancel();
-          WakelockPlus.disable();
-          return;
-        }
-        
-        final controller = _videoControllers[_currentVideoIndex];
-        if (controller != null && controller.value.isInitialized) {
-          final position = controller.value.position;
-          final duration = controller.value.duration;
-          
-          if (duration.inMilliseconds > 0) {
-            final progress = position.inMilliseconds / duration.inMilliseconds;
-            setState(() {
-              _currentProgress = progress;
-            });
-          }
-        }
-      });
-    }
-  }
-  
-  void _stopProgressTracking() {
-    _progressTimer?.cancel();
-    _imageProgressController.removeListener(_updateImageProgress);
-    _imageProgressController.stop();
-    // Don't disable wakelock here as it might be needed for the next content
-  }
-  
-  void _updateImageProgress() {
-    if (!mounted) return;
-    final progress = _imageProgressController.value;
-    setState(() {
-      _currentProgress = progress;
-    });
-  }
-
-  void _playCurrentVideo() {
-    if (!_isScreenActive || !_isAppInForeground || _currentVideoIndex >= _channelVideos.length) {
-      WakelockPlus.disable();
-      return;
-    }
-    
-    final controller = _videoControllers[_currentVideoIndex];
-    if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
-      controller.seekTo(Duration.zero);
-      controller.play();
-      WakelockPlus.enable();
-    } else {
-      // For images or when video is not ready, still enable wakelock
-      WakelockPlus.enable();
-    }
-  }
-
-  void _pauseCurrentVideo() {
-    final controller = _videoControllers[_currentVideoIndex];
-    if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
-      controller.pause();
-    }
-    // Always disable wakelock when pausing
-    WakelockPlus.disable();
-  }
-
-  void _togglePlayPause() {
-    if (_currentVideoIndex >= _channelVideos.length) return;
-    
-    final currentVideo = _channelVideos[_currentVideoIndex];
-    if (currentVideo.isMultipleImages) return;
-    
-    final controller = _videoControllers[_currentVideoIndex];
-    if (controller != null && _videoInitialized[_currentVideoIndex] == true) {
-      if (controller.value.isPlaying) {
-        controller.pause();
-        WakelockPlus.disable();
-      } else {
-        controller.play();
-        WakelockPlus.enable();
-      }
-    }
-  }
-
-  void _handleDoubleTap() {
-    if (_currentVideoIndex >= _channelVideos.length) return;
-    
-    // Trigger like animation
-    setState(() {
-      _showLikeAnimation = true;
-    });
-    
-    // Start all animations
-    _heartScaleController.forward().then((_) {
-      Future.delayed(const Duration(milliseconds: 200), () {
-        _heartScaleController.reverse();
-      });
-    });
-    
-    _burstAnimationController.forward().then((_) {
-      _burstAnimationController.reset();
-    });
-    
-    _sparkleAnimationController.forward().then((_) {
-      _sparkleAnimationController.reset();
-    });
-    
-    _likeAnimationController.forward().then((_) {
-      _likeAnimationController.reset();
-      if (mounted) {
-        setState(() {
-          _showLikeAnimation = false;
-        });
-      }
-    });
-    
-    // Like the current video
-    final currentVideo = _channelVideos[_currentVideoIndex];
-    if (!currentVideo.isLiked) {
-      ref.read(channelVideosProvider.notifier).likeVideo(currentVideo.id);
-    }
-    
-    // Haptic feedback
-    HapticFeedback.mediumImpact();
   }
 
   // Enhanced back navigation with proper system UI restoration
   void _handleBackNavigation() {
     // Pause playback and disable wakelock before leaving
-    _pauseCurrentVideo();
+    _stopPlayback();
     
     // Restore the original system UI style if available
     if (_originalSystemUiStyle != null) {
@@ -575,7 +348,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     if (_channel == null) return;
     
     // Pause current video and disable wakelock before navigation
-    _pauseCurrentVideo();
+    _pauseForNavigation();
     
     // Navigate to channel profile screen
     await Navigator.pushNamed(
@@ -585,186 +358,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     );
     
     // Resume video when returning (if still active)
-    if (_isScreenActive && _isAppInForeground) {
-      _playCurrentVideo();
-    }
-  }
-
-  // Like animation overlay - More exciting with burst effect, sparkles, and floating hearts
-  Widget _buildLikeAnimationOverlay() {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Stack(
-          children: [
-            // Burst effect background
-            Center(
-              child: AnimatedBuilder(
-                animation: _burstAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _burstAnimation.value * 3,
-                    child: Opacity(
-                      opacity: (1 - _burstAnimation.value).clamp(0.0, 0.5),
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              Colors.red.withOpacity(0.6),
-                              Colors.pink.withOpacity(0.4),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            
-            // Sparkles around the heart
-            ..._buildSparkles(),
-            
-            // Center heart that scales and rotates
-            Center(
-              child: AnimatedBuilder(
-                animation: Listenable.merge([_heartScaleAnimation, _likeAnimationController]),
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _heartScaleAnimation.value,
-                    child: Transform.rotate(
-                      angle: _likeAnimationController.value * 0.5,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.red.withOpacity(0.6),
-                              blurRadius: 20,
-                              spreadRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.favorite,
-                          color: Colors.red,
-                          size: 100,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 8,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            
-            // Floating hearts with more dynamic movement
-            ..._buildFloatingHearts(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _buildSparkles() {
-    const sparkleCount = 12;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    
-    return List.generate(sparkleCount, (index) {
-      final angle = (index * 360 / sparkleCount) * (3.14159 / 180);
-      final radius = 120.0;
-      
-      return AnimatedBuilder(
-        animation: _sparkleAnimationController,
-        builder: (context, child) {
-          final progress = _sparkleAnimationController.value;
-          final scale = (1 - progress).clamp(0.0, 1.0);
-          final distance = radius * progress;
-          
-          return Positioned(
-            left: screenWidth / 2 + (distance * cos(angle)) - 10,
-            top: screenHeight / 2 + (distance * sin(angle)) - 10,
-            child: Transform.scale(
-              scale: scale,
-              child: Transform.rotate(
-                angle: progress * 6.28,
-                child: Icon(
-                  index % 2 == 0 ? Icons.star : Icons.auto_awesome,
-                  color: index % 3 == 0 ? Colors.yellow : Colors.orange,
-                  size: 20,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.5),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    });
-  }
-
-  List<Widget> _buildFloatingHearts() {
-    const heartCount = 8;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    
-    return List.generate(heartCount, (index) {
-      final offsetX = (index * 0.25 - 1) * screenWidth * 0.5;
-      final startY = screenHeight * 0.6;
-      final endY = screenHeight * 0.1;
-      final zigzagAmplitude = 30.0;
-      
-      return AnimatedBuilder(
-        animation: _likeAnimationController,
-        builder: (context, child) {
-          final progress = _likeAnimationController.value;
-          final opacity = (1.0 - progress).clamp(0.0, 1.0);
-          final y = startY + (endY - startY) * progress;
-          final zigzag = sin(progress * 3.14159 * 4) * zigzagAmplitude;
-          
-          return Positioned(
-            left: screenWidth / 2 + offsetX + zigzag,
-            top: y,
-            child: Transform.rotate(
-              angle: (index - 4) * 0.3 + progress * 2,
-              child: Opacity(
-                opacity: opacity,
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withOpacity(0.5),
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.favorite,
-                    color: index % 2 == 0 ? Colors.red : Colors.pink,
-                    size: 25 + (index % 3) * 10.0,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    });
+    _resumeFromNavigation();
   }
 
   @override
@@ -772,7 +366,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     WidgetsBinding.instance.removeObserver(this);
     
     // Stop all playback and disable wakelock before disposing
-    _pauseCurrentVideo();
+    _stopPlayback();
     
     // Restore original system UI style on dispose if available
     if (_originalSystemUiStyle != null) {
@@ -792,19 +386,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     
     _cacheService.dispose();
     _cacheCleanupTimer?.cancel();
-    _progressTimer?.cancel();
-    _imageProgressController.dispose();
-    _progressController.dispose();
-    _likeAnimationController.dispose();
-    _heartScaleController.dispose();
-    _burstAnimationController.dispose();
-    _sparkleAnimationController.dispose();
-    
-    for (final controller in _videoControllers.values) {
-      controller.dispose();
-    }
-    _videoControllers.clear();
-    _videoInitialized.clear();
     
     _pageController.dispose();
     
@@ -862,39 +443,15 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
                 ),
               ),
               
-              // Top bar overlay - Enhanced back button
+              // Top navigation - updated header with channel name
               Positioned(
-                top: systemTopPadding + 16,
-                left: 4,
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: IconButton(
-                    onPressed: _handleBackNavigation,
-                    icon: const Icon(
-                      CupertinoIcons.chevron_left,
-                      color: Colors.white,
-                      size: 28,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    iconSize: 28,
-                    padding: const EdgeInsets.all(12), // Larger tap area
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 44,
-                    ),
-                    splashRadius: 24,
-                    tooltip: 'Back',
-                  ),
-                ),
+                top: systemTopPadding + 16, // Positioned below status bar with some padding
+                left: 0,
+                right: 0,
+                child: _buildChannelHeader(),
               ),
               
-              // TikTok-style right side menu - simplified to 3 items only
+              // TikTok-style right side menu - matching channels feed
               _buildRightSideMenu(),
             ],
           ),
@@ -913,131 +470,71 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
       scrollDirection: Axis.vertical,
       itemCount: _channelVideos.length,
       onPageChanged: _onPageChanged,
+      physics: _isScreenActive ? null : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final video = _channelVideos[index];
         
-        return GestureDetector(
-          onTap: _togglePlayPause,
-          onDoubleTap: _handleDoubleTap,
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: Colors.black,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildVideoContent(video, index),
-                // Like animation overlay
-                if (_showLikeAnimation && index == _currentVideoIndex)
-                  _buildLikeAnimationOverlay(),
-              ],
-            ),
-          ),
+        return ChannelVideoItem(
+          video: video,
+          isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
+          onVideoControllerReady: _onVideoControllerReady,
+          onManualPlayPause: onManualPlayPause,
         );
       },
     );
   }
 
-  Widget _buildVideoContent(ChannelVideoModel video, int index) {
-    if (video.isMultipleImages) {
-      return _buildImageCarousel(video.imageUrls);
-    } else if (video.videoUrl.isNotEmpty) {
-      return _buildVideoPlayer(index);
-    } else {
-      return _buildPlaceholder();
-    }
-  }
-
-  Widget _buildVideoPlayer(int index) {
-    final controller = _videoControllers[index];
-    final isInitialized = _videoInitialized[index] ?? false;
-    
-    if (controller == null || !isInitialized) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      );
-    }
-    
-    return SizedBox.expand(
-      child: FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: controller.value.size.width,
-          height: controller.value.size.height,
-          child: VideoPlayer(controller),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImageCarousel(List<String> imageUrls) {
-    if (imageUrls.isEmpty) return _buildPlaceholder();
-    
-    return CarouselSlider(
-      options: CarouselOptions(
-        height: double.infinity,
-        viewportFraction: 1.0,
-        enableInfiniteScroll: imageUrls.length > 1,
-        autoPlay: imageUrls.length > 1,
-        autoPlayInterval: const Duration(seconds: 4),
-      ),
-      items: imageUrls.map((imageUrl) {
-        return SizedBox.expand(
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: Colors.black,
-                child: const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
+  // Simplified header with only back button
+  Widget _buildChannelHeader() {
+    return Row(
+      children: [
+        // Back button
+        Material(
+          type: MaterialType.transparency,
+          child: IconButton(
+            onPressed: _handleBackNavigation,
+            icon: const Icon(
+              CupertinoIcons.chevron_left,
+              color: Colors.white,
+              size: 28,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
                 ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+              ],
+            ),
+            iconSize: 28,
+            padding: const EdgeInsets.all(12), // Larger tap area
+            constraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: 44,
+            ),
+            splashRadius: 24,
+            tooltip: 'Back',
           ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildPlaceholder() {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Colors.black,
-      child: const Center(
-        child: Icon(
-          Icons.broken_image,
-          color: Colors.white,
-          size: 64,
         ),
-      ),
+      ],
     );
   }
 
-  // TikTok-style right side menu - simplified to 2 items only (like, comment)
+  // TikTok-style right side menu (matching channels feed exactly)
   Widget _buildRightSideMenu() {
-    final videos = _channelVideos;
-    final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
-        ? videos[_currentVideoIndex] 
+    final currentVideo = _channelVideos.isNotEmpty && _currentVideoIndex < _channelVideos.length 
+        ? _channelVideos[_currentVideoIndex] 
         : null;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
-      right: 4, // Close to edge like channels feed
-      bottom: systemBottomPadding + 16, // Position above system nav bar with padding
+      right: 4, // Much closer to edge
+      bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
       child: Column(
         children: [
           // Like button
           _buildRightMenuItem(
             child: Icon(
-              currentVideo?.isLiked == true ? Icons.favorite : Icons.favorite_border,
+              currentVideo?.isLiked == true ? CupertinoIcons.heart : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
             ),
@@ -1050,12 +547,129 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           // Comment button
           _buildRightMenuItem(
             child: const Icon(
-              CupertinoIcons.chat_bubble,
+              CupertinoIcons.text_bubble,
               color: Colors.white,
               size: 26,
             ),
             label: _formatCount(currentVideo?.comments ?? 0),
             onTap: () => _showCommentsForCurrentVideo(currentVideo),
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // Star button (new)
+          _buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.star,
+              color: Colors.white,
+              size: 26,
+            ),
+            label: '0',
+            onTap: () {
+              // TODO: Add save/bookmark functionality
+            },
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // Share button
+          _buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.arrowshape_turn_up_right,
+              color: Colors.white,
+              size: 26,
+            ),
+            label: '0',
+            onTap: () => _showShareOptions(),
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // DM button - custom white rounded square with 'DM' text (from moments feed)
+          _buildRightMenuItem(
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Center(
+                child: Text(
+                  'DM',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            label: 'Inbox',
+            onTap: () {
+              // TODO: Add DM functionality
+            },
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // Profile avatar with red border - moved to bottom and changed to rounded square
+          _buildRightMenuItem(
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8), // Rounded square instead of circle
+                border: Border.all(color: Colors.red, width: 2),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6), // Slightly smaller radius for the image
+                child: currentVideo?.channelImage.isNotEmpty == true
+                    ? Image.network(
+                        currentVideo!.channelImage,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 44,
+                            height: 44,
+                            color: Colors.grey,
+                            child: Center(
+                              child: Text(
+                                currentVideo?.channelName.isNotEmpty == true
+                                    ? currentVideo!.channelName[0].toUpperCase()
+                                    : "U",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : Container(
+                        width: 44,
+                        height: 44,
+                        color: Colors.grey,
+                        child: Center(
+                          child: Text(
+                            currentVideo?.channelName.isNotEmpty == true
+                                ? currentVideo!.channelName[0].toUpperCase()
+                                : "U",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+            onTap: () => _navigateToChannelProfile(),
           ),
         ],
       ),
@@ -1072,16 +686,16 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(4), // Reduced padding
             child: child,
           ),
           if (label != null) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 2), // Reduced spacing
             Text(
               label,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 11,
+                fontSize: 11, // Slightly smaller text
                 fontWeight: FontWeight.w500,
                 shadows: [
                   Shadow(
@@ -1166,46 +780,13 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   void _likeCurrentVideo(ChannelVideoModel? video) {
     if (video != null) {
       ref.read(channelVideosProvider.notifier).likeVideo(video.id);
-      
-      // Trigger animation when liking via button
-      if (!video.isLiked) {
-        setState(() {
-          _showLikeAnimation = true;
-        });
-        
-        // Start all animations
-        _heartScaleController.forward().then((_) {
-          Future.delayed(const Duration(milliseconds: 200), () {
-            _heartScaleController.reverse();
-          });
-        });
-        
-        _burstAnimationController.forward().then((_) {
-          _burstAnimationController.reset();
-        });
-        
-        _sparkleAnimationController.forward().then((_) {
-          _sparkleAnimationController.reset();
-        });
-        
-        _likeAnimationController.forward().then((_) {
-          _likeAnimationController.reset();
-          if (mounted) {
-            setState(() {
-              _showLikeAnimation = false;
-            });
-          }
-        });
-        
-        HapticFeedback.mediumImpact();
-      }
     }
   }
 
   void _showCommentsForCurrentVideo(ChannelVideoModel? video) {
     if (video != null) {
       // Pause current video and disable wakelock when showing comments
-      _pauseCurrentVideo();
+      _pauseForNavigation();
       
       // Show comments bottom sheet and handle completion
       showModalBottomSheet(
@@ -1223,11 +804,70 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
         ),
       ).whenComplete(() {
         // Resume video and re-enable wakelock when comments are closed
-        if (_isScreenActive && _isAppInForeground) {
-          _playCurrentVideo();
-        }
+        _resumeFromNavigation();
       });
     }
+  }
+
+  void _showShareOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Share Video',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildShareOption(Icons.copy, 'Copy Link'),
+                _buildShareOption(Icons.message, 'Message'),
+                _buildShareOption(Icons.more_horiz, 'More'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShareOption(IconData icon, String label) {
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: const BoxDecoration(
+            color: Colors.grey,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.white),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
   }
 
   String _formatCount(int count) {
