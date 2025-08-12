@@ -1,4 +1,4 @@
-// lib/features/moments/screens/moments_feed_screen.dart - Simplified chronological version
+// lib/features/moments/screens/moments_feed_screen.dart - With lifecycle methods like ChannelsFeedScreen
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -38,10 +38,10 @@ class MomentsFeedScreen extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<MomentsFeedScreen> createState() => _MomentsFeedScreenState();
+  ConsumerState<MomentsFeedScreen> createState() => MomentsFeedScreenState();
 }
 
-class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> 
+class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> 
     with TickerProviderStateMixin, WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   
   // Core controllers
@@ -53,6 +53,9 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   bool _isAppInForeground = true;
   bool _hasNavigatedToStart = false;
   bool _isCommentsSheetOpen = false;
+  bool _hasInitialized = false;
+  bool _isNavigatingAway = false; // Track navigation state
+  bool _isManuallyPaused = false; // Track if user manually paused the video
   
   // Video controllers
   Map<int, VideoPlayerController> _videoControllers = {};
@@ -81,6 +84,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeAnimationControllers();
     _setupSystemUI();
+    _hasInitialized = true;
     
     // Enable wakelock for video playback
     WakelockPlus.enable();
@@ -178,8 +182,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     switch (state) {
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
-        if (_isScreenActive && !_isCommentsSheetOpen) {
-          _playCurrentVideo();
+        if (_isScreenActive && !_isCommentsSheetOpen && !_isNavigatingAway) {
+          _startFreshPlayback();
         }
         break;
       case AppLifecycleState.paused:
@@ -193,8 +197,69 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
   }
 
+  // Lifecycle methods matching ChannelsFeedScreen
+  void onScreenBecameActive() {
+    if (!_hasInitialized) return;
+    
+    debugPrint('MomentsFeedScreen: Screen became active');
+    _isScreenActive = true;
+    _isNavigatingAway = false; // Reset navigation state
+    
+    // Setup system UI when becoming active
+    _setupSystemUI();
+    
+    if (_isAppInForeground && !_isManuallyPaused) {
+      _startFreshPlayback();
+      WakelockPlus.enable();
+    }
+  }
+
+  void onScreenBecameInactive() {
+    if (!_hasInitialized) return;
+    
+    debugPrint('MomentsFeedScreen: Screen became inactive');
+    _isScreenActive = false;
+    _pauseAllVideos();
+    
+    // Restore original system UI when becoming inactive
+    _restoreOriginalSystemUI();
+    
+    WakelockPlus.disable();
+  }
+
+  // New method to handle navigation away from feed
+  void _pauseForNavigation() {
+    debugPrint('MomentsFeedScreen: Pausing for navigation');
+    _isNavigatingAway = true;
+    _pauseAllVideos();
+  }
+
+  // New method to handle returning from navigation
+  void _resumeFromNavigation() {
+    debugPrint('MomentsFeedScreen: Resuming from navigation');
+    _isNavigatingAway = false;
+    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+      // Add a small delay to ensure the screen is fully visible before starting playback
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+          _startFreshPlayback();
+        }
+      });
+    }
+  }
+
+  void _startFreshPlayback() {
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused) return;
+    
+    debugPrint('MomentsFeedScreen: Starting fresh playback');
+    _playCurrentVideo();
+    WakelockPlus.enable();
+  }
+
   @override
   void dispose() {
+    debugPrint('MomentsFeedScreen: Disposing');
+    
     WidgetsBinding.instance.removeObserver(this);
     
     // Stop all playback and disable wakelock before disposing
@@ -271,9 +336,11 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     if (controller != null && _videoInitialized[_currentIndex] == true) {
       if (controller.value.isPlaying) {
         controller.pause();
+        _isManuallyPaused = true;
         WakelockPlus.disable();
       } else {
         controller.play();
+        _isManuallyPaused = false;
         WakelockPlus.enable();
       }
     }
@@ -392,6 +459,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     
     setState(() {
       _currentIndex = index;
+      _isManuallyPaused = false; // Reset manual pause state for new video
     });
 
     // Initialize video controller if needed
