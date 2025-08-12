@@ -35,6 +35,23 @@ class Constants {
   static const String statusReplyScreen = '/statusReplyScreen';
   static const String statusForwardScreen = '/statusForwardScreen';
   static const String statusSettingsScreen = '/statusSettingsScreen';
+
+  // Mini-Series routes
+  static const String miniSeriesFeedScreen = '/miniSeriesFeedScreen';
+  static const String creatorDashboardScreen = '/creatorDashboardScreen';
+  static const String createSeriesScreen = '/createSeriesScreen';
+  static const String createEpisodeScreen = '/createEpisodeScreen';
+  static const String seriesDetailScreen = '/seriesDetailScreen';
+  static const String episodePlayerScreen = '/episodePlayerScreen';
+  static const String seriesAnalyticsScreen = '/seriesAnalyticsScreen';
+  static const String episodeManagementScreen = '/episodeManagementScreen';
+
+  // Mini-Series collections
+  static const String miniSeries = 'mini_series';
+  static const String episodes = 'episodes';
+  static const String episodeComments = 'episode_comments';
+  static const String seriesAnalytics = 'series_analytics';
+  static const String seriesFiles = 'series_files';
   
   // Group routes (Private Groups)
   static const String groupsMainScreen = '/groupsMainScreen';

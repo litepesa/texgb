@@ -11,15 +11,12 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/duanju/screens/short_dramas_screen.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/moments/screens/create_moment_screen.dart';
 import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
-//import 'package:textgb/features/status/screens/status_screen.dart';
-//import 'package:textgb/features/status/screens/create_status_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
@@ -417,7 +414,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       text: TextSpan(
         children: [
           TextSpan(
-            text: "Snap",
+            text: "Wei",
             style: TextStyle(
               color: modernTheme.textColor,          
               fontWeight: FontWeight.w500,
@@ -426,10 +423,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
           TextSpan(
-            text: "reel",
+            text: "Bao",
             style: TextStyle(
               color: modernTheme.primaryColor,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               fontSize: 24,
               letterSpacing: -0.3,
             ),
