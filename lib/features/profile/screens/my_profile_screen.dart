@@ -1,6 +1,5 @@
 // lib/features/profile/screens/my_profile_screen.dart
 import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,8 +92,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   late TextEditingController _aboutController;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  ChannelModel? _userChannel;
-  bool _isLoadingChannelData = true;
   
   @override
   void initState() {
@@ -115,9 +112,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     
     // Preload user's profile image and related images in background
     _preloadCriticalImages();
-    
-    // Load channel data for stats
-    _loadChannelData();
   }
   
   @override
@@ -125,27 +119,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     _aboutController.dispose();
     _animationController.dispose();
     super.dispose();
-  }
-
-  // Load channel data to get real stats
-  Future<void> _loadChannelData() async {
-    try {
-      final userChannel = ref.read(channelsProvider).userChannel;
-      
-      if (mounted) {
-        setState(() {
-          _userChannel = userChannel;
-          _isLoadingChannelData = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoadingChannelData = false;
-        });
-      }
-      debugPrint('Error loading channel data: $e');
-    }
   }
 
   // Preload critical images for better UX - runs in background
@@ -318,21 +291,10 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     }
   }
 
-  // Helper method to format numbers
-  String _formatCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}K';
-    }
-    return count.toString();
-  }
-
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final user = ref.watch(currentUserProvider);
-    final channelsState = ref.watch(channelsProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     if (user == null) {
@@ -356,11 +318,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               // Enhanced Profile Header
               _buildEnhancedProfileHeader(user, modernTheme),
               
-              // My Posts - Prominent Feature
-              _buildMyPostsFeature(modernTheme),
-              
-              // Quick Stats
-              _buildQuickStats(user, modernTheme, channelsState),
+              // Wallet Navigation Feature (replaces My Posts)
+              _buildWalletNavigationFeature(modernTheme),
               
               // Profile Information
               _buildProfileInfo(user, modernTheme),
@@ -613,8 +572,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
   
-  // New prominent My Posts feature
-  Widget _buildMyPostsFeature(ModernThemeExtension modernTheme) {
+  // New Wallet Navigation feature (replaces My Posts)
+  Widget _buildWalletNavigationFeature(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -622,14 +581,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            modernTheme.primaryColor!,
-            modernTheme.primaryColor!.withOpacity(0.8),
+            Colors.green.shade600,
+            Colors.green.shade700,
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: modernTheme.primaryColor!.withOpacity(0.3),
+            color: Colors.green.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -639,7 +598,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            Navigator.pushNamed(context, Constants.myChannelScreen);
+            Navigator.pushNamed(context, Constants.walletScreen);
           },
           borderRadius: BorderRadius.circular(20),
           child: Padding(
@@ -655,7 +614,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Icon(
-                        Icons.video_library,
+                        CupertinoIcons.money_dollar_circle_fill,
                         color: Colors.white,
                         size: 32,
                       ),
@@ -666,7 +625,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'MY POSTS',
+                            'MY WALLET',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 24,
@@ -676,7 +635,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'View and manage your content',
+                            'Manage your earnings & payments',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.9),
                               fontSize: 14,
@@ -693,42 +652,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                   ],
                 ),
                 const SizedBox(height: 20),
-                // Quick action buttons
+                // Quick action buttons for wallet
                 Row(
                   children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.pushNamed(context, Constants.createChannelPostScreen);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            children: [
-                              const Icon(
-                                Icons.add_circle,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Create Post',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -739,13 +665,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                         child: Column(
                           children: [
                             const Icon(
-                              Icons.analytics,
+                              CupertinoIcons.plus_circle,
                               color: Colors.white,
                               size: 24,
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Analytics',
+                              'Top Up',
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.9),
                                 fontSize: 12,
@@ -767,13 +693,41 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                         child: Column(
                           children: [
                             const Icon(
-                              Icons.rocket_launch,
+                              CupertinoIcons.paperplane,
                               color: Colors.white,
                               size: 24,
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Boost',
+                              'Send Money',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              CupertinoIcons.chart_bar_fill,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Earnings',
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.9),
                                 fontSize: 12,
@@ -791,125 +745,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           ),
         ),
       ),
-    );
-  }
-  
-  // Quick stats section with real data including following count
-  Widget _buildQuickStats(UserModel user, ModernThemeExtension modernTheme, ChannelsState channelsState) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor!,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: _isLoadingChannelData
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItemLoading(modernTheme),
-                _buildStatItemLoading(modernTheme),
-                _buildStatItemLoading(modernTheme),
-                _buildStatItemLoading(modernTheme),
-              ],
-            )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(
-                  'Posts', 
-                  _userChannel != null ? _formatCount(_userChannel!.videosCount) : '0', 
-                  Icons.video_library, 
-                  modernTheme
-                ),
-                _buildStatItem(
-                  'Followers', 
-                  _userChannel != null ? _formatCount(_userChannel!.followers) : '0', 
-                  Icons.people, 
-                  modernTheme
-                ),
-                _buildStatItem(
-                  'Following', 
-                  _formatCount(user.followingCount), // Use user's following count
-                  Icons.person_add, 
-                  modernTheme
-                ),
-                _buildStatItem(
-                  'Likes', 
-                  _userChannel != null ? _formatCount(_userChannel!.likesCount) : '0', 
-                  Icons.favorite, 
-                  modernTheme
-                ),
-              ],
-            ),
-    );
-  }
-  
-  Widget _buildStatItem(String label, String value, IconData icon, ModernThemeExtension modernTheme) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-          color: modernTheme.primaryColor,
-          size: 24,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            color: modernTheme.textSecondaryColor,
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatItemLoading(ModernThemeExtension modernTheme) {
-    return Column(
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: modernTheme.primaryColor!.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: 30,
-          height: 18,
-          decoration: BoxDecoration(
-            color: modernTheme.textColor!.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          width: 40,
-          height: 12,
-          decoration: BoxDecoration(
-            color: modernTheme.textSecondaryColor!.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-      ],
     );
   }
   
@@ -1722,8 +1557,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       await ref.read(authenticationProvider.notifier).switchAccount(selectedAccount);
       if (mounted) {
         showSnackBar(context, 'Switched to ${selectedAccount.name}\'s account');
-        // Reload channel data for the new account
-        _loadChannelData();
         // Preload the new account's images in background
         _preloadCriticalImages();
       }

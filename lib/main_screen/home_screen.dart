@@ -464,21 +464,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       position: PopupMenuPosition.under,
       offset: const Offset(0, 8),
       onSelected: (String value) {
-        if (value == 'profile') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const MyProfileScreen(),
-            ),
-          );
-        } else if (value == 'wallet') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const WalletScreen(),
-            ),
-          );
-        } else if (value == 'my_moments') {
+        if (value == 'my_moments') {
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -612,84 +598,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ]);
     }
 
-    // Always add profile and wallet options
-    items.addAll([
-      PopupMenuItem<String>(
-        value: 'profile',
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor?.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.person_outline,
-                color: modernTheme.primaryColor,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              'My Profile',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-      PopupMenuItem<String>(
-        value: 'wallet',
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor?.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.account_balance_wallet_outlined,
-                color: modernTheme.primaryColor,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              'Wallet',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ]);
-
+    // No additional items are added here since we removed profile and wallet
     return items;
   }
   
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 0) {
-      // Chats tab - Show both New chat and Wallet FABs
+      // Chats tab - Show both New chat and Profile FABs
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Wallet FAB
+          // Profile FAB
           FloatingActionButton(
-            heroTag: "wallet_fab",
+            heroTag: "profile_fab",
             backgroundColor: modernTheme.backgroundColor,
             foregroundColor: modernTheme.primaryColor,
             elevation: 4,
@@ -697,11 +618,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const WalletScreen(),
+                  builder: (context) => const MyProfileScreen(),
                 ),
               );
             },
-            child: const Icon(Icons.account_balance_wallet_outlined),
+            child: const Icon(Icons.person_outline),
           ),
           const SizedBox(height: 16),
           // New chat FAB

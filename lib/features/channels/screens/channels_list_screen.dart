@@ -63,6 +63,29 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
       channels.removeWhere((channel) => channel.id == userChannel.id);
     }
     
+    // Sort by latest activity - most recent first
+    channels.sort((a, b) {
+      // Featured channels always come first
+      if (a.isFeatured && !b.isFeatured) return -1;
+      if (!a.isFeatured && b.isFeatured) return 1;
+      
+      // Then sort by last activity
+      final aLastPost = a.lastPostAt?.toDate();
+      final bLastPost = b.lastPostAt?.toDate();
+      
+      // Channels with recent posts come first
+      if (aLastPost != null && bLastPost != null) {
+        return bLastPost.compareTo(aLastPost); // Most recent first
+      }
+      
+      // Channels with any posts come before channels with no posts
+      if (aLastPost != null && bLastPost == null) return -1;
+      if (aLastPost == null && bLastPost != null) return 1;
+      
+      // For channels with no posts, sort by creation date (newest first)
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    
     return channels;
   }
 
