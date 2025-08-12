@@ -81,6 +81,7 @@ class Constants {
   static const String channelCommentsScreen = '/channelCommentsScreen';
   static const String exploreChannelsScreen = '/exploreChannelsScreen';
   static const String myPostScreen = '/myPostScreen';
+  static const String channelsListScreen = '/channelsListScreen';
 
   // Public Groups routes
   static const String publicGroupsScreen = '/publicGroupsScreen';

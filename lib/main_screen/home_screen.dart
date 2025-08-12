@@ -9,6 +9,8 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
+import 'package:textgb/features/channels/screens/my_channel_screen.dart';
+import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/groups/screens/groups_tab.dart';
@@ -16,6 +18,7 @@ import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/moments/screens/create_moment_screen.dart';
 import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
+import 'package:textgb/features/moments/screens/my_moments_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -475,73 +478,207 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               builder: (context) => const WalletScreen(),
             ),
           );
+        } else if (value == 'my_moments') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const MyMomentsScreen(),
+            ),
+          );
+        } else if (value == 'my_channel') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const MyChannelScreen(),
+            ),
+          );
+        } else if (value == 'explore_channels') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ChannelsListScreen(),
+            ),
+          );
         }
       },
-      itemBuilder: (BuildContext context) => [
-        PopupMenuItem<String>(
-          value: 'profile',
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor?.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.person_outline,
-                  color: modernTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'My Profile',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'wallet',
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor?.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.account_balance_wallet_outlined,
-                  color: modernTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Wallet',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+      itemBuilder: (BuildContext context) => _buildMenuItems(modernTheme),
     );
+  }
+
+  List<PopupMenuEntry<String>> _buildMenuItems(ModernThemeExtension modernTheme) {
+    final List<PopupMenuEntry<String>> items = [];
+
+    // Add conditional menu items based on current tab
+    if (_currentIndex == 2) {
+      // Moments tab - add "My Moments" option
+      items.add(
+        PopupMenuItem<String>(
+          value: 'my_moments',
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor?.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.donut_large_rounded,
+                  color: modernTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'My Moments',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (_currentIndex == 3) {
+      // Channels tab - add "My Channel" and "Explore" options
+      items.addAll([
+        PopupMenuItem<String>(
+          value: 'my_channel',
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor?.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.video_library_outlined,
+                  color: modernTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'My Channel',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'explore_channels',
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor?.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.explore_outlined,
+                  color: modernTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Explore Channels',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ]);
+    }
+
+    // Always add profile and wallet options
+    items.addAll([
+      PopupMenuItem<String>(
+        value: 'profile',
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor?.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.person_outline,
+                color: modernTheme.primaryColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              'My Profile',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'wallet',
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor?.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.account_balance_wallet_outlined,
+                color: modernTheme.primaryColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              'Wallet',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ]);
+
+    return items;
   }
   
   Widget _buildFab(ModernThemeExtension modernTheme) {

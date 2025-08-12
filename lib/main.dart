@@ -11,6 +11,7 @@ import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_post_screen.dart';
 import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
+import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
@@ -225,6 +226,10 @@ class AppRoot extends ConsumerWidget {
             final channel = ModalRoute.of(context)!.settings.arguments as ChannelModel;
             return EditChannelScreen(channel: channel);
           },
+          
+          // Channels List Screen - NEW ADDITION
+          Constants.channelsListScreen: (context) => const ChannelsListScreen(),
+          
           Constants.exploreChannelsScreen: (context) => const Scaffold(
               body: Center(
                 child: Text('Explore Channels Screen - To be implemented'),

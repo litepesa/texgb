@@ -46,7 +46,7 @@ class _MyMomentsScreenState extends ConsumerState<MyMomentsScreen> {
     final userMomentsStream = ref.watch(userMomentsStreamProvider(currentUser.uid));
 
     return Scaffold(
-      backgroundColor: context.modernTheme.backgroundColor,
+      backgroundColor: context.modernTheme.surfaceColor,
       appBar: AppBar(
         backgroundColor: context.modernTheme.appBarColor,
         elevation: 0,
@@ -174,7 +174,7 @@ class _MyMomentsScreenState extends ConsumerState<MyMomentsScreen> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          color: context.modernTheme.surfaceColor,
+          color: context.modernTheme.backgroundColor,
           border: Border.all(
             color: isActive 
                 ? context.modernTheme.borderColor!
