@@ -34,6 +34,7 @@ import 'package:textgb/features/moments/screens/create_moment_screen.dart';
 import 'package:textgb/features/moments/screens/moment_comments_screen.dart';
 import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
 import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
+import 'package:textgb/features/moments/screens/my_moments_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
@@ -197,11 +198,7 @@ class AppRoot extends ConsumerWidget {
             return MomentCommentsScreen(moment: moment);
           },
 
-          Constants.myMomentsScreen: (context) => const Scaffold(
-            body: Center(
-              child: Text('My Moments Screen - To be implemented'),
-            ),
-          ), // Placeholder for MyMomentsScreen
+          Constants.myMomentsScreen: (context) => const MyMomentsScreen(),
           
           // Channel routes with enhanced navigation support
           Constants.channelsFeedScreen: (context) {
