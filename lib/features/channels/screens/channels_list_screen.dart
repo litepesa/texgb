@@ -294,7 +294,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: isSelected ? Border(
@@ -325,7 +325,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                                 size: 14,
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 4),
                             Flexible(
                               child: AnimatedDefaultTextStyle(
                                 duration: const Duration(milliseconds: 200),
@@ -336,7 +336,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                                   fontWeight: isSelected 
                                     ? FontWeight.w700 
                                     : FontWeight.w500,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   letterSpacing: 0.1,
                                 ),
                                 child: Text(
@@ -621,8 +621,8 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                   children: [
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      width: 56,
-                      height: 56,
+                      width: 52,
+                      height: 52,
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
@@ -645,7 +645,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                       child: Container(
                         decoration: const BoxDecoration(shape: BoxShape.circle),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
+                          borderRadius: BorderRadius.circular(26),
                           child: channel.profileImage.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: channel.profileImage,
@@ -658,7 +658,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                                     child: Icon(
                                       Icons.business_rounded,
                                       color: theme.primaryColor,
-                                      size: 24,
+                                      size: 22,
                                     ),
                                   ),
                                   errorWidget: (context, url, error) => Container(
@@ -670,7 +670,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                                       child: Text(
                                         channel.name.isNotEmpty ? channel.name[0].toUpperCase() : 'B',
                                         style: TextStyle(
-                                          fontSize: 20,
+                                          fontSize: 18,
                                           fontWeight: FontWeight.w700,
                                           color: theme.primaryColor,
                                         ),
@@ -687,7 +687,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                                     child: Text(
                                       channel.name.isNotEmpty ? channel.name[0].toUpperCase() : 'B',
                                       style: TextStyle(
-                                        fontSize: 20,
+                                        fontSize: 18,
                                         fontWeight: FontWeight.w700,
                                         color: theme.primaryColor,
                                       ),
@@ -753,21 +753,22 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                   ],
                 ),
                 
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 
-                // Enhanced Channel Info
+                // Enhanced Channel Info with proper flex control
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Channel name with verification
                       Row(
                         children: [
-                          Flexible(
+                          Expanded(
                             child: Text(
                               channel.name,
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: theme.textColor,
                                 letterSpacing: -0.2,
@@ -777,7 +778,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                             ),
                           ),
                           if (channel.isVerified) ...[
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 4),
                             Container(
                               padding: const EdgeInsets.all(2),
                               decoration: BoxDecoration(
@@ -787,59 +788,66 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                               child: const Icon(
                                 Icons.verified_rounded,
                                 color: Colors.blue,
-                                size: 14,
+                                size: 12,
                               ),
                             ),
                           ],
                         ],
                       ),
                       
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       
-                      // Enhanced stats with better design
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 2,
-                        children: [
-                          _buildStatChip(
-                            icon: Icons.play_circle_outline_rounded,
-                            text: '${channel.videosCount} videos',
-                            theme: theme,
-                          ),
-                          _buildStatChip(
-                            icon: Icons.people_outline_rounded,
-                            text: _formatCount(channel.followers),
-                            theme: theme,
-                          ),
-                        ],
+                      // Enhanced stats with proper wrapping
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildStatChip(
+                              icon: Icons.play_circle_outline_rounded,
+                              text: '${channel.videosCount} videos',
+                              theme: theme,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildStatChip(
+                              icon: Icons.people_outline_rounded,
+                              text: _formatCount(channel.followers),
+                              theme: theme,
+                            ),
+                          ],
+                        ),
                       ),
                       
                       const SizedBox(height: 4),
                       
                       // Last activity with enhanced styling
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: theme.primaryColor!.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.schedule_rounded,
-                              size: 12,
+                              size: 10,
                               color: theme.primaryColor,
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              channel.lastPostAt != null 
-                                ? 'Active ${_getTimeAgo(channel.lastPostAt!.toDate())}'
-                                : 'No recent activity',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: theme.primaryColor,
-                                fontWeight: FontWeight.w600,
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                channel.lastPostAt != null 
+                                  ? 'Active ${_getTimeAgo(channel.lastPostAt!.toDate())}'
+                                  : 'No recent activity',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: theme.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
                           ],
@@ -849,69 +857,75 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                   ),
                 ),
                 
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 
-                // Enhanced Follow Button with selector-inspired design
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                    child: InkWell(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        ref.read(channelsProvider.notifier).toggleFollowChannel(channel.id);
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isFollowing ? theme.surfaceVariantColor : theme.primaryColor,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isFollowing 
-                              ? theme.dividerColor!.withOpacity(0.3)
-                              : theme.primaryColor!,
-                            width: 1,
-                          ),
-                          boxShadow: !isFollowing ? [
-                            BoxShadow(
-                              color: theme.primaryColor!.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ] : null,
+                // Enhanced Follow Button with better constraints
+                Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      ref.read(channelsProvider.notifier).toggleFollowChannel(channel.id);
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      constraints: const BoxConstraints(
+                        minWidth: 80,
+                        maxWidth: 100,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isFollowing ? theme.surfaceVariantColor : theme.primaryColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isFollowing 
+                            ? theme.dividerColor!.withOpacity(0.3)
+                            : theme.primaryColor!,
+                          width: 1,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: isFollowing 
-                                  ? theme.primaryColor!.withOpacity(0.15)
-                                  : Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Icon(
-                                isFollowing ? Icons.check_rounded : Icons.add_rounded,
-                                color: isFollowing ? theme.primaryColor : Colors.white,
-                                size: 14,
-                              ),
+                        boxShadow: !isFollowing ? [
+                          BoxShadow(
+                            color: theme.primaryColor!.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ] : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: isFollowing 
+                                ? theme.primaryColor!.withOpacity(0.15)
+                                : Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(3),
                             ),
-                            const SizedBox(width: 6),
-                            Text(
+                            child: Icon(
+                              isFollowing ? Icons.check_rounded : Icons.add_rounded,
+                              color: isFollowing ? theme.primaryColor : Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
                               isFollowing ? 'Following' : 'Follow',
                               style: TextStyle(
                                 color: isFollowing ? theme.primaryColor : Colors.white,
-                                fontSize: 13,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.1,
                               ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -930,10 +944,10 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
     required theme,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: theme.surfaceVariantColor!.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: theme.dividerColor!.withOpacity(0.2),
           width: 1,
@@ -944,14 +958,14 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
         children: [
           Icon(
             icon,
-            size: 12,
+            size: 10,
             color: theme.textSecondaryColor,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 3),
           Text(
             text,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               color: theme.textSecondaryColor,
               fontWeight: FontWeight.w600,
             ),

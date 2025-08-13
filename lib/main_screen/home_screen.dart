@@ -11,15 +11,13 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/live/screens/live_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
+
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -112,7 +110,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final chatsAsyncValue = ref.watch(chatStreamProvider);
 
     return Scaffold(
       extendBody: true,
@@ -149,13 +146,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ],
       ),
       
-      bottomNavigationBar: _buildCustomBottomNav(modernTheme, chatsAsyncValue),
+      bottomNavigationBar: _buildCustomBottomNav(modernTheme),
       
       floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
     );
   }
 
-  Widget _buildCustomBottomNav(ModernThemeExtension modernTheme, AsyncValue<List<ChatModel>> chatsAsyncValue) {
+  Widget _buildCustomBottomNav(ModernThemeExtension modernTheme) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
     // Use consistent surface color for bottom nav
@@ -180,7 +177,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(4, (index) {
-                return _buildBottomNavItem(index, modernTheme, chatsAsyncValue);
+                return _buildBottomNavItem(index, modernTheme);
               }),
             ),
           ),
@@ -192,123 +189,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildBottomNavItem(
     int index, 
     ModernThemeExtension modernTheme,
-    AsyncValue<List<ChatModel>> chatsAsyncValue,
   ) {
     final isSelected = _currentIndex == index;
     
-    // Chats tab is at index 0 - show unread count for direct chats only
-    if (index == 0) {
-      return chatsAsyncValue.when(
-        data: (chats) {
-          // Calculate unread count from direct chats only
-          final directChats = chats.where((chat) => !chat.isGroup).toList();
-          final chatUnreadCount = directChats.fold<int>(
-            0, 
-            (sum, chat) => sum + chat.getDisplayUnreadCount()
-          );
-          
-          return _buildNavItemWithBadge(
-            index, 
-            isSelected, 
-            modernTheme, 
-            chatUnreadCount
-          );
-        },
-        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-      );
-    }
-    
-    // For other tabs (Wallet, Moments, Channels), no badge needed
+    // No badge functionality needed - just show default bottom nav items
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
 
-  Widget _buildNavItemWithBadge(
-    int index,
-    bool isSelected,
-    ModernThemeExtension modernTheme,
-    int unreadCount,
-  ) {
-    final iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
-    final textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
-
-    return GestureDetector(
-      onTap: () => _onTabTapped(index),
-      behavior: HitTestBehavior.translucent,
-      child: SizedBox(
-        width: 60,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                      ? modernTheme.primaryColor!.withOpacity(0.2)
-                      : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _tabIcons[index],
-                    color: iconColor,
-                    size: 24,
-                  ),
-                ),
-                if (unreadCount > 0)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor,
-                        shape: unreadCount > 99 
-                            ? BoxShape.rectangle 
-                            : BoxShape.circle,
-                        borderRadius: unreadCount > 99 
-                            ? BorderRadius.circular(8) 
-                            : null,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Center(
-                        child: Text(
-                          unreadCount > 99 ? '99+' : unreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            if (_tabNames[index].isNotEmpty)
-              Text(
-                _tabNames[index],
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-  
   Widget _buildDefaultBottomNavItem(
     int index, 
     bool isSelected, 

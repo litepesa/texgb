@@ -2,17 +2,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
-import 'package:textgb/features/chat/models/chat_model.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
-import 'package:textgb/features/chat/repositories/chat_repository.dart';
-import 'package:textgb/features/contacts/providers/contacts_provider.dart';
-import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+
+// Dummy chat data model
+class DummyChatModel {
+  final String id;
+  final String contactName;
+  final String contactUID;
+  final String contactImage;
+  final String lastMessage;
+  final MessageEnum lastMessageType;
+  final String lastMessageTime;
+  final String lastMessageSender;
+  final bool isPinned;
+  final int unreadCount;
+  final bool isGroup;
+
+  DummyChatModel({
+    required this.id,
+    required this.contactName,
+    required this.contactUID,
+    required this.contactImage,
+    required this.lastMessage,
+    required this.lastMessageType,
+    required this.lastMessageTime,
+    required this.lastMessageSender,
+    this.isPinned = false,
+    this.unreadCount = 0,
+    this.isGroup = false,
+  });
+
+  int getDisplayUnreadCount() => unreadCount;
+}
 
 class ChatsTab extends ConsumerStatefulWidget {
   const ChatsTab({Key? key}) : super(key: key);
@@ -22,61 +46,128 @@ class ChatsTab extends ConsumerStatefulWidget {
 }
 
 class _ChatsTabState extends ConsumerState<ChatsTab> {
+  // Dummy data for demonstration
+  final List<DummyChatModel> _dummyChats = [
+    DummyChatModel(
+      id: '1',
+      contactName: 'John Smith',
+      contactUID: '+254700123456',
+      contactImage: '',
+      lastMessage: 'Hey, how are you doing?',
+      lastMessageType: MessageEnum.text,
+      lastMessageTime: DateTime.now().subtract(const Duration(minutes: 5)).millisecondsSinceEpoch.toString(),
+      lastMessageSender: '+254700123456',
+      isPinned: true,
+      unreadCount: 2,
+    ),
+    DummyChatModel(
+      id: '2',
+      contactName: 'Sarah Wilson',
+      contactUID: '+254700654321',
+      contactImage: '',
+      lastMessage: 'Thanks for the help!',
+      lastMessageType: MessageEnum.text,
+      lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)).millisecondsSinceEpoch.toString(),
+      lastMessageSender: 'current_user',
+      unreadCount: 0,
+    ),
+    DummyChatModel(
+      id: '3',
+      contactName: 'Mike Johnson',
+      contactUID: '+254700987654',
+      contactImage: '',
+      lastMessage: '',
+      lastMessageType: MessageEnum.image,
+      lastMessageTime: DateTime.now().subtract(const Duration(hours: 4)).millisecondsSinceEpoch.toString(),
+      lastMessageSender: '+254700987654',
+      unreadCount: 1,
+    ),
+    DummyChatModel(
+      id: '4',
+      contactName: 'Emma Davis',
+      contactUID: '+254700456789',
+      contactImage: '',
+      lastMessage: 'See you tomorrow!',
+      lastMessageType: MessageEnum.text,
+      lastMessageTime: DateTime.now().subtract(const Duration(days: 1)).millisecondsSinceEpoch.toString(),
+      lastMessageSender: '+254700456789',
+      isPinned: false,
+      unreadCount: 0,
+    ),
+    DummyChatModel(
+      id: '5',
+      contactName: 'Alex Brown',
+      contactUID: '+254700789123',
+      contactImage: '',
+      lastMessage: '',
+      lastMessageType: MessageEnum.audio,
+      lastMessageTime: DateTime.now().subtract(const Duration(days: 2)).millisecondsSinceEpoch.toString(),
+      lastMessageSender: 'current_user',
+      unreadCount: 3,
+    ),
+  ];
+
+  bool _isLoading = false;
+  bool _hasError = false;
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     
-    // Watch chats stream
-    final chatsStream = ref.watch(chatStreamProvider);
-    
     return Container(
-      color: modernTheme.surfaceColor, // Use surfaceColor for entire background
-      child: _buildChatsContent(chatsStream),
+      color: modernTheme.surfaceColor,
+      child: _buildChatsContent(),
     );
   }
 
-  // Build main chats content
-  Widget _buildChatsContent(AsyncValue<List<ChatModel>> chatsStream) {
-    return chatsStream.when(
-      data: (chats) {
-        // Filter out group chats - only show direct chats
-        final directChats = chats.where((chat) => !chat.isGroup).toList();
-        
-        if (directChats.isEmpty) {
-          return _buildEmptyState(context);
-        }
+  Widget _buildChatsContent() {
+    if (_isLoading) {
+      return _buildShimmerList();
+    }
+    
+    if (_hasError) {
+      return _buildErrorState();
+    }
 
-        // Sort chats: pinned first, then by last message time
-        directChats.sort((a, b) {
-          // Check if either chat is pinned
-          final aPinned = a.isPinned ?? false;
-          final bPinned = b.isPinned ?? false;
-          
-          if (aPinned && !bPinned) return -1;
-          if (!aPinned && bPinned) return 1;
-          
-          // If both have same pin status, sort by last message time
-          final aTime = int.parse(a.lastMessageTime);
-          final bTime = int.parse(b.lastMessageTime);
-          return bTime.compareTo(aTime);
+    // Filter out group chats - only show direct chats
+    final directChats = _dummyChats.where((chat) => !chat.isGroup).toList();
+    
+    if (directChats.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    // Sort chats: pinned first, then by last message time
+    directChats.sort((a, b) {
+      final aPinned = a.isPinned;
+      final bPinned = b.isPinned;
+      
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      
+      final aTime = int.parse(a.lastMessageTime);
+      final bTime = int.parse(b.lastMessageTime);
+      return bTime.compareTo(aTime);
+    });
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        setState(() {
+          _isLoading = true;
         });
-
-        return RefreshIndicator(
-          onRefresh: () async {
-            ref.refresh(chatStreamProvider);
-          },
-          child: ListView.builder(
-            padding: const EdgeInsets.only(top: 8.0, bottom: 100),
-            itemCount: directChats.length,
-            itemBuilder: (context, index) {
-              final chat = directChats[index];
-              return _buildChatItem(context, ref, chat);
-            },
-          ),
-        );
+        // Simulate network delay
+        await Future.delayed(const Duration(seconds: 1));
+        setState(() {
+          _isLoading = false;
+        });
       },
-      loading: () => _buildShimmerList(),
-      error: (error, stack) => _buildErrorState(context, ref),
+      child: ListView.builder(
+        padding: const EdgeInsets.only(top: 8.0, bottom: 100),
+        itemCount: directChats.length,
+        itemBuilder: (context, index) {
+          final chat = directChats[index];
+          return _buildChatItem(chat);
+        },
+      ),
     );
   }
 
@@ -126,7 +217,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     );
   }
 
-  Widget _buildErrorState(BuildContext context, WidgetRef ref) {
+  Widget _buildErrorState() {
     final modernTheme = context.modernTheme;
     
     return Center(
@@ -148,7 +239,17 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => ref.refresh(chatStreamProvider),
+            onPressed: () {
+              setState(() {
+                _hasError = false;
+                _isLoading = true;
+              });
+              Future.delayed(const Duration(seconds: 1), () {
+                setState(() {
+                  _isLoading = false;
+                });
+              });
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: modernTheme.primaryColor,
               foregroundColor: Colors.white,
@@ -160,7 +261,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState() {
     final modernTheme = context.modernTheme;
     
     return Center(
@@ -210,9 +311,8 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     );
   }
 
-  Widget _buildChatItem(BuildContext context, WidgetRef ref, ChatModel chat) {
+  Widget _buildChatItem(DummyChatModel chat) {
     final modernTheme = context.modernTheme;
-    final currentUser = ref.read(currentUserProvider);
     
     // Format time with better UX
     final timestamp = int.parse(chat.lastMessageTime);
@@ -235,19 +335,13 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
       timeText = DateFormat('dd/MM/yyyy').format(dateTime);
     }
     
-    // Get the correct unread count for display - only counts received messages
     final unreadCount = chat.getDisplayUnreadCount();
-    
-    // Check if this is the sender of the last message
-    final bool isLastMessageSender = currentUser != null && 
-                                    chat.lastMessageSender == currentUser.uid;
-                                    
-    // Determine if there are unread messages
+    final bool isLastMessageSender = chat.lastMessageSender == 'current_user';
     final bool hasUnread = unreadCount > 0;
-    final bool isPinned = chat.isPinned ?? false;
+    final bool isPinned = chat.isPinned;
     
     return GestureDetector(
-      onLongPress: () => _showChatOptions(context, ref, chat),
+      onLongPress: () => _showChatOptions(chat),
       child: ListTile(
         key: ValueKey(chat.id),
         leading: Stack(
@@ -281,12 +375,11 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
         ),
         subtitle: Row(
           children: [
-            // Message status indicator (only for messages sent by current user)
             if (isLastMessageSender)
               Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Icon(
-                  Icons.done_all, // You can enhance this based on actual message status
+                  Icons.done_all,
                   size: 14,
                   color: modernTheme.textSecondaryColor,
                 ),
@@ -338,44 +431,12 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
               ),
           ],
         ),
-        onTap: () => _openChatScreen(context, ref, chat),
+        onTap: () => _openChatScreen(chat),
       ),
     );
   }
 
-  Widget _buildAvatar(ChatModel chat, ModernThemeExtension modernTheme) {
-    if (chat.contactImage.isNotEmpty) {
-      return CircleAvatar(
-        backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-        child: CachedNetworkImage(
-          imageUrl: chat.contactImage,
-          imageBuilder: (context, imageProvider) => CircleAvatar(
-            backgroundImage: imageProvider,
-          ),
-          placeholder: (context, url) => CircleAvatar(
-            backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-            child: Text(
-              _getAvatarInitials(chat.contactName),
-              style: TextStyle(
-                color: modernTheme.primaryColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          errorWidget: (context, url, error) => CircleAvatar(
-            backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
-            child: Text(
-              _getAvatarInitials(chat.contactName),
-              style: TextStyle(
-                color: modernTheme.primaryColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    
+  Widget _buildAvatar(DummyChatModel chat, ModernThemeExtension modernTheme) {
     return CircleAvatar(
       backgroundColor: modernTheme.primaryColor!.withOpacity(0.2),
       child: Text(
@@ -397,9 +458,9 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     return name[0].toUpperCase();
   }
 
-  void _showChatOptions(BuildContext context, WidgetRef ref, ChatModel chat) {
+  void _showChatOptions(DummyChatModel chat) {
     final modernTheme = context.modernTheme;
-    final isPinned = chat.isPinned ?? false;
+    final isPinned = chat.isPinned;
     
     showModalBottomSheet(
       context: context,
@@ -433,11 +494,11 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                 ),
                 onTap: () {
                   Navigator.pop(context);
-                  _togglePinChat(context, ref, chat);
+                  _togglePinChat(chat);
                 },
               ),
               ListTile(
-                leading: Icon(
+                leading: const Icon(
                   Icons.delete_outline,
                   color: Colors.red,
                 ),
@@ -447,7 +508,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                 ),
                 onTap: () {
                   Navigator.pop(context);
-                  _confirmDeleteChat(context, ref, chat);
+                  _confirmDeleteChat(chat);
                 },
               ),
               const SizedBox(height: 16),
@@ -458,27 +519,27 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     );
   }
 
-  void _togglePinChat(BuildContext context, WidgetRef ref, ChatModel chat) async {
-    try {
-      final chatRepository = ref.read(chatRepositoryProvider);
-      await chatRepository.togglePinChat(chat.id);
-      
-      // Show feedback
+  void _togglePinChat(DummyChatModel chat) async {
+    // Simulate async operation
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    // Update dummy data
+    final index = _dummyChats.indexWhere((c) => c.id == chat.id);
+    if (index != -1) {
+      // In real implementation, you would update the actual data
+      // For now, just show feedback
+      final wasPinned = chat.isPinned;
       if (context.mounted) {
-        final isPinned = !(chat.isPinned ?? false);
         showSnackBar(
           context, 
-          isPinned ? 'Chat pinned' : 'Chat unpinned'
+          wasPinned ? 'Chat unpinned' : 'Chat pinned'
         );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showSnackBar(context, 'Failed to ${(chat.isPinned ?? false) ? 'unpin' : 'pin'} chat');
+        setState(() {}); // Refresh the UI
       }
     }
   }
 
-  void _confirmDeleteChat(BuildContext context, WidgetRef ref, ChatModel chat) {
+  void _confirmDeleteChat(DummyChatModel chat) {
     final modernTheme = context.modernTheme;
     
     showDialog(
@@ -504,7 +565,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deleteChat(context, ref, chat);
+              _deleteChat(chat);
             },
             child: const Text(
               'Delete',
@@ -516,22 +577,20 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     );
   }
 
-  void _deleteChat(BuildContext context, WidgetRef ref, ChatModel chat) async {
-    try {
-      final chatRepository = ref.read(chatRepositoryProvider);
-      await chatRepository.deleteChat(chat.id);
-      
-      if (context.mounted) {
-        showSnackBar(context, 'Chat deleted');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showSnackBar(context, 'Failed to delete chat');
-      }
+  void _deleteChat(DummyChatModel chat) async {
+    // Simulate async operation
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    // Remove from dummy data
+    _dummyChats.removeWhere((c) => c.id == chat.id);
+    
+    if (context.mounted) {
+      showSnackBar(context, 'Chat deleted');
+      setState(() {}); // Refresh the UI
     }
   }
 
-  String _getLastMessagePreview(ChatModel chat) {
+  String _getLastMessagePreview(DummyChatModel chat) {
     switch (chat.lastMessageType) {
       case MessageEnum.text:
         return chat.lastMessage;
@@ -552,60 +611,24 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     }
   }
 
-  void _openChatScreen(BuildContext context, WidgetRef ref, ChatModel chat) async {
-    try {
-      // Get contact data
-      final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
-      final contact = await contactsNotifier.searchUserByPhoneNumber(chat.contactUID);
-      
-      if (contact != null) {
-        // First open the chat directly with the ChatNotifier
-        await ref.read(chatProvider.notifier).openChat(chat.id, contact);
-
-        // Then navigate to the chat screen
-        if (context.mounted) {
-          Navigator.pushNamed(
-            context,
-            Constants.chatScreen,
-            arguments: {
-              'chatId': chat.id,
-              'contact': contact,
-            },
-          );
-        }
-      } else {
-        // Use the contact information from the chat model as fallback
-        // This ensures we can still open the chat even if we can't fetch the full contact
-        final fallbackContact = UserModel(
-          uid: chat.contactUID,
-          name: chat.contactName,
-          phoneNumber: chat.contactUID, // Using contactUID as phoneNumber
-          image: chat.contactImage,
-          aboutMe: '',
-          lastSeen: DateTime.now().millisecondsSinceEpoch.toString(),
-          token: '',
-          createdAt: DateTime.now().millisecondsSinceEpoch.toString(),
-          contactsUIDs: [],
-          blockedUIDs: [],
-        );
-        
-        await ref.read(chatProvider.notifier).openChat(chat.id, fallbackContact);
-
-        if (context.mounted) {
-          Navigator.pushNamed(
-            context,
-            Constants.chatScreen,
-            arguments: {
-              'chatId': chat.id,
-              'contact': fallbackContact,
-            },
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showSnackBar(context, 'Error opening chat: $e');
-      }
+  void _openChatScreen(DummyChatModel chat) async {
+    // Simulate opening chat screen with dummy data
+    showSnackBar(context, 'Opening chat with ${chat.contactName}...');
+    
+    // In real implementation, this would navigate to the actual chat screen
+    // For now, just simulate the navigation
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    if (context.mounted) {
+      // This would normally navigate to the chat screen
+      // Navigator.pushNamed(
+      //   context,
+      //   Constants.chatScreen,
+      //   arguments: {
+      //     'chatId': chat.id,
+      //     'contact': dummyContact,
+      //   },
+      // );
     }
   }
 }

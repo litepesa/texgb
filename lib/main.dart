@@ -12,34 +12,15 @@ import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_post_screen.dart';
 import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
 import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_screen.dart';
-import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
-import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
-import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
-import 'package:textgb/features/groups/models/group_model.dart';
-import 'package:textgb/features/groups/screens/create_group_screen.dart';
-import 'package:textgb/features/groups/screens/group_chat_screen.dart';
-import 'package:textgb/features/groups/screens/group_information_screen.dart';
-import 'package:textgb/features/groups/screens/group_settings_screen.dart';
-import 'package:textgb/features/groups/screens/groups_tab.dart';
-import 'package:textgb/features/groups/screens/pending_requests_screen.dart';
-import 'package:textgb/features/moments/models/moment_model.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-import 'package:textgb/features/moments/screens/moment_comments_screen.dart';
-import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
-import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
-import 'package:textgb/features/moments/screens/my_moments_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
-import 'package:textgb/features/status/screens/status_screen.dart'; // Add this import
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
@@ -139,68 +120,7 @@ class AppRoot extends ConsumerWidget {
           Constants.myProfileScreen: (context) => const MyProfileScreen(),
           Constants.editProfileScreen: (context) => const EditProfileScreen(),
           Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
-          Constants.contactsScreen: (context) => const ContactsScreen(),
-          Constants.addContactScreen: (context) => const AddContactScreen(),
-          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
-          Constants.contactProfileScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
-            return ContactProfileScreen(contact: args);
-          },
-          
-          // Status screen route - ADD THIS
-          Constants.statusScreen: (context) => const StatusScreen(),
-          
-          // Chat screen route
-          Constants.chatScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-            return ChatScreen(
-              chatId: args['chatId'] as String,
-              contact: args['contact'] as UserModel,
-              isGroup: args['isGroup'] as bool? ?? false,
-              group: args['group'] as GroupModel?,
-            );
-          },
-          Constants.groupsScreen: (context) => const GroupsTab(),
-          Constants.createGroupScreen: (context) => const CreateGroupScreen(),
-          Constants.groupInformationScreen: (context) {
-            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
-            return GroupInformationScreen(group: group);
-          },
-          Constants.groupSettingsScreen: (context) {
-            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
-            return GroupSettingsScreen(group: group);
-          },
-          Constants.pendingRequestsScreen: (context) {
-            final group = ModalRoute.of(context)!.settings.arguments as GroupModel;
-            return PendingRequestsScreen(group: group);
-          },
-          Constants.groupChatScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-            return GroupChatScreen(
-              groupId: args['groupId'] as String,
-              group: args['group'] as GroupModel,
-            );
-          },
-
-          // Moments routes
-          Constants.momentsRecommendationsScreen: (context) => const MomentsRecommendationsScreen(),
-
-          Constants.momentsFeedScreen: (context) {
-            final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-            return MomentsFeedScreen(
-              startMomentId: args?['startMomentId'] as String?,
-            );
-          },
-
-          Constants.createMomentScreen: (context) => const CreateMomentScreen(),
-
-          Constants.momentCommentsScreen: (context) {
-            final moment = ModalRoute.of(context)!.settings.arguments as MomentModel;
-            return MomentCommentsScreen(moment: moment);
-          },
-
-          Constants.myMomentsScreen: (context) => const MyMomentsScreen(),
-          
+                 
           // Channel routes with enhanced navigation support
           Constants.channelsFeedScreen: (context) {
             final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
