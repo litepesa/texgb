@@ -585,6 +585,21 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           
           const SizedBox(height: 10),
           
+          // Gift button (NEW - added for consistency with channels feed)
+          _buildRightMenuItem(
+            child: const Icon(
+              CupertinoIcons.gift,
+              color: Colors.white,
+              size: 26,
+            ),
+            label: 'Gift',
+            onTap: () {
+              // TODO: Implement gift functionality
+            },
+          ),
+          
+          const SizedBox(height: 10),
+          
           // DM button - custom white rounded square with 'DM' text (from moments feed)
           _buildRightMenuItem(
             child: Container(
