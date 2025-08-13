@@ -352,6 +352,28 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     return prices[index];
   }
 
+  // Add this method to handle buy button tap
+  void _handleBuyTap() {
+    // TODO: Implement buy functionality
+    // For now, just show a debug message
+    debugPrint('Buy button tapped for video: ${widget.video.id}');
+    debugPrint('Price: ${_getDummyPrice()}');
+    
+    // Optional: Add haptic feedback
+    // HapticFeedback.lightImpact();
+    
+    // You can add a snackbar or dialog here to show buy action
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Buying ${widget.video.channelName} item for ${_getDummyPrice()}'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: const Color(0xFFFF6B6B),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _likeAnimationController.dispose();
@@ -896,72 +918,144 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 8), // Reduced spacing
           
-          // Price display instead of music info
+          // Price display with BUY button
           _buildPriceDisplay(),
         ],
       ),
     );
   }
 
-  // New method to build price display with styling
+  // Updated method to build price display with BUY button
   Widget _buildPriceDisplay() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF4CAF50), // Green start
-            Color(0xFF2E7D32), // Darker green end
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Price container
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF4CAF50), // Green start
+                Color(0xFF2E7D32), // Darker green end
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 1,
+            ),
           ),
-        ],
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Price icon
-          const Icon(
-            Icons.local_offer,
-            color: Colors.white,
-            size: 16,
-            shadows: [
-              Shadow(
-                color: Colors.black,
-                blurRadius: 2,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Price icon
+              const Icon(
+                Icons.local_offer,
+                color: Colors.white,
+                size: 16,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+              const SizedBox(width: 6),
+              // Price text
+              Text(
+                _getDummyPrice(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(width: 6),
-          // Price text
-          Text(
-            _getDummyPrice(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 2,
+        ),
+        
+        const SizedBox(width: 8), // Space between price and buy button
+        
+        // BUY button
+        GestureDetector(
+          onTap: _handleBuyTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFFF6B6B), // Coral red start
+                  Color(0xFFE55353), // Darker red end
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Shopping cart icon
+                const Icon(
+                  Icons.shopping_cart,
+                  color: Colors.white,
+                  size: 16,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 6),
+                // BUY text
+                const Text(
+                  'BUY',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

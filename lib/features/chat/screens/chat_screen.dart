@@ -11,6 +11,7 @@ import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/chat_input.dart';
 import 'package:textgb/features/chat/widgets/message_bubble.dart';
 import 'package:textgb/features/chat/widgets/reaction_picker.dart';
+import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/features/groups/models/group_model.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -306,6 +307,127 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     ref.read(chatProvider.notifier).setReplyingTo(message);
   }
 
+  // Show chat options menu
+  void _showChatOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.search),
+                title: const Text('Search in chat'),
+                onTap: () {
+                  Navigator.pop(context);
+                  showSnackBar(context, 'Search feature coming soon');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.wallpaper),
+                title: const Text('Wallpaper'),
+                onTap: () {
+                  Navigator.pop(context);
+                  showSnackBar(context, 'Wallpaper feature coming soon');
+                },
+              ),
+              ListTile(
+                //leading: const Icon(Icons.export_notes),
+                title: const Text('Export chat'),
+                onTap: () {
+                  Navigator.pop(context);
+                  showSnackBar(context, 'Export chat feature coming soon');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.clear),
+                title: const Text('Clear chat'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showClearChatConfirmation();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.block, color: Colors.red),
+                title: const Text('Block user', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showBlockUserConfirmation();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Show confirmation dialog for clearing chat
+  void _showClearChatConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear chat?'),
+        content: const Text(
+          'This will delete all messages in this chat for you only. This action cannot be undone.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(chatProvider.notifier).deleteChat(widget.chatId);
+              Navigator.pop(context); // Go back to chat list
+            },
+            child: const Text('Clear', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Show confirmation dialog for blocking user
+  void _showBlockUserConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Block user?'),
+        content: Text(
+          'Are you sure you want to block ${widget.contact.name}? You will no longer receive messages from this user.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              try {
+                // Block the user
+                await ref.read(contactsNotifierProvider.notifier).blockContact(widget.contact);
+                
+                // Show success message
+                showSnackBar(context, '${widget.contact.name} has been blocked');
+                
+                // Go back to chat list
+                Navigator.pop(context);
+              } catch (e) {
+                showSnackBar(context, 'Failed to block user: $e');
+              }
+            },
+            child: const Text('Block', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
@@ -437,25 +559,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.videocam),
-          onPressed: () {
-            // TODO: Implement video call
-            showSnackBar(context, 'Video call feature coming soon');
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.call),
-          onPressed: () {
-            // TODO: Implement audio call
-            showSnackBar(context, 'Audio call feature coming soon');
-          },
-        ),
-        IconButton(
           icon: const Icon(Icons.more_vert),
-          onPressed: () {
-            // TODO: Show more options
-            showSnackBar(context, 'More options coming soon');
-          },
+          onPressed: _showChatOptions,
         ),
       ],
     );

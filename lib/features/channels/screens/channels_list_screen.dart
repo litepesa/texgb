@@ -7,6 +7,7 @@ import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
+import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -168,14 +169,19 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
               ),
               child: Row(
                 children: [
-                  // Enhanced Back Button
+                  // Enhanced Back Button - Navigate to My Channel
                   Material(
                     color: Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MyChannelScreen(),
+                          ),
+                        );
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
@@ -185,7 +191,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          Icons.arrow_back_rounded,
+                          Icons.person_rounded,
                           color: theme.primaryColor,
                           size: 20,
                         ),

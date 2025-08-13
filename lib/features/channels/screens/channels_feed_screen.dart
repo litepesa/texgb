@@ -520,7 +520,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             children: [
               const SizedBox(width: 8),
               Text(
-                'Business Feed',
+                'Discover',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 16,
