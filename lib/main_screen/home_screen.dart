@@ -458,6 +458,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               builder: (context) => const ChannelsListScreen(),
             ),
           );
+        } else if (value == 'channels') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ChannelsListScreen(),
+            ),
+          );
         }
       },
       itemBuilder: (BuildContext context) => _buildMenuItems(modernTheme),
@@ -469,8 +476,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Add conditional menu items based on current tab
     if (_currentIndex == 2) {
-      // Moments tab - add "My Moments" option
-      items.add(
+      // Moments tab - add "My Moments" and "Channels" options
+      items.addAll([
         PopupMenuItem<String>(
           value: 'my_moments',
           height: 48,
@@ -502,7 +509,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ],
           ),
         ),
-      );
+        PopupMenuItem<String>(
+          value: 'channels',
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor?.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.business_outlined,
+                  color: modernTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Channels',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ]);
     } else if (_currentIndex == 3) {
       // Channels tab - add "My Channel" and "Explore" options
       items.addAll([
