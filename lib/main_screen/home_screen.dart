@@ -15,9 +15,6 @@ import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/live/screens/live_screen.dart';
-//import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-//import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
-//import 'package:textgb/features/moments/screens/my_moments_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -41,15 +38,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final List<String> _tabNames = [
     'Inbox',
     'Wallet',
-    'Moments',
-    'Business' 
+    'Channels',
+    'Profile' 
   ];
   
   final List<IconData> _tabIcons = [
-    CupertinoIcons.chat_bubble_2,
-    CupertinoIcons.creditcard,
-    Icons.donut_large_rounded,
-    Icons.radio_button_checked_rounded 
+    CupertinoIcons.bubble_left_bubble_right,
+    Icons.account_balance_rounded,
+    Icons.radio_button_checked_rounded,
+    Icons.person_2_outlined 
   ];
 
   @override
@@ -119,10 +116,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: false,
+      extendBodyBehindAppBar: _currentIndex == 3, // Extend body behind app bar only when app bar is hidden
       backgroundColor: _currentIndex == 0 ? modernTheme.surfaceColor : modernTheme.backgroundColor,
       
-      appBar: _buildAppBar(modernTheme, isDarkMode),
+      appBar: _currentIndex == 3 ? null : _buildAppBar(modernTheme, isDarkMode), // Hide app bar at index 3
       
       body: PageView(
         controller: _pageController,
@@ -361,9 +358,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats, Moments, and Channels tabs (removed Wallet)
+  // Show FAB on Chats and Moments tabs only (removed Wallet and Channels)
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 2 || _currentIndex == 3;
+    return _currentIndex == 0 || _currentIndex == 2;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -488,14 +485,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.donut_large_rounded,
+                  Icons.account_circle_outlined,
                   color: modernTheme.primaryColor,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 16),
               Text(
-                'My Moments',
+                'My Channel',
                 style: TextStyle(
                   color: modernTheme.textColor,
                   fontSize: 15,
@@ -583,23 +580,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Profile FAB
-          FloatingActionButton(
-            heroTag: "profile_fab",
-            backgroundColor: modernTheme.backgroundColor,
-            foregroundColor: modernTheme.primaryColor,
-            elevation: 4,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const MyProfileScreen(),
-                ),
-              );
-            },
-            child: const Icon(Icons.person_outline),
-          ),
-          const SizedBox(height: 16),
           // New chat FAB
           FloatingActionButton(
             heroTag: "chat_fab",
@@ -607,34 +587,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             foregroundColor: modernTheme.primaryColor,
             elevation: 4,
             onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
-            child: const Icon(CupertinoIcons.bubble_left_bubble_right),
+            child: const Icon(CupertinoIcons.bubble_left_bubble_right_fill),
           ),
         ],
       );
     } else if (_currentIndex == 2) {
-      // Moments tab - Create moment FAB
+      // Channels tab - Create Post FAB
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
         onPressed: () => _createStatus(),
         child: const Icon(Icons.camera_alt),
-      );
-    } else if (_currentIndex == 3) {
-      // Channels tab - Create post FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreatePostScreen(),
-            ),
-          );
-        },
-        child: const Icon(Icons.add_business_outlined),
       );
     }
     
