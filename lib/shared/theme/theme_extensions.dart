@@ -82,6 +82,8 @@ class ModernThemeExtension extends ThemeExtension<ModernThemeExtension> {
 
   get inputBackgroundColor => null;
 
+  get textPrimaryColor => null;
+
   @override
   ThemeExtension<ModernThemeExtension> copyWith({
     Color? backgroundColor,

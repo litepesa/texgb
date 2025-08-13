@@ -456,12 +456,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     super.build(context);
     
     final modernTheme = context.modernTheme;
-    final chatTheme = context.chatTheme;
     
     // Show loading screen
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: chatTheme.chatBackgroundColor,
+        backgroundColor: modernTheme.surfaceColor,
         appBar: _buildGroupAppBar(context, widget.group),
         body: Center(
           child: Column(
@@ -482,7 +481,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     // Show permission error
     if (_permissionError != null) {
       return Scaffold(
-        backgroundColor: chatTheme.chatBackgroundColor,
+        backgroundColor: modernTheme.surfaceColor,
         appBar: _buildGroupAppBar(context, widget.group),
         body: Center(
           child: Padding(
@@ -543,7 +542,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     final bool isEditing = chatState.valueOrNull?.editingMessage != null;
 
     return Scaffold(
-      backgroundColor: chatTheme.chatBackgroundColor,
+      backgroundColor: modernTheme.surfaceColor,
       appBar: _buildGroupAppBar(context, group),
       body: Column(
         children: [

@@ -65,10 +65,9 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
           onRefresh: () async {
             ref.refresh(chatStreamProvider);
           },
-          child: ListView.separated(
+          child: ListView.builder(
             padding: const EdgeInsets.only(top: 8.0, bottom: 100),
             itemCount: directChats.length,
-            separatorBuilder: (context, index) => _buildDivider(context),
             itemBuilder: (context, index) {
               final chat = directChats[index];
               return _buildChatItem(context, ref, chat);
@@ -82,10 +81,9 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
   }
 
   Widget _buildShimmerList() {
-    return ListView.separated(
+    return ListView.builder(
       padding: const EdgeInsets.only(top: 8.0, bottom: 100),
       itemCount: 6,
-      separatorBuilder: (context, index) => _buildDivider(context),
       itemBuilder: (context, index) => _buildShimmerItem(),
     );
   }
@@ -159,16 +157,6 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDivider(BuildContext context) {
-    final modernTheme = context.modernTheme;
-    
-    return Container(
-      margin: const EdgeInsets.only(left: 72), // 16 (ListTile padding) + 40 (avatar) + 16 (gap) = 72
-      height: 0.5,
-      color: modernTheme.dividerColor?.withOpacity(0.3),
     );
   }
 

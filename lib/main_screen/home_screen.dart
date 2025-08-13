@@ -39,7 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isPageAnimating = false;
   
   final List<String> _tabNames = [
-    'Chats',
+    'Inbox',
     'Groups',
     'Moments',
     'Business' 

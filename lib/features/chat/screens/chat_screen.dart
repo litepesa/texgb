@@ -307,88 +307,74 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     ref.read(chatProvider.notifier).setReplyingTo(message);
   }
 
-  // Show chat options menu
-  void _showChatOptions() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+  // Show chat options menu - matching home screen style
+  Widget _buildChatOptionsMenu() {
+    final modernTheme = context.modernTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final menuBgColor = isDark 
+      ? modernTheme.surfaceColor!.withOpacity(0.98)
+      : modernTheme.surfaceColor!.withOpacity(0.96);
+
+    return PopupMenuButton<String>(
+      icon: Icon(
+        Icons.more_vert,
+        color: modernTheme.textColor,
+      ),
+      color: menuBgColor,
+      elevation: 8,
+      surfaceTintColor: modernTheme.primaryColor?.withOpacity(0.1),
+      shadowColor: Colors.black.withOpacity(0.2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, 8),
+      onSelected: (String value) {
+        if (value == 'block_user') {
+          _showBlockUserConfirmation();
+        }
+      },
+      itemBuilder: (BuildContext context) => [
+        PopupMenuItem<String>(
+          value: 'block_user',
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
             children: [
-              ListTile(
-                leading: const Icon(Icons.search),
-                title: const Text('Search in chat'),
-                onTap: () {
-                  Navigator.pop(context);
-                  showSnackBar(context, 'Search feature coming soon');
-                },
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.block,
+                  color: Colors.red,
+                  size: 20,
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.wallpaper),
-                title: const Text('Wallpaper'),
-                onTap: () {
-                  Navigator.pop(context);
-                  showSnackBar(context, 'Wallpaper feature coming soon');
-                },
-              ),
-              ListTile(
-                //leading: const Icon(Icons.export_notes),
-                title: const Text('Export chat'),
-                onTap: () {
-                  Navigator.pop(context);
-                  showSnackBar(context, 'Export chat feature coming soon');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.clear),
-                title: const Text('Clear chat'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showClearChatConfirmation();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.block, color: Colors.red),
-                title: const Text('Block user', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showBlockUserConfirmation();
-                },
+              const SizedBox(width: 16),
+              const Text(
+                'Block user',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
-  // Show confirmation dialog for clearing chat
-  void _showClearChatConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear chat?'),
-        content: const Text(
-          'This will delete all messages in this chat for you only. This action cannot be undone.'
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(chatProvider.notifier).deleteChat(widget.chatId);
-              Navigator.pop(context); // Go back to chat list
-            },
-            child: const Text('Clear', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   // Show confirmation dialog for blocking user
   void _showBlockUserConfirmation() {
@@ -441,10 +427,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final bool isEditing = chatState.valueOrNull?.editingMessage != null;
 
     return Scaffold(
-      backgroundColor: chatTheme.chatBackgroundColor,
+      backgroundColor: modernTheme.surfaceColor,
       appBar: _buildAppBar(context),
       body: Column(
         children: [
+          // Top divider
+          Container(
+            height: 0.5,
+            width: double.infinity,
+            color: modernTheme.dividerColor?.withOpacity(0.3),
+          ),
+          
           // Editing indicator
           if (isEditing)
             _buildEditingContainer(chatState.valueOrNull!.editingMessage!),
@@ -558,10 +551,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         },
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.more_vert),
-          onPressed: _showChatOptions,
-        ),
+        _buildChatOptionsMenu(),
+        const SizedBox(width: 16),
       ],
     );
   }
