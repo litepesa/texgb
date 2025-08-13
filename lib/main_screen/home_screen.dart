@@ -9,15 +9,15 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
+import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/groups/screens/groups_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/live/screens/live_screen.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
-import 'package:textgb/features/moments/screens/my_moments_screen.dart';
+//import 'package:textgb/features/moments/screens/create_moment_screen.dart';
+//import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
+//import 'package:textgb/features/moments/screens/my_moments_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -40,14 +40,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<String> _tabNames = [
     'Inbox',
-    'Groups',
+    'Wallet',
     'Moments',
     'Business' 
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.chat_bubble_2,
-    Icons.group_outlined,
+    CupertinoIcons.creditcard,
     Icons.donut_large_rounded,
     Icons.radio_button_checked_rounded 
   ];
@@ -134,20 +134,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             color: modernTheme.surfaceColor,
             child: const ChatsTab(),
           ),
-          // Groups tab (index 1)
+          // Wallet tab (index 1)
           Container(
             color: modernTheme.backgroundColor,
-            child: const GroupsTab(),
+            child: const WalletScreen(),
           ),
-          // Status tab (index 2)
+          // Moments tab (index 2)
           Container(
             color: modernTheme.backgroundColor,
-            child: const MomentsRecommendationsScreen(),
+            child: const RecommendedPostsScreen(),
           ),
           // Channels tab (index 3)
           Container(
             color: modernTheme.surfaceColor,
-            child: const ChannelsListScreen(),
+            child: const MyProfileScreen(),
           ),
         ],
       ),
@@ -222,30 +222,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
     
-    // Groups tab is at index 1 - show unread count for group chats only
-    if (index == 1) {
-      return chatsAsyncValue.when(
-        data: (chats) {
-          // Calculate unread count from group chats only
-          final groupChats = chats.where((chat) => chat.isGroup).toList();
-          final groupUnreadCount = groupChats.fold<int>(
-            0, 
-            (sum, chat) => sum + chat.getDisplayUnreadCount()
-          );
-          
-          return _buildNavItemWithBadge(
-            index, 
-            isSelected, 
-            modernTheme, 
-            groupUnreadCount
-          );
-        },
-        loading: () => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-        error: (_, __) => _buildDefaultBottomNavItem(index, isSelected, modernTheme),
-      );
-    }
-    
-    // For other tabs (Status, Channels), no badge needed
+    // For other tabs (Wallet, Moments, Channels), no badge needed
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
 
@@ -384,9 +361,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB on Chats, Groups, Status, and Channels tabs
+  // Show FAB on Chats, Moments, and Channels tabs (removed Wallet)
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 2 || _currentIndex == 3;
+    return _currentIndex == 0 || _currentIndex == 2 || _currentIndex == 3;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -467,7 +444,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const MyMomentsScreen(),
+              builder: (context) => const MyChannelScreen(),
             ),
           );
         } else if (value == 'my_channel') {
@@ -597,7 +574,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ]);
     }
 
-    // No additional items are added here since we removed profile and wallet
     return items;
   }
   
@@ -635,17 +611,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ],
       );
-    } else if (_currentIndex == 1) {
-      // Groups tab - Create group FAB
-      return FloatingActionButton(
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () => Navigator.pushNamed(context, Constants.createGroupScreen),
-        child: const Icon(Icons.group_add),
-      );
     } else if (_currentIndex == 2) {
-      // Status tab - Create status FAB
+      // Moments tab - Create moment FAB
       return FloatingActionButton(
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
@@ -679,7 +646,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const CreateMomentScreen(),
+        builder: (context) => const CreatePostScreen(),
       ),
     );
   }
