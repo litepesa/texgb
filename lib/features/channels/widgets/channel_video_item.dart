@@ -22,6 +22,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
   final VideoPlayerController? preloadedController;
   final bool isLoading;
   final bool hasFailed;
+  final bool isCommentsOpen; // New parameter to track comments state
   
   const ChannelVideoItem({
     Key? key,
@@ -32,6 +33,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
     this.preloadedController,
     this.isLoading = false,
     this.hasFailed = false,
+    this.isCommentsOpen = false, // Default to false
   }) : super(key: key);
 
   @override
@@ -47,6 +49,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   int _currentImageIndex = 0;
   bool _isInitializing = false;
   bool _showFullCaption = false;
+  bool _isCommentsSheetOpen = false;
   
   // Animation controllers for like effect
   late AnimationController _likeAnimationController;
@@ -96,6 +99,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       _handleActiveStateChange();
     }
     
+    if (widget.isCommentsOpen != oldWidget.isCommentsOpen) {
+      _handleCommentsStateChange();
+    }
+    
     if (_shouldReinitializeMedia(oldWidget)) {
       _cleanupCurrentController(oldWidget);
       _initializeMedia();
@@ -131,6 +138,21 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       _playVideo();
     } else if (!widget.isActive && _isInitialized && _isPlaying) {
       _pauseVideo();
+    }
+  }
+
+  void _handleCommentsStateChange() {
+    setState(() {
+      _isCommentsSheetOpen = widget.isCommentsOpen;
+    });
+    
+    if (widget.video.isMultipleImages) return;
+    
+    // Only pause video when comments open if it's currently playing
+    if (widget.isCommentsOpen && _isPlaying) {
+      _pauseVideo();
+    } else if (!widget.isCommentsOpen && widget.isActive && _isInitialized && !_isPlaying) {
+      _playVideo();
     }
   }
 
@@ -243,7 +265,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       _isInitialized = true;
     });
     
-    if (widget.isActive) {
+    // Only start playing if active and comments are not open
+    if (widget.isActive && !widget.isCommentsOpen) {
       // Only seek to beginning for truly new videos, not when resuming
       _videoPlayerController!.seekTo(Duration.zero);
       _playVideo();
@@ -255,7 +278,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   void _playVideo() {
-    if (_isInitialized && _videoPlayerController != null) {
+    if (_isInitialized && _videoPlayerController != null && !widget.isCommentsOpen) {
       _videoPlayerController!.play();
       setState(() {
         _isPlaying = true;
@@ -273,7 +296,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   void _togglePlayPause() {
-    if (widget.video.isMultipleImages) return;
+    if (widget.video.isMultipleImages || _isCommentsSheetOpen) return;
     
     if (!_isInitialized) return;
     
@@ -294,6 +317,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   void _handleDoubleTap() {
+    if (_isCommentsSheetOpen) return;
+    
     // Trigger like animation
     _showLikeAnimation = true;
     _heartScaleController.forward().then((_) {
@@ -331,6 +356,110 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   void _toggleCaptionExpansion() {
     setState(() {
       _showFullCaption = !_showFullCaption;
+    });
+  }
+
+  // Add this method to control video window mode
+  void _setVideoWindowMode(bool isSmallWindow) {
+    setState(() {
+      _isCommentsSheetOpen = isSmallWindow;
+    });
+    
+    if (isSmallWindow && _isPlaying) {
+      _pauseVideo();
+    } else if (!isSmallWindow && widget.isActive && _isInitialized) {
+      _playVideo();
+    }
+  }
+
+  // Add this new method to build the small video window
+  Widget _buildSmallVideoWindow() {
+    final systemTopPadding = MediaQuery.of(context).padding.top;
+    
+    return Positioned(
+      top: systemTopPadding + 20,
+      right: 20,
+      child: GestureDetector(
+        onTap: () {
+          // Close comments and return to full screen
+          Navigator.of(context).pop();
+          _setVideoWindowMode(false);
+        },
+        child: Container(
+          width: 120,
+          height: 180,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 15,
+                spreadRadius: 3,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                // Video content
+                Positioned.fill(
+                  child: _buildCurrentVideoWidget(),
+                ),
+                
+                // Close button overlay
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentVideoWidget() {
+    if (widget.video.isMultipleImages) {
+      return _buildImageCarousel();
+    } else {
+      return _buildVideoPlayer();
+    }
+  }
+
+  // Enhanced comments functionality with small video window
+  void _showCommentsForCurrentVideo() {
+    // Set video to small window mode
+    _setVideoWindowMode(true);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      builder: (context) => ChannelCommentsBottomSheet(
+        video: widget.video,
+        onClose: () {
+          // Reset video to full screen mode
+          _setVideoWindowMode(false);
+        },
+      ),
+    ).whenComplete(() {
+      // Ensure video returns to full screen mode
+      _setVideoWindowMode(false);
     });
   }
 
@@ -426,39 +555,49 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       width: double.infinity,
       height: double.infinity,
       color: Colors.black,
-      child: GestureDetector(
-        onTap: _togglePlayPause,
-        onDoubleTap: _handleDoubleTap,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Media content with proper full-screen coverage
-            _buildMediaContent(),
-            
-            // Loading indicator
-            if (widget.isLoading || _isInitializing)
-              _buildLoadingIndicator(),
-            
-            // Error state
-            if (widget.hasFailed)
-              _buildErrorState(),
-            
-            // Play indicator for paused videos (TikTok style)
-            if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying)
-              _buildTikTokPlayIndicator(),
-            
-            // Like animation overlay
-            if (_showLikeAnimation)
-              _buildLikeAnimation(),
-            
-            // Bottom content overlay (TikTok style) - moved to very bottom
-            _buildBottomContentOverlay(),
-            
-            // Image carousel indicators
-            if (widget.video.isMultipleImages && widget.video.imageUrls.length > 1)
-              _buildCarouselIndicators(),
-          ],
-        ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Main content area
+          GestureDetector(
+            onTap: _togglePlayPause,
+            onDoubleTap: _handleDoubleTap,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Media content with proper full-screen coverage
+                _buildMediaContent(),
+                
+                // Loading indicator
+                if (widget.isLoading || _isInitializing)
+                  _buildLoadingIndicator(),
+                
+                // Error state
+                if (widget.hasFailed)
+                  _buildErrorState(),
+                
+                // Play indicator for paused videos (TikTok style)
+                if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying && !_isCommentsSheetOpen)
+                  _buildTikTokPlayIndicator(),
+                
+                // Like animation overlay
+                if (_showLikeAnimation && !_isCommentsSheetOpen)
+                  _buildLikeAnimation(),
+                
+                // Bottom content overlay (TikTok style) - moved to very bottom
+                if (!_isCommentsSheetOpen)
+                  _buildBottomContentOverlay(),
+                
+                // Image carousel indicators
+                if (widget.video.isMultipleImages && widget.video.imageUrls.length > 1 && !_isCommentsSheetOpen)
+                  _buildCarouselIndicators(),
+              ],
+            ),
+          ),
+          
+          // Small video window when comments are open
+          if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+        ],
       ),
     );
   }
@@ -563,7 +702,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         height: double.infinity,
         viewportFraction: 1.0,
         enableInfiniteScroll: widget.video.imageUrls.length > 1,
-        autoPlay: widget.isActive && widget.video.imageUrls.length > 1,
+        autoPlay: widget.isActive && widget.video.imageUrls.length > 1 && !_isCommentsSheetOpen,
         autoPlayInterval: const Duration(seconds: 4),
         autoPlayAnimationDuration: const Duration(milliseconds: 800),
         autoPlayCurve: Curves.fastOutSlowIn,

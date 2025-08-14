@@ -48,6 +48,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _hasInitialized = false;
   bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
+  bool _isCommentsSheetOpen = false; // Track comments sheet state
   
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
@@ -99,7 +100,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     switch (state) {
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
-        if (_isScreenActive && !_isNavigatingAway) {
+        if (_isScreenActive && !_isNavigatingAway && !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
         break;
@@ -124,7 +125,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     // Setup system UI when becoming active
     _setupSystemUI();
     
-    if (_isAppInForeground && !_isManuallyPaused) {
+    if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startFreshPlayback();
       _startIntelligentPreloading();
       WakelockPlus.enable();
@@ -172,10 +173,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   void _resumeFromNavigation() {
     debugPrint('ChannelsFeedScreen: Resuming from navigation');
     _isNavigatingAway = false;
-    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       // Add a small delay to ensure the screen is fully visible before starting playback
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
       });
@@ -183,7 +184,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _startFreshPlayback() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused) return;
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) return;
     
     debugPrint('ChannelsFeedScreen: Starting fresh playback');
     
@@ -214,6 +215,19 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _currentVideoController!.pause();
       // Seek to beginning for fresh start next time
       _currentVideoController!.seekTo(Duration.zero);
+    }
+  }
+
+  // Add method to control video window mode
+  void _setVideoWindowMode(bool isSmallWindow) {
+    setState(() {
+      _isCommentsSheetOpen = isSmallWindow;
+    });
+    
+    if (isSmallWindow) {
+      _stopPlayback();
+    } else if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+      _startFreshPlayback();
     }
   }
 
@@ -254,9 +268,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           _jumpToVideo(widget.startVideoId!);
         }
         
-        if (_isScreenActive && _isAppInForeground && !_isNavigatingAway) {
+        if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isCommentsSheetOpen) {
           Timer(const Duration(milliseconds: 500), () {
-            if (mounted && _isScreenActive && _isAppInForeground && !_isNavigatingAway) {
+            if (mounted && _isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isCommentsSheetOpen) {
               _startIntelligentPreloading();
             }
           });
@@ -292,7 +306,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _startIntelligentPreloading() {
-    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
+    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
     
     final videos = ref.read(channelVideosProvider).videos;
     if (videos.isEmpty) return;
@@ -309,7 +323,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _onVideoControllerReady(VideoPlayerController controller) {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
     
     debugPrint('Video controller ready, setting up fresh playback');
     
@@ -322,14 +336,14 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     WakelockPlus.enable();
     
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
     }
   }
 
   // Separate method for starting fresh video (seeks to beginning)
   void _startFreshVideo() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused) return;
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) return;
     
     debugPrint('ChannelsFeedScreen: Starting fresh video from beginning');
     
@@ -361,7 +375,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _isManuallyPaused = false; // Reset manual pause state for new video
     });
 
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
       WakelockPlus.enable();
     }
@@ -430,18 +444,20 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             ),
           
           // Top navigation - simplified header matching moments feed style
-          Positioned(
-            top: systemTopPadding + 16, // Positioned below status bar with some padding
-            left: 0,
-            right: 0,
-            child: _buildSimplifiedHeader(),
-          ),
+          if (!_isCommentsSheetOpen) // Hide top bar when comments are open
+            Positioned(
+              top: systemTopPadding + 16, // Positioned below status bar with some padding
+              left: 0,
+              right: 0,
+              child: _buildSimplifiedHeader(),
+            ),
           
           // TikTok-style right side menu
-          _buildRightSideMenu(),
+          if (!_isCommentsSheetOpen) // Hide right menu when comments are open
+            _buildRightSideMenu(),
           
           // Cache performance indicator (debug mode only)
-          if (kDebugMode)
+          if (kDebugMode && !_isCommentsSheetOpen)
             Positioned(
               top: systemTopPadding + 120,
               left: 16,
@@ -467,7 +483,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       scrollDirection: Axis.vertical,
       itemCount: videosState.videos.length,
       onPageChanged: _onPageChanged,
-      physics: _isScreenActive ? null : const NeverScrollableScrollPhysics(),
+      physics: _isScreenActive && !_isCommentsSheetOpen ? null : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final video = videosState.videos[index];
         
@@ -476,6 +492,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
+          isCommentsOpen: _isCommentsSheetOpen, // Pass comments state to video item
         );
       },
     );
@@ -513,7 +530,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           ),
         ),
         
-        // "Businesses" title with store icon in center - matching moments style
+        // "Discover" title with icon in center - matching moments style
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -568,49 +585,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // Show feed options menu with the previous options
-  void _showFeedOptionsMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            const Text(
-              'Feed Options',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 20),
-            
-            // Additional options
-            _buildMenuOption(Icons.settings, 'Settings', () {
-              Navigator.pop(context);
-              // TODO: Navigate to settings
-            }),
-            const SizedBox(height: 12),
-            _buildMenuOption(Icons.help_outline, 'Help & Support', () {
-              Navigator.pop(context);
-              // TODO: Navigate to help
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
   // TikTok-style right side menu (Douyin icons) - optimized positioning
   Widget _buildRightSideMenu() {
     final videos = ref.watch(channelVideosProvider).videos;
@@ -650,7 +624,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Star button (new)
+          // Star button (save/bookmark)
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.star,
@@ -678,7 +652,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Gift button (NEW - added before DM button)
+          // Gift button
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.gift,
@@ -930,71 +904,27 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   void _showCommentsForCurrentVideo(ChannelVideoModel? video) {
-    if (video != null) {
-      showCommentsBottomSheet(context, video.id);
+    if (video != null && !_isCommentsSheetOpen) {
+      // Set video to small window mode
+      _setVideoWindowMode(true);
+      
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.transparent,
+        builder: (context) => ChannelCommentsBottomSheet(
+          video: video,
+          onClose: () {
+            // Reset video to full screen mode
+            _setVideoWindowMode(false);
+          },
+        ),
+      ).whenComplete(() {
+        // Ensure video returns to full screen mode
+        _setVideoWindowMode(false);
+      });
     }
-  }
-
-  void _showVideoOptionsMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Video Options',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildMenuOption(Icons.report_outlined, 'Report', () {
-              Navigator.pop(context);
-            }),
-            const SizedBox(height: 16),
-            _buildMenuOption(Icons.block, 'Not Interested', () {
-              Navigator.pop(context);
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuOption(IconData icon, String title, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 24),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _showShareOptions() {

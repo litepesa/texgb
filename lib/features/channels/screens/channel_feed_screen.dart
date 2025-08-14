@@ -49,6 +49,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   bool _isScreenActive = true;
   bool _isNavigatingAway = false;
   bool _isManuallyPaused = false;
+  bool _isCommentsSheetOpen = false; // Track comments sheet state
   
   // Channel data
   ChannelModel? _channel;
@@ -124,7 +125,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     switch (state) {
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
-        if (_isScreenActive && !_isNavigatingAway) {
+        if (_isScreenActive && !_isNavigatingAway && !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
         break;
@@ -210,7 +211,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   }
 
   void _startIntelligentPreloading() {
-    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
+    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
     
     if (_channelVideos.isEmpty) return;
     
@@ -219,7 +220,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   }
 
   void _startFreshPlayback() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused) return;
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) return;
     
     debugPrint('ChannelFeedScreen: Starting fresh playback');
     
@@ -259,18 +260,105 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   void _resumeFromNavigation() {
     debugPrint('ChannelFeedScreen: Resuming from navigation');
     _isNavigatingAway = false;
-    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       // Add a small delay to ensure the screen is fully visible before starting playback
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
       });
     }
   }
 
+  // Add method to control video window mode
+  void _setVideoWindowMode(bool isSmallWindow) {
+    setState(() {
+      _isCommentsSheetOpen = isSmallWindow;
+    });
+    
+    if (isSmallWindow) {
+      _stopPlayback();
+    } else if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
+      _startFreshPlayback();
+    }
+  }
+
+  // Add this new method to build the small video window
+  Widget _buildSmallVideoWindow() {
+    final systemTopPadding = MediaQuery.of(context).padding.top;
+    
+    return Positioned(
+      top: systemTopPadding + 20,
+      right: 20,
+      child: GestureDetector(
+        onTap: () {
+          // Close comments and return to full screen
+          Navigator.of(context).pop();
+          _setVideoWindowMode(false);
+        },
+        child: Container(
+          width: 120,
+          height: 180,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 15,
+                spreadRadius: 3,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                // Video content
+                Positioned.fill(
+                  child: _buildCurrentVideoWidget(),
+                ),
+                
+                // Close button overlay
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentVideoWidget() {
+    if (_channelVideos.isEmpty || _currentVideoIndex >= _channelVideos.length) {
+      return Container(color: Colors.black);
+    }
+    
+    final currentVideo = _channelVideos[_currentVideoIndex];
+    
+    return ChannelVideoItem(
+      video: currentVideo,
+      isActive: false, // Don't auto-play in small window
+      isCommentsOpen: true, // Mark as comments mode
+    );
+  }
+
   void _onVideoControllerReady(VideoPlayerController controller) {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway) return;
+    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
     
     debugPrint('Video controller ready, setting up fresh playback');
     
@@ -283,7 +371,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     
     WakelockPlus.enable();
     
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
     }
   }
@@ -306,7 +394,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
       _isManuallyPaused = false; // Reset manual pause state for new video
     });
 
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused) {
+    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startIntelligentPreloading();
       WakelockPlus.enable();
     }
@@ -316,6 +404,12 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
 
   // Enhanced back navigation with proper system UI restoration
   void _handleBackNavigation() {
+    // Close comments sheet if open
+    if (_isCommentsSheetOpen) {
+      Navigator.of(context).pop();
+      return;
+    }
+    
     // Pause playback and disable wakelock before leaving
     _stopPlayback();
     
@@ -443,16 +537,20 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
                 ),
               ),
               
-              // Top navigation - updated header with channel name
-              Positioned(
-                top: systemTopPadding + 16, // Positioned below status bar with some padding
-                left: 0,
-                right: 0,
-                child: _buildChannelHeader(),
-              ),
+              // Small video window when comments are open
+              if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
               
-              // TikTok-style right side menu - matching channels feed
-              _buildRightSideMenu(),
+              // Top navigation - updated header with channel name (hide when comments open)
+              if (!_isCommentsSheetOpen)
+                Positioned(
+                  top: systemTopPadding + 16, // Positioned below status bar with some padding
+                  left: 0,
+                  right: 0,
+                  child: _buildChannelHeader(),
+                ),
+              
+              // TikTok-style right side menu - matching channels feed (hide when comments open)
+              if (!_isCommentsSheetOpen) _buildRightSideMenu(),
             ],
           ),
         ),
@@ -470,7 +568,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
       scrollDirection: Axis.vertical,
       itemCount: _channelVideos.length,
       onPageChanged: _onPageChanged,
-      physics: _isScreenActive ? null : const NeverScrollableScrollPhysics(),
+      physics: _isScreenActive && !_isCommentsSheetOpen ? null : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final video = _channelVideos[index];
         
@@ -479,6 +577,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
+          isCommentsOpen: _isCommentsSheetOpen, // Pass comments state to video item
         );
       },
     );
@@ -799,27 +898,25 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   }
 
   void _showCommentsForCurrentVideo(ChannelVideoModel? video) {
-    if (video != null) {
-      // Pause current video and disable wakelock when showing comments
-      _pauseForNavigation();
+    if (video != null && !_isCommentsSheetOpen) {
+      // Set video to small window mode
+      _setVideoWindowMode(true);
       
-      // Show comments bottom sheet and handle completion
       showModalBottomSheet(
         context: context,
-        backgroundColor: Colors.transparent,
         isScrollControlled: true,
-        isDismissible: true,
-        enableDrag: true,
-        useSafeArea: true,
-        builder: (context) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: CommentsBottomSheet(videoId: video.id),
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.transparent,
+        builder: (context) => ChannelCommentsBottomSheet(
+          video: video,
+          onClose: () {
+            // Reset video to full screen mode
+            _setVideoWindowMode(false);
+          },
         ),
       ).whenComplete(() {
-        // Resume video and re-enable wakelock when comments are closed
-        _resumeFromNavigation();
+        // Ensure video returns to full screen mode
+        _setVideoWindowMode(false);
       });
     }
   }
