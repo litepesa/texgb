@@ -660,15 +660,13 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             tooltip: 'Back',
           ),
         ),
-        
-        // "Discover" title with icon in center - matching moments style
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(width: 8),
               Text(
-                'Discover',
+                'For You',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 16,

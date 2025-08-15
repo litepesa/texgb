@@ -646,21 +646,21 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
             ),
             const SizedBox(height: 20),
             Text(
-              'Loading recommendations...',
+              'Loading...',
               style: TextStyle(
                 color: theme.textColor,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            /*const SizedBox(height: 8),
             Text(
               'Finding the best content for you',
               style: TextStyle(
                 color: theme.textSecondaryColor,
                 fontSize: 14,
               ),
-            ),
+            ),*/
           ],
         ),
       ),
