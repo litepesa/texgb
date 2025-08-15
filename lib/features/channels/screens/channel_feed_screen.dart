@@ -246,8 +246,10 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
-      // Seek to beginning for fresh start next time
-      _currentVideoController!.seekTo(Duration.zero);
+      // Only seek to beginning if not in comments mode
+      if (!_isCommentsSheetOpen) {
+        _currentVideoController!.seekTo(Duration.zero);
+      }
     }
   }
 
@@ -276,11 +278,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
       _isCommentsSheetOpen = isSmallWindow;
     });
     
-    if (isSmallWindow) {
-      _stopPlayback();
-    } else if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
-      _startFreshPlayback();
-    }
+    // Don't pause the video controller here - let it continue playing in small window
+    // The video item will handle the display logic based on isCommentsOpen state
   }
 
   // Add this new method to build the small video window
@@ -313,9 +312,9 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
             borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
-                // Video content
+                // Video content only - no overlays
                 Positioned.fill(
-                  child: _buildCurrentVideoWidget(),
+                  child: _buildVideoContentOnly(),
                 ),
                 
                 // Close button overlay
@@ -343,17 +342,71 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     );
   }
 
-  Widget _buildCurrentVideoWidget() {
+  Widget _buildVideoContentOnly() {
     if (_channelVideos.isEmpty || _currentVideoIndex >= _channelVideos.length) {
       return Container(color: Colors.black);
     }
     
     final currentVideo = _channelVideos[_currentVideoIndex];
     
-    return ChannelVideoItem(
-      video: currentVideo,
-      isActive: false, // Don't auto-play in small window
-      isCommentsOpen: true, // Mark as comments mode
+    // Return only the media content without any overlays
+    if (currentVideo.isMultipleImages) {
+      return _buildImageCarouselOnly(currentVideo.imageUrls);
+    } else {
+      return _buildVideoPlayerOnly();
+    }
+  }
+
+  Widget _buildVideoPlayerOnly() {
+    if (_currentVideoController?.value.isInitialized != true) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white, value: 20),
+        ),
+      );
+    }
+    
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: _currentVideoController!.value.size.width,
+          height: _currentVideoController!.value.size.height,
+          child: VideoPlayer(_currentVideoController!),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageCarouselOnly(List<String> imageUrls) {
+    if (imageUrls.isEmpty) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: Icon(Icons.broken_image, color: Colors.white, size: 32),
+        ),
+      );
+    }
+    
+    return PageView.builder(
+      itemCount: imageUrls.length,
+      itemBuilder: (context, index) {
+        return Image.network(
+          imageUrls[index],
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.black,
+              child: const Center(
+                child: Icon(Icons.broken_image, color: Colors.white, size: 32),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

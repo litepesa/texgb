@@ -188,8 +188,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     debugPrint('ChannelsFeedScreen: Starting fresh playback');
     
-    // Only seek to beginning for truly fresh starts (new videos or screen activation)
-    // Don't seek when resuming from manual pause
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.play();
       debugPrint('ChannelsFeedScreen: Video controller playing');
@@ -213,8 +211,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
-      // Seek to beginning for fresh start next time
-      _currentVideoController!.seekTo(Duration.zero);
+      // Only seek to beginning if not in comments mode
+      if (!_isCommentsSheetOpen) {
+        _currentVideoController!.seekTo(Duration.zero);
+      }
     }
   }
 
@@ -224,11 +224,8 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       _isCommentsSheetOpen = isSmallWindow;
     });
     
-    if (isSmallWindow) {
-      _stopPlayback();
-    } else if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
-      _startFreshPlayback();
-    }
+    // Don't pause the video controller here - let it continue playing in small window
+    // The video item will handle the display logic based on isCommentsOpen state
   }
 
   void _initializeControllers() {
@@ -383,6 +380,136 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     ref.read(channelVideosProvider.notifier).incrementViewCount(videos[index].id);
   }
 
+  // Add this method to build the small video window
+  Widget _buildSmallVideoWindow() {
+    final systemTopPadding = MediaQuery.of(context).padding.top;
+    
+    return Positioned(
+      top: systemTopPadding + 20,
+      right: 20,
+      child: GestureDetector(
+        onTap: () {
+          // Close comments and return to full screen
+          Navigator.of(context).pop();
+          _setVideoWindowMode(false);
+        },
+        child: Container(
+          width: 120,
+          height: 180,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 15,
+                spreadRadius: 3,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                // Video content only - no overlays
+                Positioned.fill(
+                  child: _buildVideoContentOnly(),
+                ),
+                
+                // Close button overlay
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoContentOnly() {
+    final videos = ref.read(channelVideosProvider).videos;
+    
+    if (videos.isEmpty || _currentVideoIndex >= videos.length) {
+      return Container(color: Colors.black);
+    }
+    
+    final currentVideo = videos[_currentVideoIndex];
+    
+    // Return only the media content without any overlays
+    if (currentVideo.isMultipleImages) {
+      return _buildImageCarouselOnly(currentVideo.imageUrls);
+    } else {
+      return _buildVideoPlayerOnly();
+    }
+  }
+
+  Widget _buildVideoPlayerOnly() {
+    if (_currentVideoController?.value.isInitialized != true) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white, value: 20),
+        ),
+      );
+    }
+    
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: _currentVideoController!.value.size.width,
+          height: _currentVideoController!.value.size.height,
+          child: VideoPlayer(_currentVideoController!),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageCarouselOnly(List<String> imageUrls) {
+    if (imageUrls.isEmpty) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: Icon(Icons.broken_image, color: Colors.white, size: 32),
+        ),
+      );
+    }
+    
+    return PageView.builder(
+      itemCount: imageUrls.length,
+      itemBuilder: (context, index) {
+        return Image.network(
+          imageUrls[index],
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.black,
+              child: const Center(
+                child: Icon(Icons.broken_image, color: Colors.white, size: 32),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     debugPrint('ChannelsFeedScreen: Disposing');
@@ -428,44 +555,48 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       extendBody: true,
       backgroundColor: Colors.black,
       body: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
         child: Stack(
           children: [
             // Main content - positioned to avoid covering status bar and system nav
             Positioned(
-              top: systemTopPadding, // Start below status bar
+              top: systemTopPadding,
               left: 0,
               right: 0,
-              bottom: systemBottomPadding, // Reserve space above system nav
+              bottom: systemBottomPadding,
               child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
+                borderRadius: const BorderRadius.all(Radius.circular(12)),
                 child: _buildBody(channelVideosState, channelsState),
               ),
             ),
+            
+            // Small video window when comments are open
+            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
           
-          // Top navigation - simplified header matching moments feed style
-          if (!_isCommentsSheetOpen) // Hide top bar when comments are open
-            Positioned(
-              top: systemTopPadding + 16, // Positioned below status bar with some padding
-              left: 0,
-              right: 0,
-              child: _buildSimplifiedHeader(),
-            ),
+            // Top navigation - simplified header matching moments feed style
+            if (!_isCommentsSheetOpen) // Hide top bar when comments are open
+              Positioned(
+                top: systemTopPadding + 16,
+                left: 0,
+                right: 0,
+                child: _buildSimplifiedHeader(),
+              ),
           
-          // TikTok-style right side menu
-          if (!_isCommentsSheetOpen) // Hide right menu when comments are open
-            _buildRightSideMenu(),
+            // TikTok-style right side menu
+            if (!_isCommentsSheetOpen) // Hide right menu when comments are open
+              _buildRightSideMenu(),
           
-          // Cache performance indicator (debug mode only)
-          if (kDebugMode && !_isCommentsSheetOpen)
-            Positioned(
-              top: systemTopPadding + 120,
-              left: 16,
-              child: _buildCacheDebugInfo(),
-            ),
-        ],
+            // Cache performance indicator (debug mode only)
+            if (kDebugMode && !_isCommentsSheetOpen)
+              Positioned(
+                top: systemTopPadding + 120,
+                left: 16,
+                child: _buildCacheDebugInfo(),
+              ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 
   Widget _buildBody(ChannelVideosState videosState, ChannelsState channelsState) {
@@ -757,7 +888,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       ),
     );
   }
-
   Widget _buildRightMenuItem({
     required Widget child,
     String? label,

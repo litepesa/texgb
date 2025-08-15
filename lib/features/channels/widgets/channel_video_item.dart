@@ -146,12 +146,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       _isCommentsSheetOpen = widget.isCommentsOpen;
     });
     
-    if (widget.video.isMultipleImages) return;
+    // Don't pause video when comments open - video should continue playing
+    // The small window will show the same video stream
     
-    // Only pause video when comments open if it's currently playing
-    if (widget.isCommentsOpen && _isPlaying) {
-      _pauseVideo();
-    } else if (!widget.isCommentsOpen && widget.isActive && _isInitialized && !_isPlaying) {
+    // Only manage play state based on isActive, not comments state
+    if (!widget.isCommentsOpen && widget.isActive && _isInitialized && !_isPlaying) {
       _playVideo();
     }
   }
@@ -278,7 +277,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   void _playVideo() {
-    if (_isInitialized && _videoPlayerController != null && !widget.isCommentsOpen) {
+    if (_isInitialized && _videoPlayerController != null) {
       _videoPlayerController!.play();
       setState(() {
         _isPlaying = true;
@@ -356,110 +355,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   void _toggleCaptionExpansion() {
     setState(() {
       _showFullCaption = !_showFullCaption;
-    });
-  }
-
-  // Add this method to control video window mode
-  void _setVideoWindowMode(bool isSmallWindow) {
-    setState(() {
-      _isCommentsSheetOpen = isSmallWindow;
-    });
-    
-    if (isSmallWindow && _isPlaying) {
-      _pauseVideo();
-    } else if (!isSmallWindow && widget.isActive && _isInitialized) {
-      _playVideo();
-    }
-  }
-
-  // Add this new method to build the small video window
-  Widget _buildSmallVideoWindow() {
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    
-    return Positioned(
-      top: systemTopPadding + 20,
-      right: 20,
-      child: GestureDetector(
-        onTap: () {
-          // Close comments and return to full screen
-          Navigator.of(context).pop();
-          _setVideoWindowMode(false);
-        },
-        child: Container(
-          width: 120,
-          height: 180,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.4),
-                blurRadius: 15,
-                spreadRadius: 3,
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              children: [
-                // Video content
-                Positioned.fill(
-                  child: _buildCurrentVideoWidget(),
-                ),
-                
-                // Close button overlay
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCurrentVideoWidget() {
-    if (widget.video.isMultipleImages) {
-      return _buildImageCarousel();
-    } else {
-      return _buildVideoPlayer();
-    }
-  }
-
-  // Enhanced comments functionality with small video window
-  void _showCommentsForCurrentVideo() {
-    // Set video to small window mode
-    _setVideoWindowMode(true);
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.transparent,
-      builder: (context) => ChannelCommentsBottomSheet(
-        video: widget.video,
-        onClose: () {
-          // Reset video to full screen mode
-          _setVideoWindowMode(false);
-        },
-      ),
-    ).whenComplete(() {
-      // Ensure video returns to full screen mode
-      _setVideoWindowMode(false);
     });
   }
 
@@ -594,9 +489,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               ],
             ),
           ),
-          
-          // Small video window when comments are open
-          if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
         ],
       ),
     );
@@ -980,15 +872,18 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // TikTok-style bottom content overlay - optimized positioning for better screen utilization
+  // TikTok-style bottom content overlay - hide when comments open
   Widget _buildBottomContentOverlay() {
+    // Hide all overlay content when comments are open
+    if (_isCommentsSheetOpen) return const SizedBox.shrink();
+    
     final channelsState = ref.watch(channelsProvider);
     final isFollowing = channelsState.followedChannels.contains(widget.video.channelId);
     final userChannel = channelsState.userChannel;
     final isOwner = userChannel != null && userChannel.id == widget.video.channelId;
     
     return Positioned(
-      bottom: 8, // Fixed small padding from absolute bottom edge for maximum screen utilization
+      bottom: 8,
       left: 16,
       right: 80, // Leave space for right side menu
       child: Column(
@@ -1061,7 +956,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.transparent, // Removed red fill
+                          color: Colors.transparent,
                           border: Border.all(color: Colors.white, width: 1),
                           borderRadius: BorderRadius.circular(5),
                         ),
@@ -1080,12 +975,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             ],
           ),
           
-          const SizedBox(height: 6), // Reduced spacing
+          const SizedBox(height: 6),
           
           // Smart caption with hashtags (combined)
           _buildSmartCaption(),
           
-          const SizedBox(height: 8), // Reduced spacing
+          const SizedBox(height: 8),
           
           // Timestamp display
           _buildTimestampDisplay(),
@@ -1117,6 +1012,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
   }
 
   Widget _buildCarouselIndicators() {
+    // Hide indicators when comments are open
+    if (_isCommentsSheetOpen) return const SizedBox.shrink();
+    
     return Positioned(
       top: 120, // Below top floating icons
       left: 0,
