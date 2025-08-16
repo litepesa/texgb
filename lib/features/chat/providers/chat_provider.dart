@@ -166,6 +166,7 @@ class ChatList extends _$ChatList {
       await _repository.toggleChatPin(chatId, userId);
     } catch (e) {
       debugPrint('Error toggling pin: $e');
+      rethrow;
     }
   }
 
@@ -174,6 +175,7 @@ class ChatList extends _$ChatList {
       await _repository.toggleChatArchive(chatId, userId);
     } catch (e) {
       debugPrint('Error toggling archive: $e');
+      rethrow;
     }
   }
 
@@ -182,6 +184,7 @@ class ChatList extends _$ChatList {
       await _repository.toggleChatMute(chatId, userId);
     } catch (e) {
       debugPrint('Error toggling mute: $e');
+      rethrow;
     }
   }
 
@@ -190,6 +193,36 @@ class ChatList extends _$ChatList {
       await _repository.markChatAsRead(chatId, userId);
     } catch (e) {
       debugPrint('Error marking chat as read: $e');
+      rethrow;
+    }
+  }
+
+  // Delete chat functionality
+  Future<void> deleteChat(String chatId, String userId, {bool deleteForEveryone = false}) async {
+    try {
+      await _repository.deleteChat(chatId, userId, deleteForEveryone: deleteForEveryone);
+      
+      // Remove from local state immediately for better UX
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedChats = currentState.chats
+            .where((chatItem) => chatItem.chat.chatId != chatId)
+            .toList();
+        
+        state = AsyncValue.data(currentState.copyWith(chats: updatedChats));
+      }
+    } catch (e) {
+      debugPrint('Error deleting chat: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> clearChatHistory(String chatId, String userId) async {
+    try {
+      await _repository.clearChatHistory(chatId, userId);
+    } catch (e) {
+      debugPrint('Error clearing chat history: $e');
+      rethrow;
     }
   }
 
@@ -201,13 +234,38 @@ class ChatList extends _$ChatList {
     try {
       final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
       
-      // Refresh the chat list to show the new chat
-      ref.invalidateSelf();
+      // Don't refresh immediately - let the stream handle updates
+      // Only refresh if we need to ensure the chat appears
       
       return chatId;
     } catch (e) {
       debugPrint('Error creating chat: $e');
       return null;
     }
+  }
+
+  // Check if chat has messages before creating/showing it
+  Future<bool> chatHasMessages(String chatId) async {
+    try {
+      return await _repository.chatHasMessages(chatId);
+    } catch (e) {
+      debugPrint('Error checking chat messages: $e');
+      return false;
+    }
+  }
+
+  // Get chat by ID
+  Future<ChatModel?> getChatById(String chatId) async {
+    try {
+      return await _repository.getChatById(chatId);
+    } catch (e) {
+      debugPrint('Error getting chat by ID: $e');
+      return null;
+    }
+  }
+
+  // Refresh chat list manually
+  void refreshChatList() {
+    ref.invalidateSelf();
   }
 }

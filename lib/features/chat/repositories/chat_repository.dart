@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
@@ -21,6 +22,8 @@ abstract class ChatRepository {
   Future<void> toggleChatMute(String chatId, String userId);
   Future<void> setChatWallpaper(String chatId, String userId, String? wallpaperUrl);
   Future<void> setChatFontSize(String chatId, String userId, double fontSize);
+  Future<void> deleteChat(String chatId, String userId, {bool deleteForEveryone = false});
+  Future<void> clearChatHistory(String chatId, String userId);
 
   // Message operations
   Future<String> sendMessage(MessageModel message);
@@ -40,6 +43,7 @@ abstract class ChatRepository {
 
   // Utility
   String generateChatId(String userId1, String userId2);
+  Future<bool> chatHasMessages(String chatId);
 }
 
 class FirebaseChatRepository implements ChatRepository {
@@ -60,6 +64,22 @@ class FirebaseChatRepository implements ChatRepository {
     // Create consistent chat ID regardless of order
     final sortedIds = [userId1, userId2]..sort();
     return '${sortedIds[0]}_${sortedIds[1]}';
+  }
+
+  @override
+  Future<bool> chatHasMessages(String chatId) async {
+    try {
+      final messagesSnapshot = await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .limit(1)
+          .get();
+      
+      return messagesSnapshot.docs.isNotEmpty;
+    } catch (e) {
+      throw ChatRepositoryException('Failed to check chat messages: $e');
+    }
   }
 
   @override
@@ -101,11 +121,23 @@ class FirebaseChatRepository implements ChatRepository {
           .where('participants', arrayContains: userId)
           .orderBy('lastMessageTime', descending: true)
           .snapshots()
-          .map((snapshot) {
-        return snapshot.docs
-            .map((doc) => ChatModel.fromMap(doc.data()))
-            .where((chat) => !chat.isArchivedForUser(userId))
-            .toList();
+          .asyncMap((snapshot) async {
+        final chats = <ChatModel>[];
+        
+        for (final doc in snapshot.docs) {
+          final chat = ChatModel.fromMap(doc.data());
+          
+          // Only include chats that are not archived and have messages
+          if (!chat.isArchivedForUser(userId)) {
+            // Check if chat has any messages
+            final hasMessages = await chatHasMessages(chat.chatId);
+            if (hasMessages) {
+              chats.add(chat);
+            }
+          }
+        }
+        
+        return chats;
       });
     } catch (e) {
       throw ChatRepositoryException('Failed to get chats stream: $e');
@@ -202,6 +234,83 @@ class FirebaseChatRepository implements ChatRepository {
   }
 
   @override
+  Future<void> deleteChat(String chatId, String userId, {bool deleteForEveryone = false}) async {
+    try {
+      if (deleteForEveryone) {
+        // Delete the entire chat document and all messages
+        final batch = _firestore.batch();
+        
+        // Delete all messages
+        final messagesSnapshot = await _firestore
+            .collection(Constants.chats)
+            .doc(chatId)
+            .collection(Constants.messages)
+            .get();
+        
+        for (final doc in messagesSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        
+        // Delete the chat document
+        batch.delete(_firestore.collection(Constants.chats).doc(chatId));
+        
+        await batch.commit();
+        
+        // Delete associated media files
+        try {
+          final mediaRef = _storage.ref().child('${Constants.chatFiles}/$chatId');
+          final mediaItems = await mediaRef.listAll();
+          
+          for (final item in mediaItems.items) {
+            await item.delete();
+          }
+        } catch (e) {
+          // Media deletion failed, but continue
+          debugPrint('Failed to delete media for chat $chatId: $e');
+        }
+      } else {
+        // Archive the chat for this user only
+        await _firestore.collection(Constants.chats).doc(chatId).update({
+          'isArchived.$userId': true,
+        });
+      }
+    } catch (e) {
+      throw ChatRepositoryException('Failed to delete chat: $e');
+    }
+  }
+
+  @override
+  Future<void> clearChatHistory(String chatId, String userId) async {
+    try {
+      // Delete all messages in the chat
+      final batch = _firestore.batch();
+      
+      final messagesSnapshot = await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .get();
+      
+      for (final doc in messagesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Reset chat last message
+      batch.update(_firestore.collection(Constants.chats).doc(chatId), {
+        'lastMessage': '',
+        'lastMessageType': MessageEnum.text.name,
+        'lastMessageSender': '',
+        'lastMessageTime': DateTime.now().millisecondsSinceEpoch,
+        'unreadCounts.$userId': 0,
+      });
+      
+      await batch.commit();
+    } catch (e) {
+      throw ChatRepositoryException('Failed to clear chat history: $e');
+    }
+  }
+
+  @override
   Future<void> setChatWallpaper(String chatId, String userId, String? wallpaperUrl) async {
     try {
       await _firestore.collection(Constants.chats).doc(chatId).update({
@@ -257,7 +366,6 @@ class FirebaseChatRepository implements ChatRepository {
             updates['unreadCounts.$participantId'] = currentUnread + 1;
             
             // Automatically mark as delivered for other participants
-            // In a real app, this would be done when the user comes online
             Future.delayed(const Duration(seconds: 2), () {
               markMessageAsDelivered(message.chatId, messageId, participantId);
             });
@@ -456,12 +564,6 @@ class FirebaseChatRepository implements ChatRepository {
 
       final ref = _storage.ref().child('${Constants.chatFiles}/$chatId/$fileName');
       final uploadTask = ref.putFile(file);
-      
-      // Show upload progress if needed
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        // You can emit this progress to a stream if needed
-      });
       
       final snapshot = await uploadTask;
       final downloadUrl = await snapshot.ref.getDownloadURL();

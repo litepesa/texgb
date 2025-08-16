@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
@@ -57,20 +58,27 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     }
   }
 
-  // Navigate to chat screen - Updated to use chat provider
+  // Updated navigation to chat with empty chat prevention
   Future<void> _navigateToChat() async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) {
+      showSnackBar(context, 'User not authenticated');
+      return;
+    }
+
     setState(() {
       _isCreatingChat = true;
     });
 
     try {
-      // Create or get existing chat
       final chatListNotifier = ref.read(chatListProvider.notifier);
+      
+      // Create or get existing chat
       final chatId = await chatListNotifier.createChat(_contact.uid);
       
       if (chatId != null && mounted) {
-        // Navigate to chat screen
-        Navigator.of(context).push(
+        // Navigate to chat screen and wait for result
+        final result = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (context) => ChatScreen(
               chatId: chatId,
@@ -78,6 +86,21 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
             ),
           ),
         );
+
+        // Check if any message was sent
+        if (result == null || result == false) {
+          // No messages were sent, check if chat has messages
+          final hasMessages = await chatListNotifier.chatHasMessages(chatId);
+          
+          if (!hasMessages) {
+            // Delete the empty chat
+            await chatListNotifier.deleteChat(
+              chatId, 
+              currentUser.uid, 
+              deleteForEveryone: true
+            );
+          }
+        }
       } else if (mounted) {
         showSnackBar(context, 'Failed to create chat');
       }

@@ -703,6 +703,36 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                 _archiveChat(chatItem.chat.chatId, currentUserId);
               },
             ),
+
+            ListTile(
+              leading: const Icon(
+                Icons.clear_all,
+                color: Colors.blue,
+              ),
+              title: const Text(
+                'Clear chat history',
+                style: TextStyle(color: Colors.blue),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmClearChatHistory(chatItem.chat.chatId, currentUserId, chatItem.contactName);
+              },
+            ),
+            
+            ListTile(
+              leading: const Icon(
+                Icons.delete,
+                color: Colors.red,
+              ),
+              title: const Text(
+                'Delete chat',
+                style: TextStyle(color: Colors.red),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDeleteChat(chatItem.chat.chatId, currentUserId, chatItem.contactName);
+              },
+            ),
             
             const SizedBox(height: 16),
           ],
@@ -743,6 +773,163 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     } catch (e) {
       if (mounted) {
         showSnackBar(context, 'Failed to archive chat');
+      }
+    }
+  }
+
+  void _confirmDeleteChat(String chatId, String userId, String contactName) {
+    final modernTheme = context.modernTheme;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: modernTheme.surfaceColor,
+        title: Text(
+          'Delete Chat?',
+          style: TextStyle(color: modernTheme.textColor),
+        ),
+        content: Text(
+          'Are you sure you want to delete this chat with $contactName? This action cannot be undone.',
+          style: TextStyle(color: modernTheme.textSecondaryColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: modernTheme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteChat(chatId, userId, false);
+            },
+            child: const Text(
+              'Delete for me',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _confirmDeleteForEveryone(chatId, userId, contactName);
+            },
+            child: const Text(
+              'Delete for everyone',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteForEveryone(String chatId, String userId, String contactName) {
+    final modernTheme = context.modernTheme;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: modernTheme.surfaceColor,
+        title: Text(
+          'Delete for Everyone?',
+          style: TextStyle(color: modernTheme.textColor),
+        ),
+        content: Text(
+          'This will delete the entire chat with $contactName for both participants. This action cannot be undone.',
+          style: TextStyle(color: modernTheme.textSecondaryColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: modernTheme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteChat(chatId, userId, true);
+            },
+            child: const Text(
+              'Delete for Everyone',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmClearChatHistory(String chatId, String userId, String contactName) {
+    final modernTheme = context.modernTheme;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: modernTheme.surfaceColor,
+        title: Text(
+          'Clear Chat History?',
+          style: TextStyle(color: modernTheme.textColor),
+        ),
+        content: Text(
+          'Are you sure you want to clear all messages in this chat with $contactName? This action cannot be undone.',
+          style: TextStyle(color: modernTheme.textSecondaryColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: modernTheme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _clearChatHistory(chatId, userId);
+            },
+            child: Text(
+              'Clear',
+              style: TextStyle(color: modernTheme.primaryColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteChat(String chatId, String userId, bool deleteForEveryone) async {
+    try {
+      final chatListNotifier = ref.read(chatListProvider.notifier);
+      await chatListNotifier.deleteChat(chatId, userId, deleteForEveryone: deleteForEveryone);
+      
+      if (mounted) {
+        showSnackBar(
+          context, 
+          deleteForEveryone ? 'Chat deleted for everyone' : 'Chat deleted'
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Failed to delete chat');
+      }
+    }
+  }
+
+  Future<void> _clearChatHistory(String chatId, String userId) async {
+    try {
+      final chatListNotifier = ref.read(chatListProvider.notifier);
+      await chatListNotifier.clearChatHistory(chatId, userId);
+      
+      if (mounted) {
+        showSnackBar(context, 'Chat history cleared');
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Failed to clear chat history');
       }
     }
   }
