@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart' hide messageNotifierProvider;
 import 'package:textgb/features/chat/screens/chat_screen.dart';
@@ -30,13 +31,38 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final modernTheme = context.modernTheme;
-    final currentUser = ref.watch(currentUserProvider);
+    
+    // Watch the authentication state
+    final authState = ref.watch(authenticationProvider);
+    
+    return authState.when(
+      loading: () => _buildLoadingAuthState(modernTheme),
+      error: (error, stack) => _buildNotAuthenticatedState(modernTheme),
+      data: (authenticationState) {
+        if (authenticationState.userModel == null) {
+          return _buildNotAuthenticatedState(modernTheme);
+        }
+        
+        // User is authenticated, show the chat list
+        return _buildAuthenticatedChatList(authenticationState.userModel!, modernTheme);
+      },
+    );
+  }
+
+  Widget _buildLoadingAuthState(ModernThemeExtension modernTheme) {
+    return Scaffold(
+      backgroundColor: modernTheme.surfaceColor,
+      body: Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAuthenticatedChatList(UserModel user, ModernThemeExtension modernTheme) {
     final chatListState = ref.watch(chatListProvider);
     
-    if (currentUser == null) {
-      return _buildNotAuthenticatedState(modernTheme);
-    }
-
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
       body: Column(
@@ -49,7 +75,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             child: chatListState.when(
               loading: () => _buildLoadingState(modernTheme),
               error: (error, stack) => _buildErrorState(modernTheme, error.toString()),
-              data: (state) => _buildChatList(state, currentUser.uid, modernTheme),
+              data: (state) => _buildChatList(state, user.uid, modernTheme),
             ),
           ),
         ],
@@ -326,8 +352,18 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () => _navigateToContacts(),
-            icon: const Icon(Icons.person_add),
-            label: const Text('Start Chatting'),
+            icon: const Icon(
+              CupertinoIcons.person_add,
+              color: Colors.white,
+              size: 20,
+            ),
+            label: const Text(
+              'Start Chatting',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: modernTheme.primaryColor,
               foregroundColor: Colors.white,
@@ -335,6 +371,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
+              elevation: 2,
             ),
           ),
         ],
@@ -573,13 +610,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     }
 
     // Navigate to chat screen
-    if (mounted) {
+    if (mounted && currentUser != null) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => ChatScreen(
             chatId: chatItem.chat.chatId,
             contact: UserModel(
-              uid: chatItem.chat.getOtherParticipant(currentUser!.uid),
+              uid: chatItem.chat.getOtherParticipant(currentUser.uid),
               name: chatItem.contactName,
               phoneNumber: chatItem.contactPhone,
               image: chatItem.contactImage,
