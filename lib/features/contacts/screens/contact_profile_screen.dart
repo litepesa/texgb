@@ -2,11 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
-import 'package:textgb/constants.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+// import 'package:textgb/features/chat/providers/chat_provider.dart'; // Add when chat feature is implemented
 
 class ContactProfileScreen extends ConsumerStatefulWidget {
   final UserModel contact;
@@ -54,56 +53,20 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     }
   }
 
-  Future<void> _removeContact() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await ref.read(contactsNotifierProvider.notifier).removeContact(_contact);
-      if (mounted) {
-        showSnackBar(context, 'Contact removed successfully');
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Failed to remove contact: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  // Start a chat with the contact
-  void _startChatWithContact() async {
-    try {
-      // Get the chat ID for this contact
-      final chatNotifier = ref.read(chatProvider.notifier);
-      final chatId = chatNotifier.getChatIdForContact(_contact.uid);
-      
-      // Create a new chat or open existing chat
-      await chatNotifier.createChat(_contact);
-      
-      // Navigate to chat screen
-      if (mounted) {
-        Navigator.pushNamed(
-          context,
-          Constants.chatScreen,
-          arguments: {
-            'chatId': chatId,
-            'contact': _contact,
-          },
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Error starting chat: $e');
-      }
-    }
+  // Navigate to chat screen (placeholder for when chat feature is implemented)
+  void _navigateToChat() {
+    // TODO: Replace with actual chat screen navigation when chat feature is implemented
+    showSnackBar(context, 'Opening chat with ${_contact.name}...');
+    
+    // Future implementation:
+    // Navigator.pushNamed(
+    //   context,
+    //   Constants.chatScreen,
+    //   arguments: {
+    //     'contact': _contact,
+    //     'chatId': 'chat_${_contact.uid}',
+    //   },
+    // );
   }
 
   @override
@@ -111,316 +74,249 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     final theme = Theme.of(context);
     final modernTheme = context.modernTheme;
     final primaryColor = modernTheme.primaryColor!;
-    final textColor = modernTheme.textColor!;
     
     return Scaffold(
+      backgroundColor: modernTheme.surfaceColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 300,
+            expandedHeight: 320,
             pinned: true,
+            backgroundColor: modernTheme.surfaceColor,
             flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Profile image
-                  Hero(
-                    tag: 'contact-${_contact.uid}',
-                    child: _contact.image.isNotEmpty
-                        ? Image.network(
-                            _contact.image,
-                            fit: BoxFit.cover,
-                          )
-                        : Container(
-                            color: primaryColor.withOpacity(0.7),
-                            child: Center(
-                              child: Text(
-                                _contact.name.isNotEmpty ? _contact.name[0] : '?',
-                                style: const TextStyle(
-                                  fontSize: 80,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      primaryColor.withOpacity(0.1),
+                      modernTheme.surfaceColor!,
+                    ],
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 80), // Account for app bar
+                    
+                    // Profile Image
+                    Hero(
+                      tag: 'contact-${_contact.uid}',
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: primaryColor.withOpacity(0.3),
+                            width: 3,
                           ),
-                  ),
-                  // Gradient overlay for better title visibility
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                        ],
-                        stops: const [0.7, 1.0],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              title: Text(_contact.name),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.chat),
-                tooltip: 'Message',
-                onPressed: () {
-                  // Start chat with contact
-                  _startChatWithContact();
-                },
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                onSelected: (value) {
-                  switch (value) {
-                    case 'block':
-                      _showBlockConfirmationDialog();
-                      break;
-                    case 'remove':
-                      _showRemoveConfirmationDialog();
-                      break;
-                    case 'share':
-                      // Share contact profile
-                      showSnackBar(context, 'Share feature coming soon');
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem<String>(
-                    value: 'share',
-                    child: Row(
-                      children: [
-                        Icon(Icons.share),
-                        SizedBox(width: 10),
-                        Text('Share contact'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'block',
-                    child: Row(
-                      children: [
-                        Icon(Icons.block),
-                        SizedBox(width: 10),
-                        Text('Block contact'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'remove',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete_outline),
-                        SizedBox(width: 10),
-                        Text('Remove contact'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SliverList(
-            delegate: SliverChildListDelegate([
-              // Contact Info Card
-              Card(
-                margin: const EdgeInsets.all(16),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Contact Information',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Divider(),
-                      // Phone
-                      ListTile(
-                        leading: Icon(
-                          Icons.phone,
-                          color: primaryColor,
-                        ),
-                        title: const Text('Phone'),
-                        subtitle: Text(_contact.phoneNumber),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.chat),
-                              onPressed: () {
-                                // Start chat with contact
-                                _startChatWithContact();
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.call),
-                              onPressed: () {
-                                // Call
-                                showSnackBar(context, 'Call feature coming soon');
-                              },
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
                             ),
                           ],
-                        )),
-                      // Last Seen
-                      if (_contact.lastSeen.isNotEmpty)
-                        ListTile(
-                          leading: Icon(
+                        ),
+                        child: _contact.image.isNotEmpty
+                            ? ClipOval(
+                                child: Image.network(
+                                  _contact.image,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => 
+                                      _buildFallbackAvatar(),
+                                ),
+                              )
+                            : _buildFallbackAvatar(),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Name
+                    Text(
+                      _contact.name,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: modernTheme.textColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    
+                    const SizedBox(height: 16),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 32),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: primaryColor.withOpacity(0.1),
+                          ),
+                        ),
+                        child: Text(
+                          _contact.aboutMe,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: modernTheme.textSecondaryColor,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                ),
+              ),
+            ),
+
+          ),
+          
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  // Action Buttons
+                  Row(
+                    children: [
+                      // Message Button - Navigate to Chat
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _navigateToChat,
+                          icon: const Icon(
+                            CupertinoIcons.bubble_left_bubble_right,
+                            color: Colors.white, // Ensure icon is visible in both themes
+                          ),
+                          label: const Text('Message'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(width: 16),
+                      
+                      // Block Button
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _showBlockConfirmationDialog,
+                          icon: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.red,
+                                  ),
+                                )
+                              : const Icon(Icons.block),
+                          label: Text(_isLoading ? 'Blocking...' : 'Block'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red, width: 1.5),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Additional Info Card (Optional - minimal info)
+                  if (_contact.lastSeen.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: modernTheme.surfaceVariantColor?.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: modernTheme.dividerColor!.withOpacity(0.5),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(
                             Icons.access_time,
-                            color: primaryColor,
+                            color: modernTheme.textSecondaryColor,
+                            size: 20,
                           ),
-                          title: const Text('Last Seen'),
-                          subtitle: Text(_formatLastSeen(_contact.lastSeen)),
-                        ),
-                      // About
-                      if (_contact.aboutMe.isNotEmpty)
-                        ListTile(
-                          leading: Icon(
-                            Icons.info_outline,
-                            color: primaryColor,
-                          ),
-                          title: const Text('About'),
-                          subtitle: Text(_contact.aboutMe),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              // Status updates (placeholder)
-              Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Status Updates',
+                          const SizedBox(height: 8),
+                          Text(
+                            'Last seen',
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: modernTheme.textSecondaryColor,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          TextButton(
-                            onPressed: () {
-                              // View all status updates
-                              showSnackBar(context, 'Status updates coming soon');
-                            },
-                            child: const Text('View All'),
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatLastSeen(_contact.lastSeen),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: modernTheme.textColor,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
-                      const Divider(),
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text(
-                            'No status updates available',
-                            style: TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              // Media, Links, Docs (placeholder)
-              Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Shared Media',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              // View all media
-                              showSnackBar(context, 'Shared media coming soon');
-                            },
-                            child: const Text('View All'),
-                          ),
-                        ],
-                      ),
-                      const Divider(),
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text(
-                            'No shared media available',
-                            style: TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Block and Remove buttons
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _isLoading ? null : _showBlockConfirmationDialog,
-                        icon: const Icon(Icons.block),
-                        label: const Text('Block'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _isLoading ? null : _showRemoveConfirmationDialog,
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Remove'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
-              
-              const SizedBox(height: 32),
-            ]),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFallbackAvatar() {
+    final modernTheme = context.modernTheme;
+    final primaryColor = modernTheme.primaryColor!;
+    
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            primaryColor,
+            primaryColor.withOpacity(0.7),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          _contact.name.isNotEmpty ? _contact.name[0].toUpperCase() : '?',
+          style: const TextStyle(
+            fontSize: 48,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }
@@ -449,6 +345,8 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     }
   }
 
+
+
   void _showBlockConfirmationDialog() {
     showMyAnimatedDialog(
       context: context,
@@ -458,20 +356,6 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
       onActionTap: (confirmed) {
         if (confirmed) {
           _blockContact();
-        }
-      },
-    );
-  }
-
-  void _showRemoveConfirmationDialog() {
-    showMyAnimatedDialog(
-      context: context,
-      title: 'Remove Contact',
-      content: 'Are you sure you want to remove ${_contact.name} from your contacts?',
-      textAction: 'Remove',
-      onActionTap: (confirmed) {
-        if (confirmed) {
-          _removeContact();
         }
       },
     );

@@ -5,7 +5,6 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/models/user_model.dart';
@@ -191,40 +190,13 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     }
   }
 
-  // Optimized chat starting
-  void _startChatWithContact(UserModel contact) async {
-    try {
-      // Show loading indicator for immediate feedback
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-
-      final chatNotifier = ref.read(chatProvider.notifier);
-      final chatId = chatNotifier.getChatIdForContact(contact.uid);
-      
-      await chatNotifier.createChat(contact);
-      
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        Navigator.pushNamed(
-          context,
-          Constants.chatScreen,
-          arguments: {
-            'chatId': chatId,
-            'contact': contact,
-          },
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        _showErrorSnackBar('Error starting chat: $e');
-      }
-    }
+  // Navigate to contact profile
+  void _navigateToContactProfile(UserModel contact) {
+    Navigator.pushNamed(
+      context,
+      Constants.contactProfileScreen,
+      arguments: contact,
+    );
   }
 
   // Enhanced sync status display
@@ -385,7 +357,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
           overflow: TextOverflow.ellipsis,
         ),
         trailing: _buildContactActions(contact),
-        onTap: () => _startChatWithContact(contact),
+        onTap: () => _navigateToContactProfile(contact),
       ),
     );
   }
@@ -442,11 +414,11 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       children: [
         IconButton(
           icon: Icon(
-            CupertinoIcons.chat_bubble_text,
+            Icons.info_outline,
             color: modernTheme.textSecondaryColor,
           ),
-          onPressed: () => _startChatWithContact(contact),
-          tooltip: 'Message',
+          onPressed: () => _navigateToContactProfile(contact),
+          tooltip: 'Contact Info',
         ),
         PopupMenuButton<String>(
           icon: Icon(
@@ -496,11 +468,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   Future<void> _handleContactAction(String action, UserModel contact) async {
     switch (action) {
       case 'info':
-        Navigator.pushNamed(
-          context,
-          Constants.contactProfileScreen,
-          arguments: contact,
-        );
+        _navigateToContactProfile(contact);
         break;
       case 'block':
         final confirmed = await _showConfirmationDialog(

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -91,34 +90,15 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
     }
   }
 
-  // Start a chat with the found user
-  void _startChatWithContact() async {
+  // Navigate to contact profile
+  void _viewContactProfile() {
     if (_foundUser == null) return;
     
-    try {
-      // Get the chat ID for this contact
-      final chatNotifier = ref.read(chatProvider.notifier);
-      final chatId = chatNotifier.getChatIdForContact(_foundUser!.uid);
-      
-      // Create a new chat or open existing chat
-      await chatNotifier.createChat(_foundUser!);
-      
-      // Navigate to chat screen
-      if (mounted) {
-        Navigator.pushNamed(
-          context,
-          Constants.chatScreen,
-          arguments: {
-            'chatId': chatId,
-            'contact': _foundUser!,
-          },
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Error starting chat: $e');
-      }
-    }
+    Navigator.pushNamed(
+      context,
+      Constants.contactProfileScreen,
+      arguments: _foundUser!,
+    );
   }
 
   @override
@@ -265,12 +245,9 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: OutlinedButton.icon(
-                                onPressed: _isSearching ? null : () {
-                                  // Start chat with contact
-                                  _startChatWithContact();
-                                },
-                                icon: const Icon(CupertinoIcons.chat_bubble_text),
-                                label: const Text('Message'),
+                                onPressed: _isSearching ? null : _viewContactProfile,
+                                icon: const Icon(Icons.info_outline),
+                                label: const Text('View Profile'),
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 12),
                                 ),

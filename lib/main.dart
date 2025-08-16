@@ -18,6 +18,10 @@ import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_screen.dart';
+import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
+import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
+import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
@@ -120,6 +124,14 @@ class AppRoot extends ConsumerWidget {
           Constants.myProfileScreen: (context) => const MyProfileScreen(),
           Constants.editProfileScreen: (context) => const EditProfileScreen(),
           Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
+
+          Constants.contactsScreen: (context) => const ContactsScreen(),
+          Constants.addContactScreen: (context) => const AddContactScreen(),
+          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
+          Constants.contactProfileScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
+            return ContactProfileScreen(contact: args);
+          },
                  
           // Channel routes with enhanced navigation support
           Constants.channelsFeedScreen: (context) {
