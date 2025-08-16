@@ -95,7 +95,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             .toList();
         
         if (unreadMessageIds.isNotEmpty) {
-          messageNotifier.markMessagesAsRead(widget.chatId, unreadMessageIds);
+          messageNotifier.markMessagesAsDelivered(widget.chatId, unreadMessageIds);
         }
       }
     }

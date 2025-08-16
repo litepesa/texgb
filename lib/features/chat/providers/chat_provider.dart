@@ -6,7 +6,6 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
-import 'package:textgb/features/chat/providers/message_provider.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/models/user_model.dart';
@@ -56,20 +55,28 @@ class ChatListState {
   }
 
   List<ChatListItemModel> get pinnedChats {
+    final currentUser = chats.isNotEmpty ? chats.first.chat.participants.firstWhere(
+      (id) => id != chats.first.chat.participants.first, 
+      orElse: () => chats.first.chat.participants.first
+    ) : '';
     return filteredChats.where((chat) => 
-        chat.chat.isPinnedForUser(chat.chat.participants.first)).toList();
+        chat.chat.isPinnedForUser(currentUser)).toList();
   }
 
   List<ChatListItemModel> get regularChats {
+    final currentUser = chats.isNotEmpty ? chats.first.chat.participants.firstWhere(
+      (id) => id != chats.first.chat.participants.first, 
+      orElse: () => chats.first.chat.participants.first
+    ) : '';
     return filteredChats.where((chat) => 
-        !chat.chat.isPinnedForUser(chat.chat.participants.first)).toList();
+        !chat.chat.isPinnedForUser(currentUser)).toList();
   }
 }
 
 @riverpod
 class ChatList extends _$ChatList {
   ChatRepository get _repository => ref.read(chatRepositoryProvider);
-
+  
   @override
   FutureOr<ChatListState> build() async {
     final currentUser = ref.watch(currentUserProvider);
@@ -80,7 +87,7 @@ class ChatList extends _$ChatList {
     // Start listening to chats stream
     _subscribeToChats(currentUser.uid);
     
-    return const ChatListState();
+    return const ChatListState(isLoading: true);
   }
 
   void _subscribeToChats(String userId) {
@@ -90,28 +97,22 @@ class ChatList extends _$ChatList {
         try {
           final chatItems = await _buildChatListItems(chats, userId);
           
-          if (!state.hasValue) {
-            state = AsyncValue.data(ChatListState(
-              chats: chatItems,
-              isLoading: false,
-            ));
-          }
-        } catch (e) {
-          if (!state.hasValue) {
-            state = AsyncValue.data(ChatListState(
-              error: e.toString(),
-              isLoading: false,
-            ));
-          }
-        }
-      },
-      onError: (error) {
-        if (!state.hasValue) {
           state = AsyncValue.data(ChatListState(
-            error: error.toString(),
+            chats: chatItems,
+            isLoading: false,
+          ));
+        } catch (e) {
+          state = AsyncValue.data(ChatListState(
+            error: e.toString(),
             isLoading: false,
           ));
         }
+      },
+      onError: (error) {
+        state = AsyncValue.data(ChatListState(
+          error: error.toString(),
+          isLoading: false,
+        ));
       },
     );
   }
@@ -141,13 +142,17 @@ class ChatList extends _$ChatList {
       }
     }
 
+    // Sort by last message time
+    chatItems.sort((a, b) => b.chat.lastMessageTime.compareTo(a.chat.lastMessageTime));
+
     return chatItems;
   }
 
   // Search functionality
   void setSearchQuery(String query) {
-    if (state.hasValue) {
-      state = AsyncValue.data(state.value!.copyWith(searchQuery: query));
+    final currentState = state.valueOrNull;
+    if (currentState != null) {
+      state = AsyncValue.data(currentState.copyWith(searchQuery: query));
     }
   }
 
@@ -160,7 +165,6 @@ class ChatList extends _$ChatList {
     try {
       await _repository.toggleChatPin(chatId, userId);
     } catch (e) {
-      // Error will be handled by stream updates
       debugPrint('Error toggling pin: $e');
     }
   }
@@ -195,11 +199,15 @@ class ChatList extends _$ChatList {
     if (currentUser == null) return null;
 
     try {
-      return await _repository.createOrGetChat(currentUser.uid, otherUserId);
+      final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
+      
+      // Refresh the chat list to show the new chat
+      ref.invalidateSelf();
+      
+      return chatId;
     } catch (e) {
       debugPrint('Error creating chat: $e');
       return null;
     }
   }
 }
-

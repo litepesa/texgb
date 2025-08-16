@@ -103,6 +103,12 @@ class MessageBubble extends StatelessWidget {
               const SizedBox(height: 2),
               _buildEditIndicator(context, modernTheme),
             ],
+            
+            // Failed message retry option
+            if (message.status == MessageStatus.failed && isCurrentUser) ...[
+              const SizedBox(height: 4),
+              _buildRetryIndicator(context, modernTheme),
+            ],
           ],
         ),
       ),
@@ -209,6 +215,50 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  Widget _buildRetryIndicator(BuildContext context, ModernThemeExtension modernTheme) {
+    return GestureDetector(
+      onTap: () {
+        // Trigger retry - this would be handled by the parent widget
+        if (onLongPress != null) onLongPress!();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 12,
+              color: Colors.red,
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              'Failed to send',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.red,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              'Tap to retry',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.red,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessageContent(
     BuildContext context, 
     ModernThemeExtension modernTheme,
@@ -293,43 +343,97 @@ class MessageBubble extends StatelessWidget {
             topLeft: Radius.circular(20),
             topRight: Radius.circular(20),
           ),
-          child: CachedNetworkImage(
-            imageUrl: message.mediaUrl!,
-            width: double.infinity,
-            height: 200,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              height: 200,
-              color: modernTheme.surfaceVariantColor,
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: modernTheme.primaryColor,
-                  strokeWidth: 2,
-                ),
-              ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              height: 200,
-              color: modernTheme.surfaceVariantColor,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.broken_image,
-                    color: modernTheme.textSecondaryColor,
-                    size: 32,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Failed to load image',
-                    style: TextStyle(
-                      color: modernTheme.textSecondaryColor,
-                      fontSize: 12,
+          child: Stack(
+            children: [
+              CachedNetworkImage(
+                imageUrl: message.mediaUrl ?? '',
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  height: 200,
+                  color: modernTheme.surfaceVariantColor,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          color: modernTheme.primaryColor,
+                          strokeWidth: 2,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Loading image...',
+                          style: TextStyle(
+                            color: modernTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
+                errorWidget: (context, url, error) => Container(
+                  height: 200,
+                  color: modernTheme.surfaceVariantColor,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.broken_image,
+                        color: modernTheme.textSecondaryColor,
+                        size: 32,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Failed to load image',
+                        style: TextStyle(
+                          color: modernTheme.textSecondaryColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap to retry',
+                        style: TextStyle(
+                          color: modernTheme.primaryColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              
+              // Upload progress indicator
+              if (message.mediaMetadata?['isUploading'] == true) ...[
+                Container(
+                  height: 200,
+                  color: Colors.black.withOpacity(0.3),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Uploading...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         
@@ -357,6 +461,7 @@ class MessageBubble extends StatelessWidget {
     final fileName = message.mediaMetadata?['fileName'] ?? 'Unknown file';
     final fileSize = message.mediaMetadata?['fileSize'] ?? 0;
     final fileSizeText = _formatFileSize(fileSize);
+    final isUploading = message.mediaMetadata?['isUploading'] == true;
     
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -370,13 +475,24 @@ class MessageBubble extends StatelessWidget {
                 : modernTheme.primaryColor?.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              _getFileIcon(fileName),
-              color: isCurrentUser 
-                ? Colors.white
-                : modernTheme.primaryColor,
-              size: 24,
-            ),
+            child: isUploading
+                ? SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: isCurrentUser 
+                        ? Colors.white
+                        : modernTheme.primaryColor,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Icon(
+                    _getFileIcon(fileName),
+                    color: isCurrentUser 
+                      ? Colors.white
+                      : modernTheme.primaryColor,
+                    size: 24,
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -396,25 +512,44 @@ class MessageBubble extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  fileSizeText,
-                  style: TextStyle(
-                    fontSize: fontSize - 2,
-                    color: isCurrentUser 
-                      ? Colors.white70
-                      : modernTheme.textSecondaryColor,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      fileSizeText,
+                      style: TextStyle(
+                        fontSize: fontSize - 2,
+                        color: isCurrentUser 
+                          ? Colors.white70
+                          : modernTheme.textSecondaryColor,
+                      ),
+                    ),
+                    if (isUploading) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '• Uploading...',
+                        style: TextStyle(
+                          fontSize: fontSize - 2,
+                          color: isCurrentUser 
+                            ? Colors.white70
+                            : modernTheme.primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
           ),
-          Icon(
-            Icons.download,
-            color: isCurrentUser 
-              ? Colors.white70
-              : modernTheme.textSecondaryColor,
-            size: 20,
-          ),
+          if (!isUploading) ...[
+            Icon(
+              Icons.download,
+              color: isCurrentUser 
+                ? Colors.white70
+                : modernTheme.textSecondaryColor,
+              size: 20,
+            ),
+          ],
         ],
       ),
     );
@@ -438,16 +573,39 @@ class MessageBubble extends StatelessWidget {
           ),
           if (isCurrentUser) ...[
             const SizedBox(width: 4),
-            Icon(
-              message.status.icon,
-              size: 14,
-              color: message.status == MessageStatus.read 
-                ? modernTheme.primaryColor
-                : (isCurrentUser ? Colors.white70 : modernTheme.textTertiaryColor),
-            ),
+            _buildMessageStatusIcon(modernTheme),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildMessageStatusIcon(ModernThemeExtension modernTheme) {
+    Color iconColor;
+    IconData iconData = message.status.icon;
+    
+    switch (message.status) {
+      case MessageStatus.sending:
+        iconColor = Colors.white54;
+        break;
+      case MessageStatus.sent:
+        iconColor = Colors.white70; // Single grey tick
+        break;
+      case MessageStatus.delivered:
+        iconColor = Colors.white70; // Double grey ticks
+        break;
+      case MessageStatus.failed:
+        iconColor = Colors.red.shade300;
+        break;
+      case MessageStatus.read:
+        // TODO: Handle this case.
+        throw UnimplementedError();
+    }
+    
+    return Icon(
+      iconData,
+      size: 14,
+      color: iconColor,
     );
   }
 
@@ -467,7 +625,18 @@ class MessageBubble extends StatelessWidget {
         return Icons.slideshow;
       case 'zip':
       case 'rar':
+      case '7z':
         return Icons.archive;
+      case 'txt':
+        return Icons.text_snippet;
+      case 'mp3':
+      case 'wav':
+      case 'flac':
+        return Icons.audio_file;
+      case 'mp4':
+      case 'avi':
+      case 'mkv':
+        return Icons.video_file;
       default:
         return Icons.insert_drive_file;
     }
@@ -480,4 +649,3 @@ class MessageBubble extends StatelessWidget {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
   }
 }
-

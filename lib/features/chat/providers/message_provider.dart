@@ -71,13 +71,12 @@ class MessageNotifier extends _$MessageNotifier {
     // Load pinned messages
     _loadPinnedMessages(chatId);
     
-    return const MessageState();
+    return const MessageState(isLoading: true);
   }
 
   void _subscribeToMessages(String chatId) {
     _repository.getMessagesStream(chatId).listen(
       (messages) {
-        if (!state.hasValue) return;
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           messages: messages,
@@ -86,7 +85,6 @@ class MessageNotifier extends _$MessageNotifier {
         ));
       },
       onError: (error) {
-        if (!state.hasValue) return;
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: error.toString(),
@@ -100,14 +98,12 @@ class MessageNotifier extends _$MessageNotifier {
     try {
       final pinnedMessages = await _repository.getPinnedMessages(chatId);
       
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         pinnedMessages: pinnedMessages,
       ));
     } catch (e) {
       debugPrint('Error loading pinned messages: $e');
-      // Don't update state for pinned messages error - it's not critical
     }
   }
 
@@ -157,8 +153,6 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('Error sending message: $e');
       
-      // Update the failed message status in local state
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull;
       if (currentState != null) {
         final updatedMessages = currentState.messages.map((msg) {
@@ -186,12 +180,10 @@ class MessageNotifier extends _$MessageNotifier {
 
     if (!imageFile.existsSync()) {
       debugPrint('Image file does not exist');
-      if (!state.hasValue) {
-        final currentState = state.valueOrNull ?? const MessageState();
-        state = AsyncValue.data(currentState.copyWith(
-          error: 'Image file not found',
-        ));
-      }
+      final currentState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(currentState.copyWith(
+        error: 'Image file not found',
+      ));
       return;
     }
 
@@ -199,7 +191,6 @@ class MessageNotifier extends _$MessageNotifier {
       // Check file size
       final fileSize = await imageFile.length();
       if (fileSize > 50 * 1024 * 1024) { // 50MB limit
-        if (!state.hasValue) return;
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: 'Image size exceeds 50MB limit',
@@ -227,7 +218,6 @@ class MessageNotifier extends _$MessageNotifier {
       );
 
       // Add to local state immediately
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull ?? const MessageState();
       final updatedMessages = [tempMessage, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
@@ -257,7 +247,6 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('Error sending image: $e');
       
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to send image: $e',
@@ -275,7 +264,6 @@ class MessageNotifier extends _$MessageNotifier {
 
     if (!file.existsSync()) {
       debugPrint('File does not exist');
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'File not found',
@@ -292,7 +280,6 @@ class MessageNotifier extends _$MessageNotifier {
       // Check file size
       final fileSize = await file.length();
       if (fileSize > 50 * 1024 * 1024) { // 50MB limit
-        if (!state.hasValue) return;
         final currentState = state.valueOrNull ?? const MessageState();
         state = AsyncValue.data(currentState.copyWith(
           error: 'File size exceeds 50MB limit',
@@ -317,7 +304,6 @@ class MessageNotifier extends _$MessageNotifier {
       );
 
       // Add to local state immediately
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull ?? const MessageState();
       final updatedMessages = [tempMessage, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
@@ -346,7 +332,6 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('Error sending file: $e');
       
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to send file: $e',
@@ -356,8 +341,6 @@ class MessageNotifier extends _$MessageNotifier {
 
   // Reply to message
   void setReplyToMessage(MessageModel message) {
-    if (!state.hasValue) return;
-    
     final currentState = state.valueOrNull;
     if (currentState != null) {
       state = AsyncValue.data(currentState.copyWith(
@@ -369,8 +352,6 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   void cancelReply() {
-    if (!state.hasValue) return;
-    
     final currentState = state.valueOrNull;
     if (currentState != null) {
       state = AsyncValue.data(currentState.copyWith(
@@ -392,7 +373,6 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('Error editing message: $e');
       
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to edit message: $e',
@@ -407,7 +387,6 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('Error deleting message: $e');
       
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to delete message: $e',
@@ -439,7 +418,6 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('Error toggling pin message: $e');
       
-      if (!state.hasValue) return;
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to ${isPinned ? 'unpin' : 'pin'} message: $e',
@@ -447,18 +425,17 @@ class MessageNotifier extends _$MessageNotifier {
     }
   }
 
-  // Mark messages as read
-  Future<void> markMessagesAsRead(String chatId, List<String> messageIds) async {
+  // Mark messages as delivered (not read - as per requirement)
+  Future<void> markMessagesAsDelivered(String chatId, List<String> messageIds) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null || messageIds.isEmpty) return;
 
     try {
       for (final messageId in messageIds) {
-        await _repository.markMessageAsRead(chatId, messageId, currentUser.uid);
+        await _repository.markMessageAsDelivered(chatId, messageId, currentUser.uid);
       }
     } catch (e) {
-      debugPrint('Error marking messages as read: $e');
-      // Don't show error to user for read receipts - it's not critical
+      debugPrint('Error marking messages as delivered: $e');
     }
   }
 
@@ -473,7 +450,6 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('Error searching messages: $e');
       
-      if (!state.hasValue) return [];
       final currentState = state.valueOrNull ?? const MessageState();
       state = AsyncValue.data(currentState.copyWith(
         error: 'Failed to search messages: $e',
@@ -485,8 +461,6 @@ class MessageNotifier extends _$MessageNotifier {
 
   // Clear error
   void clearError() {
-    if (!state.hasValue) return;
-    
     final currentState = state.valueOrNull;
     if (currentState != null) {
       state = AsyncValue.data(currentState.copyWith(clearError: true));
@@ -525,15 +499,14 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('Error retrying message: $e');
       
-      if (!state.hasValue) return;
-      final currentState = state.valueOrNull;
-      if (currentState != null) {
-        final updatedMessages = List<MessageModel>.from(currentState.messages);
+      final latestState = state.valueOrNull;
+      if (latestState != null) {
+        final updatedMessages = List<MessageModel>.from(latestState.messages);
         if (messageIndex < updatedMessages.length) {
           updatedMessages[messageIndex] = failedMessage.copyWith(status: MessageStatus.failed);
         }
         
-        state = AsyncValue.data(currentState.copyWith(
+        state = AsyncValue.data(latestState.copyWith(
           messages: updatedMessages,
           error: 'Failed to retry message: $e',
         ));
@@ -555,7 +528,6 @@ class MessageNotifier extends _$MessageNotifier {
       // For now, we'll just mark as no more messages
       await Future.delayed(const Duration(milliseconds: 500));
       
-      if (!state.hasValue) return;
       state = AsyncValue.data(currentState.copyWith(
         isLoading: false,
         hasMore: false,
@@ -564,7 +536,6 @@ class MessageNotifier extends _$MessageNotifier {
     } catch (e) {
       debugPrint('Error loading more messages: $e');
       
-      if (!state.hasValue) return;
       state = AsyncValue.data(currentState.copyWith(
         isLoading: false,
         error: 'Failed to load more messages: $e',
@@ -574,8 +545,6 @@ class MessageNotifier extends _$MessageNotifier {
 
   // Get typing status (placeholder for future implementation)
   void setTyping(String chatId, bool isTyping) {
-    if (!state.hasValue) return;
-    
     final currentState = state.valueOrNull;
     if (currentState != null) {
       state = AsyncValue.data(currentState.copyWith(isTyping: isTyping));

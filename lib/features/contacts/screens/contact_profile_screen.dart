@@ -1,12 +1,14 @@
+// lib/features/contacts/screens/contact_profile_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-// import 'package:textgb/features/chat/providers/chat_provider.dart'; // Add when chat feature is implemented
 
 class ContactProfileScreen extends ConsumerStatefulWidget {
   final UserModel contact;
@@ -23,6 +25,7 @@ class ContactProfileScreen extends ConsumerStatefulWidget {
 class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
   late UserModel _contact;
   bool _isLoading = false;
+  bool _isCreatingChat = false;
 
   @override
   void initState() {
@@ -54,16 +57,41 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     }
   }
 
-  // Navigate to chat screen
-  void _navigateToChat() {
-     Navigator.pushNamed(
-       context,
-       Constants.chatScreen,
-       arguments: {
-         'contact': _contact,
-         'chatId': 'chat_${_contact.uid}',
-       },
-     );
+  // Navigate to chat screen - Updated to use chat provider
+  Future<void> _navigateToChat() async {
+    setState(() {
+      _isCreatingChat = true;
+    });
+
+    try {
+      // Create or get existing chat
+      final chatListNotifier = ref.read(chatListProvider.notifier);
+      final chatId = await chatListNotifier.createChat(_contact.uid);
+      
+      if (chatId != null && mounted) {
+        // Navigate to chat screen
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatId: chatId,
+              contact: _contact,
+            ),
+          ),
+        );
+      } else if (mounted) {
+        showSnackBar(context, 'Failed to create chat');
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Failed to start chat: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreatingChat = false;
+        });
+      }
+    }
   }
 
   @override
@@ -187,12 +215,21 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
                       // Message Button - Navigate to Chat
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _navigateToChat,
-                          icon: const Icon(
-                            CupertinoIcons.bubble_left_bubble_right,
-                            color: Colors.white, // Ensure icon is visible in both themes
-                          ),
-                          label: const Text('Message'),
+                          onPressed: (_isLoading || _isCreatingChat) ? null : _navigateToChat,
+                          icon: _isCreatingChat
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(
+                                  CupertinoIcons.bubble_left_bubble_right,
+                                  color: Colors.white,
+                                ),
+                          label: Text(_isCreatingChat ? 'Starting Chat...' : 'Message'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
@@ -341,8 +378,6 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
       return 'Unknown';
     }
   }
-
-
 
   void _showBlockConfirmationDialog() {
     showMyAnimatedDialog(

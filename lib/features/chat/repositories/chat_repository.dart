@@ -26,7 +26,6 @@ abstract class ChatRepository {
   Future<String> sendMessage(MessageModel message);
   Stream<List<MessageModel>> getMessagesStream(String chatId);
   Future<void> updateMessageStatus(String chatId, String messageId, MessageStatus status);
-  Future<void> markMessageAsRead(String chatId, String messageId, String userId);
   Future<void> markMessageAsDelivered(String chatId, String messageId, String userId);
   Future<void> editMessage(String chatId, String messageId, String newContent);
   Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone);
@@ -246,7 +245,7 @@ class FirebaseChatRepository implements ChatRepository {
         'lastMessageTime': message.timestamp.millisecondsSinceEpoch,
       });
 
-      // Increment unread count for other participants
+      // Increment unread count for other participants and mark as delivered
       final chatDoc = await _firestore.collection(Constants.chats).doc(message.chatId).get();
       if (chatDoc.exists) {
         final chat = ChatModel.fromMap(chatDoc.data()!);
@@ -256,6 +255,12 @@ class FirebaseChatRepository implements ChatRepository {
           if (participantId != message.senderId) {
             final currentUnread = chat.getUnreadCount(participantId);
             updates['unreadCounts.$participantId'] = currentUnread + 1;
+            
+            // Automatically mark as delivered for other participants
+            // In a real app, this would be done when the user comes online
+            Future.delayed(const Duration(seconds: 2), () {
+              markMessageAsDelivered(message.chatId, messageId, participantId);
+            });
           }
         }
         
@@ -301,23 +306,6 @@ class FirebaseChatRepository implements ChatRepository {
           .update({'status': status.name});
     } catch (e) {
       throw ChatRepositoryException('Failed to update message status: $e');
-    }
-  }
-
-  @override
-  Future<void> markMessageAsRead(String chatId, String messageId, String userId) async {
-    try {
-      await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .update({
-        'readBy.$userId': DateTime.now().millisecondsSinceEpoch,
-        'status': MessageStatus.read.name,
-      });
-    } catch (e) {
-      throw ChatRepositoryException('Failed to mark message as read: $e');
     }
   }
 
@@ -468,6 +456,13 @@ class FirebaseChatRepository implements ChatRepository {
 
       final ref = _storage.ref().child('${Constants.chatFiles}/$chatId/$fileName');
       final uploadTask = ref.putFile(file);
+      
+      // Show upload progress if needed
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+        // You can emit this progress to a stream if needed
+      });
+      
       final snapshot = await uploadTask;
       final downloadUrl = await snapshot.ref.getDownloadURL();
       
@@ -489,7 +484,6 @@ class FirebaseChatRepository implements ChatRepository {
 }
 
 // Repository provider
-
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   return FirebaseChatRepository();
 });
