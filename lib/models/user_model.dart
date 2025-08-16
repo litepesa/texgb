@@ -418,6 +418,8 @@ class UserModel {
 
   get statusMutedUsers => null;
 
+  get status => null;
+
   @override
   String toString() {
     return 'UserModel(uid: $uid, name: $name, phoneNumber: $phoneNumber)';

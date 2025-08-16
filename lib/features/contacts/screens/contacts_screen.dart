@@ -1,6 +1,7 @@
-// Enhanced contacts_screen.dart with performance optimizations
+// Enhanced contacts_screen.dart with modern design language matching channels screen
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
@@ -27,6 +28,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _contactsScrollController = ScrollController();
+  final ScrollController _invitesScrollController = ScrollController();
   
   String _searchQuery = '';
   bool _isSearching = false;
@@ -192,6 +195,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
 
   // Navigate to contact profile
   void _navigateToContactProfile(UserModel contact) {
+    HapticFeedback.lightImpact();
     Navigator.pushNamed(
       context,
       Constants.contactProfileScreen,
@@ -205,7 +209,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     
     final formatter = DateFormat('MMM d, h:mm a');
     final syncTime = formatter.format(state.lastSyncTime!);
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     Color statusColor;
     IconData statusIcon;
@@ -214,53 +218,98 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     switch (state.syncStatus) {
       case SyncStatus.upToDate:
         statusColor = Colors.green;
-        statusIcon = Icons.check_circle;
+        statusIcon = Icons.check_circle_rounded;
         statusText = 'Up to date';
         break;
       case SyncStatus.stale:
         statusColor = Colors.orange;
-        statusIcon = Icons.update;
+        statusIcon = Icons.update_rounded;
         statusText = 'Update available';
         break;
       case SyncStatus.backgroundSyncing:
         statusColor = Colors.blue;
-        statusIcon = Icons.sync;
+        statusIcon = Icons.sync_rounded;
         statusText = 'Syncing...';
         break;
       case SyncStatus.failed:
         statusColor = Colors.red;
-        statusIcon = Icons.error;
+        statusIcon = Icons.error_outline_rounded;
         statusText = 'Sync failed';
         break;
       default:
         statusColor = Colors.grey;
-        statusIcon = Icons.help;
+        statusIcon = Icons.help_outline_rounded;
         statusText = 'Unknown';
     }
     
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      color: modernTheme.surfaceColor,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.dividerColor!.withOpacity(0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 3),
+            spreadRadius: -3,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 1),
+            spreadRadius: -1,
+          ),
+        ],
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(statusIcon, size: 16, color: statusColor),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(statusIcon, size: 12, color: statusColor),
+          ),
           const SizedBox(width: 8),
-          Text(
-            '$statusText • Last synced: $syncTime',
-            style: TextStyle(
-              fontSize: 12,
-              color: modernTheme.textSecondaryColor,
+          Expanded(
+            child: Text(
+              '$statusText • Last synced: $syncTime',
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.textSecondaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
           if (state.backgroundSyncAvailable) ...[
             const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _forceSyncContacts,
-              child: Icon(
-                Icons.refresh,
-                size: 16,
-                color: modernTheme.primaryColor,
+            Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              child: InkWell(
+                onTap: _forceSyncContacts,
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor!.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.refresh_rounded,
+                    size: 12,
+                    color: theme.primaryColor,
+                  ),
+                ),
               ),
             ),
           ],
@@ -269,112 +318,294 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     );
   }
 
-  // Permission request UI
+  // Permission request UI with modern design
   Widget _buildPermissionScreen() {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     return Container(
-      color: modernTheme.surfaceColor,
+      color: theme.surfaceColor,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.contacts,
-                size: 100,
-                color: modernTheme.textSecondaryColor?.withOpacity(0.5),
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: theme.surfaceColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: theme.dividerColor!.withOpacity(0.15),
+                width: 1,
               ),
-              const SizedBox(height: 24),
-              Text(
-                'Contacts Access Required',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: modernTheme.textColor,
+              boxShadow: [
+                BoxShadow(
+                  color: theme.primaryColor!.withOpacity(0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 6),
+                  spreadRadius: -6,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'To sync your contacts and find friends on TexGB, we need access to your contacts.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: modernTheme.textSecondaryColor,
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                  spreadRadius: -3,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
-                  await contactsNotifier.requestPermission();
-                },
-                icon: const Icon(Icons.security),
-                label: const Text('Grant Permission'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: modernTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor!.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.contacts_rounded,
+                    size: 60,
+                    color: theme.primaryColor,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                Text(
+                  'Contacts Access Required',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: theme.textColor,
+                    letterSpacing: -0.3,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'To sync your contacts and find friends on TexGB, we need access to your contacts.',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: theme.textSecondaryColor,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      final contactsNotifier = ref.read(contactsNotifierProvider.notifier);
+                      await contactsNotifier.requestPermission();
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.primaryColor!.withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Icon(
+                              Icons.security_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Grant Permission',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // Optimized contact item with clean list design
+  // Optimized contact item with modern design
   Widget _buildOptimizedContactItem(UserModel contact, int index) {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     return Container(
-      color: modernTheme.surfaceColor,
-      child: ListTile(
-        key: ValueKey(contact.uid),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: _buildCachedAvatar(contact),
-        title: Text(
-          contact.name,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: modernTheme.textColor,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.dividerColor!.withOpacity(0.15),
+          width: 1,
         ),
-        subtitle: Text(
-          contact.phoneNumber,
-          style: TextStyle(
-            color: modernTheme.textSecondaryColor,
+        boxShadow: [
+          BoxShadow(
+            color: theme.primaryColor!.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: -4,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _navigateToContactProfile(contact),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Enhanced Contact Avatar
+                Container(
+                  width: 52,
+                  height: 52,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: theme.dividerColor!.withOpacity(0.2),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.primaryColor!.withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: _buildCachedAvatar(contact),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // Enhanced Contact Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Contact name
+                      Text(
+                        contact.name,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: theme.textColor,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      // Phone number with enhanced styling
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor!.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.phone_rounded,
+                              size: 10,
+                              color: theme.primaryColor,
+                            ),
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                contact.phoneNumber,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: theme.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      // Status message if available
+                      if (contact.status?.isNotEmpty == true)
+                        Text(
+                          contact.status!,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.textSecondaryColor,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(width: 8),
+                
+
+              ],
+            ),
+          ),
         ),
-        trailing: _buildContactActions(contact),
-        onTap: () => _navigateToContactProfile(contact),
       ),
     );
   }
 
   // Cached avatar widget for better performance
   Widget _buildCachedAvatar(UserModel contact) {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     if (contact.image.isEmpty) {
       return CircleAvatar(
         radius: 24,
-        backgroundColor: modernTheme.primaryColor,
+        backgroundColor: theme.primaryColor!.withOpacity(0.15),
         child: Text(
           contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+          style: TextStyle(
+            color: theme.primaryColor,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
           ),
         ),
       );
@@ -388,109 +619,75 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       ),
       placeholder: (context, url) => CircleAvatar(
         radius: 24,
-        backgroundColor: modernTheme.surfaceVariantColor,
-        child: const CircularProgressIndicator(strokeWidth: 2),
+        backgroundColor: theme.surfaceVariantColor,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: theme.primaryColor,
+        ),
       ),
       errorWidget: (context, url, error) => CircleAvatar(
         radius: 24,
-        backgroundColor: modernTheme.primaryColor,
+        backgroundColor: theme.primaryColor!.withOpacity(0.15),
         child: Text(
           contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+          style: TextStyle(
+            color: theme.primaryColor,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
           ),
         ),
       ),
     );
   }
 
-  // Contact actions with better UX
-  Widget _buildContactActions(UserModel contact) {
-    final modernTheme = context.modernTheme;
-    
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: Icon(
-            Icons.info_outline,
-            color: modernTheme.textSecondaryColor,
-          ),
-          onPressed: () => _navigateToContactProfile(contact),
-          tooltip: 'Contact Info',
-        ),
-        PopupMenuButton<String>(
-          icon: Icon(
-            Icons.more_vert,
-            color: modernTheme.textSecondaryColor,
-          ),
-          color: modernTheme.surfaceColor,
-          onSelected: (value) => _handleContactAction(value, contact),
-          itemBuilder: (context) => [
-            PopupMenuItem<String>(
-              value: 'info',
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: modernTheme.textSecondaryColor),
-                  const SizedBox(width: 10),
-                  Text('Contact info', style: TextStyle(color: modernTheme.textColor)),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'block',
-              child: Row(
-                children: [
-                  const Icon(Icons.block, color: Colors.red),
-                  const SizedBox(width: 10),
-                  Text('Block contact', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'remove',
-              child: Row(
-                children: [
-                  const Icon(Icons.delete_outline, color: Colors.red),
-                  const SizedBox(width: 10),
-                  Text('Remove contact', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+  // Contact options menu
+  void _showContactOptionsMenu(UserModel contact) {
+    // Method removed - no longer needed
   }
 
-  // Handle contact actions with confirmations
-  Future<void> _handleContactAction(String action, UserModel contact) async {
-    switch (action) {
-      case 'info':
-        _navigateToContactProfile(contact);
-        break;
-      case 'block':
-        final confirmed = await _showConfirmationDialog(
-          title: 'Block Contact',
-          content: 'Are you sure you want to block ${contact.name}?',
-          action: 'Block',
-        );
-        if (confirmed) {
-          await _blockContact(contact);
-        }
-        break;
-      case 'remove':
-        final confirmed = await _showConfirmationDialog(
-          title: 'Remove Contact',
-          content: 'Are you sure you want to remove ${contact.name}?',
-          action: 'Remove',
-        );
-        if (confirmed) {
-          await _removeContact(contact);
-        }
-        break;
-    }
+  Widget _buildActionTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    required theme,
+    bool isDestructive = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDestructive 
+                    ? Colors.red.withOpacity(0.1)
+                    : theme.primaryColor!.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: isDestructive ? Colors.red : theme.primaryColor,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDestructive ? Colors.red : theme.textColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // Block contact with feedback
@@ -515,30 +712,32 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     }
   }
 
-  // Confirmation dialog
+  // Confirmation dialog with modern design
   Future<bool> _showConfirmationDialog({
     required String title,
     required String content,
     required String action,
   }) async {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: modernTheme.surfaceColor,
-        title: Text(title, style: TextStyle(color: modernTheme.textColor)),
-        content: Text(content, style: TextStyle(color: modernTheme.textSecondaryColor)),
+        backgroundColor: theme.surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, style: TextStyle(color: theme.textColor, fontWeight: FontWeight.w700)),
+        content: Text(content, style: TextStyle(color: theme.textSecondaryColor)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: modernTheme.textSecondaryColor)),
+            child: Text('Cancel', style: TextStyle(color: theme.textSecondaryColor)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             child: Text(action),
           ),
@@ -548,69 +747,238 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     return result ?? false;
   }
 
-  // Enhanced invite item with clean list design
+  // Enhanced invite item with modern design
   Widget _buildOptimizedInviteItem(Contact contact, int index) {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     return Container(
-      color: modernTheme.surfaceColor,
-      child: ListTile(
-        key: ValueKey(contact.id),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: CircleAvatar(
-          radius: 24,
-          backgroundColor: modernTheme.surfaceVariantColor,
-          child: Text(
-            contact.displayName.isNotEmpty 
-                ? contact.displayName[0].toUpperCase() 
-                : '?',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: modernTheme.textSecondaryColor,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.dividerColor!.withOpacity(0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.primaryColor!.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showContactDetailsSheet(contact),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Enhanced Contact Avatar
+                Container(
+                  width: 52,
+                  height: 52,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: theme.dividerColor!.withOpacity(0.2),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.primaryColor!.withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: theme.surfaceVariantColor!.withOpacity(0.7),
+                    child: Text(
+                      contact.displayName.isNotEmpty 
+                          ? contact.displayName[0].toUpperCase() 
+                          : '?',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: theme.textSecondaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // Enhanced Contact Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Contact name
+                      Text(
+                        contact.displayName,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: theme.textColor,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      // Phone number with enhanced styling
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.phone_outlined,
+                              size: 10,
+                              color: Colors.orange.shade600,
+                            ),
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                contact.phones.isNotEmpty 
+                                    ? contact.phones.first.number 
+                                    : 'No phone number',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.orange.shade600,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      // Not on WeiBao indicator
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: theme.surfaceVariantColor!.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.person_off_outlined,
+                              size: 10,
+                              color: theme.textSecondaryColor,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Not on WeiBao',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: theme.textSecondaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(width: 8),
+                
+                // Enhanced Invite Button
+                Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      _shareInvitation(contact);
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 80,
+                        maxWidth: 100,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.primaryColor!.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Icon(
+                              Icons.share_rounded,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Flexible(
+                            child: Text(
+                              'Invite',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.1,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        title: Text(
-          contact.displayName,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: modernTheme.textColor,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          contact.phones.isNotEmpty 
-              ? contact.phones.first.number 
-              : 'No phone number',
-          style: TextStyle(
-            color: modernTheme.textSecondaryColor,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: _buildInviteButton(contact),
-        onTap: () => _showContactDetailsSheet(contact),
       ),
-    );
-  }
-
-  // Invite button with loading state
-  Widget _buildInviteButton(Contact contact) {
-    final modernTheme = context.modernTheme;
-    
-    return ElevatedButton(
-      onPressed: () => _shareInvitation(contact),
-      style: ElevatedButton.styleFrom(
-        foregroundColor: Colors.white,
-        backgroundColor: modernTheme.primaryColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      ),
-      child: const Text('Invite'),
     );
   }
 
@@ -622,147 +990,323 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
       
       await Share.share(
         message,
-        subject: 'Join me on TexGB!',
+        subject: 'Join me on WeiBao!',
       );
+      
+      _showSuccessSnackBar('Invitation sent to ${contact.displayName}');
     } catch (e) {
       _showErrorSnackBar('Failed to share invitation: $e');
     }
   }
 
-  // Enhanced contact details sheet
+  // Enhanced contact details sheet with modern design
   void _showContactDetailsSheet(Contact contact) {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: modernTheme.surfaceColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.4,
+        initialChildSize: 0.5,
         minChildSize: 0.3,
         maxChildSize: 0.8,
         expand: false,
         builder: (context, scrollController) => Container(
-          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: modernTheme.surfaceColor,
+            color: theme.surfaceColor,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, -5),
+              ),
+            ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Handle bar
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: modernTheme.textSecondaryColor?.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.textSecondaryColor?.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 20),
               
-              // Contact info
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: modernTheme.surfaceVariantColor,
-                    child: Text(
-                      contact.displayName.isNotEmpty 
-                          ? contact.displayName[0].toUpperCase() 
-                          : '?',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: modernTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          contact.displayName,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: modernTheme.textColor,
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Contact info header
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: theme.surfaceVariantColor!.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: theme.dividerColor!.withOpacity(0.15),
+                            width: 1,
                           ),
                         ),
-                        if (contact.phones.isNotEmpty)
-                          Text(
-                            contact.phones.first.number,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: modernTheme.textSecondaryColor,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: theme.surfaceVariantColor,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.primaryColor!.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  contact.displayName.isNotEmpty 
+                                      ? contact.displayName[0].toUpperCase() 
+                                      : '?',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.textSecondaryColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    contact.displayName,
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: theme.textColor,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'Not on WeiBao',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.orange.shade600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Phone numbers section
+                      if (contact.phones.isNotEmpty) ...[
+                        Text(
+                          'Phone Numbers',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: theme.textColor,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...contact.phones.map((phone) => Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.surfaceVariantColor!.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: theme.dividerColor!.withOpacity(0.15),
+                              width: 1,
                             ),
                           ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: theme.primaryColor!.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.phone_rounded,
+                                  color: theme.primaryColor,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      phone.number,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: theme.textColor,
+                                      ),
+                                    ),
+                                    Text(
+                                      phone.label.name.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: theme.textSecondaryColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                        const SizedBox(height: 24),
                       ],
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Phone numbers
-              if (contact.phones.isNotEmpty) ...[
-                Text(
-                  'Phone Numbers',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: modernTheme.textColor,
+                      
+                      // Actions section
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.surfaceVariantColor!.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: theme.dividerColor!.withOpacity(0.15),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            // Invite button
+                            Material(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(14),
+                              child: InkWell(
+                                onTap: () async {
+                                  Navigator.pop(context);
+                                  await _shareInvitation(contact);
+                                },
+                                borderRadius: BorderRadius.circular(14),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  decoration: BoxDecoration(
+                                    color: theme.primaryColor,
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: theme.primaryColor!.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Icon(
+                                          Icons.share_rounded,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        'Invite to WeiBao',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 12),
+                            
+                            // Close button
+                            Material(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(14),
+                              child: InkWell(
+                                onTap: () => Navigator.pop(context),
+                                borderRadius: BorderRadius.circular(14),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  decoration: BoxDecoration(
+                                    color: theme.surfaceVariantColor,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: theme.dividerColor!.withOpacity(0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.close_rounded,
+                                        color: theme.textSecondaryColor,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Close',
+                                        style: TextStyle(
+                                          color: theme.textSecondaryColor,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 20),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                ...contact.phones.map((phone) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.phone, color: modernTheme.primaryColor),
-                  title: Text(phone.number, style: TextStyle(color: modernTheme.textColor)),
-                  subtitle: Text(phone.label.name.toUpperCase(), style: TextStyle(color: modernTheme.textSecondaryColor)),
-                )),
-                const SizedBox(height: 16),
-              ],
-              
-              // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                        await _shareInvitation(contact);
-                      },
-                      icon: const Icon(Icons.share),
-                      label: const Text('Invite to TexGB'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: modernTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(Icons.close, color: modernTheme.textSecondaryColor),
-                      label: Text('Close', style: TextStyle(color: modernTheme.textSecondaryColor)),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: modernTheme.dividerColor!),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -779,6 +1323,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         content: Text(message),
         backgroundColor: Colors.green,
         duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -790,6 +1337,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
         content: Text(message),
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -799,6 +1349,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     _tabController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _contactsScrollController.dispose();
+    _invitesScrollController.dispose();
     _refreshAnimationController.dispose();
     super.dispose();
   }
@@ -807,108 +1359,415 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     return Scaffold(
-      backgroundColor: modernTheme.surfaceColor,
-      appBar: AppBar(
-        backgroundColor: modernTheme.surfaceColor,
-        elevation: 0,
-        title: _isSearching ? _buildSearchField() : Text('Contacts', style: TextStyle(color: modernTheme.textColor)),
-        iconTheme: IconThemeData(color: modernTheme.textColor),
-        actions: _buildAppBarActions(),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: modernTheme.primaryColor,
-          unselectedLabelColor: modernTheme.textSecondaryColor,
-          indicatorColor: modernTheme.primaryColor,
-          tabs: const [
-            Tab(text: 'Contacts'),
-            Tab(text: 'Invites'),
+      backgroundColor: theme.surfaceColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Enhanced Custom App Bar matching channels screen
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.surfaceColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: theme.dividerColor!.withOpacity(0.15),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.primaryColor!.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // Enhanced Back Button
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor!.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          color: theme.primaryColor,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Enhanced Title
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        children: [
+                          Text(
+                            _isSearching ? 'Search Contacts' : 'Contacts',
+                            style: TextStyle(
+                              color: theme.textColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.3,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 2),
+                          Container(
+                            height: 2,
+                            width: 60,
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor!.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Enhanced Search Button
+                  if (!_isSearching)
+                    Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          setState(() {
+                            _isSearching = true;
+                          });
+                          _searchFocusNode.requestFocus();
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor!.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.search_rounded,
+                            color: theme.primaryColor,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  
+                  // Enhanced Clear Search Button
+                  if (_isSearching)
+                    Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                            _isSearching = false;
+                          });
+                          _updateFilteredContacts();
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.clear_rounded,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  
+                  const SizedBox(width: 8),
+                  
+                  // Enhanced Menu Button
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _showMenuOptions();
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor!.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: RotationTransition(
+                          turns: _refreshAnimation,
+                          child: Icon(
+                            Icons.more_vert_rounded,
+                            color: theme.primaryColor,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Search Field (when active)
+            if (_isSearching)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.surfaceColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.primaryColor!.withOpacity(0.3),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.primaryColor!.withOpacity(0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 2),
+                      spreadRadius: -2,
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  decoration: InputDecoration(
+                    hintText: 'Search contacts...',
+                    border: InputBorder.none,
+                    hintStyle: TextStyle(color: theme.textSecondaryColor),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: theme.primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  style: TextStyle(color: theme.textColor),
+                ),
+              ),
+            
+            // Enhanced Tab Bar
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.surfaceColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: theme.dividerColor!.withOpacity(0.15),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.primaryColor!.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: TabBar(
+                controller: _tabController,
+                dividerColor: Colors.transparent,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: theme.primaryColor!,
+                      width: 3,
+                    ),
+                  ),
+                ),
+                labelColor: theme.primaryColor,
+                unselectedLabelColor: theme.textSecondaryColor,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  letterSpacing: 0.1,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.people_rounded, size: 16),
+                        const SizedBox(width: 6),
+                        const Text('Contacts'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.person_add_rounded, size: 16),
+                        const SizedBox(width: 6),
+                        const Text('Invites'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Tab Content
+            Expanded(
+              child: Container(
+                color: theme.surfaceColor,
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final contactsState = ref.watch(contactsNotifierProvider);
+                    
+                    return contactsState.when(
+                      data: (state) {
+                        // Handle permission denied
+                        if (state.syncStatus == SyncStatus.permissionDenied) {
+                          return _buildPermissionScreen();
+                        }
+                        
+                        // Update filtered contacts when state changes
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _updateFilteredContacts();
+                        });
+                        
+                        return TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildContactsTab(state),
+                            _buildInvitesTab(state),
+                          ],
+                        );
+                      },
+                      loading: () => Container(
+                        color: theme.surfaceColor,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                color: theme.primaryColor,
+                                strokeWidth: 3,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Loading contacts...',
+                                style: TextStyle(
+                                  color: theme.textSecondaryColor,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      error: (error, stackTrace) => Container(
+                        color: theme.surfaceColor,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline_rounded,
+                                  size: 64,
+                                  color: theme.textTertiaryColor,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Unable to load contacts',
+                                  style: TextStyle(
+                                    color: theme.textColor,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  error.toString(),
+                                  style: TextStyle(
+                                    color: theme.textSecondaryColor,
+                                    fontSize: 14,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 20),
+                                ElevatedButton.icon(
+                                  onPressed: _forceSyncContacts,
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: const Text('Try Again'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.primaryColor,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
           ],
         ),
       ),
-      body: Consumer(
-        builder: (context, ref, child) {
-          final contactsState = ref.watch(contactsNotifierProvider);
-          
-          return contactsState.when(
-            data: (state) {
-              // Handle permission denied
-              if (state.syncStatus == SyncStatus.permissionDenied) {
-                return _buildPermissionScreen();
-              }
-              
-              // Update filtered contacts when state changes
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _updateFilteredContacts();
-              });
-              
-              return Container(
-                color: modernTheme.surfaceColor,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildContactsTab(state),
-                    _buildInvitesTab(state),
-                  ],
-                ),
-              );
-            },
-            loading: () => Container(
-              color: modernTheme.surfaceColor,
-              child: Center(
-                child: CircularProgressIndicator(color: modernTheme.primaryColor),
-              ),
-            ),
-            error: (error, stackTrace) => Container(
-              color: modernTheme.surfaceColor,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.red.shade300,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error loading contacts',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      error.toString(),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: modernTheme.textSecondaryColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _forceSyncContacts,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: modernTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          HapticFeedback.lightImpact();
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -916,112 +1775,93 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
             ),
           ).then((_) => _updateFilteredContacts());
         },
-        backgroundColor: modernTheme.primaryColor,
+        backgroundColor: theme.primaryColor,
         foregroundColor: Colors.white,
-        child: const Icon(Icons.person_add),
+        elevation: 8,
+        child: const Icon(Icons.person_add_rounded),
       ),
     );
   }
 
-  List<Widget> _buildAppBarActions() {
-    final modernTheme = context.modernTheme;
+  void _showMenuOptions() {
+    final theme = context.modernTheme;
     
-    return [
-      if (!_isSearching)
-        IconButton(
-          icon: Icon(Icons.search, color: modernTheme.textColor),
-          onPressed: () {
-            setState(() {
-              _isSearching = true;
-            });
-            _searchFocusNode.requestFocus();
-          },
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: theme.surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
         ),
-      if (_isSearching)
-        IconButton(
-          icon: Icon(Icons.clear, color: modernTheme.textColor),
-          onPressed: () {
-            setState(() {
-              _searchController.clear();
-              _searchQuery = '';
-              _isSearching = false;
-            });
-            _updateFilteredContacts();
-          },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 20),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.textSecondaryColor?.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            _buildActionTile(
+              icon: Icons.sync_rounded,
+              title: 'Sync contacts',
+              onTap: () {
+                Navigator.pop(context);
+                _forceSyncContacts();
+              },
+              theme: theme,
+            ),
+            _buildActionTile(
+              icon: Icons.block_rounded,
+              title: 'Blocked contacts',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const BlockedContactsScreen(),
+                  ),
+                );
+              },
+              theme: theme,
+            ),
+            _buildActionTile(
+              icon: Icons.clear_all_rounded,
+              title: 'Clear cache',
+              onTap: () {
+                Navigator.pop(context);
+                _clearCache();
+              },
+              theme: theme,
+            ),
+            _buildActionTile(
+              icon: Icons.settings_rounded,
+              title: 'Contact settings',
+              onTap: () {
+                Navigator.pop(context);
+                _showErrorSnackBar('Contact settings coming soon');
+              },
+              theme: theme,
+            ),
+            
+            const SizedBox(height: 20),
+          ],
         ),
-      PopupMenuButton<String>(
-        icon: RotationTransition(
-          turns: _refreshAnimation,
-          child: Icon(Icons.more_vert, color: modernTheme.textColor),
-        ),
-        color: modernTheme.surfaceColor,
-        onSelected: _handleMenuAction,
-        itemBuilder: (context) => [
-          PopupMenuItem<String>(
-            value: 'refresh',
-            child: Row(
-              children: [
-                Icon(Icons.sync, color: modernTheme.textSecondaryColor),
-                const SizedBox(width: 10),
-                Text('Sync contacts', style: TextStyle(color: modernTheme.textColor)),
-              ],
-            ),
-          ),
-          PopupMenuItem<String>(
-            value: 'blocked',
-            child: Row(
-              children: [
-                Icon(Icons.block, color: modernTheme.textSecondaryColor),
-                const SizedBox(width: 10),
-                Text('Blocked contacts', style: TextStyle(color: modernTheme.textColor)),
-              ],
-            ),
-          ),
-          PopupMenuItem<String>(
-            value: 'clear_cache',
-            child: Row(
-              children: [
-                Icon(Icons.clear_all, color: modernTheme.textSecondaryColor),
-                const SizedBox(width: 10),
-                Text('Clear cache', style: TextStyle(color: modernTheme.textColor)),
-              ],
-            ),
-          ),
-          PopupMenuItem<String>(
-            value: 'settings',
-            child: Row(
-              children: [
-                Icon(Icons.settings, color: modernTheme.textSecondaryColor),
-                const SizedBox(width: 10),
-                Text('Contact settings', style: TextStyle(color: modernTheme.textColor)),
-              ],
-            ),
-          ),
-        ],
       ),
-    ];
-  }
-
-  void _handleMenuAction(String value) {
-    switch (value) {
-      case 'refresh':
-        _forceSyncContacts();
-        break;
-      case 'blocked':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const BlockedContactsScreen(),
-          ),
-        );
-        break;
-      case 'clear_cache':
-        _clearCache();
-        break;
-      case 'settings':
-        _showErrorSnackBar('Contact settings coming soon');
-        break;
-    }
+    );
   }
 
   Future<void> _clearCache() async {
@@ -1042,29 +1882,30 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     }
   }
 
-  Widget _buildSearchField() {
-    final modernTheme = context.modernTheme;
-    
-    return TextField(
-      controller: _searchController,
-      focusNode: _searchFocusNode,
-      decoration: InputDecoration(
-        hintText: 'Search contacts...',
-        border: InputBorder.none,
-        hintStyle: TextStyle(color: modernTheme.textSecondaryColor),
-      ),
-      style: TextStyle(color: modernTheme.textColor),
-    );
-  }
-
   Widget _buildContactsTab(ContactsState state) {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     if (state.isLoading && _isInitializing) {
       return Container(
-        color: modernTheme.surfaceColor,
+        color: theme.surfaceColor,
         child: Center(
-          child: CircularProgressIndicator(color: modernTheme.primaryColor),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: theme.primaryColor,
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading contacts...',
+                style: TextStyle(
+                  color: theme.textSecondaryColor,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -1074,16 +1915,20 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     }
 
     return Container(
-      color: modernTheme.surfaceColor,
+      color: theme.surfaceColor,
       child: RefreshIndicator(
         key: _refreshIndicatorKey,
         onRefresh: _forceSyncContacts,
+        color: theme.primaryColor,
         child: Column(
           children: [
             _buildSyncStatusIndicator(state),
             Expanded(
-              child: ListView.builder(
+              child: ListView.separated(
+                controller: _contactsScrollController,
+                padding: const EdgeInsets.all(16),
                 itemCount: _filteredRegisteredContacts.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final contact = _filteredRegisteredContacts[index];
                   return _buildOptimizedContactItem(contact, index);
@@ -1097,13 +1942,29 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   }
 
   Widget _buildInvitesTab(ContactsState state) {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     if (state.isLoading && _isInitializing) {
       return Container(
-        color: modernTheme.surfaceColor,
+        color: theme.surfaceColor,
         child: Center(
-          child: CircularProgressIndicator(color: modernTheme.primaryColor),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: theme.primaryColor,
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading contacts...',
+                style: TextStyle(
+                  color: theme.textSecondaryColor,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -1113,15 +1974,19 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
     }
 
     return Container(
-      color: modernTheme.surfaceColor,
+      color: theme.surfaceColor,
       child: RefreshIndicator(
         onRefresh: _forceSyncContacts,
+        color: theme.primaryColor,
         child: Column(
           children: [
             _buildSyncStatusIndicator(state),
             Expanded(
-              child: ListView.builder(
+              child: ListView.separated(
+                controller: _invitesScrollController,
+                padding: const EdgeInsets.all(16),
                 itemCount: _filteredUnregisteredContacts.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final contact = _filteredUnregisteredContacts[index];
                   return _buildOptimizedInviteItem(contact, index);
@@ -1135,78 +2000,138 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen>
   }
 
   Widget _buildEmptyContactsState() {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     return Container(
-      color: modernTheme.surfaceColor,
+      color: theme.surfaceColor,
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              CupertinoIcons.person_2,
-              size: 80,
-              color: modernTheme.textSecondaryColor,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _searchQuery.isEmpty ? 'No contacts found' : 'No matching contacts',
-              style: TextStyle(
-                fontSize: 16,
-                color: modernTheme.textColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_searchQuery.isEmpty)
-              ElevatedButton.icon(
-                onPressed: _forceSyncContacts,
-                icon: const Icon(Icons.sync),
-                label: const Text('Sync Contacts'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: modernTheme.primaryColor,
-                  foregroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor!.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  CupertinoIcons.person_2,
+                  size: 64,
+                  color: theme.primaryColor,
                 ),
               ),
-          ],
+              const SizedBox(height: 24),
+              Text(
+                _searchQuery.isEmpty ? 'No contacts found' : 'No matching contacts',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _searchQuery.isEmpty 
+                  ? 'Your contacts will appear here when synced'
+                  : 'Try a different search term',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: theme.textSecondaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              if (_searchQuery.isEmpty)
+                ElevatedButton.icon(
+                  onPressed: _forceSyncContacts,
+                  icon: const Icon(Icons.sync_rounded),
+                  label: const Text('Sync Contacts'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildEmptyInvitesState() {
-    final modernTheme = context.modernTheme;
+    final theme = context.modernTheme;
     
     return Container(
-      color: modernTheme.surfaceColor,
+      color: theme.surfaceColor,
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              CupertinoIcons.person_badge_plus,
-              size: 80,
-              color: modernTheme.textSecondaryColor,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _searchQuery.isEmpty ? 'No contacts to invite' : 'No matching contacts',
-              style: TextStyle(
-                fontSize: 16,
-                color: modernTheme.textColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_searchQuery.isEmpty)
-              ElevatedButton.icon(
-                onPressed: _forceSyncContacts,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Refresh Contacts'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: modernTheme.primaryColor,
-                  foregroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  CupertinoIcons.person_badge_plus,
+                  size: 64,
+                  color: Colors.orange.shade600,
                 ),
               ),
-          ],
+              const SizedBox(height: 24),
+              Text(
+                _searchQuery.isEmpty ? 'No contacts to invite' : 'No matching contacts',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _searchQuery.isEmpty 
+                  ? 'Contacts not using WeiBao will appear here'
+                  : 'Try a different search term',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: theme.textSecondaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              if (_searchQuery.isEmpty)
+                ElevatedButton.icon(
+                  onPressed: _forceSyncContacts,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Refresh Contacts'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -343,21 +343,22 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: primaryColor,
+                color: const Color(0xFFFE2C55),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'WeiBao',
+                '微宝 WeiBao',
                 style: TextStyle(
-                  color: backgroundColor,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             CircularProgressIndicator(
-              color: primaryColor,
+              color: const Color(0xFFFE2C55),
             ),
             const SizedBox(height: 24),
             Text(
