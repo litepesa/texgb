@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/constants.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -53,20 +54,16 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     }
   }
 
-  // Navigate to chat screen (placeholder for when chat feature is implemented)
+  // Navigate to chat screen
   void _navigateToChat() {
-    // TODO: Replace with actual chat screen navigation when chat feature is implemented
-    showSnackBar(context, 'Opening chat with ${_contact.name}...');
-    
-    // Future implementation:
-    // Navigator.pushNamed(
-    //   context,
-    //   Constants.chatScreen,
-    //   arguments: {
-    //     'contact': _contact,
-    //     'chatId': 'chat_${_contact.uid}',
-    //   },
-    // );
+     Navigator.pushNamed(
+       context,
+       Constants.chatScreen,
+       arguments: {
+         'contact': _contact,
+         'chatId': 'chat_${_contact.uid}',
+       },
+     );
   }
 
   @override

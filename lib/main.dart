@@ -18,6 +18,7 @@ import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/create_channel_screen.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
 import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
@@ -116,15 +117,30 @@ class AppRoot extends ConsumerWidget {
         home: const SafeStartScreen(),
         // Define all your routes
         routes: {
+          // Authentication routes
           Constants.landingScreen: (context) => const LandingScreen(),
           Constants.loginScreen: (context) => const LoginScreen(),
           Constants.otpScreen: (context) => const OtpScreen(),
           Constants.userInformationScreen: (context) => const UserInformationScreen(),
+          
+          // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
+          
+          // Chat routes
+          Constants.chatScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return ChatScreen(
+              chatId: args['chatId'] as String,
+              contact: args['contact'] as UserModel,
+            );
+          },
+          
+          // Profile routes
           Constants.myProfileScreen: (context) => const MyProfileScreen(),
           Constants.editProfileScreen: (context) => const EditProfileScreen(),
           Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
 
+          // Contact routes
           Constants.contactsScreen: (context) => const ContactsScreen(),
           Constants.addContactScreen: (context) => const AddContactScreen(),
           Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
@@ -159,7 +175,7 @@ class AppRoot extends ConsumerWidget {
             return EditChannelScreen(channel: channel);
           },
           
-          // Channels List Screen - NEW ADDITION
+          // Channels List Screen
           Constants.channelsListScreen: (context) => const ChannelsListScreen(),
           
           Constants.exploreChannelsScreen: (context) => const Scaffold(
@@ -167,7 +183,7 @@ class AppRoot extends ConsumerWidget {
                 child: Text('Explore Channels Screen - To be implemented'),
               ),
             ), // Placeholder for ExploreChannelsScreen
-          // New My Post Screen route
+          // My Post Screen route
           Constants.myPostScreen: (context) {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
             return MyPostScreen(videoId: videoId);
@@ -191,6 +207,38 @@ class AppRoot extends ConsumerWidget {
               ),
             ),
           );
+        },
+        onGenerateRoute: (settings) {
+          // Handle dynamic routes that need custom logic
+          switch (settings.name) {
+            case '/chat':
+              // Handle chat route with parameters
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('chatId') && args.containsKey('contact')) {
+                return MaterialPageRoute(
+                  builder: (context) => ChatScreen(
+                    chatId: args['chatId'] as String,
+                    contact: args['contact'] as UserModel,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+              
+            case '/contact-profile':
+              // Handle contact profile route
+              final contact = settings.arguments as UserModel?;
+              if (contact != null) {
+                return MaterialPageRoute(
+                  builder: (context) => ContactProfileScreen(contact: contact),
+                  settings: settings,
+                );
+              }
+              break;
+          }
+          
+          // Return null to let the default route handling take over
+          return null;
         },
       ),
     );
@@ -372,5 +420,42 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
         ),
       ),
     );
+  }
+}
+
+// Helper class for navigation utilities
+class ChatNavigationHelper {
+  // Navigate to chat screen
+  static void navigateToChat(
+    BuildContext context, {
+    required String chatId,
+    required UserModel contact,
+  }) {
+    Navigator.pushNamed(
+      context,
+      Constants.chatScreen,
+      arguments: {
+        'chatId': chatId,
+        'contact': contact,
+      },
+    );
+  }
+
+  // Navigate to contact profile
+  static void navigateToContactProfile(
+    BuildContext context, {
+    required UserModel contact,
+  }) {
+    Navigator.pushNamed(
+      context,
+      Constants.contactProfileScreen,
+      arguments: contact,
+    );
+  }
+
+  // Create chat ID for two users
+  static String createChatId(String userId1, String userId2) {
+    final sortedIds = [userId1, userId2]..sort();
+    return '${sortedIds[0]}_${sortedIds[1]}';
   }
 }

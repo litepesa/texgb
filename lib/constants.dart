@@ -1,4 +1,4 @@
-// lib/constants.dart - Cleaned version with only active features
+// lib/constants.dart - Updated with chat system constants
 class Constants {
   // ===== SCREEN ROUTES =====
   static const String landingScreen = '/landingScreen';
@@ -102,6 +102,39 @@ class Constants {
   static const String allowCallsFromContacts = 'allowCallsFromContacts';
   static const String blockedFromCalls = 'blockedFromCalls';
 
+  // ===== CHAT MODEL FIELD NAMES =====
+  
+  static const String chatId = 'chatId';
+  static const String participants = 'participants';
+  static const String lastMessage = 'lastMessage';
+  static const String lastMessageType = 'lastMessageType';
+  static const String lastMessageSender = 'lastMessageSender';
+  static const String lastMessageTime = 'lastMessageTime';
+  static const String unreadCounts = 'unreadCounts';
+  static const String isArchived = 'isArchived';
+  static const String isPinned = 'isPinned';
+  static const String isMuted = 'isMuted';
+  static const String chatWallpapers = 'chatWallpapers';
+  static const String fontSizes = 'fontSizes';
+
+  // ===== MESSAGE MODEL FIELD NAMES =====
+  
+  static const String messageId = 'messageId';
+  static const String senderId = 'senderId';
+  static const String content = 'content';
+  static const String type = 'type';
+  static const String status = 'status';
+  static const String timestamp = 'timestamp';
+  static const String mediaUrl = 'mediaUrl';
+  static const String mediaMetadata = 'mediaMetadata';
+  static const String replyToMessageId = 'replyToMessageId';
+  static const String replyToContent = 'replyToContent';
+  static const String replyToSender = 'replyToSender';
+  static const String reactions = 'reactions';
+  static const String isEdited = 'isEdited';
+  static const String editedAt = 'editedAt';
+  static const String readBy = 'readBy';
+  static const String deliveredTo = 'deliveredTo';
 
   // ===== CHANNEL MODEL FIELD NAMES =====
   
@@ -132,13 +165,11 @@ class Constants {
   // ===== POST MODEL FIELD NAMES =====
   
   static const String postId = 'postId';
-  static const String mediaUrl = 'mediaUrl';
+  static const String mediaUrls = 'mediaUrls';
   static const String postViewCount = 'postViewCount';
   static const String authorUID = 'authorUID';
   static const String authorName = 'authorName';
   static const String authorImage = 'authorImage';
-  static const String content = 'content';
-  static const String mediaUrls = 'mediaUrls';
   static const String postType = 'postType';
   static const String reactionsCount = 'reactionsCount';
   static const String metadata = 'metadata';
@@ -149,14 +180,21 @@ class Constants {
   static const String repliedToCommentId = 'repliedToCommentId';
   static const String repliedToAuthorName = 'repliedToAuthorName';
 
-
   // ===== VALIDATION LIMITS =====
   
   static const int maxMessageLength = 4000;
-  static const int maxFileSize = 50 * 1024 * 1024; // 50MB
-  static const int maxImageSize = 10 * 1024 * 1024; // 10MB
+  static const int maxFileSize = 50 * 1024 * 1024; // 50MB (as requested)
+  static const int maxImageSize = 50 * 1024 * 1024; // 50MB (no compression as requested)
   static const Duration maxVideoDuration = Duration(minutes: 5);
   static const Duration maxAudioDuration = Duration(minutes: 10);
+
+  // ===== CHAT SPECIFIC LIMITS =====
+  
+  static const int maxChatMessageLength = 4000;
+  static const int maxChatFileSize = 50 * 1024 * 1024; // 50MB
+  static const int maxPinnedMessages = 10;
+  static const int chatMessagesPageSize = 50;
+  static const int maxSearchResults = 100;
 
   // ===== ERROR MESSAGES =====
   
@@ -167,11 +205,51 @@ class Constants {
   static const String errorPrivacyRestriction = 'Cannot send messages due to privacy settings';
   static const String errorNetworkConnection = 'Network connection error';
   static const String errorFileUpload = 'File upload failed';
-  static const String errorFileTooLarge = 'File size too large';
+  static const String errorFileTooLarge = 'File size too large (max 50MB)';
   static const String errorInvalidFileType = 'Invalid file type';
+  static const String errorChatCreationFailed = 'Failed to create chat';
+  static const String errorMessageSendFailed = 'Failed to send message';
+  static const String errorMessageEditFailed = 'Failed to edit message';
+  static const String errorMessageDeleteFailed = 'Failed to delete message';
+  static const String errorContactBlocked = 'Contact is blocked';
+  static const String errorMaxPinnedMessages = 'Maximum pinned messages reached';
+
+  // ===== SUCCESS MESSAGES =====
+  
+  static const String messageSent = 'Message sent';
+  static const String messageEdited = 'Message edited';
+  static const String messageDeleted = 'Message deleted';
+  static const String messagePinned = 'Message pinned';
+  static const String messageUnpinned = 'Message unpinned';
+  static const String chatPinned = 'Chat pinned';
+  static const String chatUnpinned = 'Chat unpinned';
+  static const String chatArchived = 'Chat archived';
+  static const String chatUnarchived = 'Chat unarchived';
+  static const String chatMuted = 'Chat muted';
+  static const String chatUnmuted = 'Chat unmuted';
+  static const String contactBlocked = 'Contact blocked';
+  static const String contactUnblocked = 'Contact unblocked';
+
+  // ===== CHAT SETTINGS =====
+  
+  static const String defaultChatWallpaper = '';
+  static const double defaultFontSize = 16.0;
+  static const double minFontSize = 12.0;
+  static const double maxFontSize = 24.0;
+  
+  // ===== NOTIFICATION SETTINGS =====
+  
+  static const String notificationChannelId = 'chat_messages';
+  static const String notificationChannelName = 'Chat Messages';
+  static const String notificationChannelDescription = 'Notifications for new chat messages';
 
   // ===== GENERAL CONSTANTS =====
   
   static const String private = 'private';
   static const String public = 'public';
+  static const String online = 'online';
+  static const String offline = 'offline';
+  static const String typing = 'typing';
+  static const String deleted = 'deleted';
+  static const String edited = 'edited';
 }
