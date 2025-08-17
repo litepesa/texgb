@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import '../../../models/user_model.dart';
+import '../../../constants.dart'; // Import constants
 
 // Abstract repository interface
 abstract class AuthRepository {
@@ -98,12 +99,12 @@ class FirebaseAuthRepository implements AuthRepository {
         throw AuthRepositoryException('Phone verification failed: ${e.message}');
       },
       codeSent: (String verificationId, int? resendToken) async {
-        // Navigate to OTP screen
+        // Navigate to OTP screen using the correct route from constants
         Navigator.of(context).pushNamed(
-          '/otp', // Replace with your constants
+          Constants.otpScreen, // Use the constant instead of hardcoded string
           arguments: {
-            'verificationId': verificationId,
-            'phoneNumber': phoneNumber,
+            Constants.verificationId: verificationId,
+            Constants.phoneNumber: phoneNumber,
           },
         );
       },
@@ -381,4 +382,3 @@ class AuthRepositoryException implements Exception {
   @override
   String toString() => 'AuthRepositoryException: $message';
 }
-

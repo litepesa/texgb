@@ -22,6 +22,7 @@ class ChannelsState {
   final String? error;
   final bool isCreatingChannel;
   final double uploadProgress;
+  final bool isEnsuring; // NEW: For auto-creation loading state
 
   const ChannelsState({
     this.isLoading = false,
@@ -31,6 +32,7 @@ class ChannelsState {
     this.error,
     this.isCreatingChannel = false,
     this.uploadProgress = 0.0,
+    this.isEnsuring = false,
   });
 
   ChannelsState copyWith({
@@ -41,6 +43,7 @@ class ChannelsState {
     String? error,
     bool? isCreatingChannel,
     double? uploadProgress,
+    bool? isEnsuring,
   }) {
     return ChannelsState(
       isLoading: isLoading ?? this.isLoading,
@@ -50,6 +53,7 @@ class ChannelsState {
       error: error,
       isCreatingChannel: isCreatingChannel ?? this.isCreatingChannel,
       uploadProgress: uploadProgress ?? this.uploadProgress,
+      isEnsuring: isEnsuring ?? this.isEnsuring,
     );
   }
 }
@@ -112,6 +116,52 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     }
   }
 
+  // NEW: Ensure user has a channel (auto-create if needed)
+  Future<ChannelModel?> ensureUserHasChannel() async {
+    if (_auth.currentUser == null) return null;
+    
+    try {
+      final uid = _auth.currentUser!.uid;
+      
+      // Check if user already has a channel
+      if (state.userChannel != null) {
+        debugPrint('DEBUG: User already has channel: ${state.userChannel!.id}');
+        return state.userChannel;
+      }
+
+      // Show "Setting up your channel..." message
+      state = state.copyWith(isEnsuring: true);
+      debugPrint('DEBUG: Auto-creating channel for user $uid');
+
+      // Let repository handle the auto-creation with proper safeguards
+      final channel = await _repository.ensureUserHasChannel(uid);
+      
+      // Update state with the channel
+      state = state.copyWith(
+        userChannel: channel,
+        isEnsuring: false,
+        channels: [channel, ...state.channels], // Add to channels list
+      );
+
+      debugPrint('DEBUG: Channel ensured successfully: ${channel.id}');
+      return channel;
+    } on RepositoryException catch (e) {
+      debugPrint('ERROR: Failed to ensure channel: ${e.message}');
+      state = state.copyWith(
+        error: e.message,
+        isEnsuring: false,
+      );
+      return null;
+    } catch (e) {
+      debugPrint('ERROR: Failed to ensure channel: $e');
+      state = state.copyWith(
+        error: e.toString(),
+        isEnsuring: false,
+      );
+      return null;
+    }
+  }
+
   // Load channels followed by the user
   Future<void> loadFollowedChannels() async {
     if (_auth.currentUser == null) return;
@@ -127,107 +177,7 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     }
   }
 
-  // Create a new channel
-  Future<ChannelModel?> createChannel({
-    required String name,
-    required String description,
-    required File? profileImage,
-    required File? coverImage,
-    List<String>? tags,
-    required Function(String) onSuccess,
-    required Function(String) onError,
-  }) async {
-    if (_auth.currentUser == null) {
-      onError('User not authenticated');
-      return null;
-    }
-    
-    // Check if user already has a channel
-    await loadUserChannel();
-    if (state.userChannel != null) {
-      onError('You already have a channel');
-      return null;
-    }
-    
-    state = state.copyWith(isCreatingChannel: true, uploadProgress: 0.0);
-    
-    try {
-      final uid = _auth.currentUser!.uid;
-      
-      // Get user info - this would ideally come from a user repository
-      // For now, using Firebase directly for user data
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      final userData = userDoc.data();
-      
-      if (userData == null) {
-        throw RepositoryException('User data not found');
-      }
-      
-      final userName = userData['name'] ?? '';
-      final userImage = userData['image'] ?? '';
-      
-      // Upload images
-      String profileImageUrl = '';
-      String coverImageUrl = '';
-      
-      if (profileImage != null) {
-        final channelId = const Uuid().v4();
-        profileImageUrl = await _repository.uploadImage(
-          profileImage, 
-          'channelImages/$channelId/profile.jpg'
-        );
-        state = state.copyWith(uploadProgress: 0.5);
-      }
-      
-      if (coverImage != null) {
-        final channelId = const Uuid().v4();
-        coverImageUrl = await _repository.uploadImage(
-          coverImage, 
-          'channelImages/$channelId/cover.jpg'
-        );
-        state = state.copyWith(uploadProgress: 1.0);
-      }
-      
-      // Create channel
-      final channel = await _repository.createChannel(
-        userId: uid,
-        userName: userName,
-        userImage: userImage,
-        name: name,
-        description: description,
-        profileImageUrl: profileImageUrl,
-        coverImageUrl: coverImageUrl,
-        tags: tags,
-      );
-      
-      // Update local state
-      state = state.copyWith(
-        userChannel: channel,
-        isCreatingChannel: false,
-        uploadProgress: 0.0,
-        channels: [channel, ...state.channels],
-      );
-      
-      onSuccess('Channel created successfully');
-      return channel;
-    } on RepositoryException catch (e) {
-      state = state.copyWith(
-        isCreatingChannel: false,
-        uploadProgress: 0.0,
-        error: e.message,
-      );
-      onError(e.message);
-      return null;
-    } catch (e) {
-      state = state.copyWith(
-        isCreatingChannel: false,
-        uploadProgress: 0.0,
-        error: e.toString(),
-      );
-      onError(e.toString());
-      return null;
-    }
-  }
+  // REMOVED: Manual createChannel method - replaced with auto-creation
 
   // Follow or unfollow a channel
   Future<void> toggleFollowChannel(String channelId) async {

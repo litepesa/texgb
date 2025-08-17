@@ -49,6 +49,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
   bool _isCommentsSheetOpen = false; // Track comments sheet state
+  bool _isChannelEnsuring = false; // NEW: Track channel auto-creation
   
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
@@ -66,7 +67,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
-    _loadVideos();
+    // FIXED: Use post-frame callback to avoid provider modification during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureChannelAndLoadVideos();
+    });
     _setupCacheCleanup();
     _hasInitialized = true;
   }
@@ -250,14 +254,30 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     });
   }
 
-  Future<void> _loadVideos() async {
+  // NEW: Ensure user has channel before loading videos
+  Future<void> _ensureChannelAndLoadVideos() async {
     if (_isFirstLoad) {
-      debugPrint('ChannelsFeedScreen: Loading initial videos');
-      await ref.read(channelVideosProvider.notifier).loadVideos();
+      debugPrint('ChannelsFeedScreen: Ensuring channel and loading initial videos');
+      
+      setState(() {
+        _isChannelEnsuring = true;
+      });
+      
+      // Ensure user has a channel first
+      final channel = await ref.read(channelsProvider.notifier).ensureUserHasChannel();
+      
+      if (channel != null) {
+        debugPrint('ChannelsFeedScreen: Channel ensured, loading videos');
+        // Load videos after ensuring channel
+        await ref.read(channelVideosProvider.notifier).loadVideos();
+      } else {
+        debugPrint('ChannelsFeedScreen: Failed to ensure channel');
+      }
       
       if (mounted) {
         setState(() {
           _isFirstLoad = false;
+          _isChannelEnsuring = false;
         });
         
         // If a specific video ID was provided, jump to it
@@ -543,10 +563,31 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     final systemTopPadding = MediaQuery.of(context).padding.top;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
-    if (_isFirstLoad && channelVideosState.isLoading) {
-      return const Scaffold(
+    // Show loading screen during channel ensuring or initial video loading
+    if ((_isFirstLoad && channelVideosState.isLoading) || _isChannelEnsuring || channelsState.isEnsuring) {
+      return Scaffold(
         backgroundColor: Colors.black,
-        body: SizedBox.shrink(),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(
+                color: Colors.white,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                _isChannelEnsuring || channelsState.isEnsuring 
+                    ? 'Setting up your channel...'
+                    : 'Loading videos...',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
     
@@ -600,11 +641,8 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   Widget _buildBody(ChannelVideosState videosState, ChannelsState channelsState) {
+    // REMOVED: Create channel prompt - channels are now auto-created
     
-    if (!videosState.isLoading && channelsState.userChannel == null) {
-      return _buildCreateChannelPrompt();
-    }
-
     if (!videosState.isLoading && videosState.videos.isEmpty) {
       return _buildEmptyState(channelsState);
     }
@@ -958,32 +996,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  Widget _buildCreateChannelPrompt() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.video_library,
-            color: Colors.white,
-            size: 80,
-          ),
-          SizedBox(height: 24),
-          Text(
-            'Create your Channel',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 32),
-          // Add create channel button here
-        ],
-      ),
-    );
-  }
-
+  // UPDATED: Empty state - no more create channel prompt
   Widget _buildEmptyState(ChannelsState channelsState) {
     return const Center(
       child: Column(
@@ -1003,7 +1016,15 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               fontWeight: FontWeight.bold,
             ),
           ),
-          // Add create post button here
+          SizedBox(height: 16),
+          Text(
+            'Start creating content to see videos here',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
