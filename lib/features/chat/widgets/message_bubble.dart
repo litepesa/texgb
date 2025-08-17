@@ -43,32 +43,30 @@ class MessageBubble extends StatelessWidget {
       onLongPress: onLongPress,
       child: Container(
         margin: EdgeInsets.only(
-          left: isCurrentUser ? 60 : 16,
-          right: isCurrentUser ? 16 : 60,
-          bottom: isLastInGroup ? 8 : 2,
-          top: 2,
+          left: isCurrentUser ? 50 : 16, // Reduced left margin from 60 to 50 for current user
+          right: isCurrentUser ? 16 : 50, // Reduced right margin from 60 to 50 for other user
+          bottom: isLastInGroup ? 8 : 2, // Increased bottom margin to accommodate external timestamp
+          top: 1,
         ),
         child: Column(
           crossAxisAlignment: isCurrentUser 
             ? CrossAxisAlignment.end 
             : CrossAxisAlignment.start,
           children: [
-            // Reply indicator
             if (message.isReply()) ...[
               _buildReplyIndicator(context, modernTheme),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
             ],
             
-            // Pin indicator
             if (message.isPinned) ...[
               _buildPinIndicator(context, modernTheme),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
             ],
             
             // Main message bubble
             Container(
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
+                maxWidth: MediaQuery.of(context).size.width * 0.85, // Further increased to 85% for even longer bubbles
               ),
               decoration: BoxDecoration(
                 color: isCurrentUser 
@@ -78,35 +76,28 @@ class MessageBubble extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.08),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
               child: ClipRRect(
                 borderRadius: _getBubbleRadius(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Message content
-                    _buildMessageContent(context, modernTheme, chatTheme),
-                    
-                    // Timestamp and status
-                    _buildMessageFooter(context, modernTheme),
-                  ],
-                ),
+                child: _buildMessageContent(context, modernTheme, chatTheme),
               ),
             ),
             
-            // Edit indicator
+            // External timestamp and status
+            const SizedBox(height: 2),
+            _buildExternalTimestamp(context, modernTheme),
+            
             if (message.isEdited) ...[
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               _buildEditIndicator(context, modernTheme),
             ],
             
-            // Failed message retry option
             if (message.status == MessageStatus.failed && isCurrentUser) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               _buildRetryIndicator(context, modernTheme),
             ],
           ],
@@ -116,43 +107,49 @@ class MessageBubble extends StatelessWidget {
   }
 
   BorderRadius _getBubbleRadius() {
-    const radius = 20.0;
-    const smallRadius = 6.0;
+    const radius = 28.0; // Even more rounded for ultra-modern look
     
-    if (isCurrentUser) {
-      return BorderRadius.only(
-        topLeft: const Radius.circular(radius),
-        topRight: const Radius.circular(radius),
-        bottomLeft: const Radius.circular(radius),
-        bottomRight: isLastInGroup 
-          ? const Radius.circular(smallRadius)
-          : const Radius.circular(radius),
-      );
-    } else {
-      return BorderRadius.only(
-        topLeft: const Radius.circular(radius),
-        topRight: const Radius.circular(radius),
-        bottomLeft: isLastInGroup 
-          ? const Radius.circular(smallRadius)
-          : const Radius.circular(radius),
-        bottomRight: const Radius.circular(radius),
-      );
-    }
+    return BorderRadius.circular(radius);
+  }
+
+  Widget _buildExternalTimestamp(BuildContext context, ModernThemeExtension modernTheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: isCurrentUser 
+          ? MainAxisAlignment.end 
+          : MainAxisAlignment.start,
+        children: [
+          Text(
+            DateFormat('HH:mm').format(message.timestamp),
+            style: TextStyle(
+              fontSize: 10,
+              color: modernTheme.textTertiaryColor,
+            ),
+          ),
+          if (isCurrentUser) ...[
+            const SizedBox(width: 3),
+            _buildMessageStatusIcon(modernTheme),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildReplyIndicator(BuildContext context, ModernThemeExtension modernTheme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: modernTheme.surfaceVariantColor?.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.reply,
-            size: 14,
+            size: 12,
             color: modernTheme.textSecondaryColor,
           ),
           const SizedBox(width: 4),
@@ -160,7 +157,7 @@ class MessageBubble extends StatelessWidget {
             child: Text(
               'Replying to ${message.replyToSender == message.senderId ? 'themselves' : (contactName ?? 'contact')}',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: modernTheme.textSecondaryColor,
                 fontWeight: FontWeight.w500,
               ),
@@ -207,7 +204,7 @@ class MessageBubble extends StatelessWidget {
       child: Text(
         'edited',
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 10,
           color: modernTheme.textTertiaryColor,
           fontStyle: FontStyle.italic,
         ),
@@ -217,10 +214,7 @@ class MessageBubble extends StatelessWidget {
 
   Widget _buildRetryIndicator(BuildContext context, ModernThemeExtension modernTheme) {
     return GestureDetector(
-      onTap: () {
-        // Trigger retry - this would be handled by the parent widget
-        if (onLongPress != null) onLongPress!();
-      },
+      onTap: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -237,7 +231,7 @@ class MessageBubble extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             const Text(
-              'Failed to send',
+              'Failed',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.red,
@@ -268,9 +262,9 @@ class MessageBubble extends StatelessWidget {
       case MessageEnum.text:
         return _buildTextContent(context, modernTheme, chatTheme);
       case MessageEnum.image:
-        return _buildImageContent(context, modernTheme);
+        return _buildImageContent(context, modernTheme, chatTheme);
       case MessageEnum.file:
-        return _buildFileContent(context, modernTheme);
+        return _buildFileContent(context, modernTheme, chatTheme);
       default:
         return _buildTextContent(context, modernTheme, chatTheme);
     }
@@ -282,14 +276,13 @@ class MessageBubble extends StatelessWidget {
     ChatThemeExtension chatTheme,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4), // Further reduced vertical padding and increased horizontal
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Reply content preview
           if (message.isReply() && message.replyToContent != null) ...[
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: isCurrentUser 
                   ? Colors.white.withOpacity(0.15)
@@ -298,7 +291,7 @@ class MessageBubble extends StatelessWidget {
                 border: Border(
                   left: BorderSide(
                     color: modernTheme.primaryColor!,
-                    width: 3,
+                    width: 2,
                   ),
                 ),
               ),
@@ -315,10 +308,9 @@ class MessageBubble extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 3), // Further reduced from 4 to 3
           ],
           
-          // Main message text
           SelectableText(
             message.content,
             style: TextStyle(
@@ -326,7 +318,7 @@ class MessageBubble extends StatelessWidget {
               color: isCurrentUser 
                 ? chatTheme.senderTextColor
                 : chatTheme.receiverTextColor,
-              height: 1.4,
+              height: 1.15, // Further reduced line height from 1.2 to 1.15 for maximum compactness
             ),
           ),
         ],
@@ -334,24 +326,24 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildImageContent(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildImageContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
+            topLeft: Radius.circular(28), // Updated to match new bubble radius
+            topRight: Radius.circular(28), // Updated to match new bubble radius
           ),
           child: Stack(
             children: [
               CachedNetworkImage(
                 imageUrl: message.mediaUrl ?? '',
                 width: double.infinity,
-                height: 200,
+                height: 200, // Increased back to a tall height for better image viewing experience
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
-                  height: 200,
+                  height: 200, // Updated to match new tall height
                   color: modernTheme.surfaceVariantColor,
                   child: Center(
                     child: Column(
@@ -361,12 +353,12 @@ class MessageBubble extends StatelessWidget {
                           color: modernTheme.primaryColor,
                           strokeWidth: 2,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Text(
-                          'Loading image...',
+                          'Loading...',
                           style: TextStyle(
                             color: modernTheme.textSecondaryColor,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -374,7 +366,7 @@ class MessageBubble extends StatelessWidget {
                   ),
                 ),
                 errorWidget: (context, url, error) => Container(
-                  height: 200,
+                  height: 140, // Updated to match new height
                   color: modernTheme.surfaceVariantColor,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -382,23 +374,14 @@ class MessageBubble extends StatelessWidget {
                       Icon(
                         Icons.broken_image,
                         color: modernTheme.textSecondaryColor,
-                        size: 32,
+                        size: 28,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
-                        'Failed to load image',
+                        'Failed to load',
                         style: TextStyle(
                           color: modernTheme.textSecondaryColor,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Tap to retry',
-                        style: TextStyle(
-                          color: modernTheme.primaryColor,
                           fontSize: 11,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -406,10 +389,9 @@ class MessageBubble extends StatelessWidget {
                 ),
               ),
               
-              // Upload progress indicator
               if (message.mediaMetadata?['isUploading'] == true) ...[
                 Container(
-                  height: 200,
+                  height: 200, // Updated to match new tall height
                   color: Colors.black.withOpacity(0.3),
                   child: Center(
                     child: Column(
@@ -417,14 +399,14 @@ class MessageBubble extends StatelessWidget {
                       children: [
                         CircularProgressIndicator(
                           color: Colors.white,
-                          strokeWidth: 3,
+                          strokeWidth: 2,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         const Text(
                           'Uploading...',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -437,18 +419,17 @@ class MessageBubble extends StatelessWidget {
           ),
         ),
         
-        // Caption if present
         if (message.content.isNotEmpty) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 3, 16, 4), // Further reduced top padding from 4 to 3
             child: SelectableText(
               message.content,
               style: TextStyle(
                 fontSize: fontSize,
                 color: isCurrentUser 
-                  ? Colors.white
-                  : modernTheme.textColor,
-                height: 1.4,
+                  ? chatTheme.senderTextColor
+                  : chatTheme.receiverTextColor,
+                height: 1.15, // Further reduced line height for ultra-compact text
               ),
             ),
           ),
@@ -457,28 +438,28 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildFileContent(BuildContext context, ModernThemeExtension modernTheme) {
+  Widget _buildFileContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
     final fileName = message.mediaMetadata?['fileName'] ?? 'Unknown file';
     final fileSize = message.mediaMetadata?['fileSize'] ?? 0;
     final fileSizeText = _formatFileSize(fileSize);
     final isUploading = message.mediaMetadata?['isUploading'] == true;
     
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4), // Further reduced and increased horizontal padding
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: isCurrentUser 
                 ? Colors.white.withOpacity(0.2)
                 : modernTheme.primaryColor?.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: isUploading
                 ? SizedBox(
-                    width: 24,
-                    height: 24,
+                    width: 20,
+                    height: 20,
                     child: CircularProgressIndicator(
                       color: isCurrentUser 
                         ? Colors.white
@@ -491,10 +472,10 @@ class MessageBubble extends StatelessWidget {
                     color: isCurrentUser 
                       ? Colors.white
                       : modernTheme.primaryColor,
-                    size: 24,
+                    size: 20,
                   ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -547,33 +528,8 @@ class MessageBubble extends StatelessWidget {
               color: isCurrentUser 
                 ? Colors.white70
                 : modernTheme.textSecondaryColor,
-              size: 20,
+              size: 18,
             ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessageFooter(BuildContext context, ModernThemeExtension modernTheme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(
-            DateFormat('HH:mm').format(message.timestamp),
-            style: TextStyle(
-              fontSize: 11,
-              color: isCurrentUser 
-                ? Colors.white70
-                : modernTheme.textTertiaryColor,
-            ),
-          ),
-          if (isCurrentUser) ...[
-            const SizedBox(width: 4),
-            _buildMessageStatusIcon(modernTheme),
           ],
         ],
       ),
@@ -586,25 +542,24 @@ class MessageBubble extends StatelessWidget {
     
     switch (message.status) {
       case MessageStatus.sending:
-        iconColor = Colors.white54;
+        iconColor = modernTheme.textTertiaryColor ?? Colors.grey;
         break;
       case MessageStatus.sent:
-        iconColor = Colors.white70; // Single grey tick
+        iconColor = modernTheme.textTertiaryColor ?? Colors.grey;
         break;
       case MessageStatus.delivered:
-        iconColor = Colors.white70; // Double grey ticks
+        iconColor = modernTheme.textTertiaryColor ?? Colors.grey;
         break;
       case MessageStatus.failed:
-        iconColor = Colors.red.shade300;
+        iconColor = Colors.red.shade400;
         break;
       case MessageStatus.read:
-        // TODO: Handle this case.
         throw UnimplementedError();
     }
     
     return Icon(
       iconData,
-      size: 14,
+      size: 12,
       color: iconColor,
     );
   }
