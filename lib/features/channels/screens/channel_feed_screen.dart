@@ -50,6 +50,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   bool _isNavigatingAway = false;
   bool _isManuallyPaused = false;
   bool _isCommentsSheetOpen = false; // Track comments sheet state
+  bool _isEnsuring = false; // NEW: Track channel auto-creation
   
   // Channel data
   ChannelModel? _channel;
@@ -74,7 +75,10 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _setupSystemUI();
-    _loadChannelData();
+    // FIXED: Use post-frame callback to avoid provider modification during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureChannelAndLoadData();
+    });
     _setupCacheCleanup();
   }
 
@@ -137,6 +141,46 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
         break;
       case AppLifecycleState.hidden:
         break;
+    }
+  }
+
+  // NEW: Ensure user has channel before loading data
+  Future<void> _ensureChannelAndLoadData() async {
+    setState(() {
+      _isChannelLoading = true;
+      _isEnsuring = true;
+      _channelError = null;
+    });
+
+    try {
+      debugPrint('ChannelFeedScreen: Ensuring user has channel');
+      
+      // Ensure user has a channel first
+      final channel = await ref.read(channelsProvider.notifier).ensureUserHasChannel();
+      
+      if (channel != null) {
+        debugPrint('ChannelFeedScreen: Channel ensured, loading data');
+        setState(() {
+          _isEnsuring = false;
+        });
+        
+        // Load channel data after ensuring channel exists
+        await _loadChannelData();
+      } else {
+        debugPrint('ChannelFeedScreen: Failed to ensure channel');
+        setState(() {
+          _channelError = 'Failed to set up your channel. Please try again.';
+          _isChannelLoading = false;
+          _isEnsuring = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('ChannelFeedScreen: Error ensuring channel: $e');
+      setState(() {
+        _channelError = 'Failed to set up your channel: $e';
+        _isChannelLoading = false;
+        _isEnsuring = false;
+      });
     }
   }
 
@@ -545,6 +589,36 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    
+    final channelsState = ref.watch(channelsProvider);
+    
+    // Show loading screen while ensuring channel
+    if ((_isChannelLoading && _isEnsuring) || channelsState.isEnsuring) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(
+                color: Colors.white,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                _isEnsuring || channelsState.isEnsuring 
+                    ? 'Setting up your channel...'
+                    : 'Loading content...',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     
     if (_isChannelLoading) {
       return const Scaffold(
