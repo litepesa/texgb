@@ -108,134 +108,153 @@ class _MessageInputState extends State<MessageInput> {
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
     return Container(
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        border: Border(
-          top: BorderSide(
-            color: modernTheme.dividerColor!.withOpacity(0.2),
-            width: 0.5,
-          ),
-        ),
-      ),
+      // Transparent background for floating effect
+      color: Colors.transparent,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Reply preview - more compact
+          // Reply preview - floating design
           if (widget.replyToMessage != null) ...[
-            _buildReplyPreview(modernTheme),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: _buildReplyPreview(modernTheme),
+            ),
+            const SizedBox(height: 8),
           ],
           
-          // Input area with proper system nav bar padding
-          Padding(
-            padding: EdgeInsets.only(
+          // Floating input container
+          Container(
+            margin: EdgeInsets.only(
               left: 12,
               right: 12,
-              top: 8,
-              bottom: 8 + systemBottomPadding, // Add system nav bar padding
+              bottom: 8 + systemBottomPadding,
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Attachment button - more compact
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: modernTheme.primaryColor?.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: _showAttachmentOptions,
-                    padding: EdgeInsets.zero,
-                    icon: Icon(
-                      Icons.attach_file,
-                      color: modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-                
-                const SizedBox(width: 8),
-                
-                // Text input - refined height and styling
-                Expanded(
-                  child: Container(
-                    constraints: const BoxConstraints(
-                      minHeight: 36,
-                      maxHeight: 120, // Limit max height to prevent excessive growth
-                    ),
-                    decoration: BoxDecoration(
-                      color: chatTheme.inputBackgroundColor,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: modernTheme.dividerColor!.withOpacity(0.2),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: TextField(
-                      controller: _textController,
-                      focusNode: _focusNode,
-                      maxLines: null, // Allow dynamic height
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.newline,
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontSize: 15,
-                        height: 1.3, // Better line height
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: TextStyle(
-                          color: modernTheme.textSecondaryColor,
-                          fontSize: 15,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8, // Reduced vertical padding
-                        ),
-                        isDense: true,
-                      ),
-                      onChanged: (text) {
-                        setState(() {
-                          _isComposing = text.trim().isNotEmpty;
-                        });
-                      },
-                      onSubmitted: (text) {
-                        if (text.trim().isNotEmpty) {
-                          _handleSendText();
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(width: 8),
-                
-                // Send button - more compact and refined
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: _isComposing 
-                      ? modernTheme.primaryColor
-                      : modernTheme.primaryColor?.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: _isComposing ? _handleSendText : null,
-                    padding: EdgeInsets.zero,
-                    icon: Icon(
-                      Icons.send,
-                      color: _isComposing 
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.7),
-                      size: 18,
-                    ),
-                  ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
                 ),
               ],
+              border: Border.all(
+                color: modernTheme.dividerColor!.withOpacity(0.1),
+                width: 0.5,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(6), // Inner padding for the floating container
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Attachment button
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor?.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: _showAttachmentOptions,
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        Icons.attach_file,
+                        color: modernTheme.primaryColor,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(width: 8),
+                  
+                  // Text input
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minHeight: 36,
+                        maxHeight: 120,
+                      ),
+                      decoration: BoxDecoration(
+                        color: chatTheme.inputBackgroundColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: modernTheme.dividerColor!.withOpacity(0.1),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: _textController,
+                        focusNode: _focusNode,
+                        maxLines: null,
+                        textCapitalization: TextCapitalization.sentences,
+                        textInputAction: TextInputAction.newline,
+                        style: TextStyle(
+                          color: modernTheme.textColor,
+                          fontSize: 15,
+                          height: 1.3,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Type a message...',
+                          hintStyle: TextStyle(
+                            color: modernTheme.textSecondaryColor,
+                            fontSize: 15,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          isDense: true,
+                        ),
+                        onChanged: (text) {
+                          setState(() {
+                            _isComposing = text.trim().isNotEmpty;
+                          });
+                        },
+                        onSubmitted: (text) {
+                          if (text.trim().isNotEmpty) {
+                            _handleSendText();
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(width: 8),
+                  
+                  // Send button
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _isComposing 
+                        ? modernTheme.primaryColor
+                        : modernTheme.primaryColor?.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: _isComposing ? _handleSendText : null,
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        Icons.send,
+                        color: _isComposing 
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.7),
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -245,21 +264,27 @@ class _MessageInputState extends State<MessageInput> {
 
   Widget _buildReplyPreview(ModernThemeExtension modernTheme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // More compact padding
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: modernTheme.surfaceVariantColor?.withOpacity(0.3),
-        border: Border(
-          bottom: BorderSide(
-            color: modernTheme.dividerColor!.withOpacity(0.2),
-            width: 0.5,
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
+        ],
+        border: Border.all(
+          color: modernTheme.dividerColor!.withOpacity(0.1),
+          width: 0.5,
         ),
       ),
       child: Row(
         children: [
           Container(
             width: 3,
-            height: 32, // Reduced height
+            height: 32,
             decoration: BoxDecoration(
               color: modernTheme.primaryColor,
               borderRadius: BorderRadius.circular(2),
@@ -287,7 +312,7 @@ class _MessageInputState extends State<MessageInput> {
                     fontSize: 13,
                     height: 1.2,
                   ),
-                  maxLines: 1, // Single line for compactness
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
