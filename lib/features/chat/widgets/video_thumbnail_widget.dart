@@ -182,22 +182,11 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
       width: widget.width,
       height: widget.height,
       color: modernTheme.surfaceVariantColor?.withOpacity(0.3) ?? Colors.grey[300],
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: modernTheme.primaryColor,
-            strokeWidth: 2,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Generating thumbnail...',
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 12,
-            ),
-          ),
-        ],
+      child: Center(
+        child: CircularProgressIndicator(
+          color: modernTheme.primaryColor,
+          strokeWidth: 2,
+        ),
       ),
     );
   }
@@ -213,14 +202,14 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
           Icon(
             Icons.video_library_outlined,
             color: modernTheme.textSecondaryColor,
-            size: 40,
+            size: 32,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             'Video Preview',
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -232,7 +221,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                 'Tap to retry',
                 style: TextStyle(
                   color: modernTheme.primaryColor,
-                  fontSize: 10,
+                  fontSize: 9,
                   decoration: TextDecoration.underline,
                 ),
               ),
@@ -260,38 +249,45 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
               // Thumbnail content
               _buildThumbnailContent(modernTheme),
               
-              // Play button overlay
+              // Clean play button overlay (only when requested and not loading)
               if (widget.showPlayButton && !_isGenerating) ...[
                 Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.center,
-                      end: Alignment.center,
+                    gradient: RadialGradient(
+                      center: Alignment.center,
+                      radius: 0.3,
                       colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.3),
+                        Colors.black.withOpacity(0.4),
                         Colors.transparent,
                       ],
                     ),
                   ),
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: const Icon(
-                        Icons.play_arrow,
+                        Icons.play_arrow_rounded,
                         color: Colors.white,
-                        size: 32,
+                        size: 28,
                       ),
                     ),
                   ),
                 ),
               ],
               
-              // Custom overlay widget
+              // Custom overlay widget (for additional content if needed)
               if (widget.overlayWidget != null) widget.overlayWidget!,
             ],
           ),

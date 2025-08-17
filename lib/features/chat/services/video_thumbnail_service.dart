@@ -32,7 +32,7 @@ class VideoThumbnailService {
     return thumbnailDir;
   }
 
-  // Generate thumbnail from video URL
+  // Generate high-quality thumbnail from video URL (similar to recommended posts)
   Future<String?> generateThumbnail(String videoUrl) async {
     if (videoUrl.isEmpty) return null;
 
@@ -50,24 +50,25 @@ class VideoThumbnailService {
     }
 
     try {
-      debugPrint('Generating thumbnail for video: $videoUrl');
+      debugPrint('Generating high-quality thumbnail for video: $videoUrl');
       
       final cacheDir = await _getCacheDirectory();
       final thumbnailPath = '${cacheDir.path}/$cacheKey.jpg';
 
-      // Generate thumbnail using video_thumbnail package
+      // Generate high-quality thumbnail using enhanced settings like recommended posts
       final thumbnail = await VideoThumbnail.thumbnailFile(
         video: videoUrl,
         thumbnailPath: thumbnailPath,
         imageFormat: ImageFormat.JPEG,
-        maxHeight: 200, // Reasonable height for chat thumbnails
-        quality: 75, // Good quality balance
-        timeMs: 1000, // Get thumbnail at 1 second mark
+        maxWidth: 400, // Increased width for better quality (matching recommended posts)
+        maxHeight: 600, // Increased height for 9:16 aspect ratio videos
+        quality: 85, // Higher quality (matching recommended posts quality)
+        timeMs: 2000, // Get thumbnail at 2 second mark for better frame
       );
 
       if (thumbnail != null && await File(thumbnail).exists()) {
         _thumbnailCache[cacheKey] = thumbnail;
-        debugPrint('Thumbnail generated successfully: $thumbnail');
+        debugPrint('High-quality thumbnail generated successfully: $thumbnail');
         return thumbnail;
       } else {
         debugPrint('Failed to generate thumbnail for: $videoUrl');
@@ -79,24 +80,25 @@ class VideoThumbnailService {
     }
   }
 
-  // Generate thumbnail as bytes (for immediate use)
+  // Generate high-quality thumbnail as bytes (for immediate use)
   Future<Uint8List?> generateThumbnailData(String videoUrl) async {
     if (videoUrl.isEmpty) return null;
 
     try {
-      debugPrint('Generating thumbnail data for video: $videoUrl');
+      debugPrint('Generating high-quality thumbnail data for video: $videoUrl');
       
-      // Generate thumbnail as bytes
+      // Generate high-quality thumbnail as bytes with enhanced settings
       final thumbnailData = await VideoThumbnail.thumbnailData(
         video: videoUrl,
         imageFormat: ImageFormat.JPEG,
-        maxHeight: 200,
-        quality: 75,
-        timeMs: 1000,
+        maxWidth: 400, // Increased width for better quality
+        maxHeight: 600, // Increased height for 9:16 aspect ratio videos
+        quality: 85, // Higher quality setting
+        timeMs: 2000, // Get thumbnail at 2 second mark for better frame
       );
 
       if (thumbnailData != null) {
-        debugPrint('Thumbnail data generated successfully');
+        debugPrint('High-quality thumbnail data generated successfully');
         return thumbnailData;
       } else {
         debugPrint('Failed to generate thumbnail data for: $videoUrl');
@@ -104,6 +106,45 @@ class VideoThumbnailService {
       }
     } catch (e) {
       debugPrint('Error generating thumbnail data: $e');
+      return null;
+    }
+  }
+
+  // Generate multiple thumbnails at different time positions for better frame selection
+  Future<Uint8List?> generateBestThumbnailData(String videoUrl) async {
+    if (videoUrl.isEmpty) return null;
+
+    try {
+      debugPrint('Generating best quality thumbnail for video: $videoUrl');
+      
+      // Try multiple time positions to get the best frame
+      final timePositions = [2000, 1000, 3000, 5000]; // Try different seconds
+      
+      for (final timeMs in timePositions) {
+        try {
+          final thumbnailData = await VideoThumbnail.thumbnailData(
+            video: videoUrl,
+            imageFormat: ImageFormat.JPEG,
+            maxWidth: 400,
+            maxHeight: 600,
+            quality: 85,
+            timeMs: timeMs,
+          );
+
+          if (thumbnailData != null && thumbnailData.isNotEmpty) {
+            debugPrint('Best thumbnail generated at ${timeMs}ms');
+            return thumbnailData;
+          }
+        } catch (e) {
+          debugPrint('Failed to generate thumbnail at ${timeMs}ms: $e');
+          continue;
+        }
+      }
+
+      debugPrint('Failed to generate thumbnail at any time position for: $videoUrl');
+      return null;
+    } catch (e) {
+      debugPrint('Error generating best thumbnail: $e');
       return null;
     }
   }
@@ -185,6 +226,16 @@ class VideoThumbnailService {
     return videoExtensions.any((ext) => lowerUrl.contains(ext)) ||
            lowerUrl.startsWith('http') || // Network URLs
            lowerUrl.startsWith('file://'); // Local file URLs
+  }
+
+  // Preload thumbnail for better performance
+  Future<void> preloadThumbnail(String videoUrl) async {
+    if (!isValidVideoUrl(videoUrl)) return;
+    
+    // Generate thumbnail in background without waiting
+    generateThumbnail(videoUrl).catchError((e) {
+      debugPrint('Error preloading thumbnail: $e');
+    });
   }
 
   // Dispose service and clear memory cache

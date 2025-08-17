@@ -206,7 +206,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       },
       child: Scaffold(
         backgroundColor: chatTheme.chatBackgroundColor,
-        extendBodyBehindAppBar: true,
+        extendBodyBehindAppBar: false, // Changed to false to prevent content from going behind app bar
         appBar: _buildAppBar(modernTheme),
         body: Stack(
           children: [
@@ -432,158 +432,178 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme) {
     final isVerified = _isContactVerified();
     
-    return AppBar(
-      backgroundColor: modernTheme.appBarColor?.withOpacity(0.95),
-      elevation: 0,
-      systemOverlayStyle: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: modernTheme.textColor == Colors.white 
-          ? Brightness.light 
-          : Brightness.dark,
-      ),
-      leading: IconButton(
-        onPressed: () {
-          // Return whether any message was sent when navigating back
-          Navigator.of(context).pop(_hasMessageBeenSent);
-        },
-        icon: Icon(
-          Icons.arrow_back,
-          color: modernTheme.textColor,
-        ),
-      ),
-      title: GestureDetector(
-        onTap: () => _showContactProfile(),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
-              backgroundImage: widget.contact.image.isNotEmpty
-                  ? NetworkImage(widget.contact.image)
-                  : null,
-              child: widget.contact.image.isEmpty
-                  ? Text(
-                      widget.contact.name.isNotEmpty 
-                        ? widget.contact.name[0].toUpperCase()
-                        : '?',
-                      style: TextStyle(
-                        color: modernTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: Container(
+        decoration: BoxDecoration(
+          color: modernTheme.appBarColor?.withOpacity(0.95),
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              offset: const Offset(0, 2),
+              blurRadius: 8,
+              spreadRadius: 0,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.contact.name,
-                    style: TextStyle(
-                      color: modernTheme.textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+          ],
+        ),
+        child: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: modernTheme.textColor == Colors.white 
+              ? Brightness.light 
+              : Brightness.dark,
+          ),
+          leading: IconButton(
+            onPressed: () {
+              // Return whether any message was sent when navigating back
+              Navigator.of(context).pop(_hasMessageBeenSent);
+            },
+            icon: Icon(
+              Icons.arrow_back,
+              color: modernTheme.textColor,
+            ),
+          ),
+          title: GestureDetector(
+            onTap: () => _showContactProfile(),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
+                  backgroundImage: widget.contact.image.isNotEmpty
+                      ? NetworkImage(widget.contact.image)
+                      : null,
+                  child: widget.contact.image.isEmpty
+                      ? Text(
+                          widget.contact.name.isNotEmpty 
+                            ? widget.contact.name[0].toUpperCase()
+                            : '?',
+                          style: TextStyle(
+                            color: modernTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        isVerified ? Icons.verified : Icons.help_outline,
-                        size: 12,
-                        color: isVerified ? Colors.blue : Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
                       Text(
-                        isVerified ? 'Verified' : 'Not Verified',
+                        widget.contact.name,
                         style: TextStyle(
-                          color: isVerified ? Colors.blue : Colors.grey[600],
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                          color: modernTheme.textColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isVerified ? Icons.verified : Icons.help_outline,
+                            size: 12,
+                            color: isVerified ? Colors.blue : Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isVerified ? 'Verified' : 'Not Verified',
+                            style: TextStyle(
+                              color: isVerified ? Colors.blue : Colors.grey[600],
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            IconButton(
+              onPressed: () => _showSearchDialog(),
+              icon: Icon(
+                Icons.search,
+                color: modernTheme.textColor,
               ),
+            ),
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.more_vert,
+                color: modernTheme.textColor,
+              ),
+              color: modernTheme.surfaceColor,
+              onSelected: _handleMenuAction,
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'pinned_messages',
+                  child: Row(
+                    children: [
+                      Icon(Icons.push_pin, color: modernTheme.textColor, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Pinned Messages',
+                        style: TextStyle(color: modernTheme.textColor),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'wallpaper',
+                  child: Row(
+                    children: [
+                      Icon(Icons.wallpaper, color: modernTheme.textColor, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Wallpaper',
+                        style: TextStyle(color: modernTheme.textColor),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'font_size',
+                  child: Row(
+                    children: [
+                      Icon(Icons.text_fields, color: modernTheme.textColor, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Font Size',
+                        style: TextStyle(color: modernTheme.textColor),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'block',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.block, color: Colors.red, size: 20),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Block Contact',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
-      actions: [
-        IconButton(
-          onPressed: () => _showSearchDialog(),
-          icon: Icon(
-            Icons.search,
-            color: modernTheme.textColor,
-          ),
-        ),
-        PopupMenuButton<String>(
-          icon: Icon(
-            Icons.more_vert,
-            color: modernTheme.textColor,
-          ),
-          color: modernTheme.surfaceColor,
-          onSelected: _handleMenuAction,
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'pinned_messages',
-              child: Row(
-                children: [
-                  Icon(Icons.push_pin, color: modernTheme.textColor, size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Pinned Messages',
-                    style: TextStyle(color: modernTheme.textColor),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'wallpaper',
-              child: Row(
-                children: [
-                  Icon(Icons.wallpaper, color: modernTheme.textColor, size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Wallpaper',
-                    style: TextStyle(color: modernTheme.textColor),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'font_size',
-              child: Row(
-                children: [
-                  Icon(Icons.text_fields, color: modernTheme.textColor, size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Font Size',
-                    style: TextStyle(color: modernTheme.textColor),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'block',
-              child: Row(
-                children: [
-                  const Icon(Icons.block, color: Colors.red, size: 20),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Block Contact',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
@@ -636,8 +656,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     return ListView.builder(
       controller: _scrollController,
       reverse: true,
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+      padding: const EdgeInsets.only(
+        top: 16, // Removed extra padding since extendBodyBehindAppBar is now false
         bottom: 16,
       ),
       itemCount: state.messages.length,
