@@ -224,16 +224,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 onClose: _closeVideoPlayer,
                 title: 'Shared Video',
               ),
+              
+            // Scroll to bottom button - positioned higher and closer to edge
+            if (_showScrollToBottom && !_isVideoPlayerVisible)
+              Positioned(
+                right: 8,
+                bottom: 80,
+                child: FloatingActionButton.small(
+                  onPressed: _scrollToBottom,
+                  backgroundColor: modernTheme.primaryColor?.withOpacity(0.3),
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.keyboard_arrow_down),
+                ),
+              ),
           ],
         ),
-        floatingActionButton: _showScrollToBottom && !_isVideoPlayerVisible
-            ? FloatingActionButton.small(
-                onPressed: _scrollToBottom,
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-                child: const Icon(Icons.keyboard_arrow_down),
-              )
-            : null,
       ),
     );
   }
