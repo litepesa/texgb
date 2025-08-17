@@ -16,6 +16,7 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onPin;
+  final VoidCallback? onVideoTap; // NEW: For video thumbnail tap
   final double fontSize;
   final String? contactName;
 
@@ -30,6 +31,7 @@ class MessageBubble extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onPin,
+    this.onVideoTap, // NEW
     this.fontSize = 16.0,
     this.contactName,
   });
@@ -265,6 +267,14 @@ class MessageBubble extends StatelessWidget {
         return _buildImageContent(context, modernTheme, chatTheme);
       case MessageEnum.file:
         return _buildFileContent(context, modernTheme, chatTheme);
+      case MessageEnum.video: // NEW: Handle video messages
+        // Check if this is a shared video or regular video
+        final isSharedVideo = message.mediaMetadata?['isSharedVideo'] == true;
+        if (isSharedVideo) {
+          return _buildSharedVideoContent(context, modernTheme, chatTheme);
+        } else {
+          return _buildRegularVideoContent(context, modernTheme, chatTheme);
+        }
       default:
         return _buildTextContent(context, modernTheme, chatTheme);
     }
@@ -366,7 +376,7 @@ class MessageBubble extends StatelessWidget {
                   ),
                 ),
                 errorWidget: (context, url, error) => Container(
-                  height: 140, // Updated to match new height
+                  height: 200, // Updated to match new height
                   color: modernTheme.surfaceVariantColor,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -531,6 +541,207 @@ class MessageBubble extends StatelessWidget {
               size: 18,
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  // NEW: Build shared video content (just thumbnail)
+  Widget _buildSharedVideoContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
+    final thumbnailUrl = message.mediaMetadata?['thumbnailUrl'] ?? '';
+    
+    if (thumbnailUrl.isEmpty) {
+      return _buildVideoPlaceholder(modernTheme);
+    }
+    
+    return GestureDetector(
+      onTap: onVideoTap,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(28)),
+        child: Stack(
+          children: [
+            // Video thumbnail
+            CachedNetworkImage(
+              imageUrl: thumbnailUrl,
+              width: double.infinity,
+              height: 180,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                height: 180,
+                color: modernTheme.surfaceVariantColor,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: modernTheme.primaryColor,
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) => _buildVideoPlaceholder(modernTheme),
+            ),
+            
+            // Play overlay
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.center,
+                  end: Alignment.center,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.3),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.play_arrow,
+                    color: Colors.white,
+                    size: 36,
+                  ),
+              ),
+              ),
+            ),
+            
+            // Shared video indicator
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.video_library,
+                      color: Colors.white,
+                      size: 12,
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Shared Video',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // NEW: Build regular video content (uploaded video file)
+  Widget _buildRegularVideoContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(28),
+            topRight: Radius.circular(28),
+          ),
+          child: Container(
+            height: 200,
+            color: Colors.black,
+            child: Stack(
+              children: [
+                const Center(
+                  child: Icon(
+                    Icons.play_circle_outline,
+                    color: Colors.white,
+                    size: 64,
+                  ),
+                ),
+                
+                // Upload progress indicator
+                if (message.mediaMetadata?['isUploading'] == true) ...[
+                  Container(
+                    height: 200,
+                    color: Colors.black.withOpacity(0.3),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Uploading video...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        
+        // Caption if present
+        if (message.content.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 3, 16, 4),
+            child: SelectableText(
+              message.content,
+              style: TextStyle(
+                fontSize: fontSize,
+                color: isCurrentUser 
+                  ? chatTheme.senderTextColor
+                  : chatTheme.receiverTextColor,
+                height: 1.15,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // NEW: Video placeholder widget
+  Widget _buildVideoPlaceholder(ModernThemeExtension modernTheme) {
+    return Container(
+      height: 180,
+      color: modernTheme.surfaceVariantColor,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.video_library_outlined,
+            color: modernTheme.textSecondaryColor,
+            size: 48,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Video unavailable',
+            style: TextStyle(
+              color: modernTheme.textSecondaryColor,
+              fontSize: 14,
+            ),
+          ),
         ],
       ),
     );

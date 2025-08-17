@@ -27,6 +27,13 @@ abstract class ChatRepository {
 
   // Message operations
   Future<String> sendMessage(MessageModel message);
+  Future<String> sendVideoMessage({
+    required String chatId,
+    required String senderId,
+    required String videoUrl,
+    required String thumbnailUrl,
+    required String videoId,
+  }); // NEW: For shared video messages
   Stream<List<MessageModel>> getMessagesStream(String chatId);
   Future<void> updateMessageStatus(String chatId, String messageId, MessageStatus status);
   Future<void> markMessageAsDelivered(String chatId, String messageId, String userId);
@@ -380,6 +387,83 @@ class FirebaseChatRepository implements ChatRepository {
       return messageId;
     } catch (e) {
       throw ChatRepositoryException('Failed to send message: $e');
+    }
+  }
+
+  // NEW: Send video message with just essential data
+  @override
+  Future<String> sendVideoMessage({
+    required String chatId,
+    required String senderId,
+    required String videoUrl,
+    required String thumbnailUrl,
+    required String videoId,
+  }) async {
+    try {
+      final messageId = _uuid.v4();
+      
+      // Create simple video message
+      final videoMessage = MessageModel(
+        messageId: messageId,
+        chatId: chatId,
+        senderId: senderId,
+        content: '', // No text content needed
+        type: MessageEnum.video, // Use existing video type
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: videoUrl,
+        mediaMetadata: {
+          'isSharedVideo': true,
+          'videoId': videoId,
+          'thumbnailUrl': thumbnailUrl,
+        },
+      );
+
+      // Add message to subcollection
+      await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .set(videoMessage.toMap());
+
+      // Update chat's last message
+      await _firestore.collection(Constants.chats).doc(chatId).update({
+        'lastMessage': '📹 Shared a video',
+        'lastMessageType': MessageEnum.video.name,
+        'lastMessageSender': senderId,
+        'lastMessageTime': videoMessage.timestamp.millisecondsSinceEpoch,
+      });
+
+      // Increment unread count for other participants
+      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
+      if (chatDoc.exists) {
+        final chat = ChatModel.fromMap(chatDoc.data()!);
+        final updates = <String, dynamic>{};
+        
+        for (final participantId in chat.participants) {
+          if (participantId != senderId) {
+            final currentUnread = chat.getUnreadCount(participantId);
+            updates['unreadCounts.$participantId'] = currentUnread + 1;
+            
+            // Automatically mark as delivered for other participants
+            Future.delayed(const Duration(seconds: 2), () {
+              markMessageAsDelivered(chatId, messageId, participantId);
+            });
+          }
+        }
+        
+        if (updates.isNotEmpty) {
+          await _firestore.collection(Constants.chats).doc(chatId).update(updates);
+        }
+      }
+
+      // Mark as sent
+      await updateMessageStatus(chatId, messageId, MessageStatus.sent);
+
+      return messageId;
+    } catch (e) {
+      throw ChatRepositoryException('Failed to send video message: $e');
     }
   }
 

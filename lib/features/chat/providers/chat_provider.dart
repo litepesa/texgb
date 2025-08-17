@@ -1,4 +1,4 @@
-// lib/features/chat/providers/chat_provider.dart
+// lib/features/chat/providers/chat_provider.dart (Simplified)
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -8,11 +8,51 @@ import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/models/user_model.dart';
 
 part 'chat_provider.g.dart';
 
-// Chat List State
+// Simplified Video Context Model
+class SimpleVideoContext {
+  final String videoId;
+  final String videoUrl;
+  final String thumbnailUrl;
+
+  const SimpleVideoContext({
+    required this.videoId,
+    required this.videoUrl,
+    required this.thumbnailUrl,
+  });
+
+  factory SimpleVideoContext.fromChannelVideo(ChannelVideoModel video) {
+    return SimpleVideoContext(
+      videoId: video.id,
+      videoUrl: video.videoUrl,
+      thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
+          ? video.imageUrls.first 
+          : video.thumbnailUrl,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'videoId': videoId,
+      'videoUrl': videoUrl,
+      'thumbnailUrl': thumbnailUrl,
+    };
+  }
+
+  factory SimpleVideoContext.fromMap(Map<String, dynamic> map) {
+    return SimpleVideoContext(
+      videoId: map['videoId'] ?? '',
+      videoUrl: map['videoUrl'] ?? '',
+      thumbnailUrl: map['thumbnailUrl'] ?? '',
+    );
+  }
+}
+
+// Chat List State (unchanged)
 class ChatListState {
   final bool isLoading;
   final List<ChatListItemModel> chats;
@@ -133,8 +173,8 @@ class ChatList extends _$ChatList {
             contactName: contact.name,
             contactImage: contact.image,
             contactPhone: contact.phoneNumber,
-            isOnline: false, // TODO: Implement online status
-            lastSeen: null, // TODO: Implement last seen
+            isOnline: false,
+            lastSeen: null,
           ));
         }
       } catch (e) {
@@ -226,21 +266,39 @@ class ChatList extends _$ChatList {
     }
   }
 
-  // Create new chat
-  Future<String?> createChat(String otherUserId) async {
+  // SIMPLIFIED: Create new chat with optional video context
+  Future<String?> createChat(String otherUserId, {SimpleVideoContext? videoContext}) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return null;
 
     try {
       final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
       
-      // Don't refresh immediately - let the stream handle updates
-      // Only refresh if we need to ensure the chat appears
+      // If video context is provided, send a simple video message
+      if (videoContext != null) {
+        await _sendSimpleVideoMessage(chatId, currentUser.uid, videoContext);
+      }
       
       return chatId;
     } catch (e) {
       debugPrint('Error creating chat: $e');
       return null;
+    }
+  }
+
+  // SIMPLIFIED: Send simple video message with just thumbnail and URL
+  Future<void> _sendSimpleVideoMessage(String chatId, String senderId, SimpleVideoContext videoContext) async {
+    try {
+      await _repository.sendVideoMessage(
+        chatId: chatId,
+        senderId: senderId,
+        videoUrl: videoContext.videoUrl,
+        thumbnailUrl: videoContext.thumbnailUrl,
+        videoId: videoContext.videoId,
+      );
+    } catch (e) {
+      debugPrint('Error sending video message: $e');
+      // Don't rethrow - chat creation should still succeed
     }
   }
 
