@@ -237,60 +237,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          widget.contact.name,
-                          style: TextStyle(
-                            color: modernTheme.textColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (isVerified) ...[
-                        const SizedBox(width: 6),
-                        Icon(
-                          Icons.verified,
-                          size: 16,
-                          color: Colors.blue,
-                        ),
-                      ],
-                    ],
+                  Text(
+                    widget.contact.name,
+                    style: TextStyle(
+                      color: modernTheme.textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isVerified 
-                              ? Colors.blue.withOpacity(0.1) 
-                              : Colors.grey.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isVerified ? Icons.verified : Icons.help_outline,
-                              size: 10,
-                              color: isVerified ? Colors.blue : Colors.grey,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              isVerified ? 'Verified' : 'Not Verified',
-                              style: TextStyle(
-                                color: isVerified ? Colors.blue : Colors.grey,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                      Icon(
+                        isVerified ? Icons.verified : Icons.help_outline,
+                        size: 12,
+                        color: isVerified ? Colors.blue : Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isVerified ? 'Verified' : 'Not Verified',
+                        style: TextStyle(
+                          color: isVerified ? Colors.blue : Colors.grey[600],
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
