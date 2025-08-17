@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:video_player/video_player.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/providers/message_provider.dart';
 import 'package:textgb/features/chat/widgets/message_bubble.dart';
 import 'package:textgb/features/chat/widgets/message_input.dart';
+import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -36,8 +36,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   double _fontSize = 16.0;
   bool _hasMessageBeenSent = false;
   
-  // Video player state
-  VideoPlayerController? _videoPlayerController;
+  // Video player state - simplified since we moved logic to the widget
   bool _isVideoPlayerVisible = false;
   String? _currentVideoUrl;
 
@@ -58,7 +57,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
-    _videoPlayerController?.dispose();
     super.dispose();
   }
 
@@ -118,64 +116,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             widget.chatId.hashCode % 3 == 0);
   }
 
-  // Video player methods
+  // Video player methods - simplified
   void _handleVideoThumbnailTap(MessageModel message) {
     if (message.type != MessageEnum.video) return;
     
     final videoUrl = message.mediaUrl;
-    final isSharedVideo = message.mediaMetadata?['isSharedVideo'] == true;
     
     if (videoUrl == null || videoUrl.isEmpty) {
       showSnackBar(context, 'Video not available');
       return;
     }
     
-    _playVideoInChat(videoUrl);
+    _showVideoPlayer(videoUrl);
   }
 
-  void _playVideoInChat(String videoUrl) {
-    _currentVideoUrl = videoUrl;
-    _initializeVideoPlayer(videoUrl);
-    
+  void _showVideoPlayer(String videoUrl) {
     setState(() {
+      _currentVideoUrl = videoUrl;
       _isVideoPlayerVisible = true;
     });
   }
 
-  void _initializeVideoPlayer(String videoUrl) async {
-    try {
-      _videoPlayerController?.dispose();
-      
-      _videoPlayerController = VideoPlayerController.networkUrl(
-        Uri.parse(videoUrl),
-        videoPlayerOptions: VideoPlayerOptions(
-          allowBackgroundPlayback: false,
-          mixWithOthers: false,
-        ),
-      );
-      
-      await _videoPlayerController!.initialize();
-      
-      if (mounted) {
-        setState(() {});
-        _videoPlayerController!.play();
-      }
-    } catch (e) {
-      debugPrint('Error initializing video player: $e');
-      if (mounted) {
-        showSnackBar(context, 'Failed to load video');
-        _closeVideoPlayer();
-      }
-    }
-  }
-
   void _closeVideoPlayer() {
-    _videoPlayerController?.dispose();
-    _videoPlayerController = null;
-    _currentVideoUrl = null;
-    
     setState(() {
       _isVideoPlayerVisible = false;
+      _currentVideoUrl = null;
     });
   }
 
@@ -206,7 +171,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       },
       child: Scaffold(
         backgroundColor: chatTheme.chatBackgroundColor,
-        extendBodyBehindAppBar: false, // Changed to false to prevent content from going behind app bar
+        extendBodyBehindAppBar: false,
         appBar: _buildAppBar(modernTheme),
         body: Stack(
           children: [
@@ -252,8 +217,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               ),
             ),
             
-            // Video Player Overlay
-            if (_isVideoPlayerVisible) _buildVideoPlayerOverlay(modernTheme),
+            // Video Player Overlay - now using the separate widget
+            if (_isVideoPlayerVisible && _currentVideoUrl != null)
+              VideoPlayerOverlay(
+                videoUrl: _currentVideoUrl!,
+                onClose: _closeVideoPlayer,
+                title: 'Shared Video',
+              ),
           ],
         ),
         floatingActionButton: _showScrollToBottom && !_isVideoPlayerVisible
@@ -264,167 +234,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 child: const Icon(Icons.keyboard_arrow_down),
               )
             : null,
-      ),
-    );
-  }
-
-  Widget _buildVideoPlayerOverlay(ModernThemeExtension modernTheme) {
-    return Container(
-      color: Colors.black87,
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Header with close button
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: _closeVideoPlayer,
-                    icon: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const Expanded(
-                    child: Text(
-                      'Shared Video',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(width: 48), // Balance the close button
-                ],
-              ),
-            ),
-            
-            // Video player
-            Expanded(
-              child: Center(
-                child: _videoPlayerController?.value.isInitialized == true
-                    ? GestureDetector(
-                        onTap: () {
-                          if (_videoPlayerController!.value.isPlaying) {
-                            _videoPlayerController!.pause();
-                          } else {
-                            _videoPlayerController!.play();
-                          }
-                          setState(() {});
-                        },
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            AspectRatio(
-                              aspectRatio: _videoPlayerController!.value.aspectRatio,
-                              child: VideoPlayer(_videoPlayerController!),
-                            ),
-                            
-                            // Play/Pause overlay
-                            if (!_videoPlayerController!.value.isPlaying)
-                              Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.play_arrow,
-                                  color: Colors.white,
-                                  size: 48,
-                                ),
-                              ),
-                          ],
-                        ),
-                      )
-                    : const CircularProgressIndicator(
-                        color: Colors.white,
-                      ),
-              ),
-            ),
-            
-            // Video controls
-            if (_videoPlayerController?.value.isInitialized == true)
-              Container(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    // Progress bar
-                    VideoProgressIndicator(
-                      _videoPlayerController!,
-                      allowScrubbing: true,
-                      colors: VideoProgressColors(
-                        playedColor: modernTheme.primaryColor!,
-                        bufferedColor: Colors.white30,
-                        backgroundColor: Colors.white10,
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Control buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            final position = _videoPlayerController!.value.position;
-                            final newPosition = position - const Duration(seconds: 10);
-                            _videoPlayerController!.seekTo(
-                              newPosition < Duration.zero ? Duration.zero : newPosition,
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.replay_10,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                        ),
-                        
-                        IconButton(
-                          onPressed: () {
-                            if (_videoPlayerController!.value.isPlaying) {
-                              _videoPlayerController!.pause();
-                            } else {
-                              _videoPlayerController!.play();
-                            }
-                            setState(() {});
-                          },
-                          icon: Icon(
-                            _videoPlayerController!.value.isPlaying
-                                ? Icons.pause
-                                : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 48,
-                          ),
-                        ),
-                        
-                        IconButton(
-                          onPressed: () {
-                            final position = _videoPlayerController!.value.position;
-                            final duration = _videoPlayerController!.value.duration;
-                            final newPosition = position + const Duration(seconds: 10);
-                            _videoPlayerController!.seekTo(
-                              newPosition > duration ? duration : newPosition,
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.forward_10,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
@@ -657,7 +466,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       controller: _scrollController,
       reverse: true,
       padding: const EdgeInsets.only(
-        top: 16, // Removed extra padding since extendBodyBehindAppBar is now false
+        top: 16,
         bottom: 16,
       ),
       itemCount: state.messages.length,
@@ -673,7 +482,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           fontSize: _fontSize,
           contactName: widget.contact.name,
           onLongPress: () => _showMessageOptions(message, isCurrentUser),
-          onVideoTap: () => _handleVideoThumbnailTap(message), // NEW
+          onVideoTap: () => _handleVideoThumbnailTap(message),
         );
       },
     );
@@ -741,19 +550,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _handleSendText(String text) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendTextMessage(widget.chatId, text);
-    _hasMessageBeenSent = true; // Mark that a message was sent
+    _hasMessageBeenSent = true;
   }
 
   void _handleSendImage(File image) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendImageMessage(widget.chatId, image);
-    _hasMessageBeenSent = true; // Mark that a message was sent
+    _hasMessageBeenSent = true;
   }
 
   void _handleSendFile(File file, String fileName) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendFileMessage(widget.chatId, file, fileName);
-    _hasMessageBeenSent = true; // Mark that a message was sent
+    _hasMessageBeenSent = true;
   }
 
   void _cancelReply() {
