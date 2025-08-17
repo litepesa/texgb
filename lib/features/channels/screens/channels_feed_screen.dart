@@ -13,6 +13,9 @@ import 'package:textgb/features/channels/widgets/channel_video_item.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -530,6 +533,141 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
+  // NEW: Navigate to channel owner chat
+  Future<void> _navigateToChannelOwnerChat(ChannelVideoModel? video) async {
+    if (video == null) {
+      debugPrint('No video available for DM');
+      return;
+    }
+
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    if (currentUser == null) {
+      debugPrint('User not authenticated');
+      return;
+    }
+
+    // Check if user is trying to DM themselves
+    if (video.userId == currentUser.uid) {
+      // Show a friendly message instead of allowing self-DM
+      _showCannotDMSelfMessage();
+      return;
+    }
+
+    // Pause video before navigation
+    _pauseForNavigation();
+
+    try {
+      // Get channel details to get channel owner info
+      final channel = await ref.read(channelsProvider.notifier).getChannelById(video.channelId);
+      
+      if (channel == null) {
+        debugPrint('Channel not found');
+        _resumeFromNavigation();
+        return;
+      }
+
+      // Get channel owner's user data
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final channelOwner = await authNotifier.getUserDataById(channel.ownerId);
+      
+      if (channelOwner == null) {
+        debugPrint('Channel owner not found');
+        _resumeFromNavigation();
+        return;
+      }
+
+      // Create or get existing chat
+      final chatListNotifier = ref.read(chatListProvider.notifier);
+      final chatId = await chatListNotifier.createChat(channelOwner.uid);
+      
+      if (chatId != null && mounted) {
+        // Navigate to chat screen
+        final result = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatId: chatId,
+              contact: channelOwner,
+            ),
+          ),
+        );
+
+        // Check if any message was sent to prevent empty chats
+        if (result == null || result == false) {
+          final hasMessages = await chatListNotifier.chatHasMessages(chatId);
+          
+          if (!hasMessages) {
+            // Delete the empty chat
+            await chatListNotifier.deleteChat(
+              chatId, 
+              currentUser.uid, 
+              deleteForEveryone: true
+            );
+          }
+        }
+      } else if (mounted) {
+        debugPrint('Failed to create chat with channel owner');
+      }
+    } catch (e) {
+      debugPrint('Error navigating to channel owner chat: $e');
+    } finally {
+      // Resume video after returning from navigation
+      _resumeFromNavigation();
+    }
+  }
+
+  // Add helper method to show cannot DM self message
+  void _showCannotDMSelfMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              CupertinoIcons.smiley,
+              color: Colors.orange,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot DM Yourself',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send a direct message to your own channel.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     debugPrint('ChannelsFeedScreen: Disposing');
@@ -834,7 +972,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // DM button - custom white rounded square with 'DM' text (from moments feed)
+          // DM button - UPDATED with navigation to chat
           _buildRightMenuItem(
             child: Container(
               width: 28,
@@ -855,9 +993,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               ),
             ),
             label: 'Inbox',
-            onTap: () {
-              // TODO: Add DM functionality
-            },
+            onTap: () => _navigateToChannelOwnerChat(currentVideo),
           ),
           
           const SizedBox(height: 10),
@@ -924,6 +1060,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       ),
     );
   }
+
   Widget _buildRightMenuItem({
     required Widget child,
     String? label,

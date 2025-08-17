@@ -105,93 +105,118 @@ class _MessageInputState extends State<MessageInput> {
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final chatTheme = context.chatTheme;
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
     return Container(
       decoration: BoxDecoration(
         color: modernTheme.surfaceColor,
         border: Border(
           top: BorderSide(
-            color: modernTheme.dividerColor!.withOpacity(0.3),
+            color: modernTheme.dividerColor!.withOpacity(0.2),
             width: 0.5,
           ),
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Reply preview
+          // Reply preview - more compact
           if (widget.replyToMessage != null) ...[
             _buildReplyPreview(modernTheme),
           ],
           
-          // Input area
+          // Input area with proper system nav bar padding
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.only(
+              left: 12,
+              right: 12,
+              top: 8,
+              bottom: 8 + systemBottomPadding, // Add system nav bar padding
+            ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Attachment button
+                // Attachment button - more compact
                 Container(
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     color: modernTheme.primaryColor?.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
                     onPressed: _showAttachmentOptions,
+                    padding: EdgeInsets.zero,
                     icon: Icon(
                       Icons.attach_file,
                       color: modernTheme.primaryColor,
-                      size: 22,
+                      size: 20,
                     ),
                   ),
                 ),
                 
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 
-                // Text input
+                // Text input - refined height and styling
                 Expanded(
                   child: Container(
+                    constraints: const BoxConstraints(
+                      minHeight: 36,
+                      maxHeight: 120, // Limit max height to prevent excessive growth
+                    ),
                     decoration: BoxDecoration(
                       color: chatTheme.inputBackgroundColor,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: modernTheme.dividerColor!.withOpacity(0.3),
+                        color: modernTheme.dividerColor!.withOpacity(0.2),
+                        width: 0.5,
                       ),
                     ),
                     child: TextField(
                       controller: _textController,
                       focusNode: _focusNode,
-                      maxLines: 5,
-                      minLines: 1,
+                      maxLines: null, // Allow dynamic height
                       textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.newline,
                       style: TextStyle(
                         color: modernTheme.textColor,
-                        fontSize: 16,
+                        fontSize: 15,
+                        height: 1.3, // Better line height
                       ),
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
                         hintStyle: TextStyle(
                           color: modernTheme.textSecondaryColor,
+                          fontSize: 15,
                         ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
+                          horizontal: 16,
+                          vertical: 8, // Reduced vertical padding
                         ),
+                        isDense: true,
                       ),
                       onChanged: (text) {
                         setState(() {
                           _isComposing = text.trim().isNotEmpty;
                         });
                       },
-                      onSubmitted: (_) => _handleSendText(),
+                      onSubmitted: (text) {
+                        if (text.trim().isNotEmpty) {
+                          _handleSendText();
+                        }
+                      },
                     ),
                   ),
                 ),
                 
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 
-                // Send button
+                // Send button - more compact and refined
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     color: _isComposing 
                       ? modernTheme.primaryColor
@@ -200,12 +225,13 @@ class _MessageInputState extends State<MessageInput> {
                   ),
                   child: IconButton(
                     onPressed: _isComposing ? _handleSendText : null,
+                    padding: EdgeInsets.zero,
                     icon: Icon(
                       Icons.send,
                       color: _isComposing 
                         ? Colors.white
                         : Colors.white.withOpacity(0.7),
-                      size: 20,
+                      size: 18,
                     ),
                   ),
                 ),
@@ -219,12 +245,13 @@ class _MessageInputState extends State<MessageInput> {
 
   Widget _buildReplyPreview(ModernThemeExtension modernTheme) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // More compact padding
       decoration: BoxDecoration(
-        color: modernTheme.surfaceVariantColor?.withOpacity(0.5),
+        color: modernTheme.surfaceVariantColor?.withOpacity(0.3),
         border: Border(
           bottom: BorderSide(
-            color: modernTheme.dividerColor!.withOpacity(0.3),
+            color: modernTheme.dividerColor!.withOpacity(0.2),
+            width: 0.5,
           ),
         ),
       ),
@@ -232,22 +259,23 @@ class _MessageInputState extends State<MessageInput> {
         children: [
           Container(
             width: 3,
-            height: 40,
+            height: 32, // Reduced height
             decoration: BoxDecoration(
               color: modernTheme.primaryColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'Replying to ${widget.contactName ?? 'contact'}',
                   style: TextStyle(
                     color: modernTheme.primaryColor,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -256,20 +284,30 @@ class _MessageInputState extends State<MessageInput> {
                   widget.replyToMessage!.getDisplayContent(),
                   style: TextStyle(
                     color: modernTheme.textSecondaryColor,
-                    fontSize: 14,
+                    fontSize: 13,
+                    height: 1.2,
                   ),
-                  maxLines: 2,
+                  maxLines: 1, // Single line for compactness
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: widget.onCancelReply,
-            icon: Icon(
-              Icons.close,
-              color: modernTheme.textSecondaryColor,
-              size: 20,
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: modernTheme.textSecondaryColor?.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              onPressed: widget.onCancelReply,
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                Icons.close,
+                color: modernTheme.textSecondaryColor,
+                size: 16,
+              ),
             ),
           ),
         ],
@@ -314,6 +352,15 @@ class _MessageInputState extends State<MessageInput> {
                     },
                   ),
                   _AttachmentOption(
+                    icon: Icons.camera_alt,
+                    label: 'Camera',
+                    color: Colors.green,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleCameraPicker();
+                    },
+                  ),
+                  _AttachmentOption(
                     icon: Icons.insert_drive_file,
                     label: 'Document',
                     color: Colors.blue,
@@ -330,6 +377,22 @@ class _MessageInputState extends State<MessageInput> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleCameraPicker() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 100,
+      );
+      
+      if (image != null) {
+        widget.onSendImage(File(image.path));
+      }
+    } catch (e) {
+      debugPrint('Error taking photo: $e');
+    }
   }
 }
 
@@ -355,8 +418,8 @@ class _AttachmentOption extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
@@ -364,7 +427,7 @@ class _AttachmentOption extends StatelessWidget {
             child: Icon(
               icon,
               color: color,
-              size: 28,
+              size: 26,
             ),
           ),
           const SizedBox(height: 8),
@@ -372,7 +435,7 @@ class _AttachmentOption extends StatelessWidget {
             label,
             style: TextStyle(
               color: modernTheme.textColor,
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
           ),

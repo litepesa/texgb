@@ -33,6 +33,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   bool _showScrollToBottom = false;
   String? _backgroundImage;
   double _fontSize = 16.0;
+  bool _hasMessageBeenSent = false; // NEW: Track if any message was sent
 
   @override
   void initState() {
@@ -114,57 +115,64 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       );
     }
 
-    return Scaffold(
-      backgroundColor: chatTheme.chatBackgroundColor,
-      extendBodyBehindAppBar: true,
-      appBar: _buildAppBar(modernTheme),
-      body: Container(
-        decoration: _backgroundImage != null
-            ? BoxDecoration(
-                image: DecorationImage(
-                  image: FileImage(File(_backgroundImage!)),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black.withOpacity(0.1),
-                    BlendMode.darken,
+    return WillPopScope(
+      onWillPop: () async {
+        // Return whether any message was sent when popping
+        Navigator.of(context).pop(_hasMessageBeenSent);
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: chatTheme.chatBackgroundColor,
+        extendBodyBehindAppBar: true,
+        appBar: _buildAppBar(modernTheme),
+        body: Container(
+          decoration: _backgroundImage != null
+              ? BoxDecoration(
+                  image: DecorationImage(
+                    image: FileImage(File(_backgroundImage!)),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withOpacity(0.1),
+                      BlendMode.darken,
+                    ),
                   ),
+                )
+              : null,
+          child: Column(
+            children: [
+              // Messages list
+              Expanded(
+                child: messageState.when(
+                  loading: () => _buildLoadingState(modernTheme),
+                  error: (error, stack) => _buildErrorState(modernTheme, error.toString()),
+                  data: (state) => _buildMessagesList(state, currentUser),
                 ),
+              ),
+              
+              // Message input
+              messageState.maybeWhen(
+                data: (state) => MessageInput(
+                  onSendText: (text) => _handleSendText(text),
+                  onSendImage: (image) => _handleSendImage(image),
+                  onSendFile: (file, fileName) => _handleSendFile(file, fileName),
+                  replyToMessage: state.replyToMessage,
+                  onCancelReply: () => _cancelReply(),
+                  contactName: widget.contact.name,
+                ),
+                orElse: () => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+        floatingActionButton: _showScrollToBottom
+            ? FloatingActionButton.small(
+                onPressed: _scrollToBottom,
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                child: const Icon(Icons.keyboard_arrow_down),
               )
             : null,
-        child: Column(
-          children: [
-            // Messages list
-            Expanded(
-              child: messageState.when(
-                loading: () => _buildLoadingState(modernTheme),
-                error: (error, stack) => _buildErrorState(modernTheme, error.toString()),
-                data: (state) => _buildMessagesList(state, currentUser),
-              ),
-            ),
-            
-            // Message input
-            messageState.maybeWhen(
-              data: (state) => MessageInput(
-                onSendText: (text) => _handleSendText(text),
-                onSendImage: (image) => _handleSendImage(image),
-                onSendFile: (file, fileName) => _handleSendFile(file, fileName),
-                replyToMessage: state.replyToMessage,
-                onCancelReply: () => _cancelReply(),
-                contactName: widget.contact.name,
-              ),
-              orElse: () => const SizedBox.shrink(),
-            ),
-          ],
-        ),
       ),
-      floatingActionButton: _showScrollToBottom
-          ? FloatingActionButton.small(
-              onPressed: _scrollToBottom,
-              backgroundColor: modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-              child: const Icon(Icons.keyboard_arrow_down),
-            )
-          : null,
     );
   }
 
@@ -179,7 +187,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           : Brightness.dark,
       ),
       leading: IconButton(
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () {
+          // Return whether any message was sent when navigating back
+          Navigator.of(context).pop(_hasMessageBeenSent);
+        },
         icon: Icon(
           Icons.arrow_back,
           color: modernTheme.textColor,
@@ -437,19 +448,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
            nextMessage.timestamp.difference(currentMessage.timestamp).inMinutes > 5;
   }
 
+  // Update message sending handlers to mark that a message was sent
   void _handleSendText(String text) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendTextMessage(widget.chatId, text);
+    _hasMessageBeenSent = true; // Mark that a message was sent
   }
 
   void _handleSendImage(File image) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendImageMessage(widget.chatId, image);
+    _hasMessageBeenSent = true; // Mark that a message was sent
   }
 
   void _handleSendFile(File file, String fileName) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendFileMessage(widget.chatId, file, fileName);
+    _hasMessageBeenSent = true; // Mark that a message was sent
   }
 
   void _cancelReply() {
