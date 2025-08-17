@@ -533,7 +533,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // NEW: Navigate to channel owner chat
+  // UPDATED: Navigate to channel owner chat with video context
   Future<void> _navigateToChannelOwnerChat(ChannelVideoModel? video) async {
     if (video == null) {
       debugPrint('No video available for DM');
@@ -576,9 +576,15 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         return;
       }
 
-      // Create or get existing chat
+      // Create video context for the message
+      final videoContext = SimpleVideoContext.fromChannelVideo(video);
+
+      // Create or get existing chat with video context
       final chatListNotifier = ref.read(chatListProvider.notifier);
-      final chatId = await chatListNotifier.createChat(channelOwner.uid);
+      final chatId = await chatListNotifier.createChat(
+        channelOwner.uid, 
+        videoContext: videoContext, // Pass video context
+      );
       
       if (chatId != null && mounted) {
         // Navigate to chat screen
@@ -906,7 +912,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           // Like button
           _buildRightMenuItem(
             child: Icon(
-              currentVideo?.isLiked == true ? CupertinoIcons.heart : CupertinoIcons.heart,
+              currentVideo?.isLiked == true ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
             ),

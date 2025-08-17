@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class MessageBubble extends StatelessWidget {
@@ -16,7 +17,7 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onPin;
-  final VoidCallback? onVideoTap; // NEW: For video thumbnail tap
+  final VoidCallback? onVideoTap; // For video thumbnail tap
   final double fontSize;
   final String? contactName;
 
@@ -31,7 +32,7 @@ class MessageBubble extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onPin,
-    this.onVideoTap, // NEW
+    this.onVideoTap,
     this.fontSize = 16.0,
     this.contactName,
   });
@@ -267,7 +268,7 @@ class MessageBubble extends StatelessWidget {
         return _buildImageContent(context, modernTheme, chatTheme);
       case MessageEnum.file:
         return _buildFileContent(context, modernTheme, chatTheme);
-      case MessageEnum.video: // NEW: Handle video messages
+      case MessageEnum.video: // Handle video messages
         // Check if this is a shared video or regular video
         final isSharedVideo = message.mediaMetadata?['isSharedVideo'] == true;
         if (isSharedVideo) {
@@ -352,7 +353,7 @@ class MessageBubble extends StatelessWidget {
                 width: double.infinity,
                 height: 200, // Increased back to a tall height for better image viewing experience
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
+                placeholder: (BuildContext context, String url) => Container(
                   height: 200, // Updated to match new tall height
                   color: modernTheme.surfaceVariantColor,
                   child: Center(
@@ -375,7 +376,7 @@ class MessageBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-                errorWidget: (context, url, error) => Container(
+                errorWidget: (BuildContext context, String url, dynamic error) => Container(
                   height: 200, // Updated to match new height
                   color: modernTheme.surfaceVariantColor,
                   child: Column(
@@ -403,7 +404,7 @@ class MessageBubble extends StatelessWidget {
                 Container(
                   height: 200, // Updated to match new tall height
                   color: Colors.black.withOpacity(0.3),
-                  child: Center(
+                  child: const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -411,8 +412,8 @@ class MessageBubble extends StatelessWidget {
                           color: Colors.white,
                           strokeWidth: 2,
                         ),
-                        const SizedBox(height: 8),
-                        const Text(
+                        SizedBox(height: 8),
+                        Text(
                           'Uploading...',
                           style: TextStyle(
                             color: Colors.white,
@@ -546,149 +547,151 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  // NEW: Build shared video content (just thumbnail)
+  // ENHANCED: Build shared video content with generated thumbnails
   Widget _buildSharedVideoContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
     final thumbnailUrl = message.mediaMetadata?['thumbnailUrl'] ?? '';
-    
-    if (thumbnailUrl.isEmpty) {
-      return _buildVideoPlaceholder(modernTheme);
-    }
+    final originalCaption = message.mediaMetadata?['originalCaption'];
+    final channelName = message.mediaMetadata?['channelName'];
+    final videoLink = message.mediaMetadata?['videoLink'] ?? message.mediaUrl;
     
     return GestureDetector(
       onTap: onVideoTap,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(28)),
-        child: Stack(
-          children: [
-            // Video thumbnail
-            CachedNetworkImage(
-              imageUrl: thumbnailUrl,
-              width: double.infinity,
-              height: 180,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                height: 180,
-                color: modernTheme.surfaceVariantColor,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: modernTheme.primaryColor,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-              errorWidget: (context, url, error) => _buildVideoPlaceholder(modernTheme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Video thumbnail with play overlay using VideoThumbnailWidget
+          VideoThumbnailWidget(
+            videoUrl: videoLink ?? '',
+            fallbackThumbnailUrl: thumbnailUrl.isNotEmpty ? thumbnailUrl : null,
+            width: double.infinity,
+            height: 180,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
             ),
-            
-            // Play overlay
-            Container(
-              height: 180,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.center,
-                  end: Alignment.center,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.3),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-              child: Center(
-                child: Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.play_arrow,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-              ),
-              ),
-            ),
-            
-            // Shared video indicator
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.video_library,
-                      color: Colors.white,
-                      size: 12,
+            onTap: onVideoTap,
+            showPlayButton: true,
+            overlayWidget: Stack(
+              children: [
+                // Shared video indicator with channel name
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'Shared Video',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.video_library,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          channelName != null && channelName.isNotEmpty 
+                            ? 'From $channelName'
+                            : 'Shared Video',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Video details section
+          Container(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Main message content (descriptive text)
+                if (message.content.isNotEmpty) ...[
+                  Text(
+                    message.content,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w500,
+                      color: isCurrentUser 
+                        ? chatTheme.senderTextColor
+                        : chatTheme.receiverTextColor,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                
+                // Original video caption if available
+                if (originalCaption != null && originalCaption.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isCurrentUser 
+                        ? Colors.white.withOpacity(0.1)
+                        : modernTheme.surfaceVariantColor?.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border(
+                        left: BorderSide(
+                          color: modernTheme.primaryColor!,
+                          width: 2,
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // NEW: Build regular video content (uploaded video file)
-  Widget _buildRegularVideoContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(28),
-            topRight: Radius.circular(28),
-          ),
-          child: Container(
-            height: 200,
-            color: Colors.black,
-            child: Stack(
-              children: [
-                const Center(
-                  child: Icon(
-                    Icons.play_circle_outline,
-                    color: Colors.white,
-                    size: 64,
+                    child: Text(
+                      originalCaption,
+                      style: TextStyle(
+                        fontSize: fontSize - 1,
+                        color: isCurrentUser 
+                          ? chatTheme.senderTextColor?.withOpacity(0.8)
+                          : chatTheme.receiverTextColor?.withOpacity(0.8),
+                        fontStyle: FontStyle.italic,
+                        height: 1.2,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 6),
+                ],
                 
-                // Upload progress indicator
-                if (message.mediaMetadata?['isUploading'] == true) ...[
-                  Container(
-                    height: 200,
-                    color: Colors.black.withOpacity(0.3),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                // Video link action
+                if (videoLink != null && videoLink.isNotEmpty) ...[
+                  GestureDetector(
+                    onTap: onVideoTap,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor?.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: modernTheme.primaryColor!.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
+                          Icon(
+                            Icons.play_circle_outline,
+                            size: 16,
+                            color: modernTheme.primaryColor,
                           ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Uploading video...',
+                          const SizedBox(width: 6),
+                          Text(
+                            'Play Video',
                             style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                              fontSize: fontSize - 2,
+                              color: modernTheme.primaryColor,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -699,6 +702,54 @@ class MessageBubble extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // UPDATED: Build regular video content to use VideoThumbnailWidget
+  Widget _buildRegularVideoContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
+    final videoUrl = message.mediaUrl ?? '';
+    final isUploading = message.mediaMetadata?['isUploading'] == true;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Video thumbnail/player section
+        VideoThumbnailWidget(
+          videoUrl: videoUrl,
+          width: double.infinity,
+          height: 200,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(28),
+            topRight: Radius.circular(28),
+          ),
+          onTap: onVideoTap,
+          showPlayButton: !isUploading,
+          overlayWidget: isUploading ? Container(
+            height: 200,
+            color: Colors.black.withOpacity(0.5),
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 3,
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Uploading video...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ) : null,
         ),
         
         // Caption if present
@@ -721,7 +772,7 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  // NEW: Video placeholder widget
+  // Video placeholder widget
   Widget _buildVideoPlaceholder(ModernThemeExtension modernTheme) {
     return Container(
       height: 180,
