@@ -16,7 +16,9 @@ import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
-import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/chat/models/video_reaction_model.dart';
+import 'package:textgb/features/chat/widgets/video_reaction_input.dart';
+import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
@@ -54,7 +56,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
   bool _isCommentsSheetOpen = false; // Track comments sheet state
-  bool _isChannelEnsuring = false; // NEW: Track channel auto-creation
+  bool _isChannelEnsuring = false; // Track channel auto-creation
   
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
@@ -72,7 +74,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
-    // FIXED: Use post-frame callback to avoid provider modification during build
+    // Use post-frame callback to avoid provider modification during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureChannelAndLoadVideos();
     });
@@ -259,7 +261,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     });
   }
 
-  // NEW: Ensure user has channel before loading videos
+  // Ensure user has channel before loading videos
   Future<void> _ensureChannelAndLoadVideos() async {
     if (_isFirstLoad) {
       debugPrint('ChannelsFeedScreen: Ensuring channel and loading initial videos');
@@ -535,10 +537,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // UPDATED: Navigate to channel owner chat with video context (swipe-to-reply style)
+  // UPDATED: Navigate to channel owner chat with video reaction system
   Future<void> _navigateToChannelOwnerChat(ChannelVideoModel? video) async {
     if (video == null) {
-      debugPrint('No video available for DM');
+      debugPrint('No video available for reaction');
       return;
     }
 
@@ -548,13 +550,13 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       return;
     }
 
-    // Check if user is trying to DM themselves
+    // Check if user is trying to react to their own video
     if (video.userId == currentUser.uid) {
-      _showCannotDMSelfMessage();
+      _showCannotReactToOwnVideoMessage();
       return;
     }
 
-    // Pause video before navigation
+    // Pause video before showing reaction input
     _pauseForNavigation();
 
     try {
@@ -577,67 +579,90 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         return;
       }
 
-      // Create or get existing chat (without sending video yet)
-      final chatListNotifier = ref.read(chatListProvider.notifier);
-      final chatId = await chatListNotifier.createChat(channelOwner.uid); // No video context here
-      
-      if (chatId != null && mounted) {
-        // Create a video message model for context (not sent yet)
-        final videoContext = MessageModel(
-          messageId: '', // Empty ID since it's not sent yet
-          chatId: chatId,
-          senderId: currentUser.uid,
-          content: '', // No content yet - user will add their own message
-          type: MessageEnum.video,
-          status: MessageStatus.sending,
-          timestamp: DateTime.now(),
-          mediaUrl: video.videoUrl,
-          mediaMetadata: {
-            'isSharedVideo': true,
-            'videoId': video.id,
-            'thumbnailUrl': video.isMultipleImages && video.imageUrls.isNotEmpty 
-                ? video.imageUrls.first 
-                : video.thumbnailUrl,
-          },
-        );
+      // Show reaction input bottom sheet
+      final reaction = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => VideoReactionInput(
+          video: video,
+          onSendReaction: (reaction) => Navigator.pop(context, reaction),
+          onCancel: () => Navigator.pop(context),
+        ),
+      );
 
-        // Navigate to chat screen with video context
-        final result = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(
-              chatId: chatId,
-              contact: channelOwner,
-              videoContext: videoContext, // Pass video as context (like reply)
+      // If reaction was provided, create chat and send reaction
+      if (reaction != null && reaction.trim().isNotEmpty && mounted) {
+        final chatListNotifier = ref.read(chatListProvider.notifier);
+        final chatId = await chatListNotifier.createOrGetChat(currentUser.uid, channelOwner.uid);
+        
+        if (chatId != null) {
+          // Send video reaction message
+          await _sendVideoReactionMessage(
+            chatId: chatId,
+            video: video,
+            reaction: reaction,
+            senderId: currentUser.uid,
+          );
+
+          // Navigate to chat to show the sent reaction
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                chatId: chatId,
+                contact: channelOwner,
+              ),
             ),
-          ),
-        );
-
-        // Check if any message was sent (video or text)
-        if (result == null || result == false) {
-          final hasMessages = await chatListNotifier.chatHasMessages(chatId);
-          
-          if (!hasMessages) {
-            // Delete the empty chat if no messages were sent
-            await chatListNotifier.deleteChat(
-              chatId, 
-              currentUser.uid, 
-              deleteForEveryone: true
-            );
-          }
+          );
         }
-      } else if (mounted) {
-        debugPrint('Failed to create chat with channel owner');
       }
     } catch (e) {
-      debugPrint('Error navigating to channel owner chat: $e');
+      debugPrint('Error creating video reaction: $e');
+      _showSnackBar('Failed to send reaction');
     } finally {
-      // Resume video after returning from navigation
+      // Resume video after interaction
       _resumeFromNavigation();
     }
   }
 
-  // Add helper method to show cannot DM self message
-  void _showCannotDMSelfMessage() {
+  // Helper method to send video reaction message
+  Future<void> _sendVideoReactionMessage({
+    required String chatId,
+    required ChannelVideoModel video,
+    required String reaction,
+    required String senderId,
+  }) async {
+    try {
+      final chatRepository = ref.read(chatRepositoryProvider);
+      
+      // Create video reaction data
+      final videoReaction = VideoReactionModel(
+        videoId: video.id,
+        videoUrl: video.videoUrl,
+        thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
+            ? video.imageUrls.first 
+            : video.thumbnailUrl,
+        channelName: video.channelName,
+        channelImage: video.channelImage,
+        reaction: reaction,
+        timestamp: DateTime.now(),
+      );
+
+      // Send as a video reaction message
+      await chatRepository.sendVideoReactionMessage(
+        chatId: chatId,
+        senderId: senderId,
+        videoReaction: videoReaction,
+      );
+      
+    } catch (e) {
+      debugPrint('Error sending video reaction message: $e');
+      rethrow;
+    }
+  }
+
+  // Updated helper method to show cannot react to own video message
+  void _showCannotReactToOwnVideoMessage() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -652,13 +677,13 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
-              CupertinoIcons.smiley,
+              Icons.info_outline,
               color: Colors.orange,
               size: 48,
             ),
             const SizedBox(height: 16),
             const Text(
-              'Cannot DM Yourself',
+              'Cannot React to Your Own Video',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -667,7 +692,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             ),
             const SizedBox(height: 8),
             const Text(
-              'You cannot send a direct message to your own channel.',
+              'You cannot send reactions to your own channel videos.',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white70,
@@ -687,6 +712,18 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
         ),
       ),
     );
+  }
+
+  // Helper method to show snackbar
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -800,8 +837,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   Widget _buildBody(ChannelVideosState videosState, ChannelsState channelsState) {
-    // REMOVED: Create channel prompt - channels are now auto-created
-    
     if (!videosState.isLoading && videosState.videos.isEmpty) {
       return _buildEmptyState(channelsState);
     }
@@ -993,7 +1028,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // DM button - UPDATED with navigation to chat
+          // DM button - UPDATED with video reaction navigation
           _buildRightMenuItem(
             child: Container(
               width: 28,
@@ -1013,7 +1048,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
                 ),
               ),
             ),
-            label: 'Inbox',
+            label: 'React', // Changed from 'Inbox' to 'React' to be more specific
             onTap: () => _navigateToChannelOwnerChat(currentVideo),
           ),
           
@@ -1154,7 +1189,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // UPDATED: Empty state - no more create channel prompt
+  // Empty state - no more create channel prompt
   Widget _buildEmptyState(ChannelsState channelsState) {
     return const Center(
       child: Column(

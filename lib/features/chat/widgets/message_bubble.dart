@@ -4,7 +4,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
+import 'package:textgb/features/chat/widgets/video_reaction_bubble.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -109,6 +111,10 @@ class MessageBubble extends StatelessWidget {
 
   // Helper method to check if message is media type
   bool _isMediaMessage() {
+    // Check for video reaction messages
+    if (message.mediaMetadata?['isVideoReaction'] == true) {
+      return true;
+    }
     return message.type == MessageEnum.image || 
            message.type == MessageEnum.video;
   }
@@ -233,6 +239,11 @@ class MessageBubble extends StatelessWidget {
     ModernThemeExtension modernTheme,
     ChatThemeExtension chatTheme,
   ) {
+    // Check if this is a video reaction message
+    if (message.mediaMetadata?['isVideoReaction'] == true) {
+      return _buildVideoReactionContent(context, modernTheme, chatTheme);
+    }
+    
     switch (message.type) {
       case MessageEnum.text:
         return _buildTextContent(context, modernTheme, chatTheme);
@@ -244,6 +255,36 @@ class MessageBubble extends StatelessWidget {
         return _buildVideoContent(context, modernTheme, chatTheme);
       default:
         return _buildTextContent(context, modernTheme, chatTheme);
+    }
+  }
+
+  // NEW: Build video reaction content
+  Widget _buildVideoReactionContent(
+    BuildContext context,
+    ModernThemeExtension modernTheme,
+    ChatThemeExtension chatTheme,
+  ) {
+    final videoReactionData = message.mediaMetadata?['videoReaction'];
+    if (videoReactionData == null) {
+      // Fallback to text content if video reaction data is missing
+      return _buildTextContent(context, modernTheme, chatTheme);
+    }
+
+    try {
+      final videoReaction = VideoReactionModel.fromMap(
+        Map<String, dynamic>.from(videoReactionData),
+      );
+
+      return VideoReactionBubble(
+        videoReaction: videoReaction,
+        isCurrentUser: isCurrentUser,
+        onVideoTap: onVideoTap,
+        onLongPress: onLongPress,
+      );
+    } catch (e) {
+      debugPrint('Error parsing video reaction data: $e');
+      // Fallback to text content if parsing fails
+      return _buildTextContent(context, modernTheme, chatTheme);
     }
   }
 

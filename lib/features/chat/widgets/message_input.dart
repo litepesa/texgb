@@ -1,4 +1,5 @@
-// lib/features/chat/widgets/message_input.dart
+// lib/features/chat/widgets/message_input.dart - Simplified without video DM context
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -6,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
-import 'package:textgb/features/chat/widgets/video_dm_preview.dart'; // NEW: Video DM preview widget
 
 class MessageInput extends StatefulWidget {
   final Function(String) onSendText;
@@ -15,10 +15,6 @@ class MessageInput extends StatefulWidget {
   final String? contactName;
   final MessageModel? replyToMessage;
   final VoidCallback? onCancelReply;
-  // NEW: Video DM context parameters
-  final MessageModel? videoDMContext;
-  final VoidCallback? onCancelVideoDM;
-  final VoidCallback? onVideoTap;
 
   const MessageInput({
     super.key,
@@ -28,10 +24,6 @@ class MessageInput extends StatefulWidget {
     this.contactName,
     this.replyToMessage,
     this.onCancelReply,
-    // NEW: Video DM parameters
-    this.videoDMContext,
-    this.onCancelVideoDM,
-    this.onVideoTap,
   });
 
   @override
@@ -53,15 +45,7 @@ class _MessageInputState extends State<MessageInput> {
   void _handleSendText() {
     final text = _textController.text.trim();
     
-    // Always send if we have video DM context, even with empty text
-    if (widget.videoDMContext != null) {
-      widget.onSendText(text); // Text can be empty for video DM
-      _textController.clear();
-      setState(() {
-        _isComposing = false;
-      });
-    } else if (text.isNotEmpty) {
-      // Normal text message - require non-empty text
+    if (text.isNotEmpty) {
       widget.onSendText(text);
       _textController.clear();
       setState(() {
@@ -119,16 +103,8 @@ class _MessageInputState extends State<MessageInput> {
     );
   }
 
-  // NEW: Determine if send button should be enabled
-  bool _shouldEnableSendButton() {
-    return widget.videoDMContext != null || _isComposing;
-  }
-
-  // NEW: Get appropriate hint text
   String _getHintText() {
-    if (widget.videoDMContext != null) {
-      return 'Add a message or send video...';
-    } else if (widget.replyToMessage != null) {
+    if (widget.replyToMessage != null) {
       return 'Reply to ${widget.contactName ?? 'contact'}...';
     } else {
       return 'Type a message...';
@@ -146,17 +122,6 @@ class _MessageInputState extends State<MessageInput> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // NEW: Video DM preview above reply preview
-          if (widget.videoDMContext != null) ...[
-            VideoDMPreview(
-              videoMessage: widget.videoDMContext!,
-              contactName: widget.contactName,
-              onCancel: widget.onCancelVideoDM,
-              onVideoTap: widget.onVideoTap,
-            ),
-            const SizedBox(height: 4),
-          ],
-          
           // Reply preview above input bar (WhatsApp style)
           if (widget.replyToMessage != null) ...[
             MessageReplyPreview(
@@ -248,7 +213,7 @@ class _MessageInputState extends State<MessageInput> {
                           height: 1.3,
                         ),
                         decoration: InputDecoration(
-                          hintText: _getHintText(), // NEW: Dynamic hint text
+                          hintText: _getHintText(),
                           hintStyle: TextStyle(
                             color: modernTheme.textSecondaryColor,
                             fontSize: 15,
@@ -266,7 +231,7 @@ class _MessageInputState extends State<MessageInput> {
                           });
                         },
                         onSubmitted: (text) {
-                          if (_shouldEnableSendButton()) { // NEW: Updated condition
+                          if (_isComposing) {
                             _handleSendText();
                           }
                         },
@@ -282,17 +247,17 @@ class _MessageInputState extends State<MessageInput> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: _shouldEnableSendButton() // NEW: Updated condition
+                      color: _isComposing
                         ? modernTheme.primaryColor
                         : modernTheme.primaryColor?.withOpacity(0.3),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      onPressed: _shouldEnableSendButton() ? _handleSendText : null, // NEW: Updated condition
+                      onPressed: _isComposing ? _handleSendText : null,
                       padding: EdgeInsets.zero,
                       icon: Icon(
                         Icons.send,
-                        color: _shouldEnableSendButton() // NEW: Updated condition
+                        color: _isComposing
                           ? Colors.white
                           : Colors.white.withOpacity(0.7),
                         size: 18,

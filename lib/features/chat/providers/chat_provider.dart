@@ -1,4 +1,4 @@
-// lib/features/chat/providers/chat_provider.dart (Simplified)
+// lib/features/chat/providers/chat_provider.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -6,6 +6,7 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
+import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
@@ -13,46 +14,7 @@ import 'package:textgb/models/user_model.dart';
 
 part 'chat_provider.g.dart';
 
-// Simplified Video Context Model
-class SimpleVideoContext {
-  final String videoId;
-  final String videoUrl;
-  final String thumbnailUrl;
-
-  const SimpleVideoContext({
-    required this.videoId,
-    required this.videoUrl,
-    required this.thumbnailUrl,
-  });
-
-  factory SimpleVideoContext.fromChannelVideo(ChannelVideoModel video) {
-    return SimpleVideoContext(
-      videoId: video.id,
-      videoUrl: video.videoUrl,
-      thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
-          ? video.imageUrls.first 
-          : video.thumbnailUrl,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'videoId': videoId,
-      'videoUrl': videoUrl,
-      'thumbnailUrl': thumbnailUrl,
-    };
-  }
-
-  factory SimpleVideoContext.fromMap(Map<String, dynamic> map) {
-    return SimpleVideoContext(
-      videoId: map['videoId'] ?? '',
-      videoUrl: map['videoUrl'] ?? '',
-      thumbnailUrl: map['thumbnailUrl'] ?? '',
-    );
-  }
-}
-
-// Chat List State (unchanged)
+// Chat List State
 class ChatListState {
   final bool isLoading;
   final List<ChatListItemModel> chats;
@@ -266,17 +228,27 @@ class ChatList extends _$ChatList {
     }
   }
 
-  // SIMPLIFIED: Create new chat with optional video context
-  Future<String?> createChat(String otherUserId, {SimpleVideoContext? videoContext}) async {
+  // Create or get existing chat
+  Future<String?> createOrGetChat(String currentUserId, String otherUserId) async {
+    try {
+      return await _repository.createOrGetChat(currentUserId, otherUserId);
+    } catch (e) {
+      debugPrint('Error creating/getting chat: $e');
+      return null;
+    }
+  }
+
+  // Create new chat with optional video reaction
+  Future<String?> createChat(String otherUserId, {VideoReactionModel? videoReaction}) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return null;
 
     try {
       final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
       
-      // If video context is provided, send a simple video message
-      if (videoContext != null) {
-        await _sendSimpleVideoMessage(chatId, currentUser.uid, videoContext);
+      // If video reaction is provided, send it as the first message
+      if (videoReaction != null && chatId != null) {
+        await _sendVideoReactionMessage(chatId, currentUser.uid, videoReaction);
       }
       
       return chatId;
@@ -286,19 +258,59 @@ class ChatList extends _$ChatList {
     }
   }
 
-  // SIMPLIFIED: Send simple video message with just thumbnail and URL
-  Future<void> _sendSimpleVideoMessage(String chatId, String senderId, SimpleVideoContext videoContext) async {
+  // Send video reaction message
+  Future<void> _sendVideoReactionMessage(String chatId, String senderId, VideoReactionModel videoReaction) async {
     try {
-      await _repository.sendVideoMessage(
+      await _repository.sendVideoReactionMessage(
         chatId: chatId,
         senderId: senderId,
-        videoUrl: videoContext.videoUrl,
-        thumbnailUrl: videoContext.thumbnailUrl,
-        videoId: videoContext.videoId,
+        videoReaction: videoReaction,
       );
     } catch (e) {
-      debugPrint('Error sending video message: $e');
+      debugPrint('Error sending video reaction message: $e');
       // Don't rethrow - chat creation should still succeed
+    }
+  }
+
+  // Send video reaction from channel video
+  Future<String?> createChatWithVideoReaction({
+    required String otherUserId,
+    required ChannelVideoModel video,
+    required String reaction,
+  }) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return null;
+
+    try {
+      // Create or get existing chat
+      final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
+      
+      if (chatId != null) {
+        // Create video reaction data
+        final videoReaction = VideoReactionModel(
+          videoId: video.id,
+          videoUrl: video.videoUrl,
+          thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
+              ? video.imageUrls.first 
+              : video.thumbnailUrl,
+          channelName: video.channelName,
+          channelImage: video.channelImage,
+          reaction: reaction,
+          timestamp: DateTime.now(),
+        );
+
+        // Send video reaction message
+        await _repository.sendVideoReactionMessage(
+          chatId: chatId,
+          senderId: currentUser.uid,
+          videoReaction: videoReaction,
+        );
+      }
+      
+      return chatId;
+    } catch (e) {
+      debugPrint('Error creating chat with video reaction: $e');
+      return null;
     }
   }
 
@@ -325,5 +337,196 @@ class ChatList extends _$ChatList {
   // Refresh chat list manually
   void refreshChatList() {
     ref.invalidateSelf();
+  }
+
+  // Set chat wallpaper
+  Future<void> setChatWallpaper(String chatId, String userId, String? wallpaperUrl) async {
+    try {
+      await _repository.setChatWallpaper(chatId, userId, wallpaperUrl);
+    } catch (e) {
+      debugPrint('Error setting chat wallpaper: $e');
+      rethrow;
+    }
+  }
+
+  // Set chat font size
+  Future<void> setChatFontSize(String chatId, String userId, double fontSize) async {
+    try {
+      await _repository.setChatFontSize(chatId, userId, fontSize);
+    } catch (e) {
+      debugPrint('Error setting chat font size: $e');
+      rethrow;
+    }
+  }
+
+  // Update chat last message
+  Future<void> updateChatLastMessage(ChatModel chat) async {
+    try {
+      await _repository.updateChatLastMessage(chat);
+    } catch (e) {
+      debugPrint('Error updating chat last message: $e');
+      rethrow;
+    }
+  }
+
+  // Get chats stream for real-time updates
+  Stream<List<ChatModel>> getChatsStream(String userId) {
+    return _repository.getChatsStream(userId);
+  }
+
+  // Helper method to get current user ID
+  String? get currentUserId => ref.read(currentUserProvider)?.uid;
+
+  // Helper method to check if user is authenticated
+  bool get isAuthenticated => currentUserId != null;
+
+  // Get filtered chats based on search query
+  List<ChatListItemModel> getFilteredChats([String? query]) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return [];
+
+    if (query != null && query.isNotEmpty) {
+      return currentState.chats.where((chatItem) {
+        final searchQuery = query.toLowerCase();
+        return chatItem.contactName.toLowerCase().contains(searchQuery) ||
+               chatItem.chat.lastMessage.toLowerCase().contains(searchQuery);
+      }).toList();
+    }
+
+    return currentState.filteredChats;
+  }
+
+  // Get pinned chats
+  List<ChatListItemModel> getPinnedChats() {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentUserId == null) return [];
+
+    return currentState.chats.where((chatItem) => 
+        chatItem.chat.isPinnedForUser(currentUserId!)).toList();
+  }
+
+  // Get regular (non-pinned) chats
+  List<ChatListItemModel> getRegularChats() {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentUserId == null) return [];
+
+    return currentState.chats.where((chatItem) => 
+        !chatItem.chat.isPinnedForUser(currentUserId!)).toList();
+  }
+
+  // Get unread chats count
+  int getUnreadChatsCount() {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentUserId == null) return 0;
+
+    return currentState.chats.where((chatItem) => 
+        chatItem.chat.getUnreadCount(currentUserId!) > 0).length;
+  }
+
+  // Get total unread messages count
+  int getTotalUnreadMessagesCount() {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentUserId == null) return 0;
+
+    return currentState.chats.fold<int>(0, (total, chatItem) => 
+        total + chatItem.chat.getUnreadCount(currentUserId!));
+  }
+
+  // Mark all chats as read
+  Future<void> markAllChatsAsRead() async {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentUserId == null) return;
+
+    try {
+      final futures = currentState.chats
+          .where((chatItem) => chatItem.chat.getUnreadCount(currentUserId!) > 0)
+          .map((chatItem) => _repository.markChatAsRead(chatItem.chat.chatId, currentUserId!));
+
+      await Future.wait(futures);
+    } catch (e) {
+      debugPrint('Error marking all chats as read: $e');
+      rethrow;
+    }
+  }
+
+  // Archive multiple chats
+  Future<void> archiveMultipleChats(List<String> chatIds) async {
+    if (currentUserId == null) return;
+
+    try {
+      final futures = chatIds.map((chatId) => 
+          _repository.toggleChatArchive(chatId, currentUserId!));
+
+      await Future.wait(futures);
+
+      // Remove from local state
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedChats = currentState.chats
+            .where((chatItem) => !chatIds.contains(chatItem.chat.chatId))
+            .toList();
+        
+        state = AsyncValue.data(currentState.copyWith(chats: updatedChats));
+      }
+    } catch (e) {
+      debugPrint('Error archiving multiple chats: $e');
+      rethrow;
+    }
+  }
+
+  // Delete multiple chats
+  Future<void> deleteMultipleChats(List<String> chatIds, {bool deleteForEveryone = false}) async {
+    if (currentUserId == null) return;
+
+    try {
+      final futures = chatIds.map((chatId) => 
+          _repository.deleteChat(chatId, currentUserId!, deleteForEveryone: deleteForEveryone));
+
+      await Future.wait(futures);
+
+      // Remove from local state
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedChats = currentState.chats
+            .where((chatItem) => !chatIds.contains(chatItem.chat.chatId))
+            .toList();
+        
+        state = AsyncValue.data(currentState.copyWith(chats: updatedChats));
+      }
+    } catch (e) {
+      debugPrint('Error deleting multiple chats: $e');
+      rethrow;
+    }
+  }
+
+  // Get chat statistics
+  Map<String, dynamic> getChatStatistics() {
+    final currentState = state.valueOrNull;
+    if (currentState == null) {
+      return {
+        'totalChats': 0,
+        'pinnedChats': 0,
+        'unreadChats': 0,
+        'totalUnreadMessages': 0,
+        'mutedChats': 0,
+      };
+    }
+
+    final totalChats = currentState.chats.length;
+    final pinnedChats = getPinnedChats().length;
+    final unreadChats = getUnreadChatsCount();
+    final totalUnreadMessages = getTotalUnreadMessagesCount();
+    final mutedChats = currentUserId != null 
+        ? currentState.chats.where((chatItem) => 
+            chatItem.chat.isMutedForUser(currentUserId!)).length
+        : 0;
+
+    return {
+      'totalChats': totalChats,
+      'pinnedChats': pinnedChats,
+      'unreadChats': unreadChats,
+      'totalUnreadMessages': totalUnreadMessages,
+      'mutedChats': mutedChats,
+    };
   }
 }

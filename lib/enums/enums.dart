@@ -16,6 +16,7 @@ enum MessageEnum {
   file,        // For document files
   location,    // For location sharing
   contact,     // For contact sharing
+  videoReaction, // NEW: For video reaction messages
 }
 
 // New enum for message status with detailed states
@@ -113,6 +114,8 @@ extension MessageEnumExtension on String {
         return MessageEnum.location;
       case 'contact':
         return MessageEnum.contact;
+      case 'videoReaction':
+        return MessageEnum.videoReaction;
       default:
         return MessageEnum.text;
     }
@@ -137,6 +140,8 @@ extension MessageEnumHelper on MessageEnum {
         return 'location';
       case MessageEnum.contact:
         return 'contact';
+      case MessageEnum.videoReaction:
+        return 'videoReaction';
     }
   }
   
@@ -156,6 +161,29 @@ extension MessageEnumHelper on MessageEnum {
         return 'Location';
       case MessageEnum.contact:
         return 'Contact';
+      case MessageEnum.videoReaction:
+        return 'Video reaction';
+    }
+  }
+  
+  String get emoji {
+    switch (this) {
+      case MessageEnum.text:
+        return '💬';
+      case MessageEnum.image:
+        return '📷';
+      case MessageEnum.video:
+        return '📹';
+      case MessageEnum.audio:
+        return '🎤';
+      case MessageEnum.file:
+        return '📎';
+      case MessageEnum.location:
+        return '📍';
+      case MessageEnum.contact:
+        return '👤';
+      case MessageEnum.videoReaction:
+        return '❤️';
     }
   }
   
@@ -175,6 +203,8 @@ extension MessageEnumHelper on MessageEnum {
         return Icons.location_on;
       case MessageEnum.contact:
         return Icons.person;
+      case MessageEnum.videoReaction:
+        return Icons.favorite;
     }
   }
   
@@ -182,7 +212,8 @@ extension MessageEnumHelper on MessageEnum {
     return this == MessageEnum.image || 
            this == MessageEnum.video || 
            this == MessageEnum.audio || 
-           this == MessageEnum.file;
+           this == MessageEnum.file ||
+           this == MessageEnum.videoReaction; // Video reactions also contain media
   }
 }
 

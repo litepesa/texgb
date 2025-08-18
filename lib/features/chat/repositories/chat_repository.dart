@@ -8,6 +8,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:uuid/uuid.dart';
 
 abstract class ChatRepository {
@@ -33,7 +34,12 @@ abstract class ChatRepository {
     required String videoUrl,
     required String thumbnailUrl,
     required String videoId,
-  }); // NEW: For shared video messages
+  });
+  Future<String> sendVideoReactionMessage({
+    required String chatId,
+    required String senderId,
+    required VideoReactionModel videoReaction,
+  });
   Stream<List<MessageModel>> getMessagesStream(String chatId);
   Future<void> updateMessageStatus(String chatId, String messageId, MessageStatus status);
   Future<void> markMessageAsDelivered(String chatId, String messageId, String userId);
@@ -390,7 +396,6 @@ class FirebaseChatRepository implements ChatRepository {
     }
   }
 
-  // NEW: Send video message with just essential data
   @override
   Future<String> sendVideoMessage({
     required String chatId,
@@ -464,6 +469,87 @@ class FirebaseChatRepository implements ChatRepository {
       return messageId;
     } catch (e) {
       throw ChatRepositoryException('Failed to send video message: $e');
+    }
+  }
+
+  @override
+  Future<String> sendVideoReactionMessage({
+    required String chatId,
+    required String senderId,
+    required VideoReactionModel videoReaction,
+  }) async {
+    try {
+      final messageId = _uuid.v4();
+      
+      // Create video reaction message using text type with special metadata
+      final reactionMessage = MessageModel(
+        messageId: messageId,
+        chatId: chatId,
+        senderId: senderId,
+        content: videoReaction.reaction ?? '', // The reaction text/emoji
+        type: MessageEnum.text, // Use text type to avoid breaking existing message handling
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: videoReaction.videoUrl, // Original video URL for playing
+        mediaMetadata: {
+          'isVideoReaction': true, // Flag to identify video reactions
+          'videoReaction': videoReaction.toMap(), // Store full reaction data
+          'thumbnailUrl': videoReaction.thumbnailUrl,
+          'videoId': videoReaction.videoId,
+          'channelName': videoReaction.channelName,
+          'channelImage': videoReaction.channelImage,
+        },
+      );
+
+      // Add message to subcollection
+      await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .set(reactionMessage.toMap());
+
+      // Update chat's last message
+      final lastMessagePreview = videoReaction.reaction?.isNotEmpty == true 
+          ? 'Reacted: ${videoReaction.reaction}'
+          : 'Reacted to a video';
+
+      await _firestore.collection(Constants.chats).doc(chatId).update({
+        'lastMessage': lastMessagePreview,
+        'lastMessageType': MessageEnum.text.name, // Keep as text to avoid breaking chat list
+        'lastMessageSender': senderId,
+        'lastMessageTime': reactionMessage.timestamp.millisecondsSinceEpoch,
+      });
+
+      // Increment unread count for other participants
+      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
+      if (chatDoc.exists) {
+        final chat = ChatModel.fromMap(chatDoc.data()!);
+        final updates = <String, dynamic>{};
+        
+        for (final participantId in chat.participants) {
+          if (participantId != senderId) {
+            final currentUnread = chat.getUnreadCount(participantId);
+            updates['unreadCounts.$participantId'] = currentUnread + 1;
+            
+            // Automatically mark as delivered for other participants
+            Future.delayed(const Duration(seconds: 2), () {
+              markMessageAsDelivered(chatId, messageId, participantId);
+            });
+          }
+        }
+        
+        if (updates.isNotEmpty) {
+          await _firestore.collection(Constants.chats).doc(chatId).update(updates);
+        }
+      }
+
+      // Mark as sent
+      await updateMessageStatus(chatId, messageId, MessageStatus.sent);
+
+      return messageId;
+    } catch (e) {
+      throw ChatRepositoryException('Failed to send video reaction message: $e');
     }
   }
 
