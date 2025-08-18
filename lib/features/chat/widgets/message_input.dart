@@ -5,23 +5,24 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
 
 class MessageInput extends StatefulWidget {
   final Function(String) onSendText;
   final Function(File) onSendImage;
   final Function(File, String) onSendFile;
+  final String? contactName;
   final MessageModel? replyToMessage;
   final VoidCallback? onCancelReply;
-  final String? contactName;
 
   const MessageInput({
     super.key,
     required this.onSendText,
     required this.onSendImage,
     required this.onSendFile,
+    this.contactName,
     this.replyToMessage,
     this.onCancelReply,
-    this.contactName,
   });
 
   @override
@@ -113,16 +114,18 @@ class _MessageInputState extends State<MessageInput> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Reply preview - floating design
+          // Reply preview above input bar (WhatsApp style)
           if (widget.replyToMessage != null) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: _buildReplyPreview(modernTheme),
+            MessageReplyPreview(
+              replyToMessage: widget.replyToMessage!,
+              contactName: widget.contactName,
+              onCancel: widget.onCancelReply,
+              viewOnly: false, // Show cancel button
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
           ],
           
-          // Floating input container
+          // Input container
           Container(
             margin: EdgeInsets.only(
               left: 12,
@@ -202,7 +205,9 @@ class _MessageInputState extends State<MessageInput> {
                           height: 1.3,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Type a message...',
+                          hintText: widget.replyToMessage != null 
+                            ? 'Reply to ${widget.contactName ?? 'contact'}...'
+                            : 'Type a message...',
                           hintStyle: TextStyle(
                             color: modernTheme.textSecondaryColor,
                             fontSize: 15,
@@ -254,84 +259,6 @@ class _MessageInputState extends State<MessageInput> {
                     ),
                   ),
                 ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReplyPreview(ModernThemeExtension modernTheme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: modernTheme.dividerColor!.withOpacity(0.1),
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 3,
-            height: 32,
-            decoration: BoxDecoration(
-              color: modernTheme.primaryColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Replying to ${widget.contactName ?? 'contact'}',
-                  style: TextStyle(
-                    color: modernTheme.primaryColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  widget.replyToMessage!.getDisplayContent(),
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontSize: 13,
-                    height: 1.2,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: modernTheme.textSecondaryColor?.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              onPressed: widget.onCancelReply,
-              padding: EdgeInsets.zero,
-              icon: Icon(
-                Icons.close,
-                color: modernTheme.textSecondaryColor,
-                size: 16,
               ),
             ),
           ),

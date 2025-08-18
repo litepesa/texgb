@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
+import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class MessageBubble extends StatelessWidget {
@@ -56,11 +57,6 @@ class MessageBubble extends StatelessWidget {
             ? CrossAxisAlignment.end 
             : CrossAxisAlignment.start,
           children: [
-            if (message.isReply()) ...[
-              _buildReplyIndicator(context, modernTheme),
-              const SizedBox(height: 3),
-            ],
-            
             if (message.isPinned) ...[
               _buildPinIndicator(context, modernTheme),
               const SizedBox(height: 3),
@@ -143,38 +139,6 @@ class MessageBubble extends StatelessWidget {
             const SizedBox(width: 3),
             _buildMessageStatusIcon(modernTheme),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReplyIndicator(BuildContext context, ModernThemeExtension modernTheme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceVariantColor?.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.reply,
-            size: 12,
-            color: modernTheme.textSecondaryColor,
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              'Replying to ${message.replyToSender == message.senderId ? 'themselves' : (contactName ?? 'contact')}',
-              style: TextStyle(
-                fontSize: 11,
-                color: modernTheme.textSecondaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
         ],
       ),
     );
@@ -293,37 +257,13 @@ class MessageBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (message.isReply() && message.replyToContent != null) ...[
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: isCurrentUser 
-                  ? Colors.white.withOpacity(0.15)
-                  : modernTheme.surfaceVariantColor?.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8),
-                border: Border(
-                  left: BorderSide(
-                    color: modernTheme.primaryColor!,
-                    width: 2,
-                  ),
-                ),
-              ),
-              child: Text(
-                message.replyToContent!,
-                style: TextStyle(
-                  fontSize: fontSize - 2,
-                  color: isCurrentUser 
-                    ? Colors.white70
-                    : modernTheme.textSecondaryColor,
-                  fontStyle: FontStyle.italic,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 3), // Further reduced from 4 to 3
+          // Reply preview inside the bubble - shows the message we're replying TO
+          if (message.isReply()) ...[
+            _buildInnerReplyPreview(context, modernTheme),
+            const SizedBox(height: 8),
           ],
           
+          // The actual reply content (our new message)
           SelectableText(
             message.content,
             style: TextStyle(
@@ -337,6 +277,66 @@ class MessageBubble extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // Build the inner reply preview showing the message we're replying TO
+  Widget _buildInnerReplyPreview(BuildContext context, ModernThemeExtension modernTheme) {
+    // Create a mock MessageModel for the replied-to message using the reply fields
+    final repliedToMessage = MessageModel(
+      messageId: message.replyToMessageId ?? '',
+      chatId: message.chatId,
+      senderId: message.replyToSender ?? '',
+      content: message.replyToContent ?? '',
+      type: _getReplyMessageType(), // Convert from stored reply type
+      status: MessageStatus.sent,
+      timestamp: DateTime.now(),
+      // For media replies, we'd need to store the mediaUrl in reply metadata
+      mediaUrl: _getReplyMediaUrl(),
+    );
+
+    return MessageReplyPreview(
+      replyToMessage: repliedToMessage,
+      contactName: _getReplyToContactName(),
+      viewOnly: true, // No cancel button inside bubble
+    );
+  }
+
+  // Helper method to get reply message type
+  MessageEnum _getReplyMessageType() {
+    // If we have replyToContent and it indicates a media type, return that type
+    // Otherwise default to text
+    // In a real implementation, you'd store the original message type in the reply metadata
+    if (message.replyToContent?.startsWith('📷') == true) {
+      return MessageEnum.image;
+    } else if (message.replyToContent?.startsWith('📹') == true) {
+      return MessageEnum.video;
+    } else if (message.replyToContent?.startsWith('📎') == true) {
+      return MessageEnum.file;
+    } else if (message.replyToContent?.startsWith('🎤') == true) {
+      return MessageEnum.audio;
+    } else if (message.replyToContent?.startsWith('📍') == true) {
+      return MessageEnum.location;
+    } else if (message.replyToContent?.startsWith('👤') == true) {
+      return MessageEnum.contact;
+    }
+    return MessageEnum.text;
+  }
+
+  // Helper method to get reply media URL
+  String? _getReplyMediaUrl() {
+    // In a real implementation, you'd store the original media URL in reply metadata
+    // For now, return null since we don't have this data structure
+    return null;
+  }
+
+  // Helper method to get reply-to contact name
+  String? _getReplyToContactName() {
+    // Use the replyToSender field, or fall back to contactName, or 'Contact'
+    if (message.replyToSender != null && message.replyToSender!.isNotEmpty) {
+      // In a real implementation, you'd resolve sender ID to contact name
+      return message.replyToSender == message.senderId ? 'You' : contactName;
+    }
+    return contactName ?? 'Contact';
   }
 
   Widget _buildImageContent(BuildContext context, ModernThemeExtension modernTheme, ChatThemeExtension chatTheme) {
@@ -432,18 +432,33 @@ class MessageBubble extends StatelessWidget {
           ),
         ),
         
-        if (message.content.isNotEmpty) ...[
+        // Content section with reply preview and caption
+        if (message.isReply() || message.content.isNotEmpty) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 3, 16, 4), // Further reduced top padding from 4 to 3
-            child: SelectableText(
-              message.content,
-              style: TextStyle(
-                fontSize: fontSize,
-                color: isCurrentUser 
-                  ? chatTheme.senderTextColor
-                  : chatTheme.receiverTextColor,
-                height: 1.15, // Further reduced line height for ultra-compact text
-              ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Reply preview for media messages - shows the message we're replying TO
+                if (message.isReply()) ...[
+                  _buildInnerReplyPreview(context, modernTheme),
+                  const SizedBox(height: 8),
+                ],
+                
+                // Caption if present (our new message content)
+                if (message.content.isNotEmpty) ...[
+                  SelectableText(
+                    message.content,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      color: isCurrentUser 
+                        ? chatTheme.senderTextColor
+                        : chatTheme.receiverTextColor,
+                      height: 1.15,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -459,91 +474,103 @@ class MessageBubble extends StatelessWidget {
     
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4), // Further reduced and increased horizontal padding
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: isCurrentUser 
-                ? Colors.white.withOpacity(0.2)
-                : modernTheme.primaryColor?.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: isUploading
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: isCurrentUser 
-                        ? Colors.white
-                        : modernTheme.primaryColor,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Icon(
-                    _getFileIcon(fileName),
-                    color: isCurrentUser 
-                      ? Colors.white
-                      : modernTheme.primaryColor,
-                    size: 20,
-                  ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  fileName,
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.w500,
-                    color: isCurrentUser 
-                      ? Colors.white
-                      : modernTheme.textColor,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          // Reply preview for file messages - shows the message we're replying TO
+          if (message.isReply()) ...[
+            _buildInnerReplyPreview(context, modernTheme),
+            const SizedBox(height: 8),
+          ],
+          
+          // File content
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isCurrentUser 
+                    ? Colors.white.withOpacity(0.2)
+                    : modernTheme.primaryColor?.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 2),
-                Row(
+                child: isUploading
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: isCurrentUser 
+                            ? Colors.white
+                            : modernTheme.primaryColor,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Icon(
+                        _getFileIcon(fileName),
+                        color: isCurrentUser 
+                          ? Colors.white
+                          : modernTheme.primaryColor,
+                        size: 20,
+                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      fileSizeText,
+                      fileName,
                       style: TextStyle(
-                        fontSize: fontSize - 2,
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.w500,
                         color: isCurrentUser 
-                          ? Colors.white70
-                          : modernTheme.textSecondaryColor,
+                          ? Colors.white
+                          : modernTheme.textColor,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    if (isUploading) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '• Uploading...',
-                        style: TextStyle(
-                          fontSize: fontSize - 2,
-                          color: isCurrentUser 
-                            ? Colors.white70
-                            : modernTheme.primaryColor,
-                          fontWeight: FontWeight.w500,
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          fileSizeText,
+                          style: TextStyle(
+                            fontSize: fontSize - 2,
+                            color: isCurrentUser 
+                              ? Colors.white70
+                              : modernTheme.textSecondaryColor,
+                          ),
                         ),
-                      ),
-                    ],
+                        if (isUploading) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '• Uploading...',
+                            style: TextStyle(
+                              fontSize: fontSize - 2,
+                              color: isCurrentUser 
+                                ? Colors.white70
+                                : modernTheme.primaryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
+              ),
+              if (!isUploading) ...[
+                Icon(
+                  Icons.download,
+                  color: isCurrentUser 
+                    ? Colors.white70
+                    : modernTheme.textSecondaryColor,
+                  size: 18,
+                ),
               ],
-            ),
+            ],
           ),
-          if (!isUploading) ...[
-            Icon(
-              Icons.download,
-              color: isCurrentUser 
-                ? Colors.white70
-                : modernTheme.textSecondaryColor,
-              size: 18,
-            ),
-          ],
         ],
       ),
     );
@@ -628,19 +655,33 @@ class MessageBubble extends StatelessWidget {
           ),
         ),
         
-        // Caption if present (same as image)
-        if (message.content.isNotEmpty) ...[
+        // Content section with reply preview and caption (same as image)
+        if (message.isReply() || message.content.isNotEmpty) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 3, 16, 4),
-            child: SelectableText(
-              message.content,
-              style: TextStyle(
-                fontSize: fontSize,
-                color: isCurrentUser 
-                  ? chatTheme.senderTextColor
-                  : chatTheme.receiverTextColor,
-                height: 1.15,
-              ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Reply preview for video messages - shows the message we're replying TO
+                if (message.isReply()) ...[
+                  _buildInnerReplyPreview(context, modernTheme),
+                  const SizedBox(height: 8),
+                ],
+                
+                // Caption if present (our new message content)
+                if (message.content.isNotEmpty) ...[
+                  SelectableText(
+                    message.content,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      color: isCurrentUser 
+                        ? chatTheme.senderTextColor
+                        : chatTheme.receiverTextColor,
+                      height: 1.15,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

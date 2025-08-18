@@ -10,6 +10,8 @@ import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/providers/message_provider.dart';
 import 'package:textgb/features/chat/widgets/message_bubble.dart';
 import 'package:textgb/features/chat/widgets/message_input.dart';
+import 'package:textgb/features/chat/widgets/swipe_to_wrapper.dart';
+import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
 import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -207,9 +209,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         onSendText: (text) => _handleSendText(text),
                         onSendImage: (image) => _handleSendImage(image),
                         onSendFile: (file, fileName) => _handleSendFile(file, fileName),
+                        contactName: widget.contact.name,
                         replyToMessage: state.replyToMessage,
                         onCancelReply: () => _cancelReply(),
-                        contactName: widget.contact.name,
                       ),
                       orElse: () => const SizedBox.shrink(),
                     ),
@@ -480,7 +482,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         final isCurrentUser = message.senderId == currentUser.uid;
         final isLastInGroup = _isLastInGroup(state.messages, index);
         
-        return MessageBubble(
+        return SwipeToWrapper(
           message: message,
           isCurrentUser: isCurrentUser,
           isLastInGroup: isLastInGroup,
@@ -488,6 +490,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           contactName: widget.contact.name,
           onLongPress: () => _showMessageOptions(message, isCurrentUser),
           onVideoTap: () => _handleVideoThumbnailTap(message),
+          onRightSwipe: () => _replyToMessage(message),
         );
       },
     );
@@ -573,6 +576,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _cancelReply() {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.cancelReply();
+  }
+
+  void _replyToMessage(MessageModel message) {
+    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+    messageNotifier.setReplyToMessage(message);
+    
+    // Auto-scroll to bottom when replying
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
   }
 
   void _showMessageOptions(MessageModel message, bool isCurrentUser) {
@@ -682,11 +695,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         ),
       ),
     );
-  }
-
-  void _replyToMessage(MessageModel message) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    messageNotifier.setReplyToMessage(message);
   }
 
   void _editMessage(MessageModel message) {
