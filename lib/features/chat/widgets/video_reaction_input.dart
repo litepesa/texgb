@@ -1,4 +1,5 @@
-// lib/features/chat/widgets/video_reaction_input.dart - Updated with thumbnail generation
+// lib/features/chat/widgets/video_reaction_input.dart - Refined version
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/chat/services/video_thumbnail_service.dart';
@@ -23,18 +24,20 @@ class VideoReactionInput extends StatefulWidget {
 
 class _VideoReactionInputState extends State<VideoReactionInput> {
   final TextEditingController _textController = TextEditingController();
-  final List<String> _quickReactions = ['❤️', '😍', '🔥', '😂', '👏', '💯', '🤩', '😮'];
+  final FocusNode _focusNode = FocusNode();
   final VideoThumbnailService _thumbnailService = VideoThumbnailService();
 
   @override
   void dispose() {
     _textController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   void _sendReaction(String reaction) {
     if (reaction.trim().isNotEmpty) {
       widget.onSendReaction(reaction);
+      _textController.clear();
     }
   }
 
@@ -57,251 +60,384 @@ class _VideoReactionInputState extends State<VideoReactionInput> {
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      margin: EdgeInsets.only(bottom: keyboardHeight),
       decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            modernTheme.surfaceColor?.withOpacity(0.95) ?? Colors.white.withOpacity(0.95),
+            modernTheme.surfaceColor ?? Colors.white,
+          ],
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 24,
+            offset: const Offset(0, -4),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: modernTheme.primaryColor?.withOpacity(0.05) ?? Colors.blue.withOpacity(0.05),
+            blurRadius: 40,
+            offset: const Offset(0, -8),
+            spreadRadius: 0,
           ),
         ],
       ),
       child: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Handle bar
+              // Handle bar with modern design
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
+                  width: 48,
+                  height: 5,
                   decoration: BoxDecoration(
-                    color: modernTheme.dividerColor,
-                    borderRadius: BorderRadius.circular(2),
+                    gradient: LinearGradient(
+                      colors: [
+                        modernTheme.primaryColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.3),
+                        modernTheme.primaryColor?.withOpacity(0.6) ?? Colors.grey.withOpacity(0.6),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               
-              // Header
+              // Header with modern typography
               Row(
                 children: [
-                  Text(
-                    'React to video',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: modernTheme.textColor,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          modernTheme.primaryColor?.withOpacity(0.1) ?? Colors.blue.withOpacity(0.1),
+                          modernTheme.primaryColor?.withOpacity(0.05) ?? Colors.blue.withOpacity(0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: modernTheme.primaryColor?.withOpacity(0.2) ?? Colors.blue.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          CupertinoIcons.chat_bubble_2,
+                          size: 16,
+                          color: modernTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Direct Message',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: modernTheme.primaryColor,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    onPressed: widget.onCancel,
-                    icon: Icon(
-                      Icons.close,
-                      color: modernTheme.textSecondaryColor,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: modernTheme.surfaceVariantColor?.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: modernTheme.dividerColor?.withOpacity(0.3) ?? Colors.grey.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: IconButton(
+                      onPressed: widget.onCancel,
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: modernTheme.textSecondaryColor,
+                        size: 20,
+                      ),
+                      padding: const EdgeInsets.all(8),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               
-              // Video preview with smart thumbnail handling
+              // Modern video preview card
               Container(
-                height: 80,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: modernTheme.surfaceVariantColor,
-                ),
-                child: Row(
-                  children: [
-                    // Smart video thumbnail with auto-generation
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        bottomLeft: Radius.circular(12),
-                      ),
-                      child: SizedBox(
-                        width: 80,
-                        height: 80,
-                        child: VideoThumbnailWidget(
-                          videoUrl: widget.video.videoUrl,
-                          fallbackThumbnailUrl: _getBestThumbnailUrl(),
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                          showPlayButton: false,
-                          enableGestures: false,
-                          borderRadius: BorderRadius.zero,
-                        ),
-                      ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      modernTheme.surfaceVariantColor?.withOpacity(0.6) ?? Colors.grey.shade50,
+                      modernTheme.surfaceVariantColor?.withOpacity(0.3) ?? Colors.grey.shade100,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: modernTheme.dividerColor?.withOpacity(0.5) ?? Colors.grey.withOpacity(0.2),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                    const SizedBox(width: 12),
-                    
-                    // Video info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 10,
-                                backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
-                                backgroundImage: widget.video.channelImage.isNotEmpty
-                                    ? NetworkImage(widget.video.channelImage)
-                                    : null,
-                                child: widget.video.channelImage.isEmpty
-                                    ? Text(
-                                        widget.video.channelName.isNotEmpty 
-                                          ? widget.video.channelName[0].toUpperCase()
-                                          : 'C',
-                                        style: TextStyle(
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.bold,
-                                          color: modernTheme.primaryColor,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  widget.video.channelName,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: modernTheme.textColor,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Video from channel',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: modernTheme.textSecondaryColor,
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      // Enhanced video thumbnail
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: VideoThumbnailWidget(
+                              videoUrl: widget.video.videoUrl,
+                              fallbackThumbnailUrl: _getBestThumbnailUrl(),
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                              showPlayButton: true,
+                              enableGestures: false,
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      
+                      // Enhanced video info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: modernTheme.primaryColor?.withOpacity(0.3) ?? Colors.blue.withOpacity(0.3),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: modernTheme.primaryColor?.withOpacity(0.1),
+                                    backgroundImage: widget.video.channelImage.isNotEmpty
+                                        ? NetworkImage(widget.video.channelImage)
+                                        : null,
+                                    child: widget.video.channelImage.isEmpty
+                                        ? Text(
+                                            widget.video.channelName.isNotEmpty 
+                                              ? widget.video.channelName[0].toUpperCase()
+                                              : 'C',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: modernTheme.primaryColor,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.video.channelName,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: modernTheme.textColor,
+                                          letterSpacing: 0.1,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: modernTheme.primaryColor?.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Channel video',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w500,
+                                            color: modernTheme.primaryColor,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 28),
+              
+              // Modern text input section
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [],
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Modern text input with enhanced design
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      modernTheme.surfaceColor ?? Colors.white,
+                      modernTheme.surfaceVariantColor?.withOpacity(0.3) ?? Colors.grey.shade50,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: modernTheme.dividerColor?.withOpacity(0.6) ?? Colors.grey.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                    BoxShadow(
+                      color: modernTheme.primaryColor?.withOpacity(0.03) ?? Colors.blue.withOpacity(0.03),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _textController,
+                        focusNode: _focusNode,
+                        maxLines: 4,
+                        minLines: 1,
+                        textCapitalization: TextCapitalization.sentences,
+                        style: TextStyle(
+                          color: modernTheme.textColor,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: 0.1,
+                          height: 1.4,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Send Private Message..',
+                          hintStyle: TextStyle(
+                            color: modernTheme.textSecondaryColor?.withOpacity(0.6),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: 0.1,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                        ),
+                        onSubmitted: _sendReaction,
+                      ),
+                    ),
+                    Container(
+                      margin: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            modernTheme.primaryColor ?? Colors.blue,
+                            modernTheme.primaryColor?.withOpacity(0.8) ?? Colors.blue.withOpacity(0.8),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: modernTheme.primaryColor?.withOpacity(0.3) ?? Colors.blue.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
                         ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () => _sendReaction(_textController.text),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            child: const Icon(
+                              Icons.send_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
               
-              // Quick reactions
-              Text(
-                'Quick reactions',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: modernTheme.textColor,
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _quickReactions.map((emoji) {
-                  return GestureDetector(
-                    onTap: () => _sendReaction(emoji),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor?.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(
-                          color: modernTheme.primaryColor?.withOpacity(0.3) ?? Colors.transparent,
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 20),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              
-              const SizedBox(height: 20),
-              
-              // Text input
-              Text(
-                'Or write a message',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: modernTheme.textColor,
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _textController,
-                      maxLines: 3,
-                      minLines: 1,
-                      style: TextStyle(color: modernTheme.textColor),
-                      decoration: InputDecoration(
-                        hintText: 'Type your reaction...',
-                        hintStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: modernTheme.dividerColor!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: modernTheme.primaryColor!),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor,
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: IconButton(
-                      onPressed: () => _sendReaction(_textController.text),
-                      icon: const Icon(
-                        Icons.send,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
+              // Enhanced bottom padding with modern spacing
+              SizedBox(height: keyboardHeight > 0 ? 12 : 24),
             ],
           ),
         ),
@@ -309,4 +445,3 @@ class _VideoReactionInputState extends State<VideoReactionInput> {
     );
   }
 }
-
