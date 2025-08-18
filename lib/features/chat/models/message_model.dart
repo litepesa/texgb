@@ -180,12 +180,19 @@ class MessageModel {
       case MessageEnum.text:
         return content;
       case MessageEnum.image:
-        return '📷 Photo';
+        return content.isNotEmpty ? content : '📷 Photo';
+      case MessageEnum.video:
+        return content.isNotEmpty ? content : '📹 Video';
       case MessageEnum.file:
         return '📎 ${mediaMetadata?['fileName'] ?? 'Document'}';
+      case MessageEnum.audio:
+        return '🎤 Voice message';
+      case MessageEnum.location:
+        return '📍 Location';
+      case MessageEnum.contact:
+        return '👤 Contact';
       default:
         return content;
     }
   }
 }
-

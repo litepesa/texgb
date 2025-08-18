@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class MessageReplyPreview extends StatelessWidget {
@@ -104,7 +105,7 @@ class MessageReplyPreview extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         child: Stack(
           children: [
-            // Thumbnail image
+            // Thumbnail content
             if (replyToMessage.type == MessageEnum.image)
               CachedNetworkImage(
                 imageUrl: replyToMessage.mediaUrl!,
@@ -129,43 +130,34 @@ class MessageReplyPreview extends StatelessWidget {
                 ),
               )
             else if (replyToMessage.type == MessageEnum.video)
-              // For video, show a placeholder with play icon overlay
-              Container(
+              // Use VideoThumbnailWidget for actual video thumbnails
+              VideoThumbnailWidget(
+                videoUrl: replyToMessage.mediaUrl!,
                 width: 40,
                 height: 40,
-                color: Colors.grey[800],
-                child: Stack(
-                  children: [
-                    // Video thumbnail placeholder
-                    Container(
-                      width: 40,
-                      height: 40,
-                      color: Colors.grey[800],
-                      child: Icon(
-                        Icons.video_library,
-                        size: 20,
-                        color: Colors.grey[400],
-                      ),
+                borderRadius: BorderRadius.circular(6),
+                fit: BoxFit.cover,
+                showPlayButton: false, // No play button in small thumbnail
+                enableGestures: false, // No gestures in reply preview
+              ),
+            
+            // Small play icon overlay for video thumbnails only
+            if (replyToMessage.type == MessageEnum.video)
+              Positioned.fill(
+                child: Center(
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      shape: BoxShape.circle,
                     ),
-                    // Small play icon overlay
-                    Positioned.fill(
-                      child: Center(
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow,
-                            color: Colors.white,
-                            size: 10,
-                          ),
-                        ),
-                      ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 10,
                     ),
-                  ],
+                  ),
                 ),
               ),
           ],

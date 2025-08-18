@@ -303,12 +303,31 @@ class MessageBubble extends StatelessWidget {
 
   // Helper method to get reply message type
   MessageEnum _getReplyMessageType() {
-    // If we have replyToContent and it indicates a media type, return that type
-    // Otherwise default to text
-    // In a real implementation, you'd store the original message type in the reply metadata
-    if (message.replyToContent?.startsWith('📷') == true) {
+    // Check if we have stored reply type metadata
+    final replyType = message.mediaMetadata?['replyToType'];
+    if (replyType != null) {
+      switch (replyType.toString()) {
+        case 'image':
+          return MessageEnum.image;
+        case 'video':
+          return MessageEnum.video;
+        case 'file':
+          return MessageEnum.file;
+        case 'audio':
+          return MessageEnum.audio;
+        case 'location':
+          return MessageEnum.location;
+        case 'contact':
+          return MessageEnum.contact;
+        default:
+          return MessageEnum.text;
+      }
+    }
+    
+    // Fallback: If we have replyToContent and it indicates a media type, return that type
+    if (message.replyToContent?.startsWith('📷') == true || message.replyToContent == 'Photo') {
       return MessageEnum.image;
-    } else if (message.replyToContent?.startsWith('📹') == true) {
+    } else if (message.replyToContent?.startsWith('📹') == true || message.replyToContent == 'Video') {
       return MessageEnum.video;
     } else if (message.replyToContent?.startsWith('📎') == true) {
       return MessageEnum.file;
@@ -324,8 +343,13 @@ class MessageBubble extends StatelessWidget {
 
   // Helper method to get reply media URL
   String? _getReplyMediaUrl() {
-    // In a real implementation, you'd store the original media URL in reply metadata
-    // For now, return null since we don't have this data structure
+    // Check if we have stored reply media URL in metadata
+    final replyMediaUrl = message.mediaMetadata?['replyToMediaUrl'];
+    if (replyMediaUrl != null && replyMediaUrl.toString().isNotEmpty) {
+      return replyMediaUrl.toString();
+    }
+    
+    // Fallback: return null for now
     return null;
   }
 

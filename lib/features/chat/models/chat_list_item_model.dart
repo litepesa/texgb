@@ -39,8 +39,9 @@ class ChatListItemModel {
     }
   }
 
-  String getLastMessagePreview() {
-    final isCurrentUserSender = chat.lastMessageSender != chat.getOtherParticipant(chat.lastMessageSender);
+  String getLastMessagePreview({String? currentUserId}) {
+    // Determine if the last message was sent by the current user
+    final isCurrentUserSender = currentUserId != null && chat.lastMessageSender == currentUserId;
     final prefix = isCurrentUserSender ? 'You: ' : '';
     
     switch (chat.lastMessageType) {
@@ -48,8 +49,16 @@ class ChatListItemModel {
         return '$prefix${chat.lastMessage}';
       case MessageEnum.image:
         return '${prefix}📷 Photo';
+      case MessageEnum.video:
+        return '${prefix}📹 Video';
       case MessageEnum.file:
         return '${prefix}📎 Document';
+      case MessageEnum.audio:
+        return '${prefix}🎤 Voice message';
+      case MessageEnum.location:
+        return '${prefix}📍 Location';
+      case MessageEnum.contact:
+        return '${prefix}👤 Contact';
       default:
         return '$prefix${chat.lastMessage}';
     }

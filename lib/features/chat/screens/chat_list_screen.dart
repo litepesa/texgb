@@ -503,7 +503,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ],
             Expanded(
               child: Text(
-                chatItem.getLastMessagePreview(),
+                chatItem.getLastMessagePreview(currentUserId: currentUserId), // Updated to pass currentUserId
                 style: TextStyle(
                   color: hasUnread 
                     ? modernTheme.textColor 

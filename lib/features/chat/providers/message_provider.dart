@@ -107,6 +107,23 @@ class MessageNotifier extends _$MessageNotifier {
     }
   }
 
+  // Helper method to build reply metadata
+  Map<String, dynamic> _buildReplyMetadata(MessageModel? replyToMessage) {
+    if (replyToMessage == null) return {};
+    
+    final metadata = <String, dynamic>{};
+    
+    // Store reply type
+    metadata['replyToType'] = replyToMessage.type.name;
+    
+    // Store reply media URL if it's a media message
+    if (replyToMessage.hasMedia()) {
+      metadata['replyToMediaUrl'] = replyToMessage.mediaUrl;
+    }
+    
+    return metadata;
+  }
+
   // Send text message
   Future<void> sendTextMessage(String chatId, String content) async {
     final currentUser = ref.read(currentUserProvider);
@@ -123,6 +140,9 @@ class MessageNotifier extends _$MessageNotifier {
     try {
       final currentState = state.valueOrNull ?? const MessageState();
       
+      // Build reply metadata if replying
+      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
+      
       final message = MessageModel(
         messageId: _uuid.v4(),
         chatId: chatId,
@@ -132,8 +152,9 @@ class MessageNotifier extends _$MessageNotifier {
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
         replyToMessageId: currentState.replyToMessageId,
-        replyToContent: currentState.replyToMessage?.content,
+        replyToContent: currentState.replyToMessage?.getDisplayContent(),
         replyToSender: currentState.replyToMessage?.senderId,
+        mediaMetadata: replyMetadata.isNotEmpty ? replyMetadata : null,
       );
 
       // Optimistically add message to local state
@@ -199,6 +220,19 @@ class MessageNotifier extends _$MessageNotifier {
       }
 
       final fileName = '${_uuid.v4()}.jpg';
+      final currentState = state.valueOrNull ?? const MessageState();
+      
+      // Build reply metadata if replying
+      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
+      
+      // Merge with image metadata
+      final imageMetadata = {
+        'fileName': fileName,
+        'fileSize': fileSize,
+        'mimeType': 'image/jpeg',
+        'isUploading': true,
+        ...replyMetadata,
+      };
       
       // Create optimistic message
       final tempMessage = MessageModel(
@@ -209,19 +243,17 @@ class MessageNotifier extends _$MessageNotifier {
         type: MessageEnum.image,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
-        mediaMetadata: {
-          'fileName': fileName,
-          'fileSize': fileSize,
-          'mimeType': 'image/jpeg',
-          'isUploading': true,
-        },
+        replyToMessageId: currentState.replyToMessageId,
+        replyToContent: currentState.replyToMessage?.getDisplayContent(),
+        replyToSender: currentState.replyToMessage?.senderId,
+        mediaMetadata: imageMetadata,
       );
 
       // Add to local state immediately
-      final currentState = state.valueOrNull ?? const MessageState();
       final updatedMessages = [tempMessage, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
         messages: updatedMessages,
+        clearReply: true,
         clearError: true,
       ));
       
@@ -237,6 +269,7 @@ class MessageNotifier extends _$MessageNotifier {
           'fileSize': fileSize,
           'mimeType': 'image/jpeg',
           'isUploading': false,
+          ...replyMetadata,
         },
       );
 
@@ -287,6 +320,19 @@ class MessageNotifier extends _$MessageNotifier {
         return;
       }
 
+      final currentState = state.valueOrNull ?? const MessageState();
+      
+      // Build reply metadata if replying
+      final replyMetadata = _buildReplyMetadata(currentState.replyToMessage);
+      
+      // Merge with file metadata
+      final fileMetadata = {
+        'fileName': fileName,
+        'fileSize': fileSize,
+        'isUploading': true,
+        ...replyMetadata,
+      };
+
       // Create optimistic message
       final tempMessage = MessageModel(
         messageId: _uuid.v4(),
@@ -296,18 +342,17 @@ class MessageNotifier extends _$MessageNotifier {
         type: MessageEnum.file,
         status: MessageStatus.sending,
         timestamp: DateTime.now(),
-        mediaMetadata: {
-          'fileName': fileName,
-          'fileSize': fileSize,
-          'isUploading': true,
-        },
+        replyToMessageId: currentState.replyToMessageId,
+        replyToContent: currentState.replyToMessage?.getDisplayContent(),
+        replyToSender: currentState.replyToMessage?.senderId,
+        mediaMetadata: fileMetadata,
       );
 
       // Add to local state immediately
-      final currentState = state.valueOrNull ?? const MessageState();
       final updatedMessages = [tempMessage, ...currentState.messages];
       state = AsyncValue.data(currentState.copyWith(
         messages: updatedMessages,
+        clearReply: true,
         clearError: true,
       ));
       
@@ -322,6 +367,7 @@ class MessageNotifier extends _$MessageNotifier {
           'fileName': fileName,
           'fileSize': fileSize,
           'isUploading': false,
+          ...replyMetadata,
         },
       );
 
