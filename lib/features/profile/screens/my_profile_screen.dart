@@ -371,8 +371,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               // Account Settings
               _buildAccountSettings(modernTheme),
               
-              // Account management section
-              _buildAccountManagementSection(modernTheme),
+              // Offline Mode section
+              _buildOfflineModeSection(modernTheme),
               
               // Add extra padding at the bottom for the bottom nav bar
               SizedBox(height: bottomPadding),
@@ -1215,8 +1215,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
   
-  // Account management section
-  Widget _buildAccountManagementSection(ModernThemeExtension modernTheme) {
+  // Offline Mode section only
+  Widget _buildOfflineModeSection(ModernThemeExtension modernTheme) {
     final isOfflineMode = ref.watch(offlineModeProvider);
     
     return Container(
@@ -1239,13 +1239,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           Row(
             children: [
               Icon(
-                Icons.account_circle,
+                Icons.wifi_off,
                 color: modernTheme.primaryColor,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
-                'Account',
+                'Offline Mode',
                 style: TextStyle(
                   color: modernTheme.textColor,
                   fontSize: 18,
@@ -1255,27 +1255,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
             ],
           ),
           const SizedBox(height: 16),
-          _buildSettingsItem(
-            icon: Icons.swap_horiz,
-            title: 'Switch Account',
-            subtitle: 'Use another account',
-            onTap: () {
-              _showAccountSwitchDialog();
-            },
-            modernTheme: modernTheme,
-          ),
-          _buildSettingsItem(
-            icon: Icons.add_circle_outline,
-            title: 'Add Account',
-            subtitle: 'Add a new account',
-            onTap: () {
-              _addNewAccount();
-            },
-            modernTheme: modernTheme,
-          ),
-          const SizedBox(height: 8),
-          const Divider(),
-          const SizedBox(height: 8),
           // Offline Mode Toggle
           Container(
             decoration: BoxDecoration(
@@ -1569,177 +1548,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           ],
         ),
       ),
-    );
-  }
-  
-  void _showAccountSwitchDialog() async {
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    final authState = ref.read(authenticationProvider).value;
-    
-    if (authState == null || authState.savedAccounts == null || authState.savedAccounts!.isEmpty) {
-      showSnackBar(context, 'No saved accounts found');
-      return;
-    }
-    
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: context.modernTheme.surfaceColor!,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(24),
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle indicator
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: context.modernTheme.textSecondaryColor!.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                'Switch Account',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: context.modernTheme.textColor,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Divider(color: context.modernTheme.dividerColor),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const BouncingScrollPhysics(),
-                itemCount: authState.savedAccounts!.length,
-                itemBuilder: (context, index) {
-                  final account = authState.savedAccounts![index];
-                  final isCurrentAccount = account.uid == currentUser.uid;
-                  
-                  return ListTile(
-                    leading: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: isCurrentAccount 
-                            ? Border.all(
-                                color: context.modernTheme.primaryColor!,
-                                width: 2,
-                              )
-                            : null,
-                      ),
-                      child: CircleAvatar(
-                        radius: 24,
-                        child: ClipOval(
-                          child: account.image.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: account.image,
-                                  cacheManager: ProfileImageCacheManager.instance,
-                                  fit: BoxFit.cover,
-                                  width: 48,
-                                  height: 48,
-                                  placeholder: (context, url) => Container(
-                                    color: Colors.grey[300],
-                                    child: const Icon(Icons.person),
-                                  ),
-                                  errorWidget: (context, error, stackTrace) => Container(
-                                    color: Colors.grey[300],
-                                    child: const Icon(Icons.person),
-                                  ),
-                                )
-                              : const Icon(Icons.person),
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      account.name,
-                      style: TextStyle(
-                        color: context.modernTheme.textColor,
-                        fontWeight: isCurrentAccount ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Text(
-                      account.phoneNumber,
-                      style: TextStyle(
-                        color: context.modernTheme.textSecondaryColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                    trailing: isCurrentAccount
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: context.modernTheme.primaryColor!.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              'Current',
-                              style: TextStyle(
-                                color: context.modernTheme.primaryColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          )
-                        : null,
-                    onTap: () {
-                      if (isCurrentAccount) {
-                        Navigator.pop(context);
-                        return;
-                      }
-                      
-                      Navigator.pop(context);
-                      _switchToAccount(account);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Future<void> _switchToAccount(UserModel selectedAccount) async {
-    try {
-      await ref.read(authenticationProvider.notifier).switchAccount(selectedAccount);
-      if (mounted) {
-        showSnackBar(context, 'Switched to ${selectedAccount.name}\'s account');
-        // Reload channel data for the new account
-        _loadChannelData();
-        // Preload the new account's images in background
-        _preloadCriticalImages();
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Error switching account: $e');
-      }
-    }
-  }
-  
-  void _addNewAccount() {
-    // Navigate to login screen
-    Navigator.pushNamedAndRemoveUntil(
-      context, 
-      Constants.landingScreen, 
-      (route) => false,
     );
   }
   

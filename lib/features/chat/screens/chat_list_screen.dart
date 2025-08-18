@@ -1,7 +1,9 @@
-// lib/features/chat/screens/chat_list_screen.dart
+// lib/features/chat/screens/chat_list_screen.dart - Updated with Caching
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
@@ -27,6 +29,93 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   @override
   bool get wantKeepAlive => true;
 
+  // Cache manager for profile images
+  static final DefaultCacheManager _imageCacheManager = DefaultCacheManager();
+  
+  // Cache key for storing chat list data
+  static const String _chatListCacheKey = 'cached_chat_list_data';
+  static const String _lastUpdateCacheKey = 'chat_list_last_update';
+  
+  // In-memory cache for current session
+  List<ChatListItemModel>? _cachedChats;
+  DateTime? _lastCacheUpdate;
+  bool _isInitialLoad = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCachedData();
+  }
+
+  // Load cached chat data from persistent storage
+  Future<void> _loadCachedData() async {
+    try {
+      final cachedData = await _getCachedChatList();
+      if (cachedData != null && mounted) {
+        setState(() {
+          _cachedChats = cachedData;
+          _isInitialLoad = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading cached chat data: $e');
+    }
+  }
+
+  // Get cached chat list from cache manager (simplified)
+  Future<List<ChatListItemModel>?> _getCachedChatList() async {
+    // For now, just return the in-memory cache
+    // You can implement persistent caching later when the models support it
+    return _cachedChats;
+  }
+
+  // Cache chat list data (simplified)
+  Future<void> _cacheChatList(List<ChatListItemModel> chats) async {
+    // Just update in-memory cache for now
+    setState(() {
+      _cachedChats = chats;
+      _lastCacheUpdate = DateTime.now();
+    });
+  }
+
+  // Clear chat list cache (simplified)
+  Future<void> _clearChatListCache() async {
+    try {
+      await _imageCacheManager.emptyCache();
+      
+      setState(() {
+        _cachedChats = null;
+        _lastCacheUpdate = null;
+      });
+      
+      if (mounted) {
+        showSnackBar(context, 'Chat list cache cleared');
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Failed to clear cache');
+      }
+    }
+  }
+
+  // Preload contact images for better performance
+  Future<void> _preloadContactImages(List<ChatListItemModel> chats) async {
+    final imagesToPreload = chats
+        .where((chat) => chat.contactImage.isNotEmpty)
+        .map((chat) => chat.contactImage)
+        .take(10) // Preload only first 10 to avoid excessive memory usage
+        .toList();
+
+    for (final imageUrl in imagesToPreload) {
+      try {
+        _imageCacheManager.getSingleFile(imageUrl);
+      } catch (e) {
+        // Continue preloading other images even if one fails
+        debugPrint('Error preloading image: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -50,12 +139,92 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   Widget _buildLoadingAuthState(ModernThemeExtension modernTheme) {
+    // Show cached data while authenticating if available
+    if (_cachedChats != null && _cachedChats!.isNotEmpty) {
+      return _buildCachedChatList(_cachedChats!, modernTheme);
+    }
+    
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
       body: Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading...',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCachedChatList(List<ChatListItemModel> cachedChats, ModernThemeExtension modernTheme) {
+    return Scaffold(
+      backgroundColor: modernTheme.surfaceColor,
+      body: Column(
+        children: [
+          // Search bar
+          _buildSearchBar(modernTheme),
+          
+          // Cached data indicator
+          if (_lastCacheUpdate != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: modernTheme.primaryColor?.withOpacity(0.1),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.cached,
+                    size: 16,
+                    color: modernTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Showing cached data from ${_formatCacheTime(_lastCacheUpdate!)}',
+                    style: TextStyle(
+                      color: modernTheme.primaryColor,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () {
+                      ref.refresh(chatListProvider);
+                    },
+                    child: Text(
+                      'Refresh',
+                      style: TextStyle(
+                        color: modernTheme.primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          
+          // Chat list
+          Expanded(
+            child: _buildChatListFromCache(cachedChats, modernTheme),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _navigateToContacts(),
+        backgroundColor: modernTheme.primaryColor,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.chat),
       ),
     );
   }
@@ -73,9 +242,105 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           // Chat list
           Expanded(
             child: chatListState.when(
-              loading: () => _buildLoadingState(modernTheme),
-              error: (error, stack) => _buildErrorState(modernTheme, error.toString()),
-              data: (state) => _buildChatList(state, user.uid, modernTheme),
+              loading: () {
+                // Show cached data while loading if available
+                if (_cachedChats != null && _cachedChats!.isNotEmpty) {
+                  return Column(
+                    children: [
+                      // Loading indicator at top
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Updating...',
+                              style: TextStyle(
+                                color: modernTheme.textSecondaryColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Cached chat list
+                      Expanded(
+                        child: _buildChatListFromCache(_cachedChats!, modernTheme),
+                      ),
+                    ],
+                  );
+                }
+                return _buildLoadingState(modernTheme);
+              },
+              error: (error, stack) {
+                // Show cached data with error indicator if available
+                if (_cachedChats != null && _cachedChats!.isNotEmpty) {
+                  return Column(
+                    children: [
+                      // Error indicator at top
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        color: Colors.red.withOpacity(0.1),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 16,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Failed to update. Showing cached data.',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => ref.refresh(chatListProvider),
+                              child: Text(
+                                'Retry',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Cached chat list
+                      Expanded(
+                        child: _buildChatListFromCache(_cachedChats!, modernTheme),
+                      ),
+                    ],
+                  );
+                }
+                return _buildErrorState(modernTheme, error.toString());
+              },
+              data: (state) {
+                // Cache the new data
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _cacheChatList(state.chats);
+                  _preloadContactImages(state.chats);
+                });
+                
+                return _buildChatList(state, user.uid, modernTheme);
+              },
             ),
           ),
         ],
@@ -87,6 +352,21 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         child: const Icon(Icons.chat),
       ),
     );
+  }
+
+  String _formatCacheTime(DateTime cacheTime) {
+    final now = DateTime.now();
+    final difference = now.difference(cacheTime);
+    
+    if (difference.inMinutes < 1) {
+      return 'just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours}h ago';
+    } else {
+      return DateFormat('MMM dd').format(cacheTime);
+    }
   }
 
   Widget _buildSearchBar(ModernThemeExtension modernTheme) {
@@ -103,27 +383,81 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
         ),
       ),
-      child: TextField(
-        style: TextStyle(color: modernTheme.textColor),
-        decoration: InputDecoration(
-          hintText: 'Search chats...',
-          hintStyle: TextStyle(color: modernTheme.textSecondaryColor),
-          prefixIcon: Icon(
-            Icons.search,
-            color: modernTheme.textSecondaryColor,
-            size: 20,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              style: TextStyle(color: modernTheme.textColor),
+              decoration: InputDecoration(
+                hintText: 'Search chats...',
+                hintStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: modernTheme.textSecondaryColor,
+                  size: 20,
+                ),
+                filled: true,
+                fillColor: modernTheme.backgroundColor?.withOpacity(0.5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              onChanged: (query) => chatListNotifier.setSearchQuery(query),
+            ),
           ),
-          filled: true,
-          fillColor: modernTheme.backgroundColor?.withOpacity(0.5),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide.none,
+          const SizedBox(width: 8),
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.more_vert,
+              color: modernTheme.textColor,
+            ),
+            color: modernTheme.surfaceColor,
+            onSelected: _handleMenuAction,
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, color: modernTheme.textColor, size: 20),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Refresh',
+                      style: TextStyle(color: modernTheme.textColor),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'clear_cache',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep, color: modernTheme.textColor, size: 20),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Clear Cache',
+                      style: TextStyle(color: modernTheme.textColor),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        onChanged: (query) => chatListNotifier.setSearchQuery(query),
+        ],
       ),
     );
+  }
+
+  void _handleMenuAction(String action) {
+    switch (action) {
+      case 'refresh':
+        ref.refresh(chatListProvider);
+        break;
+      case 'clear_cache':
+        _clearChatListCache();
+        break;
+    }
   }
 
   Widget _buildNotAuthenticatedState(ModernThemeExtension modernTheme) {
@@ -239,6 +573,28 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildChatListFromCache(List<ChatListItemModel> chats, ModernThemeExtension modernTheme) {
+    if (chats.isEmpty) {
+      return _buildEmptyState(modernTheme);
+    }
+
+    // Simple list without filtering for cached data
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8, bottom: 100),
+      itemCount: chats.length,
+      itemBuilder: (context, index) {
+        final chatItem = chats[index];
+        final currentUser = ref.read(currentUserProvider);
+        
+        return _buildChatItem(
+          chatItem, 
+          currentUser?.uid ?? '', 
+          modernTheme,
+        );
+      },
     );
   }
 
@@ -440,7 +796,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Stack(
           children: [
-            _buildAvatar(chatItem, modernTheme),
+            _buildCachedAvatar(chatItem, modernTheme),
             if (chatItem.isOnline)
               Positioned(
                 bottom: 2,
@@ -503,7 +859,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ],
             Expanded(
               child: Text(
-                chatItem.getLastMessagePreview(currentUserId: currentUserId), // Updated to pass currentUserId
+                chatItem.getLastMessagePreview(currentUserId: currentUserId),
                 style: TextStyle(
                   color: hasUnread 
                     ? modernTheme.textColor 
@@ -559,23 +915,55 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  Widget _buildAvatar(ChatListItemModel chatItem, ModernThemeExtension modernTheme) {
-    return CircleAvatar(
-      radius: 25,
-      backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
-      backgroundImage: chatItem.contactImage.isNotEmpty
-          ? NetworkImage(chatItem.contactImage)
-          : null,
-      child: chatItem.contactImage.isEmpty
-          ? Text(
-              _getAvatarInitials(chatItem.contactName),
-              style: TextStyle(
-                color: modernTheme.primaryColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            )
-          : null,
+  Widget _buildCachedAvatar(ChatListItemModel chatItem, ModernThemeExtension modernTheme) {
+    if (chatItem.contactImage.isEmpty) {
+      return CircleAvatar(
+        radius: 25,
+        backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
+        child: Text(
+          _getAvatarInitials(chatItem.contactName),
+          style: TextStyle(
+            color: modernTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      );
+    }
+
+    return CachedNetworkImage(
+      imageUrl: chatItem.contactImage,
+      imageBuilder: (context, imageProvider) => CircleAvatar(
+        radius: 25,
+        backgroundImage: imageProvider,
+      ),
+      placeholder: (context, url) => CircleAvatar(
+        radius: 25,
+        backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+          ),
+        ),
+      ),
+      errorWidget: (context, url, error) => CircleAvatar(
+        radius: 25,
+        backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
+        child: Text(
+          _getAvatarInitials(chatItem.contactName),
+          style: TextStyle(
+            color: modernTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      ),
+      cacheManager: _imageCacheManager,
+      fadeInDuration: const Duration(milliseconds: 200),
+      fadeOutDuration: const Duration(milliseconds: 200),
     );
   }
 
@@ -611,7 +999,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
     // Navigate to chat screen
     if (mounted && currentUser != null) {
-      Navigator.of(context).push(
+      final result = await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => ChatScreen(
             chatId: chatItem.chat.chatId,
@@ -630,6 +1018,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
         ),
       );
+
+      // Refresh chat list if message was sent
+      if (result == true) {
+        ref.refresh(chatListProvider);
+      }
     }
   }
 
@@ -767,6 +1160,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     try {
       final chatListNotifier = ref.read(chatListProvider.notifier);
       await chatListNotifier.toggleArchiveChat(chatId, userId);
+      
       if (mounted) {
         showSnackBar(context, 'Chat archived');
       }
@@ -936,5 +1330,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
   void _navigateToContacts() {
     Navigator.pushNamed(context, Constants.contactsScreen);
+  }
+
+  @override
+  void dispose() {
+    // Clean up any temporary cache if needed
+    super.dispose();
   }
 }

@@ -1,8 +1,10 @@
-// lib/features/chat/screens/chat_screen.dart - Updated and Simplified
+// lib/features/chat/screens/chat_screen.dart - Updated with Flutter Cache Manager
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
@@ -22,7 +24,6 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
   final UserModel contact;
-  // REMOVED: videoContext parameter - no longer needed with new reaction system
 
   const ChatScreen({
     super.key,
@@ -44,6 +45,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   // Video player state
   bool _isVideoPlayerVisible = false;
   String? _currentVideoUrl;
+
+  // Cache manager instances
+  static final DefaultCacheManager _imageCacheManager = DefaultCacheManager();
+  static final DefaultCacheManager _videoCacheManager = DefaultCacheManager();
+  static final DefaultCacheManager _fileCacheManager = DefaultCacheManager();
 
   @override
   void initState() {
@@ -120,15 +126,77 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             widget.chatId.hashCode % 3 == 0);
   }
 
-  // Video player methods
-  void _handleVideoThumbnailTap(MessageModel message) {
-    // Handle both regular video messages and video reaction messages
+  // Cache management methods
+  Future<File?> _getCachedFile(String url, {String? cacheKey}) async {
+    try {
+      final key = cacheKey ?? url;
+      final fileInfo = await _fileCacheManager.getFileFromCache(key);
+      if (fileInfo != null && fileInfo.file.existsSync()) {
+        return fileInfo.file;
+      }
+      
+      // Download and cache the file
+      final file = await _fileCacheManager.getSingleFile(url, key: key);
+      return file;
+    } catch (e) {
+      debugPrint('Error caching file: $e');
+      return null;
+    }
+  }
+
+  Future<void> _preloadMessageMedia(List<MessageModel> messages) async {
+    // Preload recent images and videos for smooth scrolling
+    final recentMessages = messages.take(20).where((msg) => 
+      msg.type == MessageEnum.image || 
+      msg.type == MessageEnum.video ||
+      (msg.mediaMetadata?['isVideoReaction'] == true)
+    );
+
+    for (final message in recentMessages) {
+      try {
+        if (message.type == MessageEnum.image && message.mediaUrl?.isNotEmpty == true) {
+          // Preload image
+          _imageCacheManager.getSingleFile(message.mediaUrl!);
+        } else if (message.type == MessageEnum.video && message.mediaUrl?.isNotEmpty == true) {
+          // Preload video thumbnail or video file
+          _videoCacheManager.getSingleFile(message.mediaUrl!);
+        } else if (message.mediaMetadata?['isVideoReaction'] == true) {
+          // Preload video reaction thumbnail
+          final videoUrl = message.mediaMetadata?['videoReaction']?['videoUrl'];
+          if (videoUrl?.isNotEmpty == true) {
+            _videoCacheManager.getSingleFile(videoUrl!);
+          }
+        }
+      } catch (e) {
+        // Continue preloading other media even if one fails
+        debugPrint('Error preloading media: $e');
+      }
+    }
+  }
+
+  Future<void> _clearChatCache() async {
+    try {
+      await _imageCacheManager.emptyCache();
+      await _videoCacheManager.emptyCache();
+      await _fileCacheManager.emptyCache();
+      
+      if (mounted) {
+        showSnackBar(context, 'Chat cache cleared');
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Failed to clear cache');
+      }
+    }
+  }
+
+  // Video player methods with caching
+  void _handleVideoThumbnailTap(MessageModel message) async {
     String? videoUrl;
     
     if (message.type == MessageEnum.video) {
       videoUrl = message.mediaUrl;
     } else if (message.mediaMetadata?['isVideoReaction'] == true) {
-      // For video reactions, get the original video URL
       final videoReactionData = message.mediaMetadata?['videoReaction'];
       if (videoReactionData != null) {
         videoUrl = videoReactionData['videoUrl'];
@@ -140,12 +208,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       return;
     }
     
-    _showVideoPlayer(videoUrl);
+    // Show loading indicator while getting cached video
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+    
+    try {
+      // Get cached video file
+      final cachedFile = await _getCachedFile(videoUrl, cacheKey: '${message.messageId}_video');
+      
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        
+        if (cachedFile != null) {
+          _showVideoPlayer(cachedFile.path);
+        } else {
+          _showVideoPlayer(videoUrl); // Fallback to URL
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        showSnackBar(context, 'Failed to load video');
+      }
+    }
   }
 
-  void _showVideoPlayer(String videoUrl) {
+  void _showVideoPlayer(String videoPath) {
     setState(() {
-      _currentVideoUrl = videoUrl;
+      _currentVideoUrl = videoPath;
       _isVideoPlayerVisible = true;
     });
   }
@@ -155,6 +250,61 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       _isVideoPlayerVisible = false;
       _currentVideoUrl = null;
     });
+  }
+
+  // Method to get cached contact image
+  Widget _buildContactAvatar({double radius = 18}) {
+    if (widget.contact.image.isEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: context.modernTheme.primaryColor?.withOpacity(0.2),
+        child: Text(
+          widget.contact.name.isNotEmpty 
+            ? widget.contact.name[0].toUpperCase()
+            : '?',
+          style: TextStyle(
+            color: context.modernTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+            fontSize: radius * 0.6,
+          ),
+        ),
+      );
+    }
+
+    return CachedNetworkImage(
+      imageUrl: widget.contact.image,
+      imageBuilder: (context, imageProvider) => CircleAvatar(
+        radius: radius,
+        backgroundImage: imageProvider,
+      ),
+      placeholder: (context, url) => CircleAvatar(
+        radius: radius,
+        backgroundColor: context.modernTheme.primaryColor?.withOpacity(0.2),
+        child: SizedBox(
+          width: radius,
+          height: radius,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: context.modernTheme.primaryColor,
+          ),
+        ),
+      ),
+      errorWidget: (context, url, error) => CircleAvatar(
+        radius: radius,
+        backgroundColor: context.modernTheme.primaryColor?.withOpacity(0.2),
+        child: Text(
+          widget.contact.name.isNotEmpty 
+            ? widget.contact.name[0].toUpperCase()
+            : '?',
+          style: TextStyle(
+            color: context.modernTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+            fontSize: radius * 0.6,
+          ),
+        ),
+      ),
+      cacheManager: _imageCacheManager,
+    );
   }
 
   @override
@@ -209,7 +359,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                     child: messageState.when(
                       loading: () => _buildLoadingState(modernTheme),
                       error: (error, stack) => _buildErrorState(modernTheme, error.toString()),
-                      data: (state) => _buildMessagesList(state, currentUser),
+                      data: (state) {
+                        // Preload media for smooth scrolling
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _preloadMessageMedia(state.messages);
+                        });
+                        return _buildMessagesList(state, currentUser);
+                      },
                     ),
                   ),
                   
@@ -299,24 +455,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             onTap: () => _showContactProfile(),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
-                  backgroundImage: widget.contact.image.isNotEmpty
-                      ? NetworkImage(widget.contact.image)
-                      : null,
-                  child: widget.contact.image.isEmpty
-                      ? Text(
-                          widget.contact.name.isNotEmpty 
-                            ? widget.contact.name[0].toUpperCase()
-                            : '?',
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
-                ),
+                _buildContactAvatar(),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -407,6 +546,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                       const SizedBox(width: 12),
                       Text(
                         'Font Size',
+                        style: TextStyle(color: modernTheme.textColor),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'clear_cache',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_sweep, color: modernTheme.textColor, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Clear Cache',
                         style: TextStyle(color: modernTheme.textColor),
                       ),
                     ],
@@ -513,25 +665,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
-            backgroundImage: widget.contact.image.isNotEmpty
-                ? NetworkImage(widget.contact.image)
-                : null,
-            child: widget.contact.image.isEmpty
-                ? Text(
-                    widget.contact.name.isNotEmpty 
-                      ? widget.contact.name[0].toUpperCase()
-                      : '?',
-                    style: TextStyle(
-                      color: modernTheme.primaryColor,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
-          ),
+          _buildContactAvatar(radius: 40),
           const SizedBox(height: 16),
           Text(
             'Start a conversation with ${widget.contact.name}',
@@ -564,7 +698,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
            nextMessage.timestamp.difference(currentMessage.timestamp).inMinutes > 5;
   }
 
-  // SIMPLIFIED: Standard message sending - no video context handling
   void _handleSendText(String text) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendTextMessage(widget.chatId, text);
@@ -808,6 +941,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       case 'font_size':
         _showFontSizeDialog();
         break;
+      case 'clear_cache':
+        _clearChatCache();
+        break;
       case 'block':
         _confirmBlockContact();
         break;
@@ -900,7 +1036,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 }
 
-// Supporting widgets (unchanged from original)
+// Supporting widgets with cache integration
 class _MessageActionTile extends StatelessWidget {
   final IconData icon;
   final String title;
