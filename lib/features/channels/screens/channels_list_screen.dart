@@ -7,6 +7,8 @@ import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
+import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class ChannelsListScreen extends ConsumerStatefulWidget {
@@ -167,14 +169,19 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
               ),
               child: Row(
                 children: [
-                  // Enhanced Back Button
+                  // Enhanced Back Button - Navigate to My Channel
                   Material(
                     color: Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MyChannelScreen(),
+                          ),
+                        );
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
@@ -184,7 +191,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          Icons.arrow_back_rounded,
+                          Icons.person_rounded,
                           color: theme.primaryColor,
                           size: 20,
                         ),
@@ -192,32 +199,61 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                     ),
                   ),
                   
-                  // Enhanced Title
+                  // Enhanced Explore Button (was title)
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Explore Channels',
-                            style: TextStyle(
-                              color: theme.textColor,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.3,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 2),
-                          Container(
-                            height: 2,
-                            width: 60,
+                    child: Center(
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ChannelsFeedScreen(),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                             decoration: BoxDecoration(
-                              color: theme.primaryColor!.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(1),
+                              color: theme.primaryColor!.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: theme.primaryColor!.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.explore_rounded,
+                                  color: theme.primaryColor,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Explore',
+                                  style: TextStyle(
+                                    color: theme.primaryColor,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.1,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  color: theme.primaryColor,
+                                  size: 12,
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -805,7 +841,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                           children: [
                             _buildStatChip(
                               icon: Icons.play_circle_outline_rounded,
-                              text: '${channel.videosCount} videos',
+                              text: '${channel.videosCount} posts',
                               theme: theme,
                             ),
                             const SizedBox(width: 8),

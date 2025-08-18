@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Added for SystemUiOverlayStyle
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
@@ -23,7 +22,6 @@ class MyChannelScreen extends ConsumerStatefulWidget {
 class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     with TickerProviderStateMixin {
   bool _isLoading = true;
-  bool _isEnsuring = false; // NEW: Track channel auto-creation
   ChannelModel? _channel;
   List<ChannelVideoModel> _channelVideos = [];
   String? _error;
@@ -44,10 +42,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // FIXED: Use post-frame callback to avoid provider modification during build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _ensureChannelAndLoadData();
-    });
+    _loadChannelData();
   }
 
   @override
@@ -56,46 +51,6 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     // Clear thumbnail cache on dispose if needed
     // _thumbnailCacheManager.emptyCache();
     super.dispose();
-  }
-
-  // NEW: Ensure user has channel before loading data
-  Future<void> _ensureChannelAndLoadData() async {
-    setState(() {
-      _isLoading = true;
-      _isEnsuring = true;
-      _error = null;
-    });
-
-    try {
-      debugPrint('MyChannelScreen: Ensuring user has channel');
-      
-      // Ensure user has a channel first
-      final channel = await ref.read(channelsProvider.notifier).ensureUserHasChannel();
-      
-      if (channel != null) {
-        debugPrint('MyChannelScreen: Channel ensured, loading data');
-        setState(() {
-          _isEnsuring = false;
-        });
-        
-        // Load channel data after ensuring channel exists
-        await _loadChannelData();
-      } else {
-        debugPrint('MyChannelScreen: Failed to ensure channel');
-        setState(() {
-          _error = 'Failed to set up your channel. Please try again.';
-          _isLoading = false;
-          _isEnsuring = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('MyChannelScreen: Error ensuring channel: $e');
-      setState(() {
-        _error = 'Failed to set up your channel: $e';
-        _isLoading = false;
-        _isEnsuring = false;
-      });
-    }
   }
 
   Future<void> _loadChannelData() async {
@@ -109,8 +64,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
       final userChannel = ref.read(channelsProvider).userChannel;
       
       if (userChannel == null) {
-        // This shouldn't happen after auto-creation, but handle it
-        throw Exception('Channel not found after setup');
+        throw Exception('You don\'t have a channel yet');
       }
       
       // Get channel videos
@@ -299,125 +253,27 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     ).then((_) => _loadChannelData());
   }
 
-  // NEW: Retry channel setup
-  void _retryChannelSetup() {
-    _ensureChannelAndLoadData();
-  }
-
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    final channelsState = ref.watch(channelsProvider);
-    
-    // Show loading screen while ensuring channel
-    if (_isEnsuring || channelsState.isEnsuring) {
-      return Scaffold(
-        backgroundColor: modernTheme.backgroundColor,
-        body: _buildChannelSetupView(modernTheme),
-      );
-    }
     
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      extendBodyBehindAppBar: true, // FIXED: Extend behind system bars
-      extendBody: true,
-      // FIXED: Ensure proper layout constraints and extend behind system UI
       body: _isLoading
           ? _buildLoadingView(modernTheme)
           : _error != null
               ? _buildErrorView(modernTheme)
               : _buildChannelView(modernTheme),
       floatingActionButton: _channel != null
-          ? Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).padding.bottom + 16, // Account for system nav bar
-              ),
-              child: FloatingActionButton.extended(
-                backgroundColor: modernTheme.primaryColor,
-                foregroundColor: Colors.white,
-                onPressed: _createPost,
-                icon: const Icon(Icons.add),
-                label: const Text('Create Post'),
-                elevation: 8,
-              ),
+          ? FloatingActionButton.extended(
+              backgroundColor: modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+              onPressed: _createPost,
+              icon: const Icon(Icons.add),
+              label: const Text('Create Post'),
+              elevation: 8,
             )
           : null,
-    );
-  }
-
-  // NEW: Channel setup loading view
-  Widget _buildChannelSetupView(ModernThemeExtension modernTheme) {
-    return SafeArea(
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Custom App Bar
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.arrow_back,
-                        color: modernTheme.textColor,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    Text(
-                      'My Channel',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            const Spacer(),
-            
-            // Loading content
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: CircularProgressIndicator(
-                color: modernTheme.primaryColor,
-                strokeWidth: 3,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Setting up your channel...',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Using your profile information to create\nyour personalized channel',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 16,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const Spacer(),
-          ],
-        ),
-      ),
     );
   }
 
@@ -443,7 +299,6 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     );
   }
 
-  // UPDATED: Better error handling with retry option
   Widget _buildErrorView(ModernThemeExtension modernTheme) {
     return SafeArea(
       child: Padding(
@@ -477,18 +332,18 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
+                      color: modernTheme.primaryColor!.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.error_outline,
-                      color: Colors.red.shade600,
+                      Icons.video_library_outlined,
+                      color: modernTheme.primaryColor,
                       size: 64,
                     ),
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Setup Failed',
+                    'No Channel Found',
                     style: TextStyle(
                       color: modernTheme.textColor,
                       fontSize: 24,
@@ -506,7 +361,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                   ),
                   const SizedBox(height: 32),
                   ElevatedButton.icon(
-                    onPressed: _retryChannelSetup,
+                    onPressed: () => Navigator.pushNamed(context, Constants.createChannelScreen),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: modernTheme.primaryColor,
                       foregroundColor: Colors.white,
@@ -519,9 +374,9 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                       ),
                       elevation: 4,
                     ),
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(Icons.add_circle),
                     label: const Text(
-                      'Try Again',
+                      'Create Your Channel',
                       style: TextStyle(fontSize: 16),
                     ),
                   ),
@@ -539,123 +394,78 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
       return const Center(child: Text('Channel not found'));
     }
 
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
-
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: Colors.transparent, // Make transparent to show background
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Channel Header - extends behind status bar
-              _buildChannelHeader(modernTheme),
-              
-              // Channel Info Card
-              _buildChannelInfoCard(modernTheme),
-              
-              // Tab Bar
-              Container(
-                color: modernTheme.surfaceColor,
-                child: TabBar(
-                  controller: _tabController,
-                  labelColor: modernTheme.primaryColor,
-                  unselectedLabelColor: modernTheme.textSecondaryColor,
-                  indicatorColor: modernTheme.primaryColor,
-                  tabs: const [
-                    Tab(
-                      icon: Icon(Icons.grid_view),
-                      text: 'Posts',
-                    ),
-                    Tab(
-                      icon: Icon(Icons.analytics),
-                      text: 'Analytics',
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Tab Content - Fixed height to prevent infinite height
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.6, // 60% of screen height
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildPostsTab(modernTheme),
-                    _buildAnalyticsTab(modernTheme),
-                  ],
-                ),
-              ),
-              
-              // Bottom padding for FAB and system nav bar
-              SizedBox(height: 100 + systemBottomPadding),
-            ],
-          ),
-        ),
-        // Back button overlay - positioned to account for status bar
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) => [
+        // Modern App Bar with Cover Image
+        SliverAppBar(
+          expandedHeight: 280,
+          floating: false,
+          pinned: true,
+          backgroundColor: modernTheme.primaryColor,
+          foregroundColor: Colors.white,
           elevation: 0,
-          systemOverlayStyle: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.light,
-          ),
-          leading: Padding(
-            padding: EdgeInsets.only(top: systemTopPadding * 0.3), // Slight adjustment for better positioning
-            child: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-              ),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
           ),
           actions: [
-            Padding(
-              padding: EdgeInsets.only(top: systemTopPadding * 0.3),
-              child: IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.edit, color: Colors.white, size: 20),
-                ),
-                onPressed: _channel != null ? _editChannel : null,
-              ),
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.white),
+              onPressed: _channel != null ? _editChannel : null,
             ),
-            Padding(
-              padding: EdgeInsets.only(top: systemTopPadding * 0.3, right: 8),
-              child: IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
-                ),
-                onPressed: () => _showChannelOptions(),
-              ),
+            IconButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              onPressed: () => _showChannelOptions(),
             ),
           ],
+          flexibleSpace: FlexibleSpaceBar(
+            background: _buildChannelHeader(modernTheme),
+          ),
         ),
-        extendBodyBehindAppBar: true,
+      ],
+      body: Column(
+        children: [
+          // Channel Info Card
+          _buildChannelInfoCard(modernTheme),
+          
+          // Tab Bar
+          Container(
+            color: modernTheme.surfaceColor,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: modernTheme.primaryColor,
+              unselectedLabelColor: modernTheme.textSecondaryColor,
+              indicatorColor: modernTheme.primaryColor,
+              tabs: const [
+                Tab(
+                  icon: Icon(Icons.grid_view),
+                  text: 'Posts',
+                ),
+                Tab(
+                  icon: Icon(Icons.analytics),
+                  text: 'Analytics',
+                ),
+              ],
+            ),
+          ),
+          
+          // Tab Views
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPostsTab(modernTheme),
+                _buildAnalyticsTab(modernTheme),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    
     return Container(
-      height: 280 + systemTopPadding, // FIXED: Add system top padding to extend behind status bar
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -668,7 +478,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
       ),
       child: Stack(
         children: [
-          // Cover Image - extends behind status bar
+          // Cover Image
           if (_channel!.coverImage.isNotEmpty)
             Positioned.fill(
               child: CachedNetworkImage(
@@ -706,7 +516,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
               ),
             ),
           
-          // Gradient Overlay - extends behind status bar
+          // Gradient Overlay
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -722,7 +532,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
             ),
           ),
           
-          // Channel Content - positioned below status bar
+          // Channel Content
           Positioned(
             bottom: 24,
             left: 16,
@@ -800,7 +610,6 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
                         children: [
@@ -812,8 +621,6 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                                 fontWeight: FontWeight.bold,
                                 fontSize: 24,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (_channel!.isVerified) ...[
@@ -861,7 +668,6 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
         ],
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // FIXED: Prevent unnecessary expansion
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Description
@@ -873,8 +679,6 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                 fontSize: 16,
                 height: 1.5,
               ),
-              maxLines: 3, // FIXED: Limit description lines to prevent overflow
-              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 16),
           ],
@@ -907,38 +711,32 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
           // Tags
           if (_channel!.tags.isNotEmpty) ...[
             const SizedBox(height: 16),
-            // FIXED: Make tags scrollable horizontally if they overflow
-            SizedBox(
-              height: 32,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _channel!.tags.length,
-                itemBuilder: (context, index) {
-                  final tag = _channel!.tags[index];
-                  return Container(
-                    margin: EdgeInsets.only(right: index < _channel!.tags.length - 1 ? 8 : 0),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _channel!.tags.map((tag) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: modernTheme.primaryColor!.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: modernTheme.primaryColor!.withOpacity(0.3),
                     ),
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor!.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: modernTheme.primaryColor!.withOpacity(0.3),
-                      ),
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: TextStyle(
+                      color: modernTheme.primaryColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
-                    child: Text(
-                      '#$tag',
-                      style: TextStyle(
-                        color: modernTheme.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  );
-                },
-              ),
+                  ),
+                );
+              }).toList(),
             ),
           ],
         ],
@@ -988,12 +786,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     return RefreshIndicator(
       onRefresh: _loadChannelData,
       child: GridView.builder(
-        padding: const EdgeInsets.only(
-          left: 4,
-          right: 4,
-          top: 4,
-          bottom: 80, // Add bottom padding to prevent FAB overlap
-        ),
+        padding: const EdgeInsets.all(4),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 2,
@@ -1216,9 +1009,23 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
               ),
               textAlign: TextAlign.center,
             ),
-            // REMOVED: Create Post button to prevent overlap with FAB
-            // The FAB will handle the create post action
-            const SizedBox(height: 100), // Space for FAB
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _createPost,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('Create Your First Post'),
+            ),
           ],
         ),
       ),
@@ -1226,13 +1033,8 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   }
 
   Widget _buildAnalyticsTab(ModernThemeExtension modernTheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: 100, // Add bottom padding to prevent FAB overlap
-      ),
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           // Analytics Cards

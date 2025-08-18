@@ -9,7 +9,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
-import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
+//import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
@@ -136,7 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           // Moments tab (index 2)
           Container(
             color: modernTheme.backgroundColor,
-            child: const RecommendedPostsScreen(),
+            child: const ChannelsListScreen(),
           ),
           // Channels tab (index 3)
           Container(

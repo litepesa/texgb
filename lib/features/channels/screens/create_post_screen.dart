@@ -73,24 +73,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   double _optimizationProgress = 0.0;
   String _optimizationStatus = '';
   
-  // Channel ensuring state
-  bool _isEnsuring = false;
-  bool _channelEnsured = false;
-  
   // Wakelock state tracking
   bool _wakelockActive = false;
   
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    // FIXED: Use post-frame callback to avoid provider modification during build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _ensureUserHasChannel();
-    });
-  }
 
   @override
   void dispose() {
@@ -102,36 +89,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     // Ensure wakelock is disabled when leaving the screen
     _disableWakelock();
     super.dispose();
-  }
-
-  // NEW: Ensure user has channel when accessing create post
-  Future<void> _ensureUserHasChannel() async {
-    debugPrint('CreatePostScreen: Ensuring user has channel');
-    
-    setState(() {
-      _isEnsuring = true;
-    });
-    
-    try {
-      final channel = await ref.read(channelsProvider.notifier).ensureUserHasChannel();
-      
-      if (channel != null) {
-        debugPrint('CreatePostScreen: Channel ensured successfully');
-        setState(() {
-          _channelEnsured = true;
-        });
-      } else {
-        debugPrint('CreatePostScreen: Failed to ensure channel');
-        _showError('Failed to set up your channel. Please try again.');
-      }
-    } catch (e) {
-      debugPrint('CreatePostScreen: Error ensuring channel: $e');
-      _showError('Failed to set up your channel: $e');
-    } finally {
-      setState(() {
-        _isEnsuring = false;
-      });
-    }
   }
 
   // Wakelock management methods
@@ -401,6 +358,34 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
       // Simple command with video copy and audio processing only
       final audioOnlyCommand = '-y -i "${inputFile.path}" '
+          // TEMPORARILY COMMENTED OUT: Video encoding
+          // '-c:v libx264 '
+          // '-crf $fixedCRF '
+          // '-preset slow '
+          // '-profile:v $profile '
+          // '-level 4.1 '
+          // '-pix_fmt yuv420p '
+          // '-g 30 '
+          // '-keyint_min 15 '
+          // '-sc_threshold 40 '
+          // '-refs 3 '
+          // '-bf 3 '
+          // '-b_strategy 2 '
+          // '-coder 1 '
+          // '-me_method hex '
+          // '-subq 7 '
+          // '-cmp chroma '
+          // '-partitions parti8x8+parti4x4+partp8x8+partb8x8 '
+          // '-me_range 16 '
+          // '-trellis 1 '
+          // '-8x8dct 1 '
+          // '-fast-pskip 1 '
+          // '-mixed-refs 1 '
+          // '-wpredp 2 '
+          // '-aq-mode 1 '
+          // '-aq-strength 0.8 '
+          // '${videoFilters.isNotEmpty ? '-vf "$videoFilters" ' : ''}'
+          
           // TEMPORARY: Copy video stream without processing
           '-c:v copy '
           
@@ -820,22 +805,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  // Modified submit form to handle channel ensuring and optimization during post
+  // Modified submit form to handle optimization during post
   void _submitForm() async {
     print('DEBUG: Form submission started');
     
     if (_formKey.currentState!.validate()) {
-      // CRITICAL: Ensure channel exists before uploading
-      if (!_channelEnsured) {
-        _showError('Please wait while we set up your channel...');
-        return;
-      }
-      
       final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
       final userChannel = ref.read(channelsProvider).userChannel;
       
       if (userChannel == null) {
-        _showError('Channel not ready. Please try again.');
+        _showError('You need to create a channel first');
         return;
       }
       
@@ -876,6 +855,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         }
         
         channelVideosNotifier.uploadVideo(
+          channel: userChannel,
           videoFile: videoToUpload,
           caption: _captionController.text,
           tags: tags,
@@ -892,6 +872,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         );
       } else {
         channelVideosNotifier.uploadImages(
+          channel: userChannel,
           imageFiles: _imageFiles,
           caption: _captionController.text,
           tags: tags,
@@ -945,42 +926,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   @override
   Widget build(BuildContext context) {
     final channelVideosState = ref.watch(channelVideosProvider);
-    final channelsState = ref.watch(channelsProvider);
     final modernTheme = context.modernTheme;
-    
-    // Show loading screen while ensuring channel
-    if (_isEnsuring) {
-      return Scaffold(
-        backgroundColor: modernTheme.backgroundColor,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(
-                color: modernTheme.primaryColor,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Setting up your channel...',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This will only take a moment',
-                style: TextStyle(
-                  color: modernTheme.textSecondaryColor,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
     
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
@@ -1005,7 +951,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           },
         ),
         actions: [
-          if (_channelEnsured && (_isVideoMode && _videoFile != null || !_isVideoMode && _imageFiles.isNotEmpty))
+          if (_isVideoMode && _videoFile != null || !_isVideoMode && _imageFiles.isNotEmpty)
             TextButton(
               onPressed: (channelVideosState.isUploading || _isOptimizing) ? null : _submitForm,
               child: Text(
@@ -1028,43 +974,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Channel setup indicator
-              if (!_channelEnsured)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: modernTheme.primaryColor!.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: modernTheme.primaryColor!.withOpacity(0.2),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: modernTheme.primaryColor,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Setting up your channel...',
-                          style: TextStyle(
-                            color: modernTheme.textColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              
               // Media type selection
               Row(
                 children: [
@@ -1269,7 +1178,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   }
                   return null;
                 },
-                enabled: !channelVideosState.isUploading && !_isOptimizing && _channelEnsured,
+                enabled: !channelVideosState.isUploading && !_isOptimizing,
               ),
               
               const SizedBox(height: 16),
@@ -1288,7 +1197,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ),
                   hintText: 'e.g. sports, travel, music',
                 ),
-                enabled: !channelVideosState.isUploading && !_isOptimizing && _channelEnsured,
+                enabled: !channelVideosState.isUploading && !_isOptimizing,
               ),
               
               const SizedBox(height: 24),
@@ -1297,20 +1206,18 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: (!channelVideosState.isUploading && !_isOptimizing && _channelEnsured) ? _submitForm : null,
+                  onPressed: (channelVideosState.isUploading || _isOptimizing) ? null : _submitForm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: modernTheme.primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
                   ),
-                  child: !_channelEnsured
-                      ? const Text('Setting up channel...')
-                      : (_isOptimizing
-                          ? const Text('Processing Audio...')
-                          : (channelVideosState.isUploading
-                              ? const Text('Uploading...')
-                              : const Text('Post Content'))),
+                  child: _isOptimizing
+                      ? const Text('Processing Audio...')
+                      : (channelVideosState.isUploading
+                          ? const Text('Uploading...')
+                          : const Text('Post Content')),
                 ),
               ),
               
@@ -1340,7 +1247,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading && _channelEnsured) ? _pickVideoFromGallery : null,
+              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickVideoFromGallery : null,
               icon: const Icon(Icons.photo_library),
               label: const Text('Select from Gallery'),
               style: ElevatedButton.styleFrom(
@@ -1352,7 +1259,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading && _channelEnsured) ? _captureVideoFromCamera : null,
+              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _captureVideoFromCamera : null,
               icon: const Icon(Icons.videocam),
               label: const Text('Record Video'),
               style: ElevatedButton.styleFrom(
@@ -1399,7 +1306,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             bottom: 16,
             right: 16,
             child: IconButton(
-              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading && _channelEnsured) ? _pickVideoFromGallery : null,
+              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickVideoFromGallery : null,
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -1408,7 +1315,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 ),
                 child: Icon(
                   Icons.edit,
-                  color: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading && _channelEnsured) ? Colors.white : Colors.grey,
+                  color: (_isOptimizing || ref.watch(channelVideosProvider).isUploading) ? Colors.grey : Colors.white,
                   size: 20,
                 ),
               ),
@@ -1470,7 +1377,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading && _channelEnsured) ? _pickImages : null,
+              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickImages : null,
               icon: const Icon(Icons.add_photo_alternate),
               label: const Text('Select from Gallery'),
               style: ElevatedButton.styleFrom(
@@ -1506,13 +1413,13 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 ),
               ),
               TextButton.icon(
-                onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading && _channelEnsured) ? _pickImages : null,
+                onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickImages : null,
                 icon: const Icon(Icons.add_photo_alternate),
                 label: const Text('Change'),
                 style: TextButton.styleFrom(
-                  foregroundColor: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading && _channelEnsured) 
-                      ? modernTheme.primaryColor 
-                      : modernTheme.textSecondaryColor,
+                  foregroundColor: (_isOptimizing || ref.watch(channelVideosProvider).isUploading) 
+                      ? modernTheme.textSecondaryColor 
+                      : modernTheme.primaryColor,
                 ),
               ),
             ],
@@ -1561,7 +1468,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     top: 4,
                     right: 4,
                     child: GestureDetector(
-                      onTap: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading && _channelEnsured) ? () {
+                      onTap: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? () {
                         setState(() {
                           _imageFiles.removeAt(index);
                         });
@@ -1574,7 +1481,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                         ),
                         child: Icon(
                           Icons.close,
-                          color: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading && _channelEnsured) ? Colors.white : Colors.grey,
+                          color: (_isOptimizing || ref.watch(channelVideosProvider).isUploading) ? Colors.grey : Colors.white,
                           size: 12,
                         ),
                       ),

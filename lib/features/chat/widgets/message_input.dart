@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
+import 'package:textgb/features/chat/widgets/video_dm_preview.dart'; // NEW: Video DM preview widget
 
 class MessageInput extends StatefulWidget {
   final Function(String) onSendText;
@@ -14,6 +15,10 @@ class MessageInput extends StatefulWidget {
   final String? contactName;
   final MessageModel? replyToMessage;
   final VoidCallback? onCancelReply;
+  // NEW: Video DM context parameters
+  final MessageModel? videoDMContext;
+  final VoidCallback? onCancelVideoDM;
+  final VoidCallback? onVideoTap;
 
   const MessageInput({
     super.key,
@@ -23,6 +28,10 @@ class MessageInput extends StatefulWidget {
     this.contactName,
     this.replyToMessage,
     this.onCancelReply,
+    // NEW: Video DM parameters
+    this.videoDMContext,
+    this.onCancelVideoDM,
+    this.onVideoTap,
   });
 
   @override
@@ -43,7 +52,16 @@ class _MessageInputState extends State<MessageInput> {
 
   void _handleSendText() {
     final text = _textController.text.trim();
-    if (text.isNotEmpty) {
+    
+    // Always send if we have video DM context, even with empty text
+    if (widget.videoDMContext != null) {
+      widget.onSendText(text); // Text can be empty for video DM
+      _textController.clear();
+      setState(() {
+        _isComposing = false;
+      });
+    } else if (text.isNotEmpty) {
+      // Normal text message - require non-empty text
       widget.onSendText(text);
       _textController.clear();
       setState(() {
@@ -57,7 +75,7 @@ class _MessageInputState extends State<MessageInput> {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 100, // No compression as requested
+        imageQuality: 100,
       );
       
       if (image != null) {
@@ -79,7 +97,6 @@ class _MessageInputState extends State<MessageInput> {
         final file = File(result.files.first.path!);
         final fileName = result.files.first.name;
         
-        // Check file size (50MB limit)
         final fileSize = await file.length();
         if (fileSize > 50 * 1024 * 1024) {
           _showErrorSnackBar('File size exceeds 50MB limit');
@@ -102,6 +119,22 @@ class _MessageInputState extends State<MessageInput> {
     );
   }
 
+  // NEW: Determine if send button should be enabled
+  bool _shouldEnableSendButton() {
+    return widget.videoDMContext != null || _isComposing;
+  }
+
+  // NEW: Get appropriate hint text
+  String _getHintText() {
+    if (widget.videoDMContext != null) {
+      return 'Add a message or send video...';
+    } else if (widget.replyToMessage != null) {
+      return 'Reply to ${widget.contactName ?? 'contact'}...';
+    } else {
+      return 'Type a message...';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
@@ -109,18 +142,28 @@ class _MessageInputState extends State<MessageInput> {
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
     return Container(
-      // Transparent background for floating effect
       color: Colors.transparent,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // NEW: Video DM preview above reply preview
+          if (widget.videoDMContext != null) ...[
+            VideoDMPreview(
+              videoMessage: widget.videoDMContext!,
+              contactName: widget.contactName,
+              onCancel: widget.onCancelVideoDM,
+              onVideoTap: widget.onVideoTap,
+            ),
+            const SizedBox(height: 4),
+          ],
+          
           // Reply preview above input bar (WhatsApp style)
           if (widget.replyToMessage != null) ...[
             MessageReplyPreview(
               replyToMessage: widget.replyToMessage!,
               contactName: widget.contactName,
               onCancel: widget.onCancelReply,
-              viewOnly: false, // Show cancel button
+              viewOnly: false,
             ),
             const SizedBox(height: 4),
           ],
@@ -153,7 +196,7 @@ class _MessageInputState extends State<MessageInput> {
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(6), // Inner padding for the floating container
+              padding: const EdgeInsets.all(6),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -205,9 +248,7 @@ class _MessageInputState extends State<MessageInput> {
                           height: 1.3,
                         ),
                         decoration: InputDecoration(
-                          hintText: widget.replyToMessage != null 
-                            ? 'Reply to ${widget.contactName ?? 'contact'}...'
-                            : 'Type a message...',
+                          hintText: _getHintText(), // NEW: Dynamic hint text
                           hintStyle: TextStyle(
                             color: modernTheme.textSecondaryColor,
                             fontSize: 15,
@@ -225,7 +266,7 @@ class _MessageInputState extends State<MessageInput> {
                           });
                         },
                         onSubmitted: (text) {
-                          if (text.trim().isNotEmpty) {
+                          if (_shouldEnableSendButton()) { // NEW: Updated condition
                             _handleSendText();
                           }
                         },
@@ -241,17 +282,17 @@ class _MessageInputState extends State<MessageInput> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: _isComposing 
+                      color: _shouldEnableSendButton() // NEW: Updated condition
                         ? modernTheme.primaryColor
                         : modernTheme.primaryColor?.withOpacity(0.3),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      onPressed: _isComposing ? _handleSendText : null,
+                      onPressed: _shouldEnableSendButton() ? _handleSendText : null, // NEW: Updated condition
                       padding: EdgeInsets.zero,
                       icon: Icon(
                         Icons.send,
-                        color: _isComposing 
+                        color: _shouldEnableSendButton() // NEW: Updated condition
                           ? Colors.white
                           : Colors.white.withOpacity(0.7),
                         size: 18,

@@ -8,11 +8,14 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/providers/message_provider.dart';
+import 'package:textgb/features/chat/repositories/chat_repository.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/message_bubble.dart';
 import 'package:textgb/features/chat/widgets/message_input.dart';
 import 'package:textgb/features/chat/widgets/swipe_to_wrapper.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
 import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
+import 'package:textgb/features/chat/widgets/video_dm_preview.dart'; // NEW: Custom video DM preview
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -20,11 +23,13 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
   final UserModel contact;
+  final MessageModel? videoContext; // NEW: Video context for DM
 
   const ChatScreen({
     super.key,
     required this.chatId,
     required this.contact,
+    this.videoContext, // NEW: Optional video context
   });
 
   @override
@@ -38,15 +43,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   double _fontSize = 16.0;
   bool _hasMessageBeenSent = false;
   
-  // Video player state - simplified since we moved logic to the widget
+  // Video player state
   bool _isVideoPlayerVisible = false;
   String? _currentVideoUrl;
+
+  // NEW: Video DM context state
+  MessageModel? _videoDMContext;
+  bool _hasDMContextBeenSent = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_scrollListener);
+    
+    // NEW: Set up video DM context if provided
+    if (widget.videoContext != null) {
+      _videoDMContext = widget.videoContext;
+    }
     
     // Mark messages as read when entering chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -111,14 +125,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   // Helper method to determine verification status
   bool _isContactVerified() {
-    // Temporary logic - you can modify this or add real verification field to UserModel
     return widget.contact.name.isNotEmpty && 
            (widget.contact.name[0].toUpperCase() == 'A' || 
             widget.contact.name[0].toUpperCase() == 'B' ||
             widget.chatId.hashCode % 3 == 0);
   }
 
-  // Video player methods - simplified
+  // Video player methods
   void _handleVideoThumbnailTap(MessageModel message) {
     if (message.type != MessageEnum.video) return;
     
@@ -146,6 +159,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     });
   }
 
+  // NEW: Handle DM video context actions
+  void _handleDMVideoTap() {
+    if (_videoDMContext?.mediaUrl != null) {
+      _showVideoPlayer(_videoDMContext!.mediaUrl!);
+    }
+  }
+
+  void _cancelDMContext() {
+    setState(() {
+      _videoDMContext = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
@@ -168,7 +194,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         }
         
         // Return whether any message was sent when popping
-        Navigator.of(context).pop(_hasMessageBeenSent);
+        Navigator.of(context).pop(_hasMessageBeenSent || _hasDMContextBeenSent);
         return false;
       },
       child: Scaffold(
@@ -212,6 +238,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         contactName: widget.contact.name,
                         replyToMessage: state.replyToMessage,
                         onCancelReply: () => _cancelReply(),
+                        // NEW: Pass video DM context
+                        videoDMContext: _videoDMContext,
+                        onCancelVideoDM: _cancelDMContext,
+                        onVideoTap: _handleDMVideoTap,
                       ),
                       orElse: () => const SizedBox.shrink(),
                     ),
@@ -219,7 +249,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               ),
             ),
             
-            // Video Player Overlay - now using the separate widget
+            // Video Player Overlay
             if (_isVideoPlayerVisible && _currentVideoUrl != null)
               VideoPlayerOverlay(
                 videoUrl: _currentVideoUrl!,
@@ -227,7 +257,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 title: 'Shared Video',
               ),
               
-            // Scroll to bottom button - positioned higher and closer to edge
+            // Scroll to bottom button
             if (_showScrollToBottom && !_isVideoPlayerVisible)
               Positioned(
                 right: 8,
@@ -277,8 +307,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           ),
           leading: IconButton(
             onPressed: () {
-              // Return whether any message was sent when navigating back
-              Navigator.of(context).pop(_hasMessageBeenSent);
+              Navigator.of(context).pop(_hasMessageBeenSent || _hasDMContextBeenSent);
             },
             icon: Icon(
               Icons.arrow_back,
@@ -554,11 +583,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
            nextMessage.timestamp.difference(currentMessage.timestamp).inMinutes > 5;
   }
 
-  // Update message sending handlers to mark that a message was sent
+  // NEW: Modified message sending handlers
   void _handleSendText(String text) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    messageNotifier.sendTextMessage(widget.chatId, text);
-    _hasMessageBeenSent = true;
+    
+    // If we have video DM context, send it first then the text
+    if (_videoDMContext != null) {
+      _sendVideoDMWithText(text);
+    } else {
+      messageNotifier.sendTextMessage(widget.chatId, text);
+      _hasMessageBeenSent = true;
+    }
+  }
+
+  // NEW: Send video DM with optional text
+  void _sendVideoDMWithText(String text) async {
+    if (_videoDMContext == null) return;
+    
+    try {
+      final chatRepository = ref.read(chatRepositoryProvider);
+      final currentUser = ref.read(currentUserProvider);
+      
+      if (currentUser == null) return;
+      
+      // Send the video message
+      await chatRepository.sendVideoMessage(
+        chatId: widget.chatId,
+        senderId: currentUser.uid,
+        videoUrl: _videoDMContext!.mediaUrl ?? '',
+        thumbnailUrl: _videoDMContext!.mediaMetadata?['thumbnailUrl'] as String? ?? '',
+        videoId: _videoDMContext!.mediaMetadata?['videoId'] as String? ?? '',
+      );
+      
+      // If there's text, send it as a follow-up message
+      if (text.trim().isNotEmpty) {
+        final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+        // Small delay to ensure video message is sent first
+        await Future.delayed(const Duration(milliseconds: 500));
+        messageNotifier.sendTextMessage(widget.chatId, text);
+      }
+      
+      // Mark as sent and clear context
+      setState(() {
+        _hasDMContextBeenSent = true;
+        _videoDMContext = null;
+      });
+      
+    } catch (e) {
+      debugPrint('Error sending video DM: $e');
+      showSnackBar(context, 'Failed to send video');
+    }
   }
 
   void _handleSendImage(File image) {
@@ -582,7 +656,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.setReplyToMessage(message);
     
-    // Auto-scroll to bottom when replying
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
@@ -613,7 +686,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               ),
               const SizedBox(height: 20),
               
-              // Reply option
               _MessageActionTile(
                 icon: Icons.reply,
                 title: 'Reply',
@@ -623,7 +695,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 },
               ),
               
-              // Edit option (only for text messages from current user)
               if (isCurrentUser && message.type == MessageEnum.text) ...[
                 _MessageActionTile(
                   icon: Icons.edit,
@@ -635,7 +706,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 ),
               ],
               
-              // Pin/Unpin option
               _MessageActionTile(
                 icon: message.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
                 title: message.isPinned ? 'Unpin' : 'Pin',
@@ -645,7 +715,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 },
               ),
               
-              // Copy option (for text messages)
               if (message.type == MessageEnum.text) ...[
                 _MessageActionTile(
                   icon: Icons.copy,
@@ -657,7 +726,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 ),
               ],
               
-              // Delete options
               if (isCurrentUser) ...[
                 _MessageActionTile(
                   icon: Icons.delete_outline,
@@ -766,7 +834,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _showContactProfile() {
-    // TODO: Navigate to contact profile screen
     showSnackBar(context, 'Contact profile - Coming soon');
   }
 
@@ -776,7 +843,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       builder: (context) => _SearchMessagesDialog(
         chatId: widget.chatId,
         onMessageSelected: (message) {
-          // TODO: Scroll to selected message
           Navigator.pop(context);
         },
       ),
@@ -825,7 +891,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _showWallpaperOptions() {
-    // TODO: Implement wallpaper selection
     showSnackBar(context, 'Wallpaper selection - Coming soon');
   }
 
@@ -838,7 +903,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           setState(() {
             _fontSize = size;
           });
-          // TODO: Save to chat settings
         },
       ),
     );
@@ -883,7 +947,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _blockContact() {
-    // TODO: Implement block contact functionality
     showSnackBar(context, 'Contact blocked');
     Navigator.pop(context);
   }
