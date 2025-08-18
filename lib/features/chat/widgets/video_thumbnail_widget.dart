@@ -8,7 +8,7 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class VideoThumbnailWidget extends StatefulWidget {
   final String videoUrl;
-  final String? fallbackThumbnailUrl; // Network thumbnail URL as fallback
+  final String? fallbackThumbnailUrl;
   final double width;
   final double height;
   final BorderRadius? borderRadius;
@@ -16,6 +16,7 @@ class VideoThumbnailWidget extends StatefulWidget {
   final bool showPlayButton;
   final Widget? overlayWidget;
   final BoxFit fit;
+  final bool enableGestures; // NEW: Control gesture detection
 
   const VideoThumbnailWidget({
     super.key,
@@ -28,6 +29,7 @@ class VideoThumbnailWidget extends StatefulWidget {
     this.showPlayButton = true,
     this.overlayWidget,
     this.fit = BoxFit.cover,
+    this.enableGestures = true, // NEW: Default to true
   });
 
   @override
@@ -215,17 +217,26 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
           ),
           if (_generationFailed) ...[
             const SizedBox(height: 4),
-            GestureDetector(
-              onTap: _generateThumbnail,
-              child: Text(
-                'Tap to retry',
-                style: TextStyle(
-                  color: modernTheme.primaryColor,
-                  fontSize: 9,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ),
+            // Only make this tappable if gestures are enabled
+            widget.enableGestures
+                ? GestureDetector(
+                    onTap: _generateThumbnail,
+                    child: Text(
+                      'Tap to retry',
+                      style: TextStyle(
+                        color: modernTheme.primaryColor,
+                        fontSize: 9,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  )
+                : Text(
+                    'Failed to load',
+                    style: TextStyle(
+                      color: modernTheme.textSecondaryColor,
+                      fontSize: 9,
+                    ),
+                  ),
           ],
         ],
       ),
@@ -236,63 +247,70 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: ClipRRect(
-        borderRadius: widget.borderRadius ?? BorderRadius.zero,
-        child: SizedBox(
-          width: widget.width,
-          height: widget.height,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Thumbnail content
-              _buildThumbnailContent(modernTheme),
-              
-              // Clean play button overlay (only when requested and not loading)
-              if (widget.showPlayButton && !_isGenerating) ...[
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.center,
-                      radius: 0.3,
-                      colors: [
-                        Colors.black.withOpacity(0.4),
-                        Colors.transparent,
+    Widget thumbnailWidget = ClipRRect(
+      borderRadius: widget.borderRadius ?? BorderRadius.zero,
+      child: SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Thumbnail content
+            _buildThumbnailContent(modernTheme),
+            
+            // Clean play button overlay (only when requested and not loading)
+            if (widget.showPlayButton && !_isGenerating) ...[
+              Container(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 0.3,
+                    colors: [
+                      Colors.black.withOpacity(0.4),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
                       ],
                     ),
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 28,
                     ),
                   ),
                 ),
-              ],
-              
-              // Custom overlay widget (for additional content if needed)
-              if (widget.overlayWidget != null) widget.overlayWidget!,
+              ),
             ],
-          ),
+            
+            // Custom overlay widget (for additional content if needed)
+            if (widget.overlayWidget != null) widget.overlayWidget!,
+          ],
         ),
       ),
     );
+
+    // Only wrap with GestureDetector if gestures are enabled and onTap is provided
+    if (widget.enableGestures && widget.onTap != null) {
+      return GestureDetector(
+        onTap: widget.onTap,
+        child: thumbnailWidget,
+      );
+    }
+
+    return thumbnailWidget;
   }
 }
