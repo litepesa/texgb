@@ -1,6 +1,8 @@
-// lib/features/chat/widgets/video_reaction_input.dart
+// lib/features/chat/widgets/video_reaction_input.dart - Updated with thumbnail generation
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
+import 'package:textgb/features/chat/services/video_thumbnail_service.dart';
+import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class VideoReactionInput extends StatefulWidget {
@@ -22,6 +24,7 @@ class VideoReactionInput extends StatefulWidget {
 class _VideoReactionInputState extends State<VideoReactionInput> {
   final TextEditingController _textController = TextEditingController();
   final List<String> _quickReactions = ['❤️', '😍', '🔥', '😂', '👏', '💯', '🤩', '😮'];
+  final VideoThumbnailService _thumbnailService = VideoThumbnailService();
 
   @override
   void dispose() {
@@ -33,6 +36,22 @@ class _VideoReactionInputState extends State<VideoReactionInput> {
     if (reaction.trim().isNotEmpty) {
       widget.onSendReaction(reaction);
     }
+  }
+
+  // Get the best available thumbnail URL
+  String? _getBestThumbnailUrl() {
+    // Priority 1: Existing thumbnail URL
+    if (widget.video.thumbnailUrl.isNotEmpty) {
+      return widget.video.thumbnailUrl;
+    }
+    
+    // Priority 2: First image from multiple images
+    if (widget.video.isMultipleImages && widget.video.imageUrls.isNotEmpty) {
+      return widget.video.imageUrls.first;
+    }
+    
+    // Priority 3: Will generate from video URL (handled by VideoThumbnailWidget)
+    return null;
   }
 
   @override
@@ -94,7 +113,7 @@ class _VideoReactionInputState extends State<VideoReactionInput> {
               ),
               const SizedBox(height: 16),
               
-              // Video preview
+              // Video preview with smart thumbnail handling
               Container(
                 height: 80,
                 decoration: BoxDecoration(
@@ -103,40 +122,25 @@ class _VideoReactionInputState extends State<VideoReactionInput> {
                 ),
                 child: Row(
                   children: [
-                    // Video thumbnail
+                    // Smart video thumbnail with auto-generation
                     ClipRRect(
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(12),
                         bottomLeft: Radius.circular(12),
                       ),
-                      child: Container(
+                      child: SizedBox(
                         width: 80,
                         height: 80,
-                        color: Colors.grey[300],
-                        child: widget.video.isMultipleImages && widget.video.imageUrls.isNotEmpty
-                            ? Image.network(
-                                widget.video.imageUrls.first,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stack) => Icon(
-                                  Icons.video_library_outlined,
-                                  color: modernTheme.textSecondaryColor,
-                                ),
-                              )
-                            : widget.video.thumbnailUrl.isNotEmpty
-                                ? Image.network(
-                                    widget.video.thumbnailUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stack) => Icon(
-                                      Icons.video_library_outlined,
-                                      color: modernTheme.textSecondaryColor,
-                                      size: 32,
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.video_library_outlined,
-                                    color: modernTheme.textSecondaryColor,
-                                    size: 32,
-                                  ),
+                        child: VideoThumbnailWidget(
+                          videoUrl: widget.video.videoUrl,
+                          fallbackThumbnailUrl: _getBestThumbnailUrl(),
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          showPlayButton: false,
+                          enableGestures: false,
+                          borderRadius: BorderRadius.zero,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -305,3 +309,4 @@ class _VideoReactionInputState extends State<VideoReactionInput> {
     );
   }
 }
+

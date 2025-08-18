@@ -1,4 +1,4 @@
-// lib/features/chat/screens/chat_screen.dart
+// lib/features/chat/screens/chat_screen.dart - Updated and Simplified
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,7 +15,6 @@ import 'package:textgb/features/chat/widgets/message_input.dart';
 import 'package:textgb/features/chat/widgets/swipe_to_wrapper.dart';
 import 'package:textgb/features/chat/widgets/message_reply_preview.dart';
 import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
-import 'package:textgb/features/chat/widgets/video_dm_preview.dart'; // NEW: Custom video DM preview
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -23,13 +22,12 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
   final UserModel contact;
-  final MessageModel? videoContext; // NEW: Video context for DM
+  // REMOVED: videoContext parameter - no longer needed with new reaction system
 
   const ChatScreen({
     super.key,
     required this.chatId,
     required this.contact,
-    this.videoContext, // NEW: Optional video context
   });
 
   @override
@@ -47,20 +45,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   bool _isVideoPlayerVisible = false;
   String? _currentVideoUrl;
 
-  // NEW: Video DM context state
-  MessageModel? _videoDMContext;
-  bool _hasDMContextBeenSent = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_scrollListener);
-    
-    // NEW: Set up video DM context if provided
-    if (widget.videoContext != null) {
-      _videoDMContext = widget.videoContext;
-    }
     
     // Mark messages as read when entering chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -133,9 +122,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   // Video player methods
   void _handleVideoThumbnailTap(MessageModel message) {
-    if (message.type != MessageEnum.video) return;
+    // Handle both regular video messages and video reaction messages
+    String? videoUrl;
     
-    final videoUrl = message.mediaUrl;
+    if (message.type == MessageEnum.video) {
+      videoUrl = message.mediaUrl;
+    } else if (message.mediaMetadata?['isVideoReaction'] == true) {
+      // For video reactions, get the original video URL
+      final videoReactionData = message.mediaMetadata?['videoReaction'];
+      if (videoReactionData != null) {
+        videoUrl = videoReactionData['videoUrl'];
+      }
+    }
     
     if (videoUrl == null || videoUrl.isEmpty) {
       showSnackBar(context, 'Video not available');
@@ -156,19 +154,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     setState(() {
       _isVideoPlayerVisible = false;
       _currentVideoUrl = null;
-    });
-  }
-
-  // NEW: Handle DM video context actions
-  void _handleDMVideoTap() {
-    if (_videoDMContext?.mediaUrl != null) {
-      _showVideoPlayer(_videoDMContext!.mediaUrl!);
-    }
-  }
-
-  void _cancelDMContext() {
-    setState(() {
-      _videoDMContext = null;
     });
   }
 
@@ -194,7 +179,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         }
         
         // Return whether any message was sent when popping
-        Navigator.of(context).pop(_hasMessageBeenSent || _hasDMContextBeenSent);
+        Navigator.of(context).pop(_hasMessageBeenSent);
         return false;
       },
       child: Scaffold(
@@ -238,10 +223,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                         contactName: widget.contact.name,
                         replyToMessage: state.replyToMessage,
                         onCancelReply: () => _cancelReply(),
-                        // NEW: Pass video DM context
-                        videoDMContext: _videoDMContext,
-                        onCancelVideoDM: _cancelDMContext,
-                        onVideoTap: _handleDMVideoTap,
                       ),
                       orElse: () => const SizedBox.shrink(),
                     ),
@@ -307,7 +288,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           ),
           leading: IconButton(
             onPressed: () {
-              Navigator.of(context).pop(_hasMessageBeenSent || _hasDMContextBeenSent);
+              Navigator.of(context).pop(_hasMessageBeenSent);
             },
             icon: Icon(
               Icons.arrow_back,
@@ -583,56 +564,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
            nextMessage.timestamp.difference(currentMessage.timestamp).inMinutes > 5;
   }
 
-  // NEW: Modified message sending handlers
+  // SIMPLIFIED: Standard message sending - no video context handling
   void _handleSendText(String text) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    
-    // If we have video DM context, send it first then the text
-    if (_videoDMContext != null) {
-      _sendVideoDMWithText(text);
-    } else {
-      messageNotifier.sendTextMessage(widget.chatId, text);
-      _hasMessageBeenSent = true;
-    }
-  }
-
-  // NEW: Send video DM with optional text
-  void _sendVideoDMWithText(String text) async {
-    if (_videoDMContext == null) return;
-    
-    try {
-      final chatRepository = ref.read(chatRepositoryProvider);
-      final currentUser = ref.read(currentUserProvider);
-      
-      if (currentUser == null) return;
-      
-      // Send the video message
-      await chatRepository.sendVideoMessage(
-        chatId: widget.chatId,
-        senderId: currentUser.uid,
-        videoUrl: _videoDMContext!.mediaUrl ?? '',
-        thumbnailUrl: _videoDMContext!.mediaMetadata?['thumbnailUrl'] as String? ?? '',
-        videoId: _videoDMContext!.mediaMetadata?['videoId'] as String? ?? '',
-      );
-      
-      // If there's text, send it as a follow-up message
-      if (text.trim().isNotEmpty) {
-        final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-        // Small delay to ensure video message is sent first
-        await Future.delayed(const Duration(milliseconds: 500));
-        messageNotifier.sendTextMessage(widget.chatId, text);
-      }
-      
-      // Mark as sent and clear context
-      setState(() {
-        _hasDMContextBeenSent = true;
-        _videoDMContext = null;
-      });
-      
-    } catch (e) {
-      debugPrint('Error sending video DM: $e');
-      showSnackBar(context, 'Failed to send video');
-    }
+    messageNotifier.sendTextMessage(widget.chatId, text);
+    _hasMessageBeenSent = true;
   }
 
   void _handleSendImage(File image) {
@@ -715,7 +651,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 },
               ),
               
-              if (message.type == MessageEnum.text) ...[
+              if (message.type == MessageEnum.text || message.mediaMetadata?['isVideoReaction'] == true) ...[
                 _MessageActionTile(
                   icon: Icons.copy,
                   title: 'Copy',
@@ -786,7 +722,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _copyMessage(MessageModel message) {
-    Clipboard.setData(ClipboardData(text: message.content));
+    String textToCopy = message.content;
+    
+    // For video reactions, copy the reaction text
+    if (message.mediaMetadata?['isVideoReaction'] == true) {
+      final videoReactionData = message.mediaMetadata?['videoReaction'];
+      if (videoReactionData != null) {
+        final reaction = videoReactionData['reaction'] ?? '';
+        final channelName = videoReactionData['channelName'] ?? 'video';
+        textToCopy = reaction.isNotEmpty ? reaction : 'Reacted to $channelName\'s video';
+      }
+    }
+    
+    Clipboard.setData(ClipboardData(text: textToCopy));
     showSnackBar(context, 'Message copied to clipboard');
   }
 
@@ -952,8 +900,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 }
 
-// Supporting widgets and dialogs
-
+// Supporting widgets (unchanged from original)
 class _MessageActionTile extends StatelessWidget {
   final IconData icon;
   final String title;

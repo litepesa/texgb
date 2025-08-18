@@ -1,7 +1,10 @@
-// lib/features/chat/widgets/video_reaction_bubble.dart
+// lib/features/chat/widgets/video_reaction_bubble.dart - Updated with thumbnail generation
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
+import 'package:textgb/features/chat/repositories/chat_repository.dart';
+import 'package:textgb/features/chat/services/video_thumbnail_service.dart';
+import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class VideoReactionBubble extends StatelessWidget {
@@ -44,52 +47,30 @@ class VideoReactionBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Video thumbnail section
+            // Video thumbnail section with smart thumbnail generation
             ClipRRect(
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
               ),
-              child: Container(
+              child: SizedBox(
                 height: 160,
                 width: double.infinity,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Video thumbnail
-                    CachedNetworkImage(
-                      imageUrl: videoReaction.thumbnailUrl,
+                    // Smart video thumbnail with auto-generation fallback
+                    VideoThumbnailWidget(
+                      videoUrl: videoReaction.videoUrl,
+                      fallbackThumbnailUrl: videoReaction.thumbnailUrl.isNotEmpty 
+                          ? videoReaction.thumbnailUrl 
+                          : null,
+                      width: double.infinity,
+                      height: 160,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: modernTheme.surfaceVariantColor,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: modernTheme.primaryColor,
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        color: modernTheme.surfaceVariantColor,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.video_library_outlined,
-                              color: modernTheme.textSecondaryColor,
-                              size: 32,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Video',
-                              style: TextStyle(
-                                color: modernTheme.textSecondaryColor,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      showPlayButton: false,
+                      enableGestures: false,
+                      borderRadius: BorderRadius.zero,
                     ),
                     
                     // Gradient overlay
@@ -134,7 +115,7 @@ class VideoReactionBubble extends StatelessWidget {
                             radius: 12,
                             backgroundColor: Colors.white,
                             backgroundImage: videoReaction.channelImage.isNotEmpty
-                                ? CachedNetworkImageProvider(videoReaction.channelImage)
+                                ? NetworkImage(videoReaction.channelImage)
                                 : null,
                             child: videoReaction.channelImage.isEmpty
                                 ? Text(
@@ -197,5 +178,67 @@ class VideoReactionBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// Updated channels_feed_screen.dart method with thumbnail generation
+Future<void> _sendVideoReactionMessage({
+  required String chatId,
+  required ChannelVideoModel video,
+  required String reaction,
+  required String senderId,
+}) async {
+  try {
+    var ref;
+    final chatRepository = ref.read(chatRepositoryProvider);
+    final thumbnailService = VideoThumbnailService();
+    
+    // Get or generate the best available thumbnail
+    String thumbnailUrl = '';
+    
+    // Priority 1: Use existing thumbnail
+    if (video.thumbnailUrl.isNotEmpty) {
+      thumbnailUrl = video.thumbnailUrl;
+    }
+    // Priority 2: Use first image if it's a multiple images post
+    else if (video.isMultipleImages && video.imageUrls.isNotEmpty) {
+      thumbnailUrl = video.imageUrls.first;
+    }
+    // Priority 3: Generate thumbnail from video URL
+    else if (video.videoUrl.isNotEmpty) {
+      debugPrint('Generating thumbnail for video reaction: ${video.videoUrl}');
+      try {
+        final generatedThumbnail = await thumbnailService.generateThumbnail(video.videoUrl);
+        if (generatedThumbnail != null) {
+          thumbnailUrl = generatedThumbnail; // This will be a local file path
+          debugPrint('Generated thumbnail: $thumbnailUrl');
+        }
+      } catch (e) {
+        debugPrint('Failed to generate thumbnail: $e');
+        // Continue without thumbnail - the VideoThumbnailWidget will handle generation in UI
+      }
+    }
+    
+    // Create video reaction data
+    final videoReaction = VideoReactionModel(
+      videoId: video.id,
+      videoUrl: video.videoUrl,
+      thumbnailUrl: thumbnailUrl, // Will be generated URL, existing URL, or empty
+      channelName: video.channelName,
+      channelImage: video.channelImage,
+      reaction: reaction,
+      timestamp: DateTime.now(),
+    );
+
+    // Send as a video reaction message
+    await chatRepository.sendVideoReactionMessage(
+      chatId: chatId,
+      senderId: senderId,
+      videoReaction: videoReaction,
+    );
+    
+  } catch (e) {
+    debugPrint('Error sending video reaction message: $e');
+    rethrow;
   }
 }
