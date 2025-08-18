@@ -13,6 +13,11 @@ import 'package:textgb/features/channels/widgets/channel_video_item.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
+import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/enums/enums.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -49,6 +54,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
   bool _isCommentsSheetOpen = false; // Track comments sheet state
+  bool _isChannelEnsuring = false; // NEW: Track channel auto-creation
   
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
@@ -66,7 +72,10 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
-    _loadVideos();
+    // FIXED: Use post-frame callback to avoid provider modification during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureChannelAndLoadVideos();
+    });
     _setupCacheCleanup();
     _hasInitialized = true;
   }
@@ -250,14 +259,30 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     });
   }
 
-  Future<void> _loadVideos() async {
+  // NEW: Ensure user has channel before loading videos
+  Future<void> _ensureChannelAndLoadVideos() async {
     if (_isFirstLoad) {
-      debugPrint('ChannelsFeedScreen: Loading initial videos');
-      await ref.read(channelVideosProvider.notifier).loadVideos();
+      debugPrint('ChannelsFeedScreen: Ensuring channel and loading initial videos');
+      
+      setState(() {
+        _isChannelEnsuring = true;
+      });
+      
+      // Ensure user has a channel first
+      final channel = await ref.read(channelsProvider.notifier).ensureUserHasChannel();
+      
+      if (channel != null) {
+        debugPrint('ChannelsFeedScreen: Channel ensured, loading videos');
+        // Load videos after ensuring channel
+        await ref.read(channelVideosProvider.notifier).loadVideos();
+      } else {
+        debugPrint('ChannelsFeedScreen: Failed to ensure channel');
+      }
       
       if (mounted) {
         setState(() {
           _isFirstLoad = false;
+          _isChannelEnsuring = false;
         });
         
         // If a specific video ID was provided, jump to it
@@ -510,6 +535,160 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
+  // UPDATED: Navigate to channel owner chat with video context (swipe-to-reply style)
+  Future<void> _navigateToChannelOwnerChat(ChannelVideoModel? video) async {
+    if (video == null) {
+      debugPrint('No video available for DM');
+      return;
+    }
+
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    if (currentUser == null) {
+      debugPrint('User not authenticated');
+      return;
+    }
+
+    // Check if user is trying to DM themselves
+    if (video.userId == currentUser.uid) {
+      _showCannotDMSelfMessage();
+      return;
+    }
+
+    // Pause video before navigation
+    _pauseForNavigation();
+
+    try {
+      // Get channel details to get channel owner info
+      final channel = await ref.read(channelsProvider.notifier).getChannelById(video.channelId);
+      
+      if (channel == null) {
+        debugPrint('Channel not found');
+        _resumeFromNavigation();
+        return;
+      }
+
+      // Get channel owner's user data
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final channelOwner = await authNotifier.getUserDataById(channel.ownerId);
+      
+      if (channelOwner == null) {
+        debugPrint('Channel owner not found');
+        _resumeFromNavigation();
+        return;
+      }
+
+      // Create or get existing chat (without sending video yet)
+      final chatListNotifier = ref.read(chatListProvider.notifier);
+      final chatId = await chatListNotifier.createChat(channelOwner.uid); // No video context here
+      
+      if (chatId != null && mounted) {
+        // Create a video message model for context (not sent yet)
+        final videoContext = MessageModel(
+          messageId: '', // Empty ID since it's not sent yet
+          chatId: chatId,
+          senderId: currentUser.uid,
+          content: '', // No content yet - user will add their own message
+          type: MessageEnum.video,
+          status: MessageStatus.sending,
+          timestamp: DateTime.now(),
+          mediaUrl: video.videoUrl,
+          mediaMetadata: {
+            'isSharedVideo': true,
+            'videoId': video.id,
+            'thumbnailUrl': video.isMultipleImages && video.imageUrls.isNotEmpty 
+                ? video.imageUrls.first 
+                : video.thumbnailUrl,
+          },
+        );
+
+        // Navigate to chat screen with video context
+        final result = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatId: chatId,
+              contact: channelOwner,
+              videoContext: videoContext, // Pass video as context (like reply)
+            ),
+          ),
+        );
+
+        // Check if any message was sent (video or text)
+        if (result == null || result == false) {
+          final hasMessages = await chatListNotifier.chatHasMessages(chatId);
+          
+          if (!hasMessages) {
+            // Delete the empty chat if no messages were sent
+            await chatListNotifier.deleteChat(
+              chatId, 
+              currentUser.uid, 
+              deleteForEveryone: true
+            );
+          }
+        }
+      } else if (mounted) {
+        debugPrint('Failed to create chat with channel owner');
+      }
+    } catch (e) {
+      debugPrint('Error navigating to channel owner chat: $e');
+    } finally {
+      // Resume video after returning from navigation
+      _resumeFromNavigation();
+    }
+  }
+
+  // Add helper method to show cannot DM self message
+  void _showCannotDMSelfMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              CupertinoIcons.smiley,
+              color: Colors.orange,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot DM Yourself',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send a direct message to your own channel.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     debugPrint('ChannelsFeedScreen: Disposing');
@@ -543,10 +722,31 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     final systemTopPadding = MediaQuery.of(context).padding.top;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
-    if (_isFirstLoad && channelVideosState.isLoading) {
-      return const Scaffold(
+    // Show loading screen during channel ensuring or initial video loading
+    if ((_isFirstLoad && channelVideosState.isLoading) || _isChannelEnsuring || channelsState.isEnsuring) {
+      return Scaffold(
         backgroundColor: Colors.black,
-        body: SizedBox.shrink(),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(
+                color: Colors.white,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                _isChannelEnsuring || channelsState.isEnsuring 
+                    ? 'Setting up your channel...'
+                    : 'Loading videos...',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
     
@@ -600,11 +800,8 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   Widget _buildBody(ChannelVideosState videosState, ChannelsState channelsState) {
+    // REMOVED: Create channel prompt - channels are now auto-created
     
-    if (!videosState.isLoading && channelsState.userChannel == null) {
-      return _buildCreateChannelPrompt();
-    }
-
     if (!videosState.isLoading && videosState.videos.isEmpty) {
       return _buildEmptyState(channelsState);
     }
@@ -730,7 +927,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           // Like button
           _buildRightMenuItem(
             child: Icon(
-              currentVideo?.isLiked == true ? CupertinoIcons.heart : CupertinoIcons.heart,
+              currentVideo?.isLiked == true ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
             ),
@@ -796,7 +993,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // DM button - custom white rounded square with 'DM' text (from moments feed)
+          // DM button - UPDATED with navigation to chat
           _buildRightMenuItem(
             child: Container(
               width: 28,
@@ -817,9 +1014,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               ),
             ),
             label: 'Inbox',
-            onTap: () {
-              // TODO: Add DM functionality
-            },
+            onTap: () => _navigateToChannelOwnerChat(currentVideo),
           ),
           
           const SizedBox(height: 10),
@@ -886,6 +1081,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
       ),
     );
   }
+
   Widget _buildRightMenuItem({
     required Widget child,
     String? label,
@@ -958,32 +1154,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  Widget _buildCreateChannelPrompt() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.video_library,
-            color: Colors.white,
-            size: 80,
-          ),
-          SizedBox(height: 24),
-          Text(
-            'Create your Channel',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 32),
-          // Add create channel button here
-        ],
-      ),
-    );
-  }
-
+  // UPDATED: Empty state - no more create channel prompt
   Widget _buildEmptyState(ChannelsState channelsState) {
     return const Center(
       child: Column(
@@ -1003,7 +1174,15 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               fontWeight: FontWeight.bold,
             ),
           ),
-          // Add create post button here
+          SizedBox(height: 16),
+          Text(
+            'Start creating content to see videos here',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );

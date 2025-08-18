@@ -17,7 +17,6 @@ import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
 import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/channels/screens/create_channel_screen.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
 import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
@@ -158,7 +157,6 @@ class AppRoot extends ConsumerWidget {
             );
           },
           Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
-          Constants.createChannelScreen: (context) => const CreateChannelScreen(),
           Constants.myChannelScreen: (context) => const MyChannelScreen(),
           Constants.createChannelPostScreen: (context) => const CreatePostScreen(),
           Constants.channelFeedScreen: (context) {

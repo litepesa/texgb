@@ -34,6 +34,15 @@ class Constants {
   static const String myPostScreen = '/myPostScreen';
   static const String channelsListScreen = '/channelsListScreen';
   static const String recommendedPostsScreen = '/recommendedPostsScreen';
+
+  // Status routes
+  static const String statusScreen = '/statusScreen';
+  static const String createStatusScreen = '/createStatusScreen';
+  
+  // Groups routes
+  static const String groupsScreen = '/groupsScreen';
+  static const String createGroupScreen = '/createGroupScreen';
+  static const String groupChatScreen = '/groupChatScreen';
   
   // Wallet routes
   static const String walletScreen = '/walletScreen';

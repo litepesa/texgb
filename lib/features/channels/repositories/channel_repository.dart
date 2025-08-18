@@ -12,16 +12,13 @@ abstract class ChannelRepository {
   Future<List<ChannelModel>> getChannels({bool forceRefresh = false});
   Future<ChannelModel?> getChannelById(String channelId);
   Future<ChannelModel?> getUserChannel(String userId);
-  Future<ChannelModel> createChannel({
+  Future<ChannelModel> ensureUserHasChannel(String userId); // NEW: Auto-create if needed
+  Future<ChannelModel> createChannelFromUserData({
     required String userId,
     required String userName,
     required String userImage,
-    required String name,
-    required String description,
-    required String profileImageUrl,
-    required String coverImageUrl,
-    List<String>? tags,
-  });
+    required String userAbout,
+  }); // NEW: Create from user data
   Future<ChannelModel> updateChannel({
     required ChannelModel channel,
     required String profileImageUrl,
@@ -138,52 +135,121 @@ class FirebaseChannelRepository implements ChannelRepository {
   }
 
   @override
-  Future<ChannelModel> createChannel({
+  Future<ChannelModel> ensureUserHasChannel(String userId) async {
+    try {
+      debugPrint('DEBUG: Ensuring user $userId has a channel');
+      
+      // First, check if user already has a channel
+      final existingChannel = await getUserChannel(userId);
+      if (existingChannel != null) {
+        debugPrint('DEBUG: User already has channel: ${existingChannel.id}');
+        return existingChannel;
+      }
+
+      // Get user data for channel creation
+      final userDoc = await _firestore.collection(_usersCollection).doc(userId).get();
+      if (!userDoc.exists) {
+        throw RepositoryException('User data not found for channel creation');
+      }
+
+      final userData = userDoc.data()!;
+      final userName = userData['name'] ?? 'User';
+      final userImage = userData['image'] ?? '';
+      final userAbout = userData['aboutMe'] ?? 'Welcome to my channel!';
+
+      debugPrint('DEBUG: Creating auto channel for $userName');
+
+      // Create channel using user data
+      return await createChannelFromUserData(
+        userId: userId,
+        userName: userName,
+        userImage: userImage,
+        userAbout: userAbout,
+      );
+    } catch (e) {
+      debugPrint('ERROR: Failed to ensure user has channel: $e');
+      throw RepositoryException('Failed to ensure user has channel: $e');
+    }
+  }
+
+  @override
+  Future<ChannelModel> createChannelFromUserData({
     required String userId,
     required String userName,
     required String userImage,
-    required String name,
-    required String description,
-    required String profileImageUrl,
-    required String coverImageUrl,
-    List<String>? tags,
+    required String userAbout,
   }) async {
     try {
-      final channelId = _generateId();
-      final channel = ChannelModel(
-        id: channelId,
-        ownerId: userId,
-        ownerName: userName,
-        ownerImage: userImage,
-        name: name,
-        description: description,
-        profileImage: profileImageUrl,
-        coverImage: coverImageUrl,
-        followers: 0,
-        videosCount: 0,
-        likesCount: 0,
-        isVerified: false,
-        tags: tags ?? [],
-        followerUIDs: [],
-        createdAt: Timestamp.now(),
-        lastPostAt: null, // No posts yet when creating channel
-        isActive: true,
-        isFeatured: false,
-      );
+      debugPrint('DEBUG: Creating channel from user data for $userId');
 
-      await _firestore
-          .collection(_channelsCollection)
-          .doc(channelId)
-          .set(channel.toMap());
+      // CRITICAL: Use atomic transaction to prevent duplicate channels
+      final channelRef = _firestore.collection(_channelsCollection).doc();
+      final channelId = channelRef.id;
 
-      // Update user's owned channels
-      await _firestore.collection(_usersCollection).doc(userId).update({
-        'ownedChannels': FieldValue.arrayUnion([channelId]),
+      return await _firestore.runTransaction<ChannelModel>((transaction) async {
+        // Double-check: Query for existing channel by checking user document
+        // (Query operations are not allowed in transactions, so we check the user doc)
+        final userDocRef = _firestore.collection(_usersCollection).doc(userId);
+        final userDocSnapshot = await transaction.get(userDocRef);
+        
+        if (userDocSnapshot.exists) {
+          final userData = userDocSnapshot.data()!;
+          final ownedChannels = List<String>.from(userData['ownedChannels'] ?? []);
+          
+          // Check if user already has channels
+          if (ownedChannels.isNotEmpty) {
+            // User already has channels, try to get the first active one
+            for (String existingChannelId in ownedChannels) {
+              final existingChannelRef = _firestore.collection(_channelsCollection).doc(existingChannelId);
+              final existingChannelSnapshot = await transaction.get(existingChannelRef);
+              
+              if (existingChannelSnapshot.exists) {
+                final existingChannelData = existingChannelSnapshot.data()!;
+                if (existingChannelData['isActive'] == true) {
+                  debugPrint('DEBUG: Channel already exists in transaction: $existingChannelId');
+                  return ChannelModel.fromMap(existingChannelData, existingChannelId);
+                }
+              }
+            }
+          }
+        }
+
+        // Create new channel
+        final channel = ChannelModel(
+          id: channelId,
+          ownerId: userId,
+          ownerName: userName,
+          ownerImage: userImage,
+          name: userName, // Use username as channel name
+          description: userAbout, // Use user about as channel description
+          profileImage: userImage, // Use user image as channel image
+          coverImage: '', // No cover image initially
+          followers: 0,
+          videosCount: 0,
+          likesCount: 0,
+          isVerified: false,
+          tags: [], // No tags initially
+          followerUIDs: [],
+          createdAt: Timestamp.now(),
+          lastPostAt: null,
+          isActive: true,
+          isFeatured: false,
+        );
+
+        // Set channel data in transaction
+        transaction.set(channelRef, channel.toMap());
+
+        // Update user's owned channels in transaction
+        transaction.update(userDocRef, {
+          'ownedChannels': FieldValue.arrayUnion([channelId]),
+        });
+
+        debugPrint('DEBUG: Auto-created channel $channelId for user $userId');
+        return channel;
       });
-
-      return channel;
     } catch (e) {
-      throw RepositoryException('Failed to create channel: $e');
+      debugPrint('ERROR: Failed to create channel from user data: $e');
+      throw RepositoryException('Failed to create channel from user data: $e');
     }
   }
 
@@ -405,7 +471,7 @@ class FirebaseChannelRepository implements ChannelRepository {
       // Update channel's video count AND lastPostAt
       await _firestore.collection(_channelsCollection).doc(channelId).update({
         'videosCount': FieldValue.increment(1),
-        'lastPostAt': now, // Update last post timestamp
+        'lastPostAt': now,
       });
 
       return video;
@@ -458,7 +524,7 @@ class FirebaseChannelRepository implements ChannelRepository {
       // Update channel's video count AND lastPostAt
       await _firestore.collection(_channelsCollection).doc(channelId).update({
         'videosCount': FieldValue.increment(1),
-        'lastPostAt': now, // Update last post timestamp
+        'lastPostAt': now,
       });
 
       return post;
