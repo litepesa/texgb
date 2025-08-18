@@ -13,6 +13,7 @@ import 'package:textgb/features/channels/widgets/channel_video_item.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
+import 'package:textgb/features/channels/widgets/virtual_gifts_bottom_sheet.dart'; // Add this import
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
@@ -714,6 +715,121 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
+  // NEW: Show virtual gifts bottom sheet
+  void _showVirtualGifts(ChannelVideoModel? video) {
+    if (video == null) {
+      debugPrint('No video available for gifting');
+      return;
+    }
+
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    if (currentUser == null) {
+      debugPrint('User not authenticated');
+      _showSnackBar('Please log in to send gifts');
+      return;
+    }
+
+    // Check if user is trying to gift their own video
+    if (video.userId == currentUser.uid) {
+      _showCannotGiftOwnVideoMessage();
+      return;
+    }
+
+    // Pause video before showing gifts
+    _pauseForNavigation();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => VirtualGiftsBottomSheet(
+        recipientName: video.channelName,
+        recipientImage: video.channelImage,
+        onGiftSelected: (gift) {
+          _handleGiftSent(video, gift);
+        },
+        onClose: () {
+          // Resume video when gifts sheet is closed
+          _resumeFromNavigation();
+        },
+      ),
+    ).whenComplete(() {
+      // Ensure video resumes if sheet is dismissed
+      _resumeFromNavigation();
+    });
+  }
+
+  // Helper method to handle gift sending
+  void _handleGiftSent(ChannelVideoModel video, VirtualGift gift) {
+    // TODO: Implement actual gift sending logic
+    // This would typically involve:
+    // 1. Deducting the gift price from user's wallet
+    // 2. Adding the gift to the channel owner's earnings
+    // 3. Recording the gift transaction
+    // 4. Optionally sending a notification to the channel owner
+    
+    debugPrint('Gift sent: ${gift.name} (KES ${gift.price}) to ${video.channelName}');
+    
+    // Show success message
+    _showSnackBar('${gift.emoji} ${gift.name} sent to ${video.channelName}!');
+    
+    // TODO: You might want to also send this as a chat message like video reactions
+    // or create a separate gifts system
+  }
+
+  // Helper method to show cannot gift own video message
+  void _showCannotGiftOwnVideoMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.card_giftcard,
+              color: Colors.orange,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot Gift Your Own Video',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send gifts to your own channel videos.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Helper method to show snackbar
   void _showSnackBar(String message) {
     if (mounted) {
@@ -962,7 +1078,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           // Like button
           _buildRightMenuItem(
             child: Icon(
-              currentVideo?.isLiked == true ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+              currentVideo?.isLiked == true ? CupertinoIcons.heart : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
             ),
@@ -1013,7 +1129,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Gift button
+          // Gift button - UPDATED with virtual gifts functionality
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.gift,
@@ -1021,9 +1137,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               size: 26,
             ),
             label: 'Gift',
-            onTap: () {
-              // TODO: Implement gift functionality
-            },
+            onTap: () => _showVirtualGifts(currentVideo),
           ),
           
           const SizedBox(height: 10),
@@ -1048,7 +1162,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
                 ),
               ),
             ),
-            label: 'React', // Changed from 'Inbox' to 'React' to be more specific
+            label: 'Inbox', // Changed from 'Inbox' to 'React' to be more specific
             onTap: () => _navigateToChannelOwnerChat(currentVideo),
           ),
           

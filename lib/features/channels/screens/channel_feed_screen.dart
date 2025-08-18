@@ -997,7 +997,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           // Like button
           _buildRightMenuItem(
             child: Icon(
-              currentVideo?.isLiked == true ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+              currentVideo?.isLiked == true ? CupertinoIcons.heart : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
             ),

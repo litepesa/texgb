@@ -509,7 +509,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                     return Transform.scale(
                       scale: _heartScaleAnimation.value,
                       child: const Icon(
-                        Icons.favorite,
+                        CupertinoIcons.heart,
                         color: Colors.red,
                         size: 80,
                         shadows: [
@@ -558,7 +558,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               child: Opacity(
                 opacity: opacity,
                 child: Icon(
-                  Icons.favorite,
+                  CupertinoIcons.heart,
                   color: Colors.red,
                   size: 20 + (index % 3) * 10.0,
                   shadows: [
