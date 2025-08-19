@@ -411,215 +411,127 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   }
 
   Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    
     return Container(
-      height: 320 + systemTopPadding,
+      width: double.infinity,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
             modernTheme.primaryColor!,
             modernTheme.primaryColor!.withOpacity(0.8),
+            modernTheme.primaryColor!.withOpacity(0.6),
           ],
         ),
       ),
-      child: Stack(
+      child: Column(
         children: [
-          // Cover Image
-          if (_channel!.coverImage.isNotEmpty)
-            Positioned.fill(
-              child: CachedNetworkImage(
-                imageUrl: _channel!.coverImage,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        modernTheme.primaryColor!,
-                        modernTheme.primaryColor!.withOpacity(0.8),
-                      ],
-                    ),
-                  ),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        modernTheme.primaryColor!,
-                        modernTheme.primaryColor!.withOpacity(0.8),
-                      ],
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.image_not_supported,
-                    color: Colors.white30,
-                    size: 48,
-                  ),
-                ),
-              ),
-            ),
+          // Add safe area padding at the top
+          SizedBox(height: MediaQuery.of(context).padding.top),
           
-          // Gradient Overlay
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.3),
-                    Colors.black.withOpacity(0.7),
+          // Profile Content
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            child: Column(
+              children: [
+                // Profile Image with enhanced styling
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Outer glow effect
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.3),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: _channel!.profileImage.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: _channel!.profileImage,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  color: Colors.grey[300],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: (context, error, stackTrace) => Container(
+                                  color: Colors.grey[300],
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 50,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                // Enhanced cache options for better performance
+                                memCacheWidth: 110,
+                                memCacheHeight: 110,
+                                maxWidthDiskCache: 220,
+                                maxHeightDiskCache: 220,
+                              )
+                            : Container(
+                                color: Colors.grey[300],
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 50,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ),
-          ),
-          
-          // Edit Channel Button
-          Positioned(
-            top: systemTopPadding + 16,
-            right: 20,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(25),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _editChannel,
-                  borderRadius: BorderRadius.circular(25),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.edit,
-                          color: modernTheme.primaryColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Edit Channel',
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          
-          // Channel Content
-          Positioned(
-            bottom: 24,
-            left: 20,
-            right: 20,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Profile Image
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: _channel!.profileImage.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: _channel!.profileImage,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
-                              color: modernTheme.primaryColor!.withOpacity(0.1),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    modernTheme.primaryColor!,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            errorWidget: (context, url, error) => Container(
-                              color: modernTheme.primaryColor,
-                              child: Center(
-                                child: Text(
-                                  _channel!.name.isNotEmpty
-                                      ? _channel!.name[0].toUpperCase()
-                                      : "C",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 36,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            color: modernTheme.primaryColor,
-                            child: Center(
-                              child: Text(
-                                _channel!.name.isNotEmpty
-                                    ? _channel!.name[0].toUpperCase()
-                                    : "C",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 36,
-                                ),
-                              ),
-                            ),
-                          ),
-                  ),
-                ),
+                const SizedBox(height: 20),
                 
-                const SizedBox(height: 16),
-                
-                // Channel Info
+                // Channel name with enhanced styling
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Flexible(
                       child: Text(
                         _channel!.name,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
                           fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black26,
+                              offset: Offset(0, 2),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     if (_channel!.isVerified) ...[
@@ -633,12 +545,51 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '${_channel!.followers} followers',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
+                // Channel description
+                if (_channel!.description.isNotEmpty)
+                  Text(
+                    _channel!.description,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      letterSpacing: 0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                const SizedBox(height: 20),
+                
+                // Edit Channel Button with enhanced design
+                GestureDetector(
+                  onTap: _editChannel,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(25),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 8),
+                        Text(
+                          'Edit Channel',
+                          style: TextStyle(
+                            color: modernTheme.primaryColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -668,25 +619,16 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Description
-          if (_channel!.description.isNotEmpty) ...[
-            Text(
-              _channel!.description,
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 16,
-                height: 1.5,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 16),
-          ],
-          
-          // Stats Row
+          // Stats Row with 4 items like profile screen
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
+              _buildStatItem(
+                _channel!.videosCount.toString(),
+                'Posts',
+                Icons.video_library,
+                modernTheme,
+              ),
               _buildStatItem(
                 _channel!.followers.toString(),
                 'Followers',
@@ -694,9 +636,9 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                 modernTheme,
               ),
               _buildStatItem(
-                _channel!.videosCount.toString(),
-                'Posts',
-                Icons.video_library,
+                '0', // Following count - channels don't follow others typically
+                'Following',
+                Icons.person_add,
                 modernTheme,
               ),
               _buildStatItem(
@@ -1241,4 +1183,5 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     
     if (totalViews == 0) return 0.0;
     return (totalEngagement / totalViews) * 100;
-  }}
+  }
+}
