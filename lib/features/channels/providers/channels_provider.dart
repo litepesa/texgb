@@ -22,7 +22,6 @@ class ChannelsState {
   final String? error;
   final bool isCreatingChannel;
   final double uploadProgress;
-  final bool isEnsuring; // NEW: For auto-creation loading state
 
   const ChannelsState({
     this.isLoading = false,
@@ -32,7 +31,6 @@ class ChannelsState {
     this.error,
     this.isCreatingChannel = false,
     this.uploadProgress = 0.0,
-    this.isEnsuring = false,
   });
 
   ChannelsState copyWith({
@@ -43,7 +41,6 @@ class ChannelsState {
     String? error,
     bool? isCreatingChannel,
     double? uploadProgress,
-    bool? isEnsuring,
   }) {
     return ChannelsState(
       isLoading: isLoading ?? this.isLoading,
@@ -53,7 +50,6 @@ class ChannelsState {
       error: error,
       isCreatingChannel: isCreatingChannel ?? this.isCreatingChannel,
       uploadProgress: uploadProgress ?? this.uploadProgress,
-      isEnsuring: isEnsuring ?? this.isEnsuring,
     );
   }
 }
@@ -116,51 +112,8 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     }
   }
 
-  // NEW: Ensure user has a channel (auto-create if needed)
-  Future<ChannelModel?> ensureUserHasChannel() async {
-    if (_auth.currentUser == null) return null;
-    
-    try {
-      final uid = _auth.currentUser!.uid;
-      
-      // Check if user already has a channel
-      if (state.userChannel != null) {
-        debugPrint('DEBUG: User already has channel: ${state.userChannel!.id}');
-        return state.userChannel;
-      }
-
-      // Show "Setting up your channel..." message
-      state = state.copyWith(isEnsuring: true);
-      debugPrint('DEBUG: Auto-creating channel for user $uid');
-
-      // Let repository handle the auto-creation with proper safeguards
-      final channel = await _repository.ensureUserHasChannel(uid);
-      
-      // Update state with the channel
-      state = state.copyWith(
-        userChannel: channel,
-        isEnsuring: false,
-        channels: [channel, ...state.channels], // Add to channels list
-      );
-
-      debugPrint('DEBUG: Channel ensured successfully: ${channel.id}');
-      return channel;
-    } on RepositoryException catch (e) {
-      debugPrint('ERROR: Failed to ensure channel: ${e.message}');
-      state = state.copyWith(
-        error: e.message,
-        isEnsuring: false,
-      );
-      return null;
-    } catch (e) {
-      debugPrint('ERROR: Failed to ensure channel: $e');
-      state = state.copyWith(
-        error: e.toString(),
-        isEnsuring: false,
-      );
-      return null;
-    }
-  }
+  // Check if user has a channel
+  bool get hasUserChannel => state.userChannel != null;
 
   // Load channels followed by the user
   Future<void> loadFollowedChannels() async {
@@ -177,7 +130,94 @@ class ChannelsNotifier extends StateNotifier<ChannelsState> {
     }
   }
 
-  // REMOVED: Manual createChannel method - replaced with auto-creation
+  // Create a new channel manually
+  Future<void> createChannel({
+    required String name,
+    required String description,
+    required File? profileImage,
+    File? coverImage,
+    List<String>? tags,
+    required Function(String) onSuccess,
+    required Function(String) onError,
+  }) async {
+    if (_auth.currentUser == null) {
+      onError('User not authenticated');
+      return;
+    }
+    
+    if (profileImage == null) {
+      onError('Profile image is required');
+      return;
+    }
+    
+    state = state.copyWith(isCreatingChannel: true, uploadProgress: 0.0);
+    
+    try {
+      final uid = _auth.currentUser!.uid;
+      
+      // Check if user already has a channel
+      if (state.userChannel != null) {
+        onError('You already have a channel');
+        state = state.copyWith(isCreatingChannel: false, uploadProgress: 0.0);
+        return;
+      }
+      
+      // Upload profile image
+      final profileImageUrl = await _repository.uploadImage(
+        profileImage, 
+        'channelImages/${const Uuid().v4()}/profile.jpg'
+      );
+      state = state.copyWith(uploadProgress: 0.5);
+      
+      // Upload cover image if provided
+      String coverImageUrl = '';
+      if (coverImage != null) {
+        coverImageUrl = await _repository.uploadImage(
+          coverImage, 
+          'channelImages/${const Uuid().v4()}/cover.jpg'
+        );
+        state = state.copyWith(uploadProgress: 0.8);
+      }
+      
+      // Create channel
+      final channel = await _repository.createChannel(
+        userId: uid,
+        name: name,
+        description: description,
+        profileImageUrl: profileImageUrl,
+        coverImageUrl: coverImageUrl,
+        tags: tags,
+      );
+      
+      state = state.copyWith(uploadProgress: 1.0);
+      
+      // Update channels list
+      final updatedChannels = [channel, ...state.channels];
+      
+      state = state.copyWith(
+        userChannel: channel,
+        channels: updatedChannels,
+        isCreatingChannel: false,
+        uploadProgress: 0.0,
+      );
+      
+      onSuccess('Channel created successfully');
+    } on RepositoryException catch (e) {
+      state = state.copyWith(
+        isCreatingChannel: false,
+        uploadProgress: 0.0,
+        error: e.message,
+      );
+      onError(e.message);
+    } catch (e) {
+      state = state.copyWith(
+        isCreatingChannel: false,
+        uploadProgress: 0.0,
+        error: e.toString(),
+      );
+      onError(e.toString());
+    }
+  }
 
   // Follow or unfollow a channel
   Future<void> toggleFollowChannel(String channelId) async {

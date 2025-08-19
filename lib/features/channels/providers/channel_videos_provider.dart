@@ -212,7 +212,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     }
   }
 
-  // Upload a new video to the channel - UPDATED: Auto-ensure channel
+  // Upload a new video to the channel - UPDATED: Check if user has channel
   Future<void> uploadVideo({
     required File videoFile,
     required String caption,
@@ -231,16 +231,10 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       final uid = _auth.currentUser!.uid;
       final videoId = const Uuid().v4();
       
-      // CRITICAL: Ensure user has a channel before uploading
-      debugPrint('DEBUG: Ensuring user has channel before video upload');
-      // Note: We need access to the channels provider here
-      // This will be handled by the calling screen
-      
-      // For now, we'll assume the channel is ensured by the calling screen
-      // and we'll get it from the repository
+      // Check if user has a channel
       final userChannel = await _repository.getUserChannel(uid);
       if (userChannel == null) {
-        throw RepositoryException('No channel found. Please create a channel first.');
+        throw RepositoryException('You need to create a channel before uploading videos');
       }
       
       // Upload video to storage
@@ -300,7 +294,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     }
   }
 
-  // Upload multiple images to the channel - UPDATED: Auto-ensure channel
+  // Upload multiple images to the channel - UPDATED: Check if user has channel
   Future<void> uploadImages({
     required List<File> imageFiles,
     required String caption,
@@ -325,11 +319,10 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       final postId = const Uuid().v4();
       final List<String> imageUrls = [];
       
-      // CRITICAL: Ensure user has a channel before uploading
-      debugPrint('DEBUG: Ensuring user has channel before image upload');
+      // Check if user has a channel
       final userChannel = await _repository.getUserChannel(uid);
       if (userChannel == null) {
-        throw RepositoryException('No channel found. Please create a channel first.');
+        throw RepositoryException('You need to create a channel before uploading images');
       }
       
       // Upload each image

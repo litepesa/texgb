@@ -12,13 +12,14 @@ abstract class ChannelRepository {
   Future<List<ChannelModel>> getChannels({bool forceRefresh = false});
   Future<ChannelModel?> getChannelById(String channelId);
   Future<ChannelModel?> getUserChannel(String userId);
-  Future<ChannelModel> ensureUserHasChannel(String userId); // NEW: Auto-create if needed
-  Future<ChannelModel> createChannelFromUserData({
+  Future<ChannelModel> createChannel({
     required String userId,
-    required String userName,
-    required String userImage,
-    required String userAbout,
-  }); // NEW: Create from user data
+    required String name,
+    required String description,
+    required String profileImageUrl,
+    required String coverImageUrl,
+    List<String>? tags,
+  }); // Manual channel creation
   Future<ChannelModel> updateChannel({
     required ChannelModel channel,
     required String profileImageUrl,
@@ -135,60 +136,33 @@ class FirebaseChannelRepository implements ChannelRepository {
   }
 
   @override
-  Future<ChannelModel> ensureUserHasChannel(String userId) async {
+  Future<ChannelModel> createChannel({
+    required String userId,
+    required String name,
+    required String description,
+    required String profileImageUrl,
+    required String coverImageUrl,
+    List<String>? tags,
+  }) async {
     try {
-      debugPrint('DEBUG: Ensuring user $userId has a channel');
-      
-      // First, check if user already has a channel
-      final existingChannel = await getUserChannel(userId);
-      if (existingChannel != null) {
-        debugPrint('DEBUG: User already has channel: ${existingChannel.id}');
-        return existingChannel;
-      }
+      debugPrint('DEBUG: Creating channel manually for $userId');
 
-      // Get user data for channel creation
+      // Get user data for additional info
       final userDoc = await _firestore.collection(_usersCollection).doc(userId).get();
       if (!userDoc.exists) {
-        throw RepositoryException('User data not found for channel creation');
+        throw RepositoryException('User data not found');
       }
 
       final userData = userDoc.data()!;
       final userName = userData['name'] ?? 'User';
       final userImage = userData['image'] ?? '';
-      final userAbout = userData['aboutMe'] ?? 'Welcome to my channel!';
-
-      debugPrint('DEBUG: Creating auto channel for $userName');
-
-      // Create channel using user data
-      return await createChannelFromUserData(
-        userId: userId,
-        userName: userName,
-        userImage: userImage,
-        userAbout: userAbout,
-      );
-    } catch (e) {
-      debugPrint('ERROR: Failed to ensure user has channel: $e');
-      throw RepositoryException('Failed to ensure user has channel: $e');
-    }
-  }
-
-  @override
-  Future<ChannelModel> createChannelFromUserData({
-    required String userId,
-    required String userName,
-    required String userImage,
-    required String userAbout,
-  }) async {
-    try {
-      debugPrint('DEBUG: Creating channel from user data for $userId');
 
       // CRITICAL: Use atomic transaction to prevent duplicate channels
       final channelRef = _firestore.collection(_channelsCollection).doc();
       final channelId = channelRef.id;
 
       return await _firestore.runTransaction<ChannelModel>((transaction) async {
-        // Double-check: Query for existing channel by checking user document
-        // (Query operations are not allowed in transactions, so we check the user doc)
+        // Check if user already has a channel
         final userDocRef = _firestore.collection(_usersCollection).doc(userId);
         final userDocSnapshot = await transaction.get(userDocRef);
         
@@ -198,7 +172,7 @@ class FirebaseChannelRepository implements ChannelRepository {
           
           // Check if user already has channels
           if (ownedChannels.isNotEmpty) {
-            // User already has channels, try to get the first active one
+            // User already has channels, check if any are active
             for (String existingChannelId in ownedChannels) {
               final existingChannelRef = _firestore.collection(_channelsCollection).doc(existingChannelId);
               final existingChannelSnapshot = await transaction.get(existingChannelRef);
@@ -206,8 +180,7 @@ class FirebaseChannelRepository implements ChannelRepository {
               if (existingChannelSnapshot.exists) {
                 final existingChannelData = existingChannelSnapshot.data()!;
                 if (existingChannelData['isActive'] == true) {
-                  debugPrint('DEBUG: Channel already exists in transaction: $existingChannelId');
-                  return ChannelModel.fromMap(existingChannelData, existingChannelId);
+                  throw RepositoryException('You already have an active channel');
                 }
               }
             }
@@ -220,15 +193,15 @@ class FirebaseChannelRepository implements ChannelRepository {
           ownerId: userId,
           ownerName: userName,
           ownerImage: userImage,
-          name: userName, // Use username as channel name
-          description: userAbout, // Use user about as channel description
-          profileImage: userImage, // Use user image as channel image
-          coverImage: '', // No cover image initially
+          name: name,
+          description: description,
+          profileImage: profileImageUrl,
+          coverImage: coverImageUrl,
           followers: 0,
           videosCount: 0,
           likesCount: 0,
           isVerified: false,
-          tags: [], // No tags initially
+          tags: tags ?? [],
           followerUIDs: [],
           createdAt: Timestamp.now(),
           lastPostAt: null,
@@ -244,12 +217,12 @@ class FirebaseChannelRepository implements ChannelRepository {
           'ownedChannels': FieldValue.arrayUnion([channelId]),
         });
 
-        debugPrint('DEBUG: Auto-created channel $channelId for user $userId');
+        debugPrint('DEBUG: Created channel $channelId for user $userId');
         return channel;
       });
     } catch (e) {
-      debugPrint('ERROR: Failed to create channel from user data: $e');
-      throw RepositoryException('Failed to create channel from user data: $e');
+      debugPrint('ERROR: Failed to create channel: $e');
+      throw RepositoryException('Failed to create channel: $e');
     }
   }
 
