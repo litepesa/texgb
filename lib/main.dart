@@ -7,6 +7,7 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
+//import 'package:textgb/features/channels/screens/create_channel_screen.dart';
 import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_post_screen.dart';
@@ -158,6 +159,7 @@ class AppRoot extends ConsumerWidget {
           },
           Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
           Constants.myChannelScreen: (context) => const MyChannelScreen(),
+          //Constants.createChannelScreen: (context) => const CreateChannelScreen(),
           Constants.createChannelPostScreen: (context) => const CreatePostScreen(),
           Constants.channelFeedScreen: (context) {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;

@@ -10,7 +10,8 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/profile/screens/my_profile_screen.dart';
+import 'package:textgb/features/channels/screens/my_channel_screen.dart';
+//import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -31,17 +32,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final PageController _pageController = PageController();
   bool _isPageAnimating = false;
   
-  // Enhanced theme management for shops tab
-  ThemeOption? _originalThemeBeforeShops;
-  bool _wasInShopsMode = false;
-  
   // Video progress tracking
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
   
   final List<String> _tabNames = [
     'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
-    'Channels',      // Index 1 - Shops List
+    'Channels',      // Index 1 - Channels List
     '',          // Index 2 - Post (no label, special design)
     'Wallet',    // Index 3 - Wallet 
     'Profile'    // Index 4 - Profile
@@ -49,7 +46,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<IconData> _tabIcons = [
     Icons.home,                        // Home
-    Icons.radio_button_checked_rounded,       // Shop
+    Icons.radio_button_checked_rounded,       // Channels
     Icons.add,                         // Post (will be styled specially)
     Icons.account_balance_rounded, // Wallet
     Icons.person_outline               // Me/Profile
@@ -64,24 +61,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateSystemUI();
-      // Store the initial theme state
-      _initializeThemeState();
     });
-  }
-
-  void _initializeThemeState() {
-    final currentThemeState = ref.read(themeManagerNotifierProvider).valueOrNull;
-    if (currentThemeState != null) {
-      // Reset any shops mode flags on app start
-      _originalThemeBeforeShops = null;
-      _wasInShopsMode = false;
-    }
   }
 
   @override
   void dispose() {
-    // Clean up theme state when disposing
-    _restoreOriginalThemeIfNeeded();
     _pageController.dispose();
     _videoProgressNotifier.dispose();
     super.dispose();
@@ -96,9 +80,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Store previous index for navigation management
     _previousIndex = _currentIndex;
-    
-    // Handle theme switching for shops tab
-    _handleThemeForTab(index);
     
     // Handle feed screen lifecycle
     if (_currentIndex == 0) {
@@ -149,64 +130,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Future.delayed(const Duration(milliseconds: 50), () {
       _isPageAnimating = false;
     });
-  }
-  
-  /// Enhanced theme handling when entering/leaving shops tab
-  void _handleThemeForTab(int newIndex) {
-    final themeManager = ref.read(themeManagerNotifierProvider.notifier);
-    final currentThemeState = ref.read(themeManagerNotifierProvider).valueOrNull;
-    
-    if (currentThemeState == null) return;
-    
-    // Entering shops tab (index 1)
-    if (newIndex == 1 && _currentIndex != 1) {
-      _enterShopsMode(themeManager, currentThemeState);
-    }
-    // Leaving shops tab
-    else if (_currentIndex == 1 && newIndex != 1) {
-      _exitShopsMode(themeManager);
-    }
-  }
-  
-  void _enterShopsMode(ThemeManagerNotifier themeManager, ThemeState currentThemeState) {
-    // Only change theme if not already in light mode or if it's a temporary override
-    if (currentThemeState.currentTheme != ThemeOption.light || currentThemeState.isTemporaryOverride) {
-      // Store the user's actual theme preference before switching
-      _originalThemeBeforeShops = themeManager.userThemePreference ?? currentThemeState.currentTheme;
-      _wasInShopsMode = true;
-      
-      debugPrint('Entering shops mode. User preference: $_originalThemeBeforeShops');
-      
-      // Switch to light theme temporarily for shops
-      themeManager.setTemporaryTheme(ThemeOption.light);
-    } else {
-      // Already in light mode, just mark that we're in shops mode
-      _wasInShopsMode = true;
-      _originalThemeBeforeShops = null;
-      debugPrint('Already in light mode when entering shops');
-    }
-  }
-  
-  void _exitShopsMode(ThemeManagerNotifier themeManager) {
-    if (_wasInShopsMode) {
-      debugPrint('Exiting shops mode. User preference was: $_originalThemeBeforeShops');
-      
-      // Always restore user's theme when leaving shops
-      themeManager.restoreUserTheme();
-      
-      // Reset shops mode state
-      _originalThemeBeforeShops = null;
-      _wasInShopsMode = false;
-    }
-  }
-  
-  void _restoreOriginalThemeIfNeeded() {
-    // Only restore if we were in shops mode
-    if (_wasInShopsMode) {
-      final themeManager = ref.read(themeManagerNotifierProvider.notifier);
-      themeManager.restoreUserTheme();
-      debugPrint('Restored user theme on dispose');
-    }
   }
   
   void _updateSystemUI() {
@@ -277,9 +200,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _onPageChanged(int index) {
     // Only process page changes that aren't from programmatic jumps
     if (_isPageAnimating) return;
-    
-    // Handle theme switching for shops tab
-    _handleThemeForTab(index);
     
     // Handle feed screen lifecycle
     if (_currentIndex == 0) {
@@ -352,124 +272,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  // Handle shops dropdown menu actions
-  void _handleShopsMenuAction(String action) {
-    switch (action) {
-      case 'search':
-        // Navigate to shop search
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Search Shops')),
-        );
-        break;
-      case 'my_shop':
-        // Navigate to my shop
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('My Shop')),
-        );
-        break;
-      case 'wishlist':
-        // Show wishlist
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('My Wishlist')),
-        );
-        break;
-      case 'create':
-        // Navigate to create shop
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Create Shop')),
-        );
-        break;
-      case 'cart':
-        // Navigate to shopping cart
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Shopping Cart')),
-        );
-        break;
-    }
-  }
-
-  void _showShopCategoriesBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final modernTheme = context.modernTheme;
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: BoxDecoration(
-            color: modernTheme.surfaceColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: modernTheme.dividerColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text(
-                  'Shop Categories',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: modernTheme.textColor,
-                  ),
-                ),
-              ),
-              // Categories list
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [
-                    'Fashion',
-                    'Electronics',
-                    'Beauty',
-                    'Food',
-                    'Sports',
-                    'Home',
-                    'Books',
-                    'Jewelry',
-                  ].map((category) => ListTile(
-                    leading: Icon(
-                      Icons.shopping_bag_outlined,
-                      color: modernTheme.primaryColor,
-                    ),
-                    title: Text(
-                      category,
-                      style: TextStyle(color: modernTheme.textColor),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Selected: $category')),
-                      );
-                    },
-                  )).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 4;
-    final isShopsTab = _currentIndex == 1;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -495,14 +303,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               //},
             ),
           ),
-          // Shop tab (index 1) - Always uses light theme
+          // Channels tab (index 1) - Uses current theme
           Container(
             color: modernTheme.backgroundColor,
-            child: Theme(
-              // Force light theme for shops screen
-              data: modernLightTheme(),
-              child: const ChannelsListScreen(),
-            ),
+            child: const ChannelsListScreen(),
           ),
           // Post tab (index 2) - This should never be shown as we navigate directly
           Container(
@@ -518,7 +322,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: const WalletScreen(),
           ),
           // Profile tab (index 4)
-          const MyProfileScreen(),
+          const MyChannelScreen(),
         ],
       ),
       
@@ -532,19 +336,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // TikTok-style bottom navigation with video progress indicator
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
     final isHomeTab = _currentIndex == 0;
-    final isShopsTab = _currentIndex == 1;
     
-    // For shops tab, use light theme colors for bottom nav
     Color backgroundColor;
     Color? borderColor;
     
     if (isHomeTab) {
       backgroundColor = Colors.black;
       borderColor = null;
-    } else if (isShopsTab) {
-      // Light theme colors for shops tab
-      backgroundColor = const Color(0xFFFFFFFF); // Light surface
-      borderColor = const Color(0xFFE0E0E0); // Light border
     } else {
       backgroundColor = modernTheme.surfaceColor!;
       borderColor = modernTheme.dividerColor;
@@ -585,7 +383,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     index,
                     modernTheme,
                     isHomeTab,
-                    isShopsTab,
                   );
                 }),
               ),
@@ -700,7 +497,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int index,
     ModernThemeExtension modernTheme,
     bool isHomeTab,
-    bool isShopsTab,
   ) {
     final isSelected = _currentIndex == index;
     
@@ -711,12 +507,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // Home tab colors
       iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
       textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-    } else if (isShopsTab) {
-      // Shops tab - use light theme colors
-      const lightPrimary = Color(0xFF00A884);
-      const lightSecondary = Color(0xFF6A6A6A);
-      iconColor = isSelected ? lightPrimary : lightSecondary;
-      textColor = isSelected ? lightPrimary : lightSecondary;
     } else {
       // Other tabs - use current theme
       iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
@@ -755,12 +545,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     String title = 'WeiBao';
-    final isShopsTab = _currentIndex == 1;
     
     // Set title based on current tab
     switch (_currentIndex) {
       case 1:
-        title = 'Shop';
+        title = 'WeiBao'; // Show main app name for Channels tab
         break;
       case 3:
         title = 'Wallet';
@@ -769,20 +558,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         title = 'WeiBao';
     }
 
-    // For shops tab, use light theme colors for app bar
-    Color appBarColor;
-    Color textColor;
-    Color iconColor;
-    
-    if (isShopsTab) {
-      appBarColor = const Color(0xFFFFFFFF); // Light surface
-      textColor = const Color(0xFF121212); // Dark text
-      iconColor = const Color(0xFF00A884); // Light theme primary
-    } else {
-      appBarColor = modernTheme.surfaceColor!;
-      textColor = modernTheme.textColor!;
-      iconColor = modernTheme.primaryColor!;
-    }
+    Color appBarColor = modernTheme.surfaceColor!;
+    Color textColor = modernTheme.textColor!;
+    Color iconColor = modernTheme.primaryColor!;
 
     return AppBar(
       backgroundColor: appBarColor,
@@ -790,44 +568,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       scrolledUnderElevation: 0,
       centerTitle: true,
       iconTheme: IconThemeData(color: iconColor),
-      title: _currentIndex == 1 || _currentIndex == 3
-          ? _currentIndex == 1
-              ? Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF00A884), Color(0xFF00C49A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF00A884).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                )
-              : Text(
-                  title,
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                    letterSpacing: -0.3,
-                  ),
-                )
+      title: _currentIndex == 3
+          ? Text(
+              title,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                letterSpacing: -0.3,
+              ),
+            )
           : RichText(
               text: TextSpan(
                 children: [
@@ -852,221 +602,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
               ),
             ),
-      actions: _currentIndex == 1 ? [
-        // Search icon for shops tab
-        IconButton(
-          icon: Icon(CupertinoIcons.search, color: iconColor),
-          onPressed: () {
-            // Handle search action
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Search shops')),
-            );
-          },
-        ),
-        // Shopping cart icon
-        IconButton(
-          icon: Icon(Icons.shopping_cart_outlined, color: iconColor),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Shopping Cart')),
-            );
-          },
-        ),
-        // Dropdown menu with 3 dots
-        PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert, color: iconColor),
-          onSelected: _handleShopsMenuAction,
-          color: isShopsTab ? const Color(0xFFFFFFFF) : modernTheme.surfaceColor,
-          elevation: 8,
-          surfaceTintColor: modernTheme.primaryColor?.withOpacity(0.1),
-          shadowColor: Colors.black.withOpacity(0.2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: isShopsTab 
-                ? const Color(0xFFE0E0E0).withOpacity(0.2)
-                : modernTheme.dividerColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
-              width: 1,
-            ),
-          ),
-          position: PopupMenuPosition.under,
-          offset: const Offset(0, 8),
-          itemBuilder: (BuildContext context) => [
-            PopupMenuItem<String>(
-              value: 'search',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isShopsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.search_outlined,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Search Shops',
-                    style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'my_shop',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isShopsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.storefront_outlined,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'My Shop',
-                    style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'wishlist',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isShopsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.favorite_outline,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'My Wishlist',
-                    style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'create',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isShopsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.add_business_outlined,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Create Shop',
-                    style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'cart',
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isShopsTab 
-                        ? const Color(0xFF00A884).withOpacity(0.1)
-                        : modernTheme.primaryColor?.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.shopping_cart_outlined,
-                      color: isShopsTab ? const Color(0xFF00A884) : modernTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Shopping Cart',
-                    style: TextStyle(
-                      color: isShopsTab ? const Color(0xFF121212) : modernTheme.textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 8),
-      ] : null,
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
           height: 0.5,
           width: double.infinity,
-          color: isShopsTab ? const Color(0xFFE0E0E0) : modernTheme.dividerColor,
+          color: modernTheme.dividerColor,
         ),
       ),
     );
