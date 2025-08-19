@@ -23,6 +23,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
   final bool isLoading;
   final bool hasFailed;
   final bool isCommentsOpen; // New parameter to track comments state
+  final bool showVerificationBadge; // NEW: Control whether to show verification or timestamp
   
   const ChannelVideoItem({
     Key? key,
@@ -34,6 +35,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
     this.isLoading = false,
     this.hasFailed = false,
     this.isCommentsOpen = false, // Default to false
+    this.showVerificationBadge = true, // Default to verification for main feed
   }) : super(key: key);
 
   @override
@@ -356,76 +358,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     setState(() {
       _showFullCaption = !_showFullCaption;
     });
-  }
-
-  // Helper method to format timestamp as relative time with better formatting
-  String _getRelativeTime() {
-    final now = DateTime.now();
-    final videoTime = widget.video.createdAt.toDate();
-    final difference = now.difference(videoTime);
-
-    if (difference.inSeconds < 30) {
-      return 'Just now';
-    } else if (difference.inSeconds < 60) {
-      return 'Less than a minute ago';
-    } else if (difference.inMinutes < 60) {
-      final minutes = difference.inMinutes;
-      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
-    } else if (difference.inHours < 24) {
-      final hours = difference.inHours;
-      return hours == 1 ? '1 hour ago' : '$hours hours ago';
-    } else if (difference.inDays < 7) {
-      final days = difference.inDays;
-      return days == 1 ? 'Yesterday' : '$days days ago';
-    } else if (difference.inDays < 30) {
-      final weeks = (difference.inDays / 7).floor();
-      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
-    } else if (difference.inDays < 365) {
-      final months = (difference.inDays / 30).floor();
-      return months == 1 ? '1 month ago' : '$months months ago';
-    } else {
-      final years = (difference.inDays / 365).floor();
-      return years == 1 ? '1 year ago' : '$years years ago';
-    }
-  }
-
-  // Helper method to format timestamp as absolute date/time
-  String _getFormattedDateTime() {
-    final videoTime = widget.video.createdAt.toDate();
-    final now = DateTime.now();
-    final difference = now.difference(videoTime);
-
-    if (difference.inDays == 0) {
-      // Today - show just time
-      return 'Today ${_formatTime(videoTime)}';
-    } else if (difference.inDays == 1) {
-      // Yesterday
-      return 'Yesterday ${_formatTime(videoTime)}';
-    } else if (difference.inDays < 7) {
-      // This week - show day and time
-      return '${_formatDayOfWeek(videoTime)} ${_formatTime(videoTime)}';
-    } else {
-      // Older - show date and time
-      return '${_formatDate(videoTime)} ${_formatTime(videoTime)}';
-    }
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final hour = dateTime.hour == 0 ? 12 : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
-  }
-
-  String _formatDayOfWeek(DateTime dateTime) {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return days[dateTime.weekday % 7];
-  }
-
-  String _formatDate(DateTime dateTime) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${months[dateTime.month - 1]} ${dateTime.day}';
   }
 
   @override
@@ -982,14 +914,84 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 8),
           
-          // Timestamp display
-          _buildTimestampDisplay(),
+          // Verification badge display or timestamp - UPDATED: conditional based on screen type
+          widget.showVerificationBadge ? _buildVerificationBadge() : _buildTimestampDisplay(),
         ],
       ),
     );
   }
 
-  // Updated method to build timestamp display instead of price/buy buttons
+  // Helper method to format timestamp as relative time with better formatting
+  String _getRelativeTime() {
+    final now = DateTime.now();
+    final videoTime = widget.video.createdAt.toDate();
+    final difference = now.difference(videoTime);
+
+    if (difference.inSeconds < 30) {
+      return 'Just now';
+    } else if (difference.inSeconds < 60) {
+      return 'Less than a minute ago';
+    } else if (difference.inMinutes < 60) {
+      final minutes = difference.inMinutes;
+      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
+    } else if (difference.inHours < 24) {
+      final hours = difference.inHours;
+      return hours == 1 ? '1 hour ago' : '$hours hours ago';
+    } else if (difference.inDays < 7) {
+      final days = difference.inDays;
+      return days == 1 ? 'Yesterday' : '$days days ago';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return months == 1 ? '1 month ago' : '$months months ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return years == 1 ? '1 year ago' : '$years years ago';
+    }
+  }
+
+  // Helper method to format timestamp as absolute date/time
+  String _getFormattedDateTime() {
+    final videoTime = widget.video.createdAt.toDate();
+    final now = DateTime.now();
+    final difference = now.difference(videoTime);
+
+    if (difference.inDays == 0) {
+      // Today - show just time
+      return 'Today ${_formatTime(videoTime)}';
+    } else if (difference.inDays == 1) {
+      // Yesterday
+      return 'Yesterday ${_formatTime(videoTime)}';
+    } else if (difference.inDays < 7) {
+      // This week - show day and time
+      return '${_formatDayOfWeek(videoTime)} ${_formatTime(videoTime)}';
+    } else {
+      // Older - show date and time
+      return '${_formatDate(videoTime)} ${_formatTime(videoTime)}';
+    }
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour == 0 ? 12 : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  String _formatDayOfWeek(DateTime dateTime) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[dateTime.weekday % 7];
+  }
+
+  String _formatDate(DateTime dateTime) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[dateTime.month - 1]} ${dateTime.day}';
+  }
+
+  // Method to build timestamp display (kept for other screens)
   Widget _buildTimestampDisplay() {
     final timestampStyle = TextStyle(
       color: Colors.white.withOpacity(0.7),
@@ -1008,6 +1010,56 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     return Text(
       _getRelativeTime(),
       style: timestampStyle,
+    );
+  }
+
+  // NEW: Method to build verification badge display (replaces timestamp in channels feed)
+  Widget _buildVerificationBadge() {
+    return FutureBuilder(
+      future: ref.read(channelsProvider.notifier).getChannelById(widget.video.channelId),
+      builder: (context, snapshot) {
+        final channel = snapshot.data;
+        final isVerified = channel?.isVerified ?? false;
+        
+        final badgeStyle = TextStyle(
+          color: Colors.white.withOpacity(0.7),
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          height: 1.3,
+          shadows: [
+            Shadow(
+              color: Colors.black.withOpacity(0.7),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        );
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isVerified ? Icons.verified : Icons.help_outline,
+              size: 14,
+              color: isVerified ? Colors.blue : Colors.white.withOpacity(0.7),
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.7),
+                  blurRadius: 3,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isVerified ? 'Verified' : 'Not Verified',
+              style: badgeStyle.copyWith(
+                color: isVerified ? Colors.blue : Colors.white.withOpacity(0.7),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

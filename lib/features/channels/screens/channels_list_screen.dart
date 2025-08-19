@@ -499,7 +499,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
             ) : null,
             child: Row(
               children: [
-                // Enhanced Channel Avatar
+                // Enhanced Channel Avatar (removed verified badge)
                 Stack(
                   children: [
                     AnimatedContainer(
@@ -581,7 +581,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                       ),
                     ),
                     
-                    // Status indicators with enhanced design
+                    // Only featured indicator remains on avatar
                     if (channel.isFeatured)
                       Positioned(
                         top: -2,
@@ -607,32 +607,6 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                           ),
                         ),
                       ),
-                    
-                    if (channel.isVerified && !channel.isFeatured)
-                      Positioned(
-                        bottom: -2,
-                        right: -2,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: theme.surfaceColor!, width: 2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.blue.withOpacity(0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.verified_rounded,
-                            color: Colors.white,
-                            size: 10,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 
@@ -644,10 +618,10 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Channel name with verification
+                      // Channel name with prominent verified badge
                       Row(
                         children: [
-                          Expanded(
+                          Flexible(
                             child: Text(
                               channel.name,
                               style: TextStyle(
@@ -661,17 +635,39 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                             ),
                           ),
                           if (channel.isVerified) ...[
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.all(2),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Icon(
-                                Icons.verified_rounded,
                                 color: Colors.blue,
-                                size: 12,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blue.withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.verified_rounded,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Verified',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

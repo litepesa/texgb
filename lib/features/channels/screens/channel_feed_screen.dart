@@ -760,6 +760,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen, // Pass comments state to video item
+          showVerificationBadge: false,
         );
       },
     );

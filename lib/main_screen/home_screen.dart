@@ -49,7 +49,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Icons.radio_button_checked_rounded,       // Channels
     Icons.add,                         // Post (will be styled specially)
     Icons.account_balance_rounded, // Wallet
-    Icons.person_outline               // Me/Profile
+    Icons.person_2_outlined               // Me/Profile
   ];
 
   // Feed screen controller for lifecycle management
