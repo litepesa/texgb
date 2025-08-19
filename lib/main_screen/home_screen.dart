@@ -15,6 +15,7 @@ import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/widgets/custom_icon_button.dart';
 
@@ -192,8 +193,127 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     final isSelected = _currentIndex == index;
     
-    // No badge functionality needed - just show default bottom nav items
+    // Get unread count for Inbox tab (index 0)
+    if (index == 0) {
+      return _buildInboxTabWithBadge(isSelected, modernTheme);
+    }
+    
+    // Regular bottom nav item for other tabs
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
+  }
+
+  Widget _buildInboxTabWithBadge(bool isSelected, ModernThemeExtension modernTheme) {
+    return Consumer(
+      builder: (context, ref, child) {
+        // Watch the chat list provider to get unread count
+        final chatListState = ref.watch(chatListProvider);
+        
+        int unreadCount = 0;
+        chatListState.whenData((state) {
+          final currentUser = ref.read(currentUserProvider);
+          if (currentUser != null) {
+            // Calculate total unread messages from all chats
+            unreadCount = state.chats.fold<int>(0, (total, chatItem) => 
+                total + chatItem.chat.getUnreadCount(currentUser.uid));
+          }
+        });
+
+        return _buildBottomNavItemWithBadge(
+          index: 0,
+          isSelected: isSelected,
+          modernTheme: modernTheme,
+          badgeCount: unreadCount,
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomNavItemWithBadge({
+    required int index,
+    required bool isSelected,
+    required ModernThemeExtension modernTheme,
+    required int badgeCount,
+  }) {
+    final iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+    final textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+    final showBadge = badgeCount > 0;
+
+    return GestureDetector(
+      onTap: () => _onTabTapped(index),
+      behavior: HitTestBehavior.translucent,
+      child: SizedBox(
+        width: 60,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                      ? modernTheme.primaryColor!.withOpacity(0.2)
+                      : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _tabIcons[index],
+                    color: iconColor,
+                    size: 24,
+                  ),
+                ),
+                if (showBadge)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        badgeCount > 99 ? '99+' : badgeCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            if (_tabNames[index].isNotEmpty)
+              Text(
+                _tabNames[index],
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildDefaultBottomNavItem(

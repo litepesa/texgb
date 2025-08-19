@@ -1081,7 +1081,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
                 ),
               ),
             ),
-            label: 'React', // Changed from 'Inbox' to 'React' to be more specific
+            label: 'Inbox',
             onTap: () => _navigateToChannelOwnerChat(currentVideo),
           ),
           
