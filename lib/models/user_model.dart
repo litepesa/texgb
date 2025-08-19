@@ -278,6 +278,7 @@ class UserModel {
   final List<String> followedChannels;
   final int followingCount;
   final bool isAccountActivated;
+  final bool isVerified; 
   final String? paymentTransactionId;
   final String? paymentDate;
   final double? amountPaid;
@@ -297,6 +298,7 @@ class UserModel {
     this.followedChannels = const [],
     this.followingCount = 0,
     this.isAccountActivated = false,
+    this.isVerified = false, 
     this.paymentTransactionId,
     this.paymentDate,
     this.amountPaid,
@@ -317,6 +319,7 @@ class UserModel {
       blockedUIDs: List<String>.from(map[Constants.blockedUIDs] ?? []),
       followedChannels: List<String>.from(map['followedChannels'] ?? []),
       followingCount: map['followingCount']?.toInt() ?? 0,
+      isVerified: map[Constants.isVerified] ?? false, 
       privacySettings: UserPrivacySettings.fromMap(
         map['privacySettings'] ?? <String, dynamic>{},
       ),
@@ -337,6 +340,7 @@ class UserModel {
       Constants.blockedUIDs: blockedUIDs,
       'followedChannels': followedChannels,
       'followingCount': followingCount,
+      Constants.isVerified: isVerified,
       'privacySettings': privacySettings.toMap(),
     };
   }
@@ -355,6 +359,7 @@ class UserModel {
     List<String>? followedChannels,
     int? followingCount,
     bool? isAccountActivated,
+    bool? isVerified, 
     String? paymentTransactionId,
     String? paymentDate,
     double? amountPaid,
@@ -374,6 +379,7 @@ class UserModel {
       followedChannels: followedChannels ?? List<String>.from(this.followedChannels),
       followingCount: followingCount ?? this.followingCount,
       isAccountActivated: isAccountActivated ?? this.isAccountActivated,
+      isVerified: isVerified ?? this.isVerified, 
       paymentTransactionId: paymentTransactionId ?? this.paymentTransactionId,
       paymentDate: paymentDate ?? this.paymentDate,
       amountPaid: amountPaid ?? this.amountPaid,
@@ -422,6 +428,6 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, name: $name, phoneNumber: $phoneNumber)';
+    return 'UserModel(uid: $uid, name: $name, phoneNumber: $phoneNumber, isVerified: $isVerified)';
   }
 }
