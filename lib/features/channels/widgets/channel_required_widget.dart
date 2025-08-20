@@ -1,39 +1,24 @@
-// lib/features/channels/widgets/channel_required_widget.dart (Updated for unauthenticated access)
+// lib/features/channels/widgets/channel_required_widget.dart (Fixed for correct auth flow)
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/features/channels/providers/channels_provider.dart';
-import 'package:textgb/features/channels/screens/create_channel_screen.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/constants.dart';
-
-enum RequirementType {
-  authentication,
-  channel,
-  both,
-}
 
 class ChannelRequiredWidget extends ConsumerWidget {
   final String title;
   final String subtitle;
   final String actionText;
   final IconData icon;
-  final RequirementType requirementType;
-  final String? loginActionText;
-  final String? channelActionText;
   final bool showContinueBrowsing;
   final VoidCallback? onContinueBrowsing;
 
   const ChannelRequiredWidget({
     Key? key,
-    this.title = 'Access Required',
-    this.subtitle = 'You need to be logged in and have a channel to perform this action.',
-    this.actionText = 'Get Started',
-    this.icon = Icons.video_call,
-    this.requirementType = RequirementType.both,
-    this.loginActionText = 'Sign In',
-    this.channelActionText = 'Create Channel',
+    this.title = 'Sign In Required',
+    this.subtitle = 'Please sign in to access this feature and unlock the full WeiBao experience.',
+    this.actionText = 'Sign In',
+    this.icon = Icons.login,
     this.showContinueBrowsing = true,
     this.onContinueBrowsing,
   }) : super(key: key);
@@ -42,17 +27,10 @@ class ChannelRequiredWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
     
-    // Watch authentication state using new channel-based providers
-    final isLoggedIn = ref.watch(isLoggedInProvider);
-    final isAuthLoading = ref.watch(isAuthLoadingProvider);
-    final currentChannel = ref.watch(currentChannelProvider);
-    
-    // Watch channels state
-    final channelsState = ref.watch(channelsProvider);
-    
-    // Determine what's missing
-    final needsAuth = !isLoggedIn;
-    final needsChannel = isLoggedIn && currentChannel == null;
+    // Watch authentication state
+    final authState = ref.watch(authenticationProvider);
+    final isLoggedIn = authState.value?.isSuccessful ?? false;
+    final isAuthLoading = authState.isLoading;
     
     // Show loading if authentication is loading
     if (isAuthLoading) {
@@ -61,34 +39,12 @@ class ChannelRequiredWidget extends ConsumerWidget {
       );
     }
     
-    // Determine the appropriate message and action based on what's missing
-    String displayTitle;
-    String displaySubtitle;
-    String displayActionText;
-    IconData displayIcon;
-    VoidCallback? primaryAction;
-    
-    if (needsAuth) {
-      displayTitle = 'Sign In Required';
-      displaySubtitle = 'Please sign in to access this feature and unlock the full WeiBao experience.';
-      displayActionText = loginActionText ?? 'Sign In';
-      displayIcon = Icons.login;
-      primaryAction = () => _navigateToLogin(context);
-    } else if (needsChannel) {
-      displayTitle = 'Channel Required';
-      displaySubtitle = 'Create your channel to start sharing content and interacting with the community.';
-      displayActionText = channelActionText ?? 'Create Channel';
-      displayIcon = Icons.video_call;
-      primaryAction = () => _navigateToCreateChannel(context);
-    } else {
-      // This shouldn't normally be shown if both requirements are met
-      displayTitle = title;
-      displaySubtitle = subtitle;
-      displayActionText = actionText;
-      displayIcon = icon;
-      primaryAction = null;
+    // If user is logged in (which means they have a channel), allow access
+    if (isLoggedIn) {
+      return const SizedBox.shrink();
     }
     
+    // User is not logged in, show login prompt
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -103,7 +59,7 @@ class ChannelRequiredWidget extends ConsumerWidget {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                displayIcon,
+                icon,
                 size: 40,
                 color: modernTheme.primaryColor,
               ),
@@ -112,7 +68,7 @@ class ChannelRequiredWidget extends ConsumerWidget {
             const SizedBox(height: 24),
             
             Text(
-              displayTitle,
+              title,
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -124,7 +80,7 @@ class ChannelRequiredWidget extends ConsumerWidget {
             const SizedBox(height: 12),
             
             Text(
-              displaySubtitle,
+              subtitle,
               style: TextStyle(
                 fontSize: 16,
                 color: modernTheme.textSecondaryColor,
@@ -133,118 +89,83 @@ class ChannelRequiredWidget extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             
-            if (isLoggedIn && currentChannel != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor?.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'Signed in as ${currentChannel.name}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: modernTheme.primaryColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-            
             const SizedBox(height: 32),
             
-            if (primaryAction != null) ...[
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: primaryAction,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: modernTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 2,
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _navigateToLogin(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    displayActionText,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  elevation: 2,
+                ),
+                child: Text(
+                  actionText,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              
-              // Show additional actions if both auth and channel are needed
-              if (needsAuth && requirementType == RequirementType.both) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'After signing in, you\'ll be able to create a channel and start sharing content',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: modernTheme.textSecondaryColor,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
+            ),
+            
+            const SizedBox(height: 24),
             
             // Show benefits for unauthenticated users
-            if (needsAuth) ...[
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: modernTheme.surfaceColor?.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: modernTheme.primaryColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Join WeiBao to:',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: modernTheme.textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildBenefitItem(
-                      modernTheme,
-                      Icons.favorite,
-                      'Like and react to videos',
-                    ),
-                    _buildBenefitItem(
-                      modernTheme,
-                      Icons.comment,
-                      'Comment and connect with creators',
-                    ),
-                    _buildBenefitItem(
-                      modernTheme,
-                      Icons.video_call,
-                      'Create and share your own content',
-                    ),
-                    _buildBenefitItem(
-                      modernTheme,
-                      Icons.card_giftcard,
-                      'Send virtual gifts to support creators',
-                    ),
-                  ],
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: modernTheme.surfaceColor?.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: modernTheme.primaryColor?.withOpacity(0.2) ?? Colors.grey.withOpacity(0.2),
                 ),
               ),
-            ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Join WeiBao to:',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: modernTheme.textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildBenefitItem(
+                    modernTheme,
+                    Icons.favorite,
+                    'Like and react to videos',
+                  ),
+                  _buildBenefitItem(
+                    modernTheme,
+                    Icons.comment,
+                    'Comment and connect with creators',
+                  ),
+                  _buildBenefitItem(
+                    modernTheme,
+                    Icons.video_call,
+                    'Create and share your own content',
+                  ),
+                  _buildBenefitItem(
+                    modernTheme,
+                    Icons.card_giftcard,
+                    'Send virtual gifts to support creators',
+                  ),
+                ],
+              ),
+            ),
             
             const SizedBox(height: 16),
             
             // Continue browsing option for unauthenticated users
-            if (showContinueBrowsing && needsAuth) ...[
+            if (showContinueBrowsing) ...[
               TextButton(
                 onPressed: onContinueBrowsing ?? () => Navigator.of(context).pop(),
                 child: Text(
@@ -302,62 +223,28 @@ class ChannelRequiredWidget extends ConsumerWidget {
   void _navigateToLogin(BuildContext context) {
     Navigator.of(context).pushNamed(Constants.landingScreen);
   }
-
-  void _navigateToCreateChannel(BuildContext context) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreateChannelScreen(),
-      ),
-    );
-    
-    // If channel was created successfully, pop this screen too
-    if (result == true && context.mounted) {
-      Navigator.of(context).pop(true);
-    }
-  }
 }
 
-// Enhanced utility function to check requirements and show dialog if not met
-Future<bool> requireUserAccess(
+// Simplified utility function to check authentication
+Future<bool> requireAuthentication(
   BuildContext context,
   WidgetRef ref, {
-  RequirementType requirementType = RequirementType.both,
   String? customTitle,
   String? customSubtitle,
   String? customActionText,
   IconData? customIcon,
-  String? loginActionText,
-  String? channelActionText,
   bool showContinueBrowsing = true,
   VoidCallback? onContinueBrowsing,
 }) async {
-  final isLoggedIn = ref.read(isLoggedInProvider);
-  final currentChannel = ref.read(currentChannelProvider);
+  final authState = ref.read(authenticationProvider).value ?? const AuthenticationState();
+  final isLoggedIn = authState.isSuccessful;
   
-  // Check what's required vs what user has
-  final hasAuth = isLoggedIn;
-  final hasChannel = currentChannel != null;
-  
-  bool shouldProceed = false;
-  
-  switch (requirementType) {
-    case RequirementType.authentication:
-      shouldProceed = hasAuth;
-      break;
-    case RequirementType.channel:
-      shouldProceed = hasChannel;
-      break;
-    case RequirementType.both:
-      shouldProceed = hasAuth && hasChannel;
-      break;
+  // User is authenticated (and by extension has a channel)
+  if (isLoggedIn) {
+    return true;
   }
   
-  if (shouldProceed) {
-    return true; // User meets requirements, proceed
-  }
-  
-  // User doesn't meet requirements, show dialog
+  // User is not authenticated, show dialog
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: showContinueBrowsing,
@@ -366,13 +253,10 @@ Future<bool> requireUserAccess(
       content: SizedBox(
         width: MediaQuery.of(context).size.width * 0.9,
         child: ChannelRequiredWidget(
-          title: customTitle ?? 'Access Required',
-          subtitle: customSubtitle ?? _getDefaultSubtitle(requirementType, hasAuth, hasChannel),
-          actionText: customActionText ?? _getDefaultActionText(requirementType, hasAuth, hasChannel),
-          icon: customIcon ?? _getDefaultIcon(requirementType, hasAuth, hasChannel),
-          requirementType: requirementType,
-          loginActionText: loginActionText,
-          channelActionText: channelActionText,
+          title: customTitle ?? 'Sign In Required',
+          subtitle: customSubtitle ?? 'Please sign in to access this feature.',
+          actionText: customActionText ?? 'Sign In',
+          icon: customIcon ?? Icons.login,
           showContinueBrowsing: showContinueBrowsing,
           onContinueBrowsing: onContinueBrowsing,
         ),
@@ -383,27 +267,7 @@ Future<bool> requireUserAccess(
   return result ?? false;
 }
 
-// Simplified function for authentication-only checks
-Future<bool> requireAuthentication(
-  BuildContext context,
-  WidgetRef ref, {
-  String? customTitle,
-  String? customSubtitle,
-  bool showContinueBrowsing = true,
-  VoidCallback? onContinueBrowsing,
-}) async {
-  return requireUserAccess(
-    context,
-    ref,
-    requirementType: RequirementType.authentication,
-    customTitle: customTitle,
-    customSubtitle: customSubtitle,
-    showContinueBrowsing: showContinueBrowsing,
-    onContinueBrowsing: onContinueBrowsing,
-  );
-}
-
-// Legacy function for backward compatibility - now includes better UX for unauthenticated users
+// Legacy function for backward compatibility - now just checks authentication
 Future<bool> requireUserChannel(
   BuildContext context,
   WidgetRef ref, {
@@ -411,80 +275,46 @@ Future<bool> requireUserChannel(
   String? customSubtitle,
   String? customActionText,
   IconData? customIcon,
-  bool showContinueBrowsing = false, // Default to false for channel requirements
+  bool showContinueBrowsing = false,
 }) async {
-  return requireUserAccess(
+  return requireAuthentication(
     context,
     ref,
-    requirementType: RequirementType.both, // Channel requirement implies both auth and channel
-    customTitle: customTitle,
-    customSubtitle: customSubtitle,
-    customActionText: customActionText,
-    customIcon: customIcon,
+    customTitle: customTitle ?? 'Sign In Required',
+    customSubtitle: customSubtitle ?? 'Please sign in to access this feature.',
+    customActionText: customActionText ?? 'Sign In',
+    customIcon: customIcon ?? Icons.login,
     showContinueBrowsing: showContinueBrowsing,
   );
-}
-
-// Helper functions for default messages
-String _getDefaultSubtitle(RequirementType type, bool hasAuth, bool hasChannel) {
-  if (!hasAuth) {
-    return type == RequirementType.both 
-      ? 'Sign in and create a channel to unlock the full WeiBao experience.'
-      : 'Sign in to access this feature and connect with the community.';
-  } else if (!hasChannel) {
-    return 'Create your channel to start sharing content and interacting with other creators.';
-  }
-  return 'You need to meet the requirements to perform this action.';
-}
-
-String _getDefaultActionText(RequirementType type, bool hasAuth, bool hasChannel) {
-  if (!hasAuth) {
-    return 'Sign In';
-  } else if (!hasChannel) {
-    return 'Create Channel';
-  }
-  return 'Get Started';
-}
-
-IconData _getDefaultIcon(RequirementType type, bool hasAuth, bool hasChannel) {
-  if (!hasAuth) {
-    return Icons.login;
-  } else if (!hasChannel) {
-    return Icons.video_call;
-  }
-  return Icons.security;
 }
 
 // Alternative: Inline widget for embedding in screens with auth checking
 class InlineChannelRequiredWidget extends ConsumerWidget {
   final String title;
   final String subtitle;
-  final VoidCallback? onCreateChannel;
   final VoidCallback? onSignIn;
-  final RequirementType requirementType;
   final bool showGuestMode;
 
   const InlineChannelRequiredWidget({
     Key? key,
     this.title = 'Get Started',
-    this.subtitle = 'Sign in and create your channel to start sharing content.',
-    this.onCreateChannel,
+    this.subtitle = 'Sign in to start sharing content and connect with the community.',
     this.onSignIn,
-    this.requirementType = RequirementType.both,
     this.showGuestMode = true,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
-    final isLoggedIn = ref.watch(isLoggedInProvider);
-    final currentChannel = ref.watch(currentChannelProvider);
-    final channelsState = ref.watch(channelsProvider);
+    final authState = ref.watch(authenticationProvider).value ?? const AuthenticationState();
+    final isLoggedIn = authState.isSuccessful;
     
-    // Determine what actions to show
-    final needsAuth = !isLoggedIn;
-    final needsChannel = isLoggedIn && currentChannel == null;
+    // Don't show if user is authenticated (and has channel)
+    if (isLoggedIn) {
+      return const SizedBox.shrink();
+    }
     
+    // Not logged in
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(24),
@@ -498,7 +328,7 @@ class InlineChannelRequiredWidget extends ConsumerWidget {
       child: Column(
         children: [
           Icon(
-            needsAuth ? Icons.login : Icons.video_call,
+            Icons.login,
             size: 48,
             color: modernTheme.primaryColor,
           ),
@@ -506,7 +336,7 @@ class InlineChannelRequiredWidget extends ConsumerWidget {
           const SizedBox(height: 16),
           
           Text(
-            needsAuth ? 'Join the Community' : (needsChannel ? 'Create Your Channel' : title),
+            title,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -518,11 +348,7 @@ class InlineChannelRequiredWidget extends ConsumerWidget {
           const SizedBox(height: 8),
           
           Text(
-            needsAuth 
-              ? 'Sign in to like, comment, and share your own content with the WeiBao community.'
-              : (needsChannel 
-                ? 'Start sharing your content and connecting with other creators.'
-                : subtitle),
+            subtitle,
             style: TextStyle(
               fontSize: 14,
               color: modernTheme.textSecondaryColor,
@@ -531,101 +357,46 @@ class InlineChannelRequiredWidget extends ConsumerWidget {
             textAlign: TextAlign.center,
           ),
           
-          if (isLoggedIn && currentChannel != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor?.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
+          const SizedBox(height: 20),
+          
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onSignIn ?? () => Navigator.of(context).pushNamed(Constants.landingScreen),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
-              child: Text(
-                'Signed in as ${currentChannel.name}',
+              child: const Text(
+                'Sign In',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: modernTheme.primaryColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          
+          if (showGuestMode) ...[
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () {
+                // Can be used to dismiss this widget or navigate back
+              },
+              child: Text(
+                'Continue as guest',
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
           ],
-          
-          const SizedBox(height: 20),
-          
-          if (needsAuth) ...[
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: onSignIn ?? () => _navigateToLogin(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: modernTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Sign In',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            if (showGuestMode) ...[
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () {
-                  // Can be used to dismiss this widget or navigate back
-                },
-                child: Text(
-                  'Continue as guest',
-                  style: TextStyle(
-                    color: modernTheme.textSecondaryColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ] else if (needsChannel) ...[
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: onCreateChannel ?? () => _navigateToCreateChannel(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: modernTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Create Channel',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
-      ),
-    );
-  }
-
-  void _navigateToLogin(BuildContext context) {
-    Navigator.of(context).pushNamed(Constants.landingScreen);
-  }
-
-  void _navigateToCreateChannel(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreateChannelScreen(),
       ),
     );
   }
@@ -645,9 +416,10 @@ class GuestModeBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
-    final isLoggedIn = ref.watch(isLoggedInProvider);
+    final authState = ref.watch(authenticationProvider).value ?? const AuthenticationState();
+    final isLoggedIn = authState.isSuccessful;
     
-    // Don't show banner if user is already logged in
+    // Don't show banner if user is already logged in (and has channel)
     if (isLoggedIn) return const SizedBox.shrink();
     
     return Container(

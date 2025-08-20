@@ -175,7 +175,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             subtitle: 'Sign in to access this feature and unlock the full WeiBao experience.',
             actionText: 'Sign In',
             icon: Icons.login,
-            requirementType: RequirementType.authentication,
             showContinueBrowsing: true,
             onContinueBrowsing: () {
               Navigator.of(context).pop();
@@ -326,7 +325,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   : 'Create a channel to start sharing your content.',
               actionText: !_isAuthenticated ? 'Sign In' : 'Create Channel',
               icon: Icons.video_call,
-              requirementType: RequirementType.both,
               showContinueBrowsing: true,
               onContinueBrowsing: () => Navigator.of(context).pop(),
             ),
@@ -405,7 +403,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     subtitle: 'Sign in to manage your earnings, transactions, and virtual gifts.',
                     actionText: 'Sign In',
                     icon: Icons.account_balance_wallet,
-                    requirementType: RequirementType.authentication,
                     showContinueBrowsing: true,
                   ),
           ),
@@ -419,7 +416,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       : 'Sign in and create your channel to start sharing content and connecting with others.',
                   actionText: _isAuthenticated ? 'Create Channel' : 'Sign In',
                   icon: _isAuthenticated ? Icons.video_call : Icons.login,
-                  requirementType: _isAuthenticated ? RequirementType.channel : RequirementType.both,
                   showContinueBrowsing: true,
                 ),
         ],
