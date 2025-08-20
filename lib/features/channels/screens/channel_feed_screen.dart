@@ -14,7 +14,7 @@ import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/channels/widgets/channel_video_item.dart';
 import 'package:textgb/features/channels/widgets/virtual_gifts_bottom_sheet.dart';
-import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
+import 'package:textgb/features/channels/widgets/login_required_widget.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/constants.dart';
@@ -158,7 +158,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           contentPadding: EdgeInsets.zero,
           content: SizedBox(
             width: MediaQuery.of(context).size.width * 0.9,
-            child: ChannelRequiredWidget(
+            child: LoginRequiredWidget(
               title: 'Channel Required',
               subtitle: !isLoggedIn 
                   ? 'You need to log in and create a channel to $actionName.'

@@ -1,11 +1,11 @@
-// lib/features/channels/widgets/channel_required_widget.dart (Fixed for correct auth flow)
+// lib/features/authentication/widgets/login_required_widget.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/constants.dart';
 
-class ChannelRequiredWidget extends ConsumerWidget {
+class LoginRequiredWidget extends ConsumerWidget {
   final String title;
   final String subtitle;
   final String actionText;
@@ -13,7 +13,7 @@ class ChannelRequiredWidget extends ConsumerWidget {
   final bool showContinueBrowsing;
   final VoidCallback? onContinueBrowsing;
 
-  const ChannelRequiredWidget({
+  const LoginRequiredWidget({
     Key? key,
     this.title = 'Sign In Required',
     this.subtitle = 'Please sign in to access this feature and unlock the full WeiBao experience.',
@@ -39,7 +39,7 @@ class ChannelRequiredWidget extends ConsumerWidget {
       );
     }
     
-    // If user is logged in (which means they have a channel), allow access
+    // If user is logged in, allow access
     if (isLoggedIn) {
       return const SizedBox.shrink();
     }
@@ -225,8 +225,8 @@ class ChannelRequiredWidget extends ConsumerWidget {
   }
 }
 
-// Simplified utility function to check authentication
-Future<bool> requireAuthentication(
+// Simplified utility function to check login status
+Future<bool> requireLogin(
   BuildContext context,
   WidgetRef ref, {
   String? customTitle,
@@ -239,12 +239,12 @@ Future<bool> requireAuthentication(
   final authState = ref.read(authenticationProvider).value ?? const AuthenticationState();
   final isLoggedIn = authState.isSuccessful;
   
-  // User is authenticated (and by extension has a channel)
+  // User is logged in
   if (isLoggedIn) {
     return true;
   }
   
-  // User is not authenticated, show dialog
+  // User is not logged in, show dialog
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: showContinueBrowsing,
@@ -252,7 +252,7 @@ Future<bool> requireAuthentication(
       contentPadding: EdgeInsets.zero,
       content: SizedBox(
         width: MediaQuery.of(context).size.width * 0.9,
-        child: ChannelRequiredWidget(
+        child: LoginRequiredWidget(
           title: customTitle ?? 'Sign In Required',
           subtitle: customSubtitle ?? 'Please sign in to access this feature.',
           actionText: customActionText ?? 'Sign In',
@@ -267,7 +267,32 @@ Future<bool> requireAuthentication(
   return result ?? false;
 }
 
-// Legacy function for backward compatibility - now just checks authentication
+// Legacy function for backward compatibility
+@Deprecated('Use requireLogin instead')
+Future<bool> requireAuthentication(
+  BuildContext context,
+  WidgetRef ref, {
+  String? customTitle,
+  String? customSubtitle,
+  String? customActionText,
+  IconData? customIcon,
+  bool showContinueBrowsing = true,
+  VoidCallback? onContinueBrowsing,
+}) async {
+  return requireLogin(
+    context,
+    ref,
+    customTitle: customTitle,
+    customSubtitle: customSubtitle,
+    customActionText: customActionText,
+    customIcon: customIcon,
+    showContinueBrowsing: showContinueBrowsing,
+    onContinueBrowsing: onContinueBrowsing,
+  );
+}
+
+// Legacy function for backward compatibility
+@Deprecated('Use requireLogin instead')
 Future<bool> requireUserChannel(
   BuildContext context,
   WidgetRef ref, {
@@ -277,7 +302,7 @@ Future<bool> requireUserChannel(
   IconData? customIcon,
   bool showContinueBrowsing = false,
 }) async {
-  return requireAuthentication(
+  return requireLogin(
     context,
     ref,
     customTitle: customTitle ?? 'Sign In Required',
@@ -288,14 +313,14 @@ Future<bool> requireUserChannel(
   );
 }
 
-// Alternative: Inline widget for embedding in screens with auth checking
-class InlineChannelRequiredWidget extends ConsumerWidget {
+// Alternative: Inline widget for embedding in screens with login checking
+class InlineLoginRequiredWidget extends ConsumerWidget {
   final String title;
   final String subtitle;
   final VoidCallback? onSignIn;
   final bool showGuestMode;
 
-  const InlineChannelRequiredWidget({
+  const InlineLoginRequiredWidget({
     Key? key,
     this.title = 'Get Started',
     this.subtitle = 'Sign in to start sharing content and connect with the community.',
@@ -309,7 +334,7 @@ class InlineChannelRequiredWidget extends ConsumerWidget {
     final authState = ref.watch(authenticationProvider).value ?? const AuthenticationState();
     final isLoggedIn = authState.isSuccessful;
     
-    // Don't show if user is authenticated (and has channel)
+    // Don't show if user is logged in
     if (isLoggedIn) {
       return const SizedBox.shrink();
     }
@@ -419,7 +444,7 @@ class GuestModeBanner extends ConsumerWidget {
     final authState = ref.watch(authenticationProvider).value ?? const AuthenticationState();
     final isLoggedIn = authState.isSuccessful;
     
-    // Don't show banner if user is already logged in (and has channel)
+    // Don't show banner if user is already logged in
     if (isLoggedIn) return const SizedBox.shrink();
     
     return Container(

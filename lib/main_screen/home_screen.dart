@@ -11,7 +11,7 @@ import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
-import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
+import 'package:textgb/features/channels/widgets/login_required_widget.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -170,7 +170,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         contentPadding: EdgeInsets.zero,
         content: SizedBox(
           width: MediaQuery.of(context).size.width * 0.9,
-          child: ChannelRequiredWidget(
+          child: LoginRequiredWidget(
             title: 'Sign In Required',
             subtitle: 'Sign in to access this feature and unlock the full WeiBao experience.',
             actionText: 'Sign In',
@@ -318,7 +318,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           contentPadding: EdgeInsets.zero,
           content: SizedBox(
             width: MediaQuery.of(context).size.width * 0.9,
-            child: ChannelRequiredWidget(
+            child: LoginRequiredWidget(
               title: 'Create Content',
               subtitle: !_isAuthenticated 
                   ? 'Sign in and create a channel to start sharing your content.'
@@ -398,7 +398,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: _isAuthenticated 
                 ? const WalletScreen()
-                : const ChannelRequiredWidget(
+                : const LoginRequiredWidget(
                     title: 'Access Your Wallet',
                     subtitle: 'Sign in to manage your earnings, transactions, and virtual gifts.',
                     actionText: 'Sign In',
@@ -409,7 +409,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           // Profile tab (index 4) - Uses Channel Required Widget if not authenticated or no channel
           _isAuthenticated && _hasChannel
               ? const MyChannelScreen()
-              : ChannelRequiredWidget(
+              : LoginRequiredWidget(
                   title: _isAuthenticated ? 'Create Your Channel' : 'Join WeiBao',
                   subtitle: _isAuthenticated 
                       ? 'Create your channel to start sharing content and building your community.'

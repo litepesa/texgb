@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/features/channels/widgets/video_trim_screen.dart';
-import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
+import 'package:textgb/features/channels/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
@@ -800,7 +800,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         contentPadding: EdgeInsets.zero,
         content: SizedBox(
           width: MediaQuery.of(context).size.width * 0.9,
-          child: const ChannelRequiredWidget(
+          child: const LoginRequiredWidget(
             title: 'Channel Required',
             subtitle: 'You need to create a channel before you can upload content.',
             actionText: 'Create Channel',
@@ -967,7 +967,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             },
           ),
         ),
-        body: const InlineChannelRequiredWidget(
+        body: const InlineLoginRequiredWidget(
           title: 'Create Your Channel',
           subtitle: 'You need to create a channel before you can upload videos or images. This helps organize your content and lets others follow your posts.',
         ),

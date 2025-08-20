@@ -5,7 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
-import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
+import 'package:textgb/features/channels/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -174,7 +174,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           contentPadding: EdgeInsets.zero,
           content: SizedBox(
             width: MediaQuery.of(context).size.width * 0.9,
-            child: ChannelRequiredWidget(
+            child: LoginRequiredWidget(
               title: 'Channel Required',
               subtitle: !isLoggedIn 
                   ? 'You need to log in and create a channel to follow other channels.'

@@ -11,7 +11,7 @@ import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
-import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
+import 'package:textgb/features/channels/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class MyChannelScreen extends ConsumerStatefulWidget {
