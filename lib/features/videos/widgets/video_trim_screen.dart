@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:textgb/features/channels/screens/create_post_screen.dart';
+import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:video_player/video_player.dart';
 import 'package:ffmpeg_kit_flutter_new_gpl/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_gpl/return_code.dart';

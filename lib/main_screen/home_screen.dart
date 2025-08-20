@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart (Simplified - No Auth Controls)
+// lib/main_screen/home_screen.dart (Updated for TikTok-style authentication system)
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -6,10 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
-import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/channels/screens/my_channel_screen.dart';
+import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
+import 'package:textgb/features/users/screens/users_list_screen.dart';
+import 'package:textgb/features/videos/screens/create_post_screen.dart';
+import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -34,8 +34,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
   final List<String> _tabNames = [
-    'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
-    'Channels',  // Index 1 - Channels List
+    'Home',      // Index 0 - Videos Feed (hidden app bar, black background)
+    'Channels',  // Index 1 - Users List
     '',          // Index 2 - Post (no label, special design)
     'Wallet',    // Index 3 - Wallet 
     'Profile'    // Index 4 - Profile
@@ -43,14 +43,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<IconData> _tabIcons = [
     Icons.home,                        // Home
-    Icons.radio_button_checked_rounded, // Channels
+    Icons.radio_button_checked_rounded, // Channels (now Users)
     Icons.add,                         // Post (will be styled specially)
     Icons.account_balance_rounded,     // Wallet
     Icons.person_2_outlined            // Me/Profile
   ];
 
   // Feed screen controller for lifecycle management
-  final GlobalKey<ChannelsFeedScreenState> _feedScreenKey = GlobalKey<ChannelsFeedScreenState>();
+  final GlobalKey<VideosFeedScreenState> _feedScreenKey = GlobalKey<VideosFeedScreenState>();
 
   @override
   void initState() {
@@ -385,17 +385,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Home tab (index 0) - Channels Feed with black background
+          // Home tab (index 0) - Videos Feed with black background
           Container(
             color: Colors.black,
-            child: ChannelsFeedScreen(
+            child: VideosFeedScreen(
               key: _feedScreenKey,
             ),
           ),
-          // Channels tab (index 1) - Uses current theme
+          // Channels tab (index 1) - Uses current theme (now Users List)
           Container(
             color: modernTheme.backgroundColor,
-            child: const ChannelsListScreen(),
+            child: const UsersListScreen(),
           ),
           // Post tab (index 2) - This should never be shown as we navigate directly
           Container(
@@ -410,8 +410,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: bottomPadding),
             child: const WalletScreen(),
           ),
-          // Profile tab (index 4) - Let MyChannelScreen handle its own authentication
-          const MyChannelScreen(),
+          // Profile tab (index 4) - Let MyProfileScreen handle its own authentication
+          const MyProfileScreen(),
         ],
       ),
       
@@ -642,7 +642,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Set title based on current tab
     switch (_currentIndex) {
       case 1:
-        title = 'WeiBao'; // Show main app name for Channels tab
+        title = 'WeiBao'; // Show main app name for Users tab (was Channels tab)
         break;
       case 3:
         title = 'Wallet';

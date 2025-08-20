@@ -7,35 +7,35 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/models/channel_model.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
-import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
-import 'package:textgb/features/channels/providers/channels_provider.dart';
-import 'package:textgb/features/channels/widgets/login_required_widget.dart';
+import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
-class MyChannelScreen extends ConsumerStatefulWidget {
-  const MyChannelScreen({Key? key}) : super(key: key);
+class MyProfileScreen extends ConsumerStatefulWidget {
+  const MyProfileScreen({Key? key}) : super(key: key);
 
   @override
-  ConsumerState<MyChannelScreen> createState() => _MyChannelScreenState();
+  ConsumerState<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
+class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     with TickerProviderStateMixin {
   bool _isLoading = true;
-  ChannelModel? _channel;
-  List<ChannelVideoModel> _channelVideos = [];
+  UserModel? _user;
+  List<VideoModel> _userVideos = [];
   String? _error;
   bool _isDeleting = false;
   late TabController _tabController;
   Map<String, String> _videoThumbnails = {};
-  bool _hasNoChannel = false;
+  bool _hasNoProfile = false;
   
   // Cache manager for video thumbnails
   static final _thumbnailCacheManager = CacheManager(
     Config(
-      'channelVideoThumbnails',
+      'userVideoThumbnails',
       stalePeriod: const Duration(days: 7),
       maxNrOfCacheObjects: 200,
     ),
@@ -46,7 +46,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadChannelData();
+      _loadUserData();
     });
   }
 
@@ -56,35 +56,37 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     super.dispose();
   }
 
-  Future<void> _loadChannelData() async {
+  Future<void> _loadUserData() async {
     setState(() {
       _isLoading = true;
       _error = null;
-      _hasNoChannel = false;
+      _hasNoProfile = false;
     });
 
     try {
-      // Get user's channel data
-      final userChannel = ref.read(channelsProvider).userChannel;
+      // Check if user is authenticated
+      final currentUser = ref.read(currentUserProvider);
+      final isAuthenticated = ref.read(isAuthenticatedProvider);
       
-      if (userChannel == null) {
-        // User doesn't have a channel
+      if (!isAuthenticated || currentUser == null) {
+        // User is not authenticated
         if (mounted) {
           setState(() {
-            _hasNoChannel = true;
+            _hasNoProfile = true;
             _isLoading = false;
           });
         }
         return;
       }
       
-      // Get channel videos
-      final videos = await ref.read(channelVideosProvider.notifier).loadChannelVideos(userChannel.id);
+      // Get user's videos
+      final videos = ref.read(videosProvider);
+      final userVideos = videos.where((video) => video.userId == currentUser.id).toList();
       
       if (mounted) {
         setState(() {
-          _channel = userChannel;
-          _channelVideos = videos;
+          _user = currentUser;
+          _userVideos = userVideos;
           _isLoading = false;
         });
         
@@ -102,7 +104,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   }
 
   Future<void> _generateVideoThumbnails() async {
-    for (final video in _channelVideos) {
+    for (final video in _userVideos) {
       if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
         try {
           // Check if thumbnail is already cached
@@ -148,14 +150,14 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     }
   }
 
-  void _editChannel() {
-    if (_channel == null) return;
+  void _editProfile() {
+    if (_user == null) return;
     
     Navigator.pushNamed(
       context, 
-      Constants.editChannelScreen,
-      arguments: _channel,
-    ).then((_) => _loadChannelData());
+      Constants.editProfileScreen,
+      arguments: _user,
+    ).then((_) => _loadUserData());
   }
 
   Future<void> _deleteVideo(String videoId) async {
@@ -166,7 +168,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     });
     
     try {
-      await ref.read(channelVideosProvider.notifier).deleteVideo(
+      await ref.read(authenticationProvider.notifier).deleteVideo(
         videoId,
         (error) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -179,7 +181,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
         },
       );
       
-      _loadChannelData();
+      _loadUserData();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -197,7 +199,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     }
   }
 
-  void _confirmDeleteVideo(ChannelVideoModel video) {
+  void _confirmDeleteVideo(VideoModel video) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -247,17 +249,20 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     );
   }
 
-  void _openVideoDetails(ChannelVideoModel video) {
+  void _openVideoDetails(VideoModel video) {
     Navigator.pushNamed(
       context, 
-      Constants.myPostScreen,
-      arguments: video.id,
-    ).then((_) => _loadChannelData());
+      Constants.postDetailScreen,
+      arguments: {
+        Constants.videoId: video.id,
+        Constants.videoModel: video,
+      },
+    ).then((_) => _loadUserData());
   }
 
-  void _onChannelCreated() {
-    // Reload the screen data after channel creation
-    _loadChannelData();
+  void _onProfileCreated() {
+    // Reload the screen data after profile creation
+    _loadUserData();
   }
 
   @override
@@ -270,11 +275,11 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
       extendBody: true,
       body: _isLoading
           ? _buildLoadingView(modernTheme)
-          : _hasNoChannel
-              ? _buildChannelRequiredView(modernTheme)
+          : _hasNoProfile
+              ? _buildProfileRequiredView(modernTheme)
               : _error != null
                   ? _buildErrorView(modernTheme)
-                  : _buildChannelView(modernTheme),
+                  : _buildProfileView(modernTheme),
     );
   }
 
@@ -289,7 +294,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            'Loading your channel...',
+            'Loading your profile...',
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
               fontSize: 16,
@@ -300,97 +305,16 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     );
   }
 
-  Widget _buildChannelRequiredView(ModernThemeExtension modernTheme) {
+  Widget _buildProfileRequiredView(ModernThemeExtension modernTheme) {
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      body: _buildCustomChannelRequiredWidget(modernTheme),
-    );
-  }
-
-  Widget _buildCustomChannelRequiredWidget(ModernThemeExtension modernTheme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor?.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.video_call,
-                size: 40,
-                color: modernTheme.primaryColor,
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            Text(
-              'Create Your Channel',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: modernTheme.textColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: 12),
-            
-            Text(
-              'Start sharing your content and building your community by creating your own channel.',
-              style: TextStyle(
-                fontSize: 16,
-                color: modernTheme.textSecondaryColor,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: 32),
-            
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _navigateToCreateChannel(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: modernTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Create My Channel',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      body: const LoginRequiredWidget(
+        title: 'Sign In Required',
+        subtitle: 'Please sign in to view your profile and manage your content.',
+        actionText: 'Sign In',
+        icon: Icons.person,
       ),
     );
-  }
-
-  void _navigateToCreateChannel(BuildContext context) async {
-    final result = await Navigator.pushNamed(
-      context,
-      Constants.createChannelScreen,
-    );
-    
-    // If channel was created successfully, reload the screen
-    if (result == true && mounted) {
-      _loadChannelData();
-    }
   }
 
   Widget _buildErrorView(ModernThemeExtension modernTheme) {
@@ -432,7 +356,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _loadChannelData,
+              onPressed: _loadUserData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
@@ -457,9 +381,9 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     );
   }
 
-  Widget _buildChannelView(ModernThemeExtension modernTheme) {
-    if (_channel == null) {
-      return const Center(child: Text('Channel not found'));
+  Widget _buildProfileView(ModernThemeExtension modernTheme) {
+    if (_user == null) {
+      return const Center(child: Text('Profile not found'));
     }
 
     return DefaultTabController(
@@ -469,11 +393,11 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
         body: SingleChildScrollView(
           child: Column(
             children: [
-              // Channel Header
-              _buildChannelHeader(modernTheme),
+              // Profile Header
+              _buildProfileHeader(modernTheme),
               
-              // Channel Info Card
-              _buildChannelInfoCard(modernTheme),
+              // Profile Info Card
+              _buildProfileInfoCard(modernTheme),
               
               // Tab Bar
               Container(
@@ -518,7 +442,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     );
   }
 
-  Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
+  Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -578,9 +502,9 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                         ],
                       ),
                       child: ClipOval(
-                        child: _channel!.profileImage.isNotEmpty
+                        child: _user!.profileImage.isNotEmpty
                             ? CachedNetworkImage(
-                                imageUrl: _channel!.profileImage,
+                                imageUrl: _user!.profileImage,
                                 fit: BoxFit.cover,
                                 placeholder: (context, url) => Container(
                                   color: Colors.grey[300],
@@ -619,13 +543,13 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                 ),
                 const SizedBox(height: 20),
                 
-                // Channel name with enhanced styling
+                // User name with enhanced styling
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Flexible(
                       child: Text(
-                        _channel!.name,
+                        _user!.name,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 28,
@@ -642,7 +566,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    if (_channel!.isVerified) ...[
+                    if (_user!.isVerified) ...[
                       const SizedBox(width: 12),
                       const Icon(
                         Icons.verified,
@@ -653,10 +577,10 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Channel description
-                if (_channel!.description.isNotEmpty)
+                // User description
+                if (_user!.about.isNotEmpty)
                   Text(
-                    _channel!.description,
+                    _user!.about,
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 16,
@@ -668,9 +592,9 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                   ),
                 const SizedBox(height: 20),
                 
-                // Edit Channel Button with enhanced design
+                // Edit Profile Button with enhanced design
                 GestureDetector(
-                  onTap: _editChannel,
+                  onTap: _editProfile,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     decoration: BoxDecoration(
@@ -687,9 +611,14 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Icon(
+                          Icons.edit,
+                          color: modernTheme.primaryColor,
+                          size: 18,
+                        ),
                         const SizedBox(width: 8),
                         Text(
-                          'Edit Channel',
+                          'Edit Profile',
                           style: TextStyle(
                             color: modernTheme.primaryColor,
                             fontSize: 16,
@@ -708,7 +637,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     );
   }
 
-  Widget _buildChannelInfoCard(ModernThemeExtension modernTheme) {
+  Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
@@ -727,30 +656,30 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Stats Row with 4 items like profile screen
+          // Stats Row with 4 items
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildStatItem(
-                _channel!.videosCount.toString(),
+                _user!.videosCount.toString(),
                 'Posts',
                 Icons.video_library,
                 modernTheme,
               ),
               _buildStatItem(
-                _channel!.followers.toString(),
+                _user!.followers.toString(),
                 'Followers',
                 Icons.people,
                 modernTheme,
               ),
               _buildStatItem(
-                '0', // Following count - channels don't follow others typically
+                _user!.following.toString(),
                 'Following',
                 Icons.person_add,
                 modernTheme,
               ),
               _buildStatItem(
-                _channel!.likesCount.toString(),
+                _user!.likesCount.toString(),
                 'Likes',
                 Icons.favorite,
                 modernTheme,
@@ -759,17 +688,17 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
           ),
           
           // Tags
-          if (_channel!.tags.isNotEmpty) ...[
+          if (_user!.tags.isNotEmpty) ...[
             const SizedBox(height: 16),
             SizedBox(
               height: 32,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _channel!.tags.length,
+                itemCount: _user!.tags.length,
                 itemBuilder: (context, index) {
-                  final tag = _channel!.tags[index];
+                  final tag = _user!.tags[index];
                   return Container(
-                    margin: EdgeInsets.only(right: index < _channel!.tags.length - 1 ? 8 : 0),
+                    margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 6,
@@ -834,7 +763,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   }
 
   Widget _buildPostsTab(ModernThemeExtension modernTheme) {
-    if (_channelVideos.isEmpty) {
+    if (_userVideos.isEmpty) {
       return _buildEmptyState(modernTheme);
     }
 
@@ -851,15 +780,15 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
         mainAxisSpacing: 2,
         childAspectRatio: 9 / 16,
       ),
-      itemCount: _channelVideos.length,
+      itemCount: _userVideos.length,
       itemBuilder: (context, index) {
-        final video = _channelVideos[index];
+        final video = _userVideos[index];
         return _buildVideoCard(video, modernTheme);
       },
     );
   }
 
-  Widget _buildVideoCard(ChannelVideoModel video, ModernThemeExtension modernTheme) {
+  Widget _buildVideoCard(VideoModel video, ModernThemeExtension modernTheme) {
     return GestureDetector(
       onTap: () => _openVideoDetails(video),
       onLongPress: () => _confirmDeleteVideo(video),
@@ -1095,7 +1024,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Channel Overview',
+                  'Profile Overview',
                   style: TextStyle(
                     color: modernTheme.textColor,
                     fontSize: 20,
@@ -1108,7 +1037,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                     Expanded(
                       child: _buildAnalyticsCard(
                         'Total Views',
-                        _channelVideos.fold<int>(0, (sum, video) => sum + video.views).toString(),
+                        _userVideos.fold<int>(0, (sum, video) => sum + video.views).toString(),
                         Icons.visibility,
                         modernTheme,
                       ),
@@ -1117,7 +1046,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                     Expanded(
                       child: _buildAnalyticsCard(
                         'Total Likes',
-                        _channelVideos.fold<int>(0, (sum, video) => sum + video.likes).toString(),
+                        _userVideos.fold<int>(0, (sum, video) => sum + video.likes).toString(),
                         Icons.favorite,
                         modernTheme,
                       ),
@@ -1130,7 +1059,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                     Expanded(
                       child: _buildAnalyticsCard(
                         'Comments',
-                        _channelVideos.fold<int>(0, (sum, video) => sum + video.comments).toString(),
+                        _userVideos.fold<int>(0, (sum, video) => sum + video.comments).toString(),
                         Icons.comment,
                         modernTheme,
                       ),
@@ -1278,13 +1207,13 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   }
 
   double _calculateEngagementRate() {
-    if (_channelVideos.isEmpty) return 0.0;
+    if (_userVideos.isEmpty) return 0.0;
     
-    final totalEngagement = _channelVideos.fold<int>(
+    final totalEngagement = _userVideos.fold<int>(
       0,
       (sum, video) => sum + video.likes + video.comments,
     );
-    final totalViews = _channelVideos.fold<int>(
+    final totalViews = _userVideos.fold<int>(
       0,
       (sum, video) => sum + video.views,
     );

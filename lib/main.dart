@@ -1,4 +1,4 @@
-// lib/main.dart (Updated for unauthenticated access)
+// lib/main.dart (Updated for TikTok-style authentication system)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,17 +7,15 @@ import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/authentication/screens/channel_information_screen.dart';
-import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
-import 'package:textgb/features/channels/screens/my_channel_screen.dart';
-import 'package:textgb/features/channels/screens/my_post_screen.dart';
-import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
-import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-import 'package:textgb/features/channels/models/channel_model.dart';
-import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
-import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
-import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
-import 'package:textgb/features/channels/screens/create_post_screen.dart';
+import 'package:textgb/features/authentication/screens/profile_setup_screen.dart';
+import 'package:textgb/features/users/screens/edit_profile_screen.dart';
+import 'package:textgb/features/users/screens/my_profile_screen.dart';
+import 'package:textgb/features/users/screens/users_list_screen.dart';
+import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/features/users/screens/user_profile_screen.dart';
+import 'package:textgb/features/videos/screens/single_video_screen.dart';
+import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
+import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
@@ -147,45 +145,49 @@ class AppRoot extends ConsumerWidget {
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
           
-          // Channel routes with enhanced navigation support
-          Constants.createChannelScreen: (context) => const ChannelInformationScreen(),
-          Constants.channelsFeedScreen: (context) {
+          // User/Profile routes with enhanced navigation support
+          Constants.createProfileScreen: (context) => const ProfileSetupScreen(),
+          Constants.videosFeedScreen: (context) {
             final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-            return ChannelsFeedScreen(
-              startVideoId: args?['startVideoId'] as String?,
-              channelId: args?['channelId'] as String?,
+            return VideosFeedScreen(
+              startVideoId: args?[Constants.startVideoId] as String?,
+              userId: args?[Constants.userId] as String?,
             );
           },
-          Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
-          Constants.myChannelScreen: (context) => const MyChannelScreen(),
-          Constants.createChannelPostScreen: (context) => const CreatePostScreen(),
-          Constants.channelFeedScreen: (context) {
-            final videoId = ModalRoute.of(context)!.settings.arguments as String;
-            return ChannelFeedScreen(videoId: videoId);
+          Constants.myProfileScreen: (context) => const MyProfileScreen(),
+          Constants.createPostScreen: (context) => const CreatePostScreen(),
+          Constants.singleVideoScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments;
+            if (args is String) {
+              // Single video ID argument
+              return SingleVideoScreen(videoId: args);
+            } else if (args is Map<String, dynamic>) {
+              // Map with startVideoId and optional userId
+              return SingleVideoScreen(
+                videoId: args[Constants.startVideoId] as String,
+                userId: args[Constants.userId] as String?,
+              );
+            }
+            throw ArgumentError('Invalid arguments for SingleVideoScreen');
           },
           
-          Constants.channelProfileScreen: (context) {
-            final channelId = ModalRoute.of(context)!.settings.arguments as String;
-            return ChannelProfileScreen(channelId: channelId);
+          Constants.userProfileScreen: (context) {
+            final userId = ModalRoute.of(context)!.settings.arguments as String;
+            return UserProfileScreen(userId: userId);
           },
-          Constants.editChannelScreen: (context) {
-            final channel = ModalRoute.of(context)!.settings.arguments as ChannelModel;
-            return EditChannelScreen(channel: channel);
+          Constants.editProfileScreen: (context) {
+            final user = ModalRoute.of(context)!.settings.arguments as UserModel;
+            return EditProfileScreen(user: user);
           },
           
-          // Channels List Screen
-          Constants.channelsListScreen: (context) => const ChannelsListScreen(),
+          // Users List Screen
+          Constants.usersListScreen: (context) => const UsersListScreen(),
           
-          Constants.exploreChannelsScreen: (context) => const Scaffold(
+          Constants.exploreScreen: (context) => const Scaffold(
               body: Center(
-                child: Text('Explore Channels Screen - To be implemented'),
+                child: Text('Explore Screen - To be implemented'),
               ),
             ),
-          // My Post Screen route
-          Constants.myPostScreen: (context) {
-            final videoId = ModalRoute.of(context)!.settings.arguments as String;
-            return MyPostScreen(videoId: videoId);
-          },
           
           // Wallet routes
           Constants.walletScreen: (context) => const WalletScreen(),
@@ -209,16 +211,26 @@ class AppRoot extends ConsumerWidget {
         onGenerateRoute: (settings) {
           // Handle dynamic routes that need custom logic
           switch (settings.name) {
-            case '/channel-profile':
-              // Handle channel profile route
-              final channelId = settings.arguments as String?;
-              if (channelId != null) {
+            case '/user-profile':
+              // Handle user profile route
+              final userId = settings.arguments as String?;
+              if (userId != null) {
                 return MaterialPageRoute(
-                  builder: (context) => ChannelProfileScreen(channelId: channelId),
+                  builder: (context) => UserProfileScreen(userId: userId),
                   settings: settings,
                 );
               }
               break;
+            case '/video-feed':
+              // Handle video feed route with flexible arguments
+              final args = settings.arguments as Map<String, dynamic>?;
+              return MaterialPageRoute(
+                builder: (context) => VideosFeedScreen(
+                  startVideoId: args?[Constants.startVideoId] as String?,
+                  userId: args?[Constants.userId] as String?,
+                ),
+                settings: settings,
+              );
           }
           
           // Return null to let the default route handling take over
@@ -229,56 +241,103 @@ class AppRoot extends ConsumerWidget {
   }
 }
 
-// Helper class for navigation utilities
-class ChannelNavigationHelper {
-  // Navigate to channel profile
-  static void navigateToChannelProfile(
+// Helper class for navigation utilities (updated for TikTok-style system)
+class UserNavigationHelper {
+  // Navigate to user profile
+  static void navigateToUserProfile(
     BuildContext context, {
-    required String channelId,
+    required String userId,
   }) {
     Navigator.pushNamed(
       context,
-      Constants.channelProfileScreen,
-      arguments: channelId,
+      Constants.userProfileScreen,
+      arguments: userId,
     );
   }
 
-  // Navigate to channel feed
-  static void navigateToChannelFeed(
+  // Navigate to videos feed
+  static void navigateToVideosFeed(
     BuildContext context, {
     String? startVideoId,
-    String? channelId,
+    String? userId,
   }) {
     Navigator.pushNamed(
       context,
-      Constants.channelsFeedScreen,
+      Constants.videosFeedScreen,
       arguments: {
-        'startVideoId': startVideoId,
-        'channelId': channelId,
+        Constants.startVideoId: startVideoId,
+        Constants.userId: userId,
+      },
+    );
+  }
+
+  // Navigate to single video
+  static void navigateToSingleVideo(
+    BuildContext context, {
+    required String videoId,
+    String? userId,
+  }) {
+    Navigator.pushNamed(
+      context,
+      Constants.singleVideoScreen,
+      arguments: {
+        Constants.startVideoId: videoId,
+        Constants.userId: userId,
       },
     );
   }
 
   // Navigate to create post (requires authentication)
   static void navigateToCreatePost(BuildContext context) {
-    Navigator.pushNamed(context, Constants.createChannelPostScreen);
+    Navigator.pushNamed(context, Constants.createPostScreen);
   }
 
-  // Navigate to my channel (requires authentication)
-  static void navigateToMyChannel(BuildContext context) {
-    Navigator.pushNamed(context, Constants.myChannelScreen);
+  // Navigate to my profile (requires authentication)
+  static void navigateToMyProfile(BuildContext context) {
+    Navigator.pushNamed(context, Constants.myProfileScreen);
   }
 
-  // Navigate to edit channel (requires authentication)
-  static void navigateToEditChannel(
+  // Navigate to edit profile (requires authentication)
+  static void navigateToEditProfile(
     BuildContext context, {
-    required ChannelModel channel,
+    required UserModel user,
   }) {
     Navigator.pushNamed(
       context,
-      Constants.editChannelScreen,
-      arguments: channel,
+      Constants.editProfileScreen,
+      arguments: user,
     );
+  }
+
+  // Navigate to users list
+  static void navigateToUsersList(BuildContext context) {
+    Navigator.pushNamed(context, Constants.usersListScreen);
+  }
+
+  // Navigate to post detail
+  static void navigateToPostDetail(
+    BuildContext context, {
+    required String videoId,
+    dynamic videoModel,
+  }) {
+    Navigator.pushNamed(
+      context,
+      Constants.postDetailScreen,
+      arguments: {
+        Constants.videoId: videoId,
+        Constants.videoModel: videoModel,
+      },
+    );
+  }
+
+  // Navigate to explore screen
+  static void navigateToExplore(BuildContext context) {
+    Navigator.pushNamed(context, Constants.exploreScreen);
+  }
+
+  // Navigate to recommended posts
+  static void navigateToRecommendedPosts(BuildContext context) {
+    Navigator.pushNamed(context, Constants.recommendedPostsScreen);
   }
 
   // Helper method to check if user needs to authenticate for an action
@@ -300,5 +359,35 @@ class ChannelNavigationHelper {
     } else {
       onAuthenticated();
     }
+  }
+
+  // Navigate to wallet
+  static void navigateToWallet(BuildContext context) {
+    Navigator.pushNamed(context, Constants.walletScreen);
+  }
+
+  // Navigate to profile setup
+  static void navigateToProfileSetup(BuildContext context) {
+    Navigator.pushNamed(context, Constants.createProfileScreen);
+  }
+
+  // Navigate back with result
+  static void navigateBack(BuildContext context, [dynamic result]) {
+    Navigator.of(context).pop(result);
+  }
+
+  // Replace current route
+  static void navigateAndReplace(BuildContext context, String routeName, {Object? arguments}) {
+    Navigator.pushReplacementNamed(context, routeName, arguments: arguments);
+  }
+
+  // Clear stack and navigate to route
+  static void navigateAndClearStack(BuildContext context, String routeName, {Object? arguments}) {
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      routeName,
+      (route) => false,
+      arguments: arguments,
+    );
   }
 }

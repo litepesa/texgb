@@ -1,3 +1,4 @@
+// lib/features/videos/screens/my_post_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,8 +9,9 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
-import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:intl/intl.dart';
 
@@ -27,7 +29,7 @@ class MyPostScreen extends ConsumerStatefulWidget {
 
 class _MyPostScreenState extends ConsumerState<MyPostScreen>
     with TickerProviderStateMixin {
-  ChannelVideoModel? _video;
+  VideoModel? _video;
   bool _isLoading = true;
   String? _error;
   String? _videoThumbnail;
@@ -82,12 +84,12 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     });
 
     try {
-      // Load the specific video from the provider
-      final video = await ref.read(channelVideosProvider.notifier).getVideoById(widget.videoId);
-      
-      if (video == null) {
-        throw Exception('Video not found');
-      }
+      // Load the specific video from the authentication provider
+      final videos = ref.read(videosProvider);
+      final video = videos.firstWhere(
+        (v) => v.id == widget.videoId,
+        orElse: () => throw Exception('Video not found'),
+      );
       
       if (mounted) {
         setState(() {
@@ -266,7 +268,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
               Navigator.of(context).pop();
               
               try {
-                await ref.read(channelVideosProvider.notifier).deleteVideo(
+                await ref.read(authenticationProvider.notifier).deleteVideo(
                   _video!.id,
                   (error) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -279,8 +281,17 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   },
                 );
                 
-                // Go back to channel screen after successful deletion
+                // Go back to previous screen after successful deletion
                 Navigator.of(context).pop();
+                
+                // Show success message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(Constants.videoDeleted),
+                    backgroundColor: Colors.green.shade600,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -590,7 +601,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     );
   }
 
-  Widget _buildPostPreviewCard(ChannelVideoModel video, ModernThemeExtension modernTheme) {
+  Widget _buildPostPreviewCard(VideoModel video, ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -607,7 +618,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: AspectRatio(
-          aspectRatio: 9 / 16, // TikTok-style aspect ratio
+          aspectRatio: Constants.videoAspectRatio, // TikTok-style aspect ratio
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -735,7 +746,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Channel info
+                      // User info
                       Row(
                         children: [
                           CircleAvatar(
@@ -743,14 +754,14 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                             backgroundColor: Colors.white,
                             child: CircleAvatar(
                               radius: 15,
-                              backgroundImage: video.channelImage.isNotEmpty
-                                  ? CachedNetworkImageProvider(video.channelImage)
+                              backgroundImage: video.userImage.isNotEmpty
+                                  ? CachedNetworkImageProvider(video.userImage)
                                   : null,
-                              child: video.channelImage.isEmpty
+                              child: video.userImage.isEmpty
                                   ? Text(
-                                      video.channelName.isNotEmpty
-                                          ? video.channelName[0].toUpperCase()
-                                          : 'C',
+                                      video.userName.isNotEmpty
+                                          ? video.userName[0].toUpperCase()
+                                          : 'U',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
@@ -765,7 +776,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  video.channelName,
+                                  video.userName,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -1004,7 +1015,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     );
   }
 
-  Widget _buildAnalyticsTab(ChannelVideoModel video, ModernThemeExtension modernTheme) {
+  Widget _buildAnalyticsTab(VideoModel video, ModernThemeExtension modernTheme) {
     final engagementRate = video.views > 0
         ? ((video.likes + video.comments + video.shares) / video.views * 100)
         : 0.0;

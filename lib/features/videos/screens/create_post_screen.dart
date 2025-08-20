@@ -1,13 +1,14 @@
+// lib/features/videos/screens/create_post_screen.dart
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:textgb/features/channels/widgets/video_trim_screen.dart';
-import 'package:textgb/features/channels/widgets/login_required_widget.dart';
+import 'package:textgb/features/videos/widgets/video_trim_screen.dart';
+import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
-import 'package:textgb/features/channels/providers/channels_provider.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:video_player/video_player.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,6 +17,7 @@ import 'package:ffmpeg_kit_flutter_new_gpl/ffmpeg_kit_config.dart';
 import 'package:ffmpeg_kit_flutter_new_gpl/return_code.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path/path.dart' as path;
+import 'package:textgb/constants.dart';
 
 // Data classes for video processing - shared with VideoTrimScreen
 class VideoInfo {
@@ -83,7 +85,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   @override
   void initState() {
     super.initState();
-    // No automatic channel creation - user will be prompted if needed
+    // No automatic user profile creation - user will be prompted if needed
   }
 
   @override
@@ -152,7 +154,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       final video = await _picker.pickVideo(
         source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 5),
+        maxDuration: const Duration(minutes: Constants.maxVideoLength ~/ 60),
       );
       
       if (video != null) {
@@ -188,7 +190,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       final video = await _picker.pickVideo(
         source: ImageSource.camera,
-        maxDuration: const Duration(minutes: 5),
+        maxDuration: const Duration(seconds: Constants.maxVideoLength),
       );
       
       if (video != null) {
@@ -224,12 +226,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     final videoInfo = await _analyzeVideo(videoFile);
     print('DEBUG: Video analysis - ${videoInfo.toString()}');
     
-    if (videoInfo.duration.inSeconds > 300) { // 5 minutes
-      print('DEBUG: Video exceeds 5 minutes, offering trim option');
+    if (videoInfo.duration.inSeconds > Constants.maxVideoLength) {
+      print('DEBUG: Video exceeds ${Constants.maxVideoLength} seconds, offering trim option');
       await _showVideoTrimDialog(videoFile, videoInfo, isRequired: true);
       return;
     } else {
-      print('DEBUG: Video under 5 minutes, offering optional trim');
+      print('DEBUG: Video under ${Constants.maxVideoLength} seconds, offering optional trim');
       await _showVideoTrimDialog(videoFile, videoInfo, isRequired: false);
       return;
     }
@@ -410,7 +412,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           }
           
           // Wakelock can be disabled after optimization, but keep it if uploading
-          if (!ref.read(channelVideosProvider).isUploading) {
+          final authProvider = ref.read(authenticationProvider.notifier);
+          if (!authProvider.isLoading) {
             await _disableWakelock();
           }
           
@@ -501,9 +504,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         print('DEBUG: ${images.length} images selected');
         List<File> imageFiles = images.map((xFile) => File(xFile.path)).toList();
         
-        if (imageFiles.length > 10) {
-          imageFiles = imageFiles.sublist(0, 10);
-          _showMessage('Maximum 10 images allowed. Only the first 10 images were selected.');
+        if (imageFiles.length > Constants.maxImageCount) {
+          imageFiles = imageFiles.sublist(0, Constants.maxImageCount);
+          _showMessage('Maximum ${Constants.maxImageCount} images allowed. Only the first ${Constants.maxImageCount} images were selected.');
         }
         
         setState(() {
@@ -531,7 +534,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     _videoFile = null;
     _videoInfo = null;
     // Disable wakelock when clearing video if not in other processes
-    if (!_isOptimizing && !ref.read(channelVideosProvider).isUploading) {
+    final authProvider = ref.read(authenticationProvider.notifier);
+    if (!_isOptimizing && !authProvider.isLoading) {
       _disableWakelock();
     }
   }
@@ -552,15 +556,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   Future<void> _showVideoTrimDialog(File videoFile, VideoInfo videoInfo, {required bool isRequired}) async {
     final durationMinutes = (videoInfo.duration.inSeconds / 60).round();
     final durationSeconds = videoInfo.duration.inSeconds;
+    final maxVideoMinutes = (Constants.maxVideoLength / 60).round();
     
     String title;
     String content;
     List<Widget> actions = [];
     
     if (isRequired) {
-      // Video is over 5 minutes - trimming is required
+      // Video is over max length - trimming is required
       title = 'Video Too Long';
-      content = 'Your video is ${durationMinutes} minutes long. Videos must be 5 minutes or less.\n\n'
+      content = 'Your video is ${durationMinutes} minutes long. Videos must be ${maxVideoMinutes} minutes or less.\n\n'
           'Choose how you want to trim it:';
       
       actions = [
@@ -572,10 +577,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           },
         ),
         TextButton(
-          child: const Text('First 5 Minutes'),
+          child: Text('First ${maxVideoMinutes} Minutes'),
           onPressed: () async {
             Navigator.of(context).pop();
-            await _trimVideoTo5Minutes(videoFile, videoInfo);
+            await _trimVideoToMaxLength(videoFile, videoInfo);
           },
         ),
         TextButton(
@@ -587,7 +592,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         ),
       ];
     } else {
-      // Video is under 5 minutes - trimming is optional
+      // Video is under max length - trimming is optional
       title = 'Trim Video?';
       content = 'Your video is ${durationSeconds} seconds long.\n\n'
           'Would you like to trim it to a shorter clip, or use the full video?';
@@ -713,10 +718,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  // Enhanced trim to 5 minutes with caching
-  Future<void> _trimVideoTo5Minutes(File videoFile, VideoInfo videoInfo) async {
+  // Enhanced trim to max length with caching
+  Future<void> _trimVideoToMaxLength(File videoFile, VideoInfo videoInfo) async {
     try {
-      print('DEBUG: Starting video trim to 5 minutes');
+      print('DEBUG: Starting video trim to ${Constants.maxVideoLength} seconds');
       
       // Ensure wakelock is active during trimming
       await _enableWakelock();
@@ -724,9 +729,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       // Show loading indicator
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Trimming video to 5 minutes...'),
-            duration: Duration(seconds: 30),
+          SnackBar(
+            content: Text('Trimming video to ${Constants.maxVideoLength ~/ 60} minutes...'),
+            duration: const Duration(seconds: 30),
           ),
         );
       }
@@ -734,15 +739,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       // Create unique filename with timestamp
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileExtension = path.extension(videoFile.path);
-      final trimmedFileName = 'trimmed_5min_${timestamp}${fileExtension}';
+      final trimmedFileName = 'trimmed_${Constants.maxVideoLength}s_${timestamp}${fileExtension}';
       
       // Use cache directory for trimmed file
       final tempDir = Directory.systemTemp;
       final trimmedPath = path.join(tempDir.path, trimmedFileName);
       
-      // FFmpeg command to trim video to first 5 minutes (300 seconds)
+      // FFmpeg command to trim video to max length
       final command = '-y -i "${videoFile.path}" '
-          '-t 300 '                               // Trim to 300 seconds (5 minutes)
+          '-t ${Constants.maxVideoLength} '          // Trim to max seconds
           '-c:v libx264 '                         // Re-encode video for consistency
           '-c:a aac '                             // Re-encode audio for consistency
           '-avoid_negative_ts make_zero '         // Ensure timestamps start at 0
@@ -784,15 +789,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  // Check if user has channel before proceeding with upload
-  Future<bool> _checkUserChannel() async {
-    final channelsState = ref.read(channelsProvider);
+  // Check if user is authenticated before proceeding with upload
+  Future<bool> _checkUserAuthentication() async {
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
     
-    if (channelsState.userChannel != null) {
-      return true; // User has channel, proceed
+    if (isAuthenticated) {
+      return true; // User is authenticated, proceed
     }
     
-    // User doesn't have channel, show requirement dialog
+    // User is not authenticated, show requirement dialog
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -801,9 +806,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         content: SizedBox(
           width: MediaQuery.of(context).size.width * 0.9,
           child: const LoginRequiredWidget(
-            title: 'Channel Required',
-            subtitle: 'You need to create a channel before you can upload content.',
-            actionText: 'Create Channel',
+            title: 'Sign In Required',
+            subtitle: 'You need to sign in before you can upload content.',
+            actionText: 'Sign In',
             icon: Icons.video_call,
           ),
         ),
@@ -813,23 +818,23 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     return result ?? false;
   }
 
-  // Modified submit form to check for channel before uploading
+  // Modified submit form to check for authentication before uploading
   void _submitForm() async {
     print('DEBUG: Form submission started');
     
     if (_formKey.currentState!.validate()) {
-      // Check if user has channel before proceeding
-      final hasChannel = await _checkUserChannel();
-      if (!hasChannel) {
-        print('DEBUG: User cancelled channel creation or channel creation failed');
+      // Check if user is authenticated before proceeding
+      final isAuthenticated = await _checkUserAuthentication();
+      if (!isAuthenticated) {
+        print('DEBUG: User cancelled authentication or authentication failed');
         return;
       }
       
-      final channelVideosNotifier = ref.read(channelVideosProvider.notifier);
-      final userChannel = ref.read(channelsProvider).userChannel;
+      final authProvider = ref.read(authenticationProvider.notifier);
+      final currentUser = ref.read(currentUserProvider);
       
-      if (userChannel == null) {
-        _showError('Channel not ready. Please try again.');
+      if (currentUser == null) {
+        _showError('User not found. Please try again.');
         return;
       }
       
@@ -869,7 +874,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           }
         }
         
-        channelVideosNotifier.uploadVideo(
+        authProvider.createVideo(
           videoFile: videoToUpload,
           caption: _captionController.text,
           tags: tags,
@@ -885,7 +890,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           },
         );
       } else {
-        channelVideosNotifier.uploadImages(
+        authProvider.createImagePost(
           imageFiles: _imageFiles,
           caption: _captionController.text,
           tags: tags,
@@ -938,12 +943,13 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final channelVideosState = ref.watch(channelVideosProvider);
-    final channelsState = ref.watch(channelsProvider);
+    final authProvider = ref.watch(authenticationProvider);
+    final isLoading = ref.watch(isAuthLoadingProvider);
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final modernTheme = context.modernTheme;
     
-    // Check if user has a channel, if not show the channel required widget
-    if (channelsState.userChannel == null) {
+    // Check if user is authenticated, if not show the login required widget
+    if (!isAuthenticated) {
       return Scaffold(
         backgroundColor: modernTheme.backgroundColor,
         appBar: AppBar(
@@ -968,8 +974,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           ),
         ),
         body: const InlineLoginRequiredWidget(
-          title: 'Create Your Channel',
-          subtitle: 'You need to create a channel before you can upload videos or images. This helps organize your content and lets others follow your posts.',
+          title: 'Sign In to Create',
+          subtitle: 'You need to sign in before you can upload videos or images. Join WeiBao to share your content with the world!',
         ),
       );
     }
@@ -999,11 +1005,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         actions: [
           if (_isVideoMode && _videoFile != null || !_isVideoMode && _imageFiles.isNotEmpty)
             TextButton(
-              onPressed: (channelVideosState.isUploading || _isOptimizing) ? null : _submitForm,
+              onPressed: (isLoading || _isOptimizing) ? null : _submitForm,
               child: Text(
-                _isOptimizing ? 'Processing...' : (channelVideosState.isUploading ? 'Uploading...' : 'Post'),
+                _isOptimizing ? 'Processing...' : (isLoading ? 'Uploading...' : 'Post'),
                 style: TextStyle(
-                  color: (channelVideosState.isUploading || _isOptimizing) 
+                  color: (isLoading || _isOptimizing) 
                       ? modernTheme.textSecondaryColor 
                       : modernTheme.primaryColor,
                   fontWeight: FontWeight.bold,
@@ -1102,7 +1108,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Max 5 minutes • Videos under 1 minute perform better',
+                          'Max ${Constants.maxVideoLength ~/ 60} minutes • Videos under 1 minute perform better',
                           style: TextStyle(
                             color: modernTheme.textSecondaryColor,
                             fontSize: 12,
@@ -1181,17 +1187,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 ),
               
               // Upload progress indicator
-              if (channelVideosState.isUploading)
+              if (isLoading)
                 Column(
                   children: [
                     LinearProgressIndicator(
-                      value: channelVideosState.uploadProgress,
                       backgroundColor: Colors.grey.shade300,
                       valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Uploading: ${(channelVideosState.uploadProgress * 100).toStringAsFixed(1)}%',
+                      'Uploading...',
                       style: TextStyle(
                         color: modernTheme.textSecondaryColor,
                         fontSize: 14,
@@ -1216,15 +1221,29 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   errorBorder: const OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.red),
                   ),
+                  filled: true,
+                  fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
+                  helperText: '${_captionController.text.length}/${Constants.maxCaptionLength}',
+                  helperStyle: TextStyle(
+                    color: modernTheme.textSecondaryColor?.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
                 ),
+                style: TextStyle(color: modernTheme.textColor),
                 maxLines: 3,
+                maxLength: Constants.maxCaptionLength,
+                buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a caption';
+                    return Constants.requiredField;
+                  }
+                  if (value.length > Constants.maxCaptionLength) {
+                    return Constants.captionTooLong;
                   }
                   return null;
                 },
-                enabled: !channelVideosState.isUploading && !_isOptimizing,
+                enabled: !isLoading && !_isOptimizing,
+                onChanged: (value) => setState(() {}), // Update character count
               ),
               
               const SizedBox(height: 16),
@@ -1241,9 +1260,26 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.primaryColor!),
                   ),
+                  filled: true,
+                  fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
                   hintText: 'e.g. sports, travel, music',
+                  helperText: 'Separate tags with commas (max ${Constants.maxHashtagsPerPost})',
+                  helperStyle: TextStyle(
+                    color: modernTheme.textSecondaryColor?.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
                 ),
-                enabled: !channelVideosState.isUploading && !_isOptimizing,
+                style: TextStyle(color: modernTheme.textColor),
+                enabled: !isLoading && !_isOptimizing,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty) {
+                    final tags = value.split(',').map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList();
+                    if (tags.length > Constants.maxHashtagsPerPost) {
+                      return 'Maximum ${Constants.maxHashtagsPerPost} tags allowed';
+                    }
+                  }
+                  return null;
+                },
               ),
               
               const SizedBox(height: 24),
@@ -1252,16 +1288,19 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: (!channelVideosState.isUploading && !_isOptimizing) ? _submitForm : null,
+                  onPressed: (!isLoading && !_isOptimizing) ? _submitForm : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: modernTheme.primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: _isOptimizing
                       ? const Text('Processing Audio...')
-                      : (channelVideosState.isUploading
+                      : (isLoading
                           ? const Text('Uploading...')
                           : const Text('Post Content')),
                 ),
@@ -1277,7 +1316,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   Widget _buildVideoPickerPlaceholder(ModernThemeExtension modernTheme) {
     return AspectRatio(
-      aspectRatio: 9 / 16,
+      aspectRatio: Constants.videoAspectRatio,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.grey.shade800,
@@ -1293,7 +1332,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickVideoFromGallery : null,
+              onPressed: (!_isOptimizing && !ref.watch(isAuthLoadingProvider)) ? _pickVideoFromGallery : null,
               icon: const Icon(Icons.photo_library),
               label: const Text('Select from Gallery'),
               style: ElevatedButton.styleFrom(
@@ -1305,7 +1344,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _captureVideoFromCamera : null,
+              onPressed: (!_isOptimizing && !ref.watch(isAuthLoadingProvider)) ? _captureVideoFromCamera : null,
               icon: const Icon(Icons.videocam),
               label: const Text('Record Video'),
               style: ElevatedButton.styleFrom(
@@ -1352,7 +1391,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             bottom: 16,
             right: 16,
             child: IconButton(
-              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickVideoFromGallery : null,
+              onPressed: (!_isOptimizing && !ref.watch(isAuthLoadingProvider)) ? _pickVideoFromGallery : null,
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -1361,7 +1400,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 ),
                 child: Icon(
                   Icons.edit,
-                  color: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? Colors.white : Colors.grey,
+                  color: (!_isOptimizing && !ref.watch(isAuthLoadingProvider)) ? Colors.white : Colors.grey,
                   size: 20,
                 ),
               ),
@@ -1371,7 +1410,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       );
     } else {
       return AspectRatio(
-        aspectRatio: 9 / 16,
+        aspectRatio: Constants.videoAspectRatio,
         child: Container(
           decoration: BoxDecoration(
             color: Colors.grey.shade800,
@@ -1423,7 +1462,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickImages : null,
+              onPressed: (!_isOptimizing && !ref.watch(isAuthLoadingProvider)) ? _pickImages : null,
               icon: const Icon(Icons.add_photo_alternate),
               label: const Text('Select from Gallery'),
               style: ElevatedButton.styleFrom(
@@ -1435,7 +1474,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Up to 10 images',
+              'Up to ${Constants.maxImageCount} images',
               style: TextStyle(
                 color: modernTheme.textSecondaryColor,
                 fontSize: 12,
@@ -1459,11 +1498,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 ),
               ),
               TextButton.icon(
-                onPressed: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? _pickImages : null,
+                onPressed: (!_isOptimizing && !ref.watch(isAuthLoadingProvider)) ? _pickImages : null,
                 icon: const Icon(Icons.add_photo_alternate),
                 label: const Text('Change'),
                 style: TextButton.styleFrom(
-                  foregroundColor: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) 
+                  foregroundColor: (!_isOptimizing && !ref.watch(isAuthLoadingProvider)) 
                       ? modernTheme.primaryColor 
                       : modernTheme.textSecondaryColor,
                 ),
@@ -1514,7 +1553,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     top: 4,
                     right: 4,
                     child: GestureDetector(
-                      onTap: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? () {
+                      onTap: (!_isOptimizing && !ref.watch(isAuthLoadingProvider)) ? () {
                         setState(() {
                           _imageFiles.removeAt(index);
                         });
@@ -1527,7 +1566,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                         ),
                         child: Icon(
                           Icons.close,
-                          color: (!_isOptimizing && !ref.watch(channelVideosProvider).isUploading) ? Colors.white : Colors.grey,
+                          color: (!_isOptimizing && !ref.watch(isAuthLoadingProvider)) ? Colors.white : Colors.grey,
                           size: 12,
                         ),
                       ),

@@ -7,38 +7,40 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/models/channel_model.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
-import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
-import 'package:textgb/features/channels/providers/channels_provider.dart';
+import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
 
-class ChannelProfileScreen extends ConsumerStatefulWidget {
-  final String channelId;
+class UserProfileScreen extends ConsumerStatefulWidget {
+  final String userId;
   
-  const ChannelProfileScreen({
+  const UserProfileScreen({
     Key? key,
-    required this.channelId,
+    required this.userId,
   }) : super(key: key);
 
   @override
-  ConsumerState<ChannelProfileScreen> createState() => _ChannelProfileScreenState();
+  ConsumerState<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
-class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
+class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool _isLoading = true;
-  ChannelModel? _channel;
-  List<ChannelVideoModel> _channelVideos = [];
+  UserModel? _user;
+  List<VideoModel> _userVideos = [];
   String? _error;
   bool _isFollowing = false;
-  bool _isOwner = false;
+  bool _isCurrentUser = false;
   final ScrollController _scrollController = ScrollController();
   final Map<String, String> _videoThumbnails = {};
   
   // Cache manager for video thumbnails
   static final _thumbnailCacheManager = CacheManager(
     Config(
-      'channelVideoThumbnails',
+      'userVideoThumbnails',
       stalePeriod: const Duration(days: 7),
       maxNrOfCacheObjects: 200,
     ),
@@ -47,7 +49,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadChannelData();
+    _loadUserData();
   }
 
   @override
@@ -56,37 +58,42 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _loadChannelData() async {
+  Future<void> _loadUserData() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      // Get channel data
-      final channel = await ref.read(channelsProvider.notifier).getChannelById(widget.channelId);
+      final authNotifier = ref.read(authenticationProvider.notifier);
       
-      if (channel == null) {
-        throw Exception('Channel not found');
+      // Get user profile
+      final user = await authNotifier.getUserById(widget.userId);
+      
+      if (user == null) {
+        throw Exception('User not found');
       }
       
-      // Get channel videos
-      final videos = await ref.read(channelVideosProvider.notifier).loadChannelVideos(widget.channelId);
+      // Get user videos - filter from all videos
+      final allVideos = ref.read(videosProvider);
+      final userVideos = allVideos.where((video) => video.userId == widget.userId).toList();
       
-      // Check if user is following this channel
-      final followedChannels = ref.read(channelsProvider).followedChannels;
-      final isFollowing = followedChannels.contains(widget.channelId);
+      // Check if this is the current user
+      final currentUserId = ref.read(currentUserIdProvider);
+      final isCurrentUser = currentUserId == widget.userId;
       
-      // Check if user is the owner of this channel
-      final userChannel = ref.read(channelsProvider).userChannel;
-      final isOwner = userChannel != null && userChannel.id == widget.channelId;
+      // Check if current user is following this user
+      bool isFollowing = false;
+      if (!isCurrentUser && currentUserId != null) {
+        isFollowing = ref.read(isUserFollowedProvider(widget.userId));
+      }
       
       if (mounted) {
         setState(() {
-          _channel = channel;
-          _channelVideos = videos;
+          _user = user;
+          _userVideos = userVideos;
+          _isCurrentUser = isCurrentUser;
           _isFollowing = isFollowing;
-          _isOwner = isOwner;
           _isLoading = false;
         });
         
@@ -104,7 +111,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
   }
 
   Future<void> _generateVideoThumbnails() async {
-    for (final video in _channelVideos) {
+    for (final video in _userVideos) {
       if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
         try {
           // Check if thumbnail is already cached
@@ -150,61 +157,115 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     }
   }
 
-  void _toggleFollow() async {
-    if (_channel == null) return;
+  Future<void> _toggleFollow() async {
+    if (_user == null) return;
     
-    // Update local state first (optimistic update)
-    setState(() {
-      _isFollowing = !_isFollowing;
-    });
+    // Check if user is authenticated
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    if (!isAuthenticated) {
+      final shouldLogin = await requireLogin(
+        context,
+        ref,
+        customTitle: 'Follow User',
+        customSubtitle: 'Sign in to follow ${_user!.name} and see their latest content.',
+        customIcon: Icons.person_add,
+      );
+      
+      if (shouldLogin) {
+        // User signed in, reload data
+        _loadUserData();
+      }
+      return;
+    }
     
-    // Update in provider
-    await ref.read(channelsProvider.notifier).toggleFollowChannel(_channel!.id);
-    
-    // Refresh data
-    _loadChannelData();
+    try {
+      // Update local state first (optimistic update)
+      setState(() {
+        _isFollowing = !_isFollowing;
+      });
+      
+      // Update in provider
+      await ref.read(authenticationProvider.notifier).followUser(_user!.id);
+      
+      // Show feedback
+      showSnackBar(
+        context, 
+        _isFollowing ? 'Following ${_user!.name}' : 'Unfollowed ${_user!.name}'
+      );
+      
+      // Refresh data to get updated counts
+      _loadUserData();
+    } catch (e) {
+      // Revert optimistic update on error
+      setState(() {
+        _isFollowing = !_isFollowing;
+      });
+      
+      showSnackBar(context, 'Failed to ${_isFollowing ? 'follow' : 'unfollow'} user');
+    }
   }
 
-  void _editChannel() {
-    // Navigate to EditChannelScreen
+  void _editProfile() {
+    // Navigate to EditProfileScreen
     Navigator.pushNamed(
       context, 
-      Constants.editChannelScreen,
-      arguments: _channel,
-    ).then((_) => _loadChannelData());
+      Constants.editProfileScreen,
+      arguments: _user,
+    ).then((_) => _loadUserData());
   }
 
   void _createPost() {
-    // Navigate to CreateChannelPostScreen
-    Navigator.pushNamed(context, Constants.createChannelPostScreen)
+    // Check if user is authenticated
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    if (!isAuthenticated) {
+      requireLogin(
+        context,
+        ref,
+        customTitle: 'Create Content',
+        customSubtitle: 'Sign in to create and share your own videos.',
+        customIcon: Icons.video_call,
+      );
+      return;
+    }
+    
+    // Navigate to CreatePostScreen
+    Navigator.pushNamed(context, Constants.createPostScreen)
         .then((result) {
       if (result == true) {
-        _loadChannelData();
+        _loadUserData();
       }
     });
   }
 
-  void _openVideoDetails(ChannelVideoModel video) {
-    // Navigate to ChannelVideoDetailScreen
+  void _openVideoDetails(VideoModel video) {
+    // Navigate to SingleVideoScreen
     Navigator.pushNamed(
       context, 
-      Constants.channelFeedScreen,
-      arguments: video.id,
-    ).then((_) => _loadChannelData());
+      Constants.singleVideoScreen,
+      arguments: {
+        Constants.startVideoId: video.id,
+      },
+    ).then((_) => _loadUserData());
   }
 
-  String _formatViewCount(int views) {
-    if (views >= 1000000) {
-      return '${(views / 1000000).toStringAsFixed(1)}M';
-    } else if (views >= 1000) {
-      return '${(views / 1000).toStringAsFixed(1)}K';
+  void _showSettings() {
+    Navigator.pushNamed(context, Constants.settingsScreen);
+  }
+
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
     }
-    return views.toString();
+    return count.toString();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.modernTheme;
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final isGuest = ref.watch(isGuestProvider);
     
     return Scaffold(
       backgroundColor: theme.backgroundColor,
@@ -212,7 +273,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
           ? _buildLoadingView(theme)
           : _error != null
               ? _buildErrorView(theme)
-              : _buildProfileView(theme),
+              : _buildProfileView(theme, isAuthenticated, isGuest),
     );
   }
 
@@ -276,7 +337,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Channel not found',
+                      'User not found',
                       style: TextStyle(
                         color: theme.textColor,
                         fontSize: 18,
@@ -285,7 +346,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'This channel may have been deleted or doesn\'t exist',
+                      'This user may have been deleted or doesn\'t exist',
                       style: TextStyle(
                         color: theme.textSecondaryColor,
                         fontSize: 14,
@@ -313,11 +374,11 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     );
   }
 
-  Widget _buildProfileView(ModernThemeExtension theme) {
-    if (_channel == null) {
+  Widget _buildProfileView(ModernThemeExtension theme, bool isAuthenticated, bool isGuest) {
+    if (_user == null) {
       return Center(
         child: Text(
-          'Channel not found',
+          'User not found',
           style: TextStyle(
             color: theme.textColor,
             fontSize: 16,
@@ -355,13 +416,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
             ),
             centerTitle: true,
             actions: [
-              if (_isOwner)
+              if (_isCurrentUser)
                 IconButton(
                   icon: Icon(
                     Icons.settings,
                     color: theme.textColor,
                   ),
-                  onPressed: _editChannel,
+                  onPressed: _showSettings,
                 ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -389,10 +450,10 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                               width: 2,
                             ),
                           ),
-                          child: _channel!.profileImage.isNotEmpty
+                          child: _user!.profileImage.isNotEmpty
                               ? ClipOval(
                                   child: CachedNetworkImage(
-                                    imageUrl: _channel!.profileImage,
+                                    imageUrl: _user!.profileImage,
                                     fit: BoxFit.cover,
                                     width: 100,
                                     height: 100,
@@ -411,9 +472,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                       color: theme.surfaceColor,
                                       child: Center(
                                         child: Text(
-                                          _channel!.name.isNotEmpty
-                                              ? _channel!.name[0].toUpperCase()
-                                              : "C",
+                                          _user!.name.isNotEmpty
+                                              ? _user!.name[0].toUpperCase()
+                                              : "U",
                                           style: TextStyle(
                                             color: theme.primaryColor,
                                             fontWeight: FontWeight.bold,
@@ -431,9 +492,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      _channel!.name.isNotEmpty
-                                          ? _channel!.name[0].toUpperCase()
-                                          : "C",
+                                      _user!.name.isNotEmpty
+                                          ? _user!.name[0].toUpperCase()
+                                          : "U",
                                       style: TextStyle(
                                         color: theme.primaryColor,
                                         fontWeight: FontWeight.bold,
@@ -446,13 +507,13 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                         
                         const SizedBox(height: 16),
                         
-                        // Channel Name and Verification
+                        // User Name and Verification
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Flexible(
                               child: Text(
-                                _channel!.name,
+                                _user!.name,
                                 style: TextStyle(
                                   color: theme.textColor,
                                   fontWeight: FontWeight.bold,
@@ -462,7 +523,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                 maxLines: 1,
                               ),
                             ),
-                            if (_channel!.isVerified) ...[
+                            if (_user!.isVerified) ...[
                               const SizedBox(width: 4),
                               Icon(
                                 Icons.verified,
@@ -475,16 +536,17 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                         
                         const SizedBox(height: 4),
                         
-                        // Owner Name
-                        Text(
-                          '@${_channel!.ownerName}',
-                          style: TextStyle(
-                            color: theme.textSecondaryColor,
-                            fontSize: 14,
+                        // Phone Number (for current user only)
+                        if (_isCurrentUser)
+                          Text(
+                            _user!.phoneNumber,
+                            style: TextStyle(
+                              color: theme.textSecondaryColor,
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
                         
                         const SizedBox(height: 16),
                         
@@ -493,17 +555,17 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             _buildStatColumn(
-                              _formatViewCount(_channel!.followers),
+                              _formatCount(_user!.followers),
                               'Followers',
                               theme,
                             ),
                             _buildStatColumn(
-                              _formatViewCount(_channel!.videosCount),
-                              'Videos',
+                              _formatCount(_user!.following),
+                              'Following',
                               theme,
                             ),
                             _buildStatColumn(
-                              _formatViewCount(_channel!.likesCount),
+                              _formatCount(_user!.likesCount),
                               'Likes',
                               theme,
                             ),
@@ -512,23 +574,45 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                         
                         const SizedBox(height: 20),
                         
-                        // Action Button
+                        // Action Buttons
                         Container(
                           width: double.infinity,
                           constraints: const BoxConstraints(maxWidth: 300),
-                          child: _isOwner
-                              ? OutlinedButton.icon(
-                                  onPressed: _createPost,
-                                  icon: const Icon(Icons.add, size: 18),
-                                  label: const Text('Create Post'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: theme.primaryColor,
-                                    side: BorderSide(color: theme.primaryColor!),
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                          child: _isCurrentUser
+                              ? Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: _editProfile,
+                                        icon: const Icon(Icons.edit, size: 18),
+                                        label: const Text('Edit Profile'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: theme.primaryColor,
+                                          side: BorderSide(color: theme.primaryColor!),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: _createPost,
+                                        icon: const Icon(Icons.add, size: 18),
+                                        label: const Text('Create'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: theme.primaryColor,
+                                          side: BorderSide(color: theme.primaryColor!),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 )
                               : ElevatedButton(
                                   onPressed: _toggleFollow,
@@ -567,8 +651,8 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
       },
       body: Column(
         children: [
-          // Description Section (if available)
-          if (_channel!.description.isNotEmpty)
+          // About Section (if available)
+          if (_user!.about.isNotEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -582,7 +666,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                 ),
               ),
               child: Text(
-                _channel!.description,
+                _user!.about,
                 style: TextStyle(
                   color: theme.textColor,
                   fontSize: 14,
@@ -591,10 +675,48 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
               ),
             ),
           
+          // Tags Section (if available)
+          if (_user!.tags.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: theme.backgroundColor,
+                border: Border(
+                  bottom: BorderSide(
+                    color: theme.dividerColor!,
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _user!.tags.map((tag) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor?.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: theme.primaryColor?.withOpacity(0.3) ?? Colors.grey,
+                    ),
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: TextStyle(
+                      color: theme.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                )).toList(),
+              ),
+            ),
+          
           // Content Section
           Expanded(
-            child: _channelVideos.isEmpty
-                ? _buildEmptyState(theme)
+            child: _userVideos.isEmpty
+                ? _buildEmptyState(theme, isAuthenticated)
                 : GridView.builder(
                     padding: const EdgeInsets.all(1),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -603,9 +725,9 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                       mainAxisSpacing: 1,
                       childAspectRatio: 9 / 16, // TikTok-like aspect ratio
                     ),
-                    itemCount: _channelVideos.length,
+                    itemCount: _userVideos.length,
                     itemBuilder: (context, index) {
-                      final video = _channelVideos[index];
+                      final video = _userVideos[index];
                       
                       return GestureDetector(
                         onTap: () => _openVideoDetails(video),
@@ -704,7 +826,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                                       ),
                                       const SizedBox(width: 2),
                                       Text(
-                                        _formatViewCount(video.views),
+                                        _formatCount(video.views),
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 10,
@@ -750,7 +872,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
     );
   }
 
-  Widget _buildEmptyState(ModernThemeExtension theme) {
+  Widget _buildEmptyState(ModernThemeExtension theme, bool isAuthenticated) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -771,15 +893,42 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _isOwner
+            _isCurrentUser
                 ? 'Start creating content to share with your followers'
-                : 'This channel hasn\'t shared any videos yet',
+                : 'This user hasn\'t shared any videos yet',
             style: TextStyle(
               color: theme.textSecondaryColor,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
+          
+          // Show create button for current user
+          if (_isCurrentUser) ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _createPost,
+              icon: const Icon(Icons.add),
+              label: const Text('Create Your First Video'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+          
+          // Show sign-in prompt for guests viewing other profiles
+          if (!isAuthenticated && !_isCurrentUser) ...[
+            const SizedBox(height: 24),
+            const InlineLoginRequiredWidget(
+              title: 'Join the Community',
+              subtitle: 'Sign in to follow creators and discover amazing content.',
+            ),
+          ],
         ],
       ),
     );
