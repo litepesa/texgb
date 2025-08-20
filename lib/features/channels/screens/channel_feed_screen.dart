@@ -145,7 +145,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
 
   // Helper method to check if user has channel before allowing interactions
   Future<bool> _checkUserHasChannel(String actionName) async {
-    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.channelModel;
     final channelsState = ref.read(channelsProvider);
     
     // If user is not authenticated OR doesn't have a channel, show the channel required widget
@@ -577,7 +577,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     final canInteract = await _checkUserHasChannel('send gifts');
     if (!canInteract) return;
 
-    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.channelModel;
     
     // At this point we know user is authenticated and has a channel
     // Check if user is trying to gift their own video

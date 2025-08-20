@@ -1,3 +1,4 @@
+// lib/features/authentication/screens/otp_screen.dart (Updated for Channel-based)
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -126,12 +127,13 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
         if (!mounted) return;
         
         try {
-          final userExists = await authNotifier.checkUserExists();
-          if (userExists) {
-            await authNotifier.getUserDataFromFireStore();
-            await authNotifier.saveUserDataToSharedPreferences();
+          // Check if channel exists for this user
+          final channelExists = await authNotifier.checkChannelExists();
+          if (channelExists) {
+            await authNotifier.getChannelDataFromFireStore();
+            await authNotifier.saveChannelDataToSharedPreferences();
           }
-          _navigate(userExists: userExists);
+          _navigate(channelExists: channelExists);
         } catch (e) {
           debugPrint('Error during OTP verification: $e');
           if (mounted) {
@@ -147,10 +149,10 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
     );
   }
 
-  void _navigate({required bool userExists}) {
+  void _navigate({required bool channelExists}) {
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(
-      userExists ? Constants.homeScreen : Constants.userInformationScreen,
+      channelExists ? Constants.homeScreen : Constants.createChannelScreen, // Navigate to create channel instead of user info
       (route) => false,
     );
   }

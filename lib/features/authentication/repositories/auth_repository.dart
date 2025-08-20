@@ -1,13 +1,13 @@
-// lib/features/authentication/repositories/auth_repository.dart
+// lib/features/authentication/repositories/auth_repository.dart (Updated for Channel-based)
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import '../../../models/user_model.dart';
-import '../../../constants.dart'; // Import constants
+import '../../../features/channels/models/channel_model.dart';
+import '../../../constants.dart';
 
-// Abstract repository interface
+// Abstract repository interface (updated for channels)
 abstract class AuthRepository {
   // Authentication operations
   Future<bool> checkAuthenticationState();
@@ -23,30 +23,27 @@ abstract class AuthRepository {
   });
   Future<void> signOut();
 
-  // User data operations
-  Future<bool> checkUserExists(String uid);
-  Future<UserModel?> getUserDataFromFireStore(String uid);
-  Future<UserModel?> getUserDataById(String userId);
-  Future<void> saveUserDataToFireStore({
-    required UserModel userModel,
-    required File? fileImage,
+  // Channel data operations
+  Future<bool> checkChannelExists(String ownerId);
+  Future<ChannelModel?> getChannelDataFromFireStore(String ownerId);
+  Future<ChannelModel?> getChannelDataById(String channelId);
+  Future<void> saveChannelDataToFireStore({
+    required ChannelModel channelModel,
+    required File? profileImage,
+    required File? coverImage,
     required Function onSuccess,
     required Function onFail,
   });
-  Future<void> updateUserProfile(UserModel updatedUser);
+  Future<void> updateChannelProfile(ChannelModel updatedChannel);
 
-  // Contact management
-  Future<void> addContact({required String userUid, required String contactId});
-  Future<void> removeContact({required String userUid, required String contactId});
-  Future<void> blockContact({required String userUid, required String contactId});
-  Future<void> unblockContact({required String userUid, required String contactId});
-  Future<List<UserModel>> getContactsList(String uid, List<String> groupMembersUIDs);
-  Future<List<UserModel>> getBlockedContactsList({required String uid});
-  Future<UserModel?> searchUserByPhoneNumber({required String phoneNumber});
+  // Channel interaction operations
+  Future<void> followChannel({required String followerId, required String channelId});
+  Future<void> unfollowChannel({required String followerId, required String channelId});
+  Future<List<ChannelModel>> searchChannels({required String query});
 
   // Streams
-  Stream<DocumentSnapshot> userStream({required String userID});
-  Stream<QuerySnapshot> getAllUsersStream({required String userID});
+  Stream<DocumentSnapshot> channelStream({required String channelId});
+  Stream<QuerySnapshot> getAllChannelsStream({required String excludeChannelId});
 
   // File operations
   Future<String> storeFileToStorage({required File file, required String reference});
@@ -56,22 +53,19 @@ abstract class AuthRepository {
   String? get currentUserPhoneNumber;
 }
 
-// Firebase implementation
+// Firebase implementation (updated for channels)
 class FirebaseAuthRepository implements AuthRepository {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
-  final String _usersCollection;
 
   FirebaseAuthRepository({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
-    String usersCollection = 'users',
   }) : _auth = auth ?? FirebaseAuth.instance,
        _firestore = firestore ?? FirebaseFirestore.instance,
-       _storage = storage ?? FirebaseStorage.instance,
-       _usersCollection = usersCollection;
+       _storage = storage ?? FirebaseStorage.instance;
 
   @override
   String? get currentUserId => _auth.currentUser?.uid;
@@ -101,7 +95,7 @@ class FirebaseAuthRepository implements AuthRepository {
       codeSent: (String verificationId, int? resendToken) async {
         // Navigate to OTP screen using the correct route from constants
         Navigator.of(context).pushNamed(
-          Constants.otpScreen, // Use the constant instead of hardcoded string
+          Constants.otpScreen,
           arguments: {
             Constants.verificationId: verificationId,
             Constants.phoneNumber: phoneNumber,
@@ -142,74 +136,98 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<bool> checkUserExists(String uid) async {
+  Future<bool> checkChannelExists(String ownerId) async {
     try {
-      DocumentSnapshot documentSnapshot =
-          await _firestore.collection(_usersCollection).doc(uid).get();
-      return documentSnapshot.exists;
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(Constants.channels)
+          .where('ownerId', isEqualTo: ownerId)
+          .limit(1)
+          .get();
+      return querySnapshot.docs.isNotEmpty;
     } catch (e) {
-      throw AuthRepositoryException('Failed to check user existence: $e');
+      throw AuthRepositoryException('Failed to check channel existence: $e');
     }
   }
 
   @override
-  Future<UserModel?> getUserDataFromFireStore(String uid) async {
+  Future<ChannelModel?> getChannelDataFromFireStore(String ownerId) async {
     try {
-      DocumentSnapshot documentSnapshot =
-          await _firestore.collection(_usersCollection).doc(uid).get();
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(Constants.channels)
+          .where('ownerId', isEqualTo: ownerId)
+          .limit(1)
+          .get();
+      
+      if (querySnapshot.docs.isEmpty) return null;
+      
+      final doc = querySnapshot.docs.first;
+      return ChannelModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    } catch (e) {
+      throw AuthRepositoryException('Failed to get channel data: $e');
+    }
+  }
+
+  @override
+  Future<ChannelModel?> getChannelDataById(String channelId) async {
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection(Constants.channels)
+          .doc(channelId)
+          .get();
       
       if (!documentSnapshot.exists) return null;
       
-      return UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
+      return ChannelModel.fromMap(
+        documentSnapshot.data() as Map<String, dynamic>, 
+        documentSnapshot.id
+      );
     } catch (e) {
-      throw AuthRepositoryException('Failed to get user data: $e');
+      throw AuthRepositoryException('Failed to get channel by ID: $e');
     }
   }
 
   @override
-  Future<UserModel?> getUserDataById(String userId) async {
-    try {
-      DocumentSnapshot documentSnapshot =
-          await _firestore.collection(_usersCollection).doc(userId).get();
-      
-      if (!documentSnapshot.exists) return null;
-      
-      return UserModel.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-    } catch (e) {
-      throw AuthRepositoryException('Failed to get user by ID: $e');
-    }
-  }
-
-  @override
-  Future<void> saveUserDataToFireStore({
-    required UserModel userModel,
-    required File? fileImage,
+  Future<void> saveChannelDataToFireStore({
+    required ChannelModel channelModel,
+    required File? profileImage,
+    required File? coverImage,
     required Function onSuccess,
     required Function onFail,
   }) async {
     try {
-      UserModel updatedUserModel = userModel;
+      ChannelModel updatedChannelModel = channelModel;
 
-      // Upload image if provided
-      if (fileImage != null) {
-        String imageUrl = await storeFileToStorage(
-          file: fileImage,
-          reference: 'userImages/${userModel.uid}',
+      // Upload profile image if provided
+      if (profileImage != null) {
+        String profileImageUrl = await storeFileToStorage(
+          file: profileImage,
+          reference: 'channelImages/${channelModel.ownerId}/profile',
         );
-        updatedUserModel = updatedUserModel.copyWith(image: imageUrl);
+        updatedChannelModel = updatedChannelModel.copyWith(profileImage: profileImageUrl);
+      }
+
+      // Upload cover image if provided
+      if (coverImage != null) {
+        String coverImageUrl = await storeFileToStorage(
+          file: coverImage,
+          reference: 'channelImages/${channelModel.ownerId}/cover',
+        );
+        updatedChannelModel = updatedChannelModel.copyWith(coverImage: coverImageUrl);
       }
 
       // Update timestamps
-      final finalUserModel = updatedUserModel.copyWith(
-        lastSeen: DateTime.now().microsecondsSinceEpoch.toString(),
-        createdAt: DateTime.now().microsecondsSinceEpoch.toString(),
+      final finalChannelModel = updatedChannelModel.copyWith(
+        createdAt: Timestamp.now(),
       );
 
       // Save to Firestore
       await _firestore
-          .collection(_usersCollection)
-          .doc(finalUserModel.uid)
-          .set(finalUserModel.toMap());
+          .collection(Constants.channels)
+          .add(finalChannelModel.toMap())
+          .then((docRef) {
+        // Update the channel with the generated ID
+        docRef.update({'id': docRef.id});
+      });
       
       onSuccess();
     } on FirebaseException catch (e) {
@@ -220,144 +238,94 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> updateUserProfile(UserModel updatedUser) async {
+  Future<void> updateChannelProfile(ChannelModel updatedChannel) async {
     try {
       await _firestore
-          .collection(_usersCollection)
-          .doc(updatedUser.uid)
-          .update(updatedUser.toMap());
+          .collection(Constants.channels)
+          .doc(updatedChannel.id)
+          .update(updatedChannel.toMap());
     } on FirebaseException catch (e) {
-      throw AuthRepositoryException('Failed to update user profile: ${e.message}');
+      throw AuthRepositoryException('Failed to update channel profile: ${e.message}');
     }
   }
 
   @override
-  Future<void> addContact({required String userUid, required String contactId}) async {
+  Future<void> followChannel({required String followerId, required String channelId}) async {
     try {
-      await _firestore.collection(_usersCollection).doc(userUid).update({
-        'contactsUIDs': FieldValue.arrayUnion([contactId]),
+      final batch = _firestore.batch();
+      
+      // Add follower to the channel's followerUIDs
+      final channelRef = _firestore.collection(Constants.channels).doc(channelId);
+      batch.update(channelRef, {
+        'followerUIDs': FieldValue.arrayUnion([followerId]),
+        'followers': FieldValue.increment(1),
       });
+      
+      // You might also want to update the follower's following list
+      // This would require a separate collection or field in the follower's channel document
+      
+      await batch.commit();
     } on FirebaseException catch (e) {
-      throw AuthRepositoryException('Failed to add contact: ${e.message}');
+      throw AuthRepositoryException('Failed to follow channel: ${e.message}');
     }
   }
 
   @override
-  Future<void> removeContact({required String userUid, required String contactId}) async {
+  Future<void> unfollowChannel({required String followerId, required String channelId}) async {
     try {
-      await _firestore.collection(_usersCollection).doc(userUid).update({
-        'contactsUIDs': FieldValue.arrayRemove([contactId]),
+      final batch = _firestore.batch();
+      
+      // Remove follower from the channel's followerUIDs
+      final channelRef = _firestore.collection(Constants.channels).doc(channelId);
+      batch.update(channelRef, {
+        'followerUIDs': FieldValue.arrayRemove([followerId]),
+        'followers': FieldValue.increment(-1),
       });
+      
+      await batch.commit();
     } on FirebaseException catch (e) {
-      throw AuthRepositoryException('Failed to remove contact: ${e.message}');
+      throw AuthRepositoryException('Failed to unfollow channel: ${e.message}');
     }
   }
 
   @override
-  Future<void> blockContact({required String userUid, required String contactId}) async {
+  Future<List<ChannelModel>> searchChannels({required String query}) async {
     try {
-      await _firestore.collection(_usersCollection).doc(userUid).update({
-        'blockedUIDs': FieldValue.arrayUnion([contactId]),
-      });
-    } on FirebaseException catch (e) {
-      throw AuthRepositoryException('Failed to block contact: ${e.message}');
-    }
-  }
-
-  @override
-  Future<void> unblockContact({required String userUid, required String contactId}) async {
-    try {
-      await _firestore.collection(_usersCollection).doc(userUid).update({
-        'blockedUIDs': FieldValue.arrayRemove([contactId]),
-      });
-    } on FirebaseException catch (e) {
-      throw AuthRepositoryException('Failed to unblock contact: ${e.message}');
-    }
-  }
-
-  @override
-  Future<List<UserModel>> getContactsList(String uid, List<String> groupMembersUIDs) async {
-    try {
-      List<UserModel> contactsList = [];
-
-      DocumentSnapshot documentSnapshot =
-          await _firestore.collection(_usersCollection).doc(uid).get();
-
-      List<dynamic> contactsUIDs = documentSnapshot.get('contactsUIDs');
-
-      for (String contactUID in contactsUIDs) {
-        if (groupMembersUIDs.isNotEmpty && groupMembersUIDs.contains(contactUID)) {
-          continue;
-        }
-        DocumentSnapshot contactSnapshot =
-            await _firestore.collection(_usersCollection).doc(contactUID).get();
-        UserModel contact =
-            UserModel.fromMap(contactSnapshot.data() as Map<String, dynamic>);
-        contactsList.add(contact);
-      }
-
-      return contactsList;
-    } catch (e) {
-      throw AuthRepositoryException('Failed to get contacts list: $e');
-    }
-  }
-
-  @override
-  Future<List<UserModel>> getBlockedContactsList({required String uid}) async {
-    try {
-      List<UserModel> blockedContactsList = [];
-
-      DocumentSnapshot documentSnapshot =
-          await _firestore.collection(_usersCollection).doc(uid).get();
-
-      List<dynamic> blockedUIDs = documentSnapshot.get('blockedUIDs');
-
-      for (String blockedUID in blockedUIDs) {
-        DocumentSnapshot blockedSnapshot = await _firestore
-            .collection(_usersCollection)
-            .doc(blockedUID)
-            .get();
-        UserModel blockedContact =
-            UserModel.fromMap(blockedSnapshot.data() as Map<String, dynamic>);
-        blockedContactsList.add(blockedContact);
-      }
-
-      return blockedContactsList;
-    } catch (e) {
-      throw AuthRepositoryException('Failed to get blocked contacts: $e');
-    }
-  }
-
-  @override
-  Future<UserModel?> searchUserByPhoneNumber({required String phoneNumber}) async {
-    try {
-      QuerySnapshot querySnapshot = await _firestore
-          .collection(_usersCollection)
-          .where('phoneNumber', isEqualTo: phoneNumber)
-          .limit(1)
+      List<ChannelModel> channels = [];
+      
+      // Search by channel name (case-insensitive)
+      QuerySnapshot nameQuery = await _firestore
+          .collection(Constants.channels)
+          .where('name', isGreaterThanOrEqualTo: query.toLowerCase())
+          .where('name', isLessThan: query.toLowerCase() + 'z')
+          .limit(20)
           .get();
       
-      if (querySnapshot.docs.isEmpty) {
-        return null;
+      for (QueryDocumentSnapshot doc in nameQuery.docs) {
+        channels.add(ChannelModel.fromMap(
+          doc.data() as Map<String, dynamic>, 
+          doc.id
+        ));
       }
       
-      return UserModel.fromMap(
-          querySnapshot.docs.first.data() as Map<String, dynamic>);
+      // You could also search by tags or other fields
+      
+      return channels;
     } catch (e) {
-      throw AuthRepositoryException('Failed to search user: $e');
+      throw AuthRepositoryException('Failed to search channels: $e');
     }
   }
 
   @override
-  Stream<DocumentSnapshot> userStream({required String userID}) {
-    return _firestore.collection(_usersCollection).doc(userID).snapshots();
+  Stream<DocumentSnapshot> channelStream({required String channelId}) {
+    return _firestore.collection(Constants.channels).doc(channelId).snapshots();
   }
 
   @override
-  Stream<QuerySnapshot> getAllUsersStream({required String userID}) {
+  Stream<QuerySnapshot> getAllChannelsStream({required String excludeChannelId}) {
     return _firestore
-        .collection(_usersCollection)
-        .where('uid', isNotEqualTo: userID)
+        .collection(Constants.channels)
+        .where('id', isNotEqualTo: excludeChannelId)
         .snapshots();
   }
 

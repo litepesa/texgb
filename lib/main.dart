@@ -1,3 +1,4 @@
+// lib/main.dart (Updated for Channel-based system)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
-import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/create_channel_screen.dart';
 import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
@@ -18,18 +18,9 @@ import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
 import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/chat/screens/chat_screen.dart';
-import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
-import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
-import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
-import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
-import 'package:textgb/features/profile/screens/my_profile_screen.dart';
-import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
-import 'package:textgb/models/user_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
@@ -121,35 +112,14 @@ class AppRoot extends ConsumerWidget {
           Constants.landingScreen: (context) => const LandingScreen(),
           Constants.loginScreen: (context) => const LoginScreen(),
           Constants.otpScreen: (context) => const OtpScreen(),
-          Constants.userInformationScreen: (context) => const UserInformationScreen(),
+          // Remove userInformationScreen route since we're using createChannelScreen instead
           
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
           
-          // Chat routes
-          Constants.chatScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-            return ChatScreen(
-              chatId: args['chatId'] as String,
-              contact: args['contact'] as UserModel,
-            );
-          },
-          
-          // Profile routes
-          Constants.myProfileScreen: (context) => const MyProfileScreen(),
-          Constants.editProfileScreen: (context) => const EditProfileScreen(),
-          Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
-
-          // Contact routes
-          Constants.contactsScreen: (context) => const ContactsScreen(),
-          Constants.addContactScreen: (context) => const AddContactScreen(),
-          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
-          Constants.contactProfileScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
-            return ContactProfileScreen(contact: args);
-          },
                  
           // Channel routes with enhanced navigation support
+          Constants.createChannelScreen: (context) => const CreateChannelScreen(), // This is the new route after OTP
           Constants.channelsFeedScreen: (context) {
             final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
             return ChannelsFeedScreen(
@@ -159,7 +129,6 @@ class AppRoot extends ConsumerWidget {
           },
           Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
           Constants.myChannelScreen: (context) => const MyChannelScreen(),
-          Constants.createChannelScreen: (context) => const CreateChannelScreen(),
           Constants.createChannelPostScreen: (context) => const CreatePostScreen(),
           Constants.channelFeedScreen: (context) {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
@@ -211,26 +180,12 @@ class AppRoot extends ConsumerWidget {
         onGenerateRoute: (settings) {
           // Handle dynamic routes that need custom logic
           switch (settings.name) {
-            case '/chat':
-              // Handle chat route with parameters
-              final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null && args.containsKey('chatId') && args.containsKey('contact')) {
+            case '/channel-profile':
+              // Handle channel profile route
+              final channelId = settings.arguments as String?;
+              if (channelId != null) {
                 return MaterialPageRoute(
-                  builder: (context) => ChatScreen(
-                    chatId: args['chatId'] as String,
-                    contact: args['contact'] as UserModel,
-                  ),
-                  settings: settings,
-                );
-              }
-              break;
-              
-            case '/contact-profile':
-              // Handle contact profile route
-              final contact = settings.arguments as UserModel?;
-              if (contact != null) {
-                return MaterialPageRoute(
-                  builder: (context) => ContactProfileScreen(contact: contact),
+                  builder: (context) => ChannelProfileScreen(channelId: channelId),
                   settings: settings,
                 );
               }
@@ -245,7 +200,7 @@ class AppRoot extends ConsumerWidget {
   }
 }
 
-// A safe starting screen that handles navigation properly
+// A safe starting screen that handles navigation properly (Updated for channel-based)
 class SafeStartScreen extends StatefulWidget {
   const SafeStartScreen({super.key});
 
@@ -273,14 +228,15 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
       
       if (!mounted) return;
       
-      // Try to show the HomeScreen directly
+      // Try to show the HomeScreen directly if user has a channel
       // If there are authentication issues, fallback to LandingScreen
       try {
         // Check if user is already signed in
         final currentUser = FirebaseAuth.instance.currentUser;
         
         if (currentUser != null) {
-          // User is signed in, navigate to HomeScreen
+          // User is signed in, but we need to check if they have a channel
+          // For now, navigate to HomeScreen and let the auth provider handle the logic
           if (mounted) {
             Navigator.pushReplacementNamed(context, Constants.homeScreen);
           }
@@ -410,7 +366,7 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Loading...',
+              'Loading your channel...',
               style: TextStyle(
                 color: textColor,
                 fontSize: 16,
@@ -423,39 +379,55 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
   }
 }
 
-// Helper class for navigation utilities
-class ChatNavigationHelper {
-  // Navigate to chat screen
-  static void navigateToChat(
+// Helper class for navigation utilities (Updated for channel-based)
+class ChannelNavigationHelper {
+  // Navigate to channel profile
+  static void navigateToChannelProfile(
     BuildContext context, {
-    required String chatId,
-    required UserModel contact,
+    required String channelId,
   }) {
     Navigator.pushNamed(
       context,
-      Constants.chatScreen,
+      Constants.channelProfileScreen,
+      arguments: channelId,
+    );
+  }
+
+  // Navigate to channel feed
+  static void navigateToChannelFeed(
+    BuildContext context, {
+    String? startVideoId,
+    String? channelId,
+  }) {
+    Navigator.pushNamed(
+      context,
+      Constants.channelsFeedScreen,
       arguments: {
-        'chatId': chatId,
-        'contact': contact,
+        'startVideoId': startVideoId,
+        'channelId': channelId,
       },
     );
   }
 
-  // Navigate to contact profile
-  static void navigateToContactProfile(
+  // Navigate to create post
+  static void navigateToCreatePost(BuildContext context) {
+    Navigator.pushNamed(context, Constants.createChannelPostScreen);
+  }
+
+  // Navigate to my channel
+  static void navigateToMyChannel(BuildContext context) {
+    Navigator.pushNamed(context, Constants.myChannelScreen);
+  }
+
+  // Navigate to edit channel
+  static void navigateToEditChannel(
     BuildContext context, {
-    required UserModel contact,
+    required ChannelModel channel,
   }) {
     Navigator.pushNamed(
       context,
-      Constants.contactProfileScreen,
-      arguments: contact,
+      Constants.editChannelScreen,
+      arguments: channel,
     );
-  }
-
-  // Create chat ID for two users
-  static String createChatId(String userId1, String userId2) {
-    final sortedIds = [userId1, userId2]..sort();
-    return '${sortedIds[0]}_${sortedIds[1]}';
   }
 }

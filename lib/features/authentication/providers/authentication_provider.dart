@@ -1,4 +1,4 @@
-// lib/features/authentication/authentication_provider.dart (Updated)
+// lib/features/authentication/providers/authentication_provider.dart (Updated for Channel-based)
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,31 +7,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import '../repositories/auth_repository.dart';
 import 'auth_repository_provider.dart';
 
 part 'authentication_provider.g.dart';
 
-// State class for authentication (unchanged)
+// State class for authentication (updated for channels)
 class AuthenticationState {
   final bool isLoading;
   final bool isSuccessful;
   final String? uid;
   final String? phoneNumber;
-  final UserModel? userModel;
+  final ChannelModel? channelModel; // Changed from UserModel to ChannelModel
   final String? error;
-  final List<UserModel>? savedAccounts;
+  final List<ChannelModel>? savedChannels; // Changed from savedAccounts to savedChannels
 
   const AuthenticationState({
     this.isLoading = false,
     this.isSuccessful = false,
     this.uid,
     this.phoneNumber,
-    this.userModel,
+    this.channelModel,
     this.error,
-    this.savedAccounts,
+    this.savedChannels,
   });
 
   AuthenticationState copyWith({
@@ -39,18 +39,18 @@ class AuthenticationState {
     bool? isSuccessful,
     String? uid,
     String? phoneNumber,
-    UserModel? userModel,
+    ChannelModel? channelModel,
     String? error,
-    List<UserModel>? savedAccounts,
+    List<ChannelModel>? savedChannels,
   }) {
     return AuthenticationState(
       isLoading: isLoading ?? this.isLoading,
       isSuccessful: isSuccessful ?? this.isSuccessful,
       uid: uid ?? this.uid,
       phoneNumber: phoneNumber ?? this.phoneNumber,
-      userModel: userModel ?? this.userModel,
+      channelModel: channelModel ?? this.channelModel,
       error: error,
-      savedAccounts: savedAccounts ?? this.savedAccounts,
+      savedChannels: savedChannels ?? this.savedChannels,
     );
   }
 }
@@ -65,16 +65,16 @@ class Authentication extends _$Authentication {
     final isAuthenticated = await checkAuthenticationState();
     
     if (isAuthenticated && _repository.currentUserId != null) {
-      final userModel = await getUserDataFromFireStore();
-      await saveUserDataToSharedPreferences();
-      final savedAccounts = await getSavedAccounts();
+      final channelModel = await getChannelDataFromFireStore();
+      await saveChannelDataToSharedPreferences();
+      final savedChannels = await getSavedChannels();
       
       return AuthenticationState(
         isSuccessful: true,
         uid: _repository.currentUserId,
         phoneNumber: _repository.currentUserPhoneNumber,
-        userModel: userModel,
-        savedAccounts: savedAccounts,
+        channelModel: channelModel,
+        savedChannels: savedChannels,
       );
     }
     
@@ -91,69 +91,70 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Check if user exists
-  Future<bool> checkUserExists() async {
+  // Check if channel exists
+  Future<bool> checkChannelExists() async {
     final currentState = state.value ?? const AuthenticationState();
     final uid = currentState.uid ?? _repository.currentUserId;
     
     if (uid == null) return false;
     
     try {
-      return await _repository.checkUserExists(uid);
+      return await _repository.checkChannelExists(uid);
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
       return false;
     }
   }
 
-  // Get user data from firestore
-  Future<UserModel?> getUserDataFromFireStore() async {
+  // Get channel data from firestore
+  Future<ChannelModel?> getChannelDataFromFireStore() async {
     final currentState = state.value ?? const AuthenticationState();
     final uid = currentState.uid ?? _repository.currentUserId;
     
     if (uid == null) return null;
     
     try {
-      final userModel = await _repository.getUserDataFromFireStore(uid);
+      final channelModel = await _repository.getChannelDataFromFireStore(uid);
       
-      if (userModel != null) {
-        // Update state with user model
-        state = AsyncValue.data(currentState.copyWith(userModel: userModel));
+      if (channelModel != null) {
+        // Update state with channel model
+        state = AsyncValue.data(currentState.copyWith(channelModel: channelModel));
       }
       
-      return userModel;
+      return channelModel;
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
       return null;
     }
   }
 
-  // Save user data to shared preferences
-  Future<void> saveUserDataToSharedPreferences() async {
+  // Save channel data to shared preferences
+  Future<void> saveChannelDataToSharedPreferences() async {
     final currentState = state.value ?? const AuthenticationState();
-    if (currentState.userModel == null) return;
+    if (currentState.channelModel == null) return;
     
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     await sharedPreferences.setString(
-        Constants.userModel, jsonEncode(currentState.userModel!.toMap()));
+        'channelModel', jsonEncode(currentState.channelModel!.toMap()));
     
-    // Save account to saved accounts list
-    await addAccountToSavedAccounts(currentState.userModel!);
+    // Save channel to saved channels list
+    await addChannelToSavedChannels(currentState.channelModel!);
   }
 
   // Get data from shared preferences
-  Future<void> getUserDataFromSharedPreferences() async {
+  Future<void> getChannelDataFromSharedPreferences() async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
-    String userModelString = sharedPreferences.getString(Constants.userModel) ?? '';
+    String channelModelString = sharedPreferences.getString('channelModel') ?? '';
     
-    if (userModelString.isEmpty) return;
+    if (channelModelString.isEmpty) return;
     
-    final userModel = UserModel.fromMap(jsonDecode(userModelString));
+    final Map<String, dynamic> channelMap = jsonDecode(channelModelString);
+    final channelModel = ChannelModel.fromMap(channelMap, channelMap['id'] ?? '');
     final currentState = state.value ?? const AuthenticationState();
     
     state = AsyncValue.data(currentState.copyWith(
-      userModel: userModel,
-      uid: userModel.uid,
+      channelModel: channelModel,
+      uid: channelModel.ownerId,
     ));
   }
 
@@ -209,24 +210,26 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Save user data to firestore
-  Future<void> saveUserDataToFireStore({
-    required UserModel userModel,
-    required File? fileImage,
+  // Save channel data to firestore
+  Future<void> saveChannelDataToFireStore({
+    required ChannelModel channelModel,
+    required File? profileImage,
+    required File? coverImage,
     required Function onSuccess,
     required Function onFail,
   }) async {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
 
     try {
-      await _repository.saveUserDataToFireStore(
-        userModel: userModel,
-        fileImage: fileImage,
+      await _repository.saveChannelDataToFireStore(
+        channelModel: channelModel,
+        profileImage: profileImage,
+        coverImage: coverImage,
         onSuccess: () {
           state = AsyncValue.data(AuthenticationState(
             isSuccessful: true,
-            userModel: userModel,
-            uid: userModel.uid,
+            channelModel: channelModel,
+            uid: channelModel.ownerId,
           ));
           onSuccess();
         },
@@ -241,245 +244,172 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Get user stream
-  Stream<DocumentSnapshot> userStream({required String userID}) {
-    return _repository.userStream(userID: userID);
+  // Get channel stream
+  Stream<DocumentSnapshot> channelStream({required String channelId}) {
+    return _repository.channelStream(channelId: channelId);
   }
 
-  // Get all users stream
-  Stream<QuerySnapshot> getAllUsersStream({required String userID}) {
-    return _repository.getAllUsersStream(userID: userID);
+  // Get all channels stream
+  Stream<QuerySnapshot> getAllChannelsStream({required String excludeChannelId}) {
+    return _repository.getAllChannelsStream(excludeChannelId: excludeChannelId);
   }
 
-  // Add contact to user's contacts
-  Future<void> addContact({required String contactID}) async {
+  // Follow/Unfollow channel
+  Future<void> followChannel({required String channelId}) async {
     final currentState = state.value;
-    if (currentState?.userModel == null) return;
+    if (currentState?.channelModel == null) return;
     
     try {
-      await _repository.addContact(
-        userUid: currentState!.userModel!.uid,
-        contactId: contactID,
+      await _repository.followChannel(
+        followerId: currentState!.channelModel!.id,
+        channelId: channelId,
       );
       
-      // Update local model
-      final updatedUser = currentState.userModel!.copyWith();
-      updatedUser.contactsUIDs.add(contactID);
-      
-      state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
+      // Update local model if needed
+      // This would depend on your specific implementation
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
       debugPrint(e.toString());
     }
   }
 
-  // Remove contact from user's contacts
-  Future<void> removeContact({required String contactID}) async {
+  Future<void> unfollowChannel({required String channelId}) async {
     final currentState = state.value;
-    if (currentState?.userModel == null) return;
+    if (currentState?.channelModel == null) return;
     
     try {
-      await _repository.removeContact(
-        userUid: currentState!.userModel!.uid,
-        contactId: contactID,
+      await _repository.unfollowChannel(
+        followerId: currentState!.channelModel!.id,
+        channelId: channelId,
       );
       
-      // Update local model
-      final updatedUser = currentState.userModel!.copyWith();
-      updatedUser.contactsUIDs.remove(contactID);
-      
-      state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
+      // Update local model if needed
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
       debugPrint(e.toString());
     }
   }
 
-  // Block a contact
-  Future<void> blockContact({required String contactID}) async {
-    final currentState = state.value;
-    if (currentState?.userModel == null) return;
-    
+  // Search for channels
+  Future<List<ChannelModel>> searchChannels({required String query}) async {
     try {
-      await _repository.blockContact(
-        userUid: currentState!.userModel!.uid,
-        contactId: contactID,
-      );
-      
-      // Update local model
-      final updatedUser = currentState.userModel!.copyWith();
-      updatedUser.blockedUIDs.add(contactID);
-      
-      state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
+      return await _repository.searchChannels(query: query);
     } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      debugPrint(e.toString());
-    }
-  }
-
-  // Unblock a contact
-  Future<void> unblockContact({required String contactID}) async {
-    final currentState = state.value;
-    if (currentState?.userModel == null) return;
-    
-    try {
-      await _repository.unblockContact(
-        userUid: currentState!.userModel!.uid,
-        contactId: contactID,
-      );
-      
-      // Update local model
-      final updatedUser = currentState.userModel!.copyWith();
-      updatedUser.blockedUIDs.remove(contactID);
-      
-      state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      debugPrint(e.toString());
-    }
-  }
-
-  // Get a list of contacts
-  Future<List<UserModel>> getContactsList(
-    String uid,
-    List<String> groupMembersUIDs,
-  ) async {
-    try {
-      return await _repository.getContactsList(uid, groupMembersUIDs);
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
+      debugPrint('Error searching channels: ${e.message}');
       return [];
     }
   }
 
-  // Get a list of blocked contacts
-  Future<List<UserModel>> getBlockedContactsList({required String uid}) async {
+  // Get channel data by ID
+  Future<ChannelModel?> getChannelDataById(String channelId) async {
     try {
-      return await _repository.getBlockedContactsList(uid: uid);
+      return await _repository.getChannelDataById(channelId);
     } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      return [];
-    }
-  }
-
-  // Search for users by phone number
-  Future<UserModel?> searchUserByPhoneNumber({required String phoneNumber}) async {
-    try {
-      return await _repository.searchUserByPhoneNumber(phoneNumber: phoneNumber);
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error searching user: ${e.message}');
+      debugPrint('Error getting channel by ID: ${e.message}');
       return null;
     }
   }
 
-  // Get user data by ID
-  Future<UserModel?> getUserDataById(String userId) async {
-    try {
-      return await _repository.getUserDataById(userId);
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error getting user by ID: ${e.message}');
-      return null;
-    }
-  }
-
-  // Update user profile data
-  Future<void> updateUserProfile(UserModel updatedUser) async {
+  // Update channel profile data
+  Future<void> updateChannelProfile(ChannelModel updatedChannel) async {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
     
     try {
-      await _repository.updateUserProfile(updatedUser);
+      await _repository.updateChannelProfile(updatedChannel);
 
-      // Update local user model
+      // Update local channel model
       final currentState = state.value ?? const AuthenticationState();
       
       state = AsyncValue.data(currentState.copyWith(
-        userModel: updatedUser,
+        channelModel: updatedChannel,
         isLoading: false,
       ));
 
-      // Save updated user data to shared preferences
-      await saveUserDataToSharedPreferences();
+      // Save updated channel data to shared preferences
+      await saveChannelDataToSharedPreferences();
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
       throw e.message;
     }
   }
 
-  // Account switching methods (kept same for now, can be refactored later if needed)
+  // Channel switching methods
   
-  // Get saved accounts from SharedPreferences
-  Future<List<UserModel>> getSavedAccounts() async {
+  // Get saved channels from SharedPreferences
+  Future<List<ChannelModel>> getSavedChannels() async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
-    final savedAccountsJson = sharedPreferences.getStringList('savedAccounts') ?? [];
+    final savedChannelsJson = sharedPreferences.getStringList('savedChannels') ?? [];
     
-    List<UserModel> savedAccounts = [];
-    for (String accountJson in savedAccountsJson) {
+    List<ChannelModel> savedChannels = [];
+    for (String channelJson in savedChannelsJson) {
       try {
-        savedAccounts.add(UserModel.fromMap(jsonDecode(accountJson)));
+        final Map<String, dynamic> channelMap = jsonDecode(channelJson);
+        savedChannels.add(ChannelModel.fromMap(channelMap, channelMap['id'] ?? ''));
       } catch (e) {
-        debugPrint('Error parsing saved account: $e');
+        debugPrint('Error parsing saved channel: $e');
       }
     }
     
-    // Update state with saved accounts
+    // Update state with saved channels
     final currentState = state.value ?? const AuthenticationState();
-    state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
+    state = AsyncValue.data(currentState.copyWith(savedChannels: savedChannels));
     
-    return savedAccounts;
+    return savedChannels;
   }
   
-  // Add account to saved accounts list
-  Future<void> addAccountToSavedAccounts(UserModel userModel) async {
+  // Add channel to saved channels list
+  Future<void> addChannelToSavedChannels(ChannelModel channelModel) async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
-    List<String> savedAccountsJson = sharedPreferences.getStringList('savedAccounts') ?? [];
+    List<String> savedChannelsJson = sharedPreferences.getStringList('savedChannels') ?? [];
     
-    // Convert accounts to list of UserModels
-    List<UserModel> savedAccounts = [];
-    for (String accountJson in savedAccountsJson) {
+    // Convert channels to list of ChannelModels
+    List<ChannelModel> savedChannels = [];
+    for (String channelJson in savedChannelsJson) {
       try {
-        savedAccounts.add(UserModel.fromMap(jsonDecode(accountJson)));
+        final Map<String, dynamic> channelMap = jsonDecode(channelJson);
+        savedChannels.add(ChannelModel.fromMap(channelMap, channelMap['id'] ?? ''));
       } catch (e) {
-        debugPrint('Error parsing saved account: $e');
+        debugPrint('Error parsing saved channel: $e');
       }
     }
     
-    // Check if account already exists
-    bool accountExists = savedAccounts.any((account) => account.uid == userModel.uid);
-    if (!accountExists) {
-      // Add the account
-      savedAccountsJson.add(jsonEncode(userModel.toMap()));
-      await sharedPreferences.setStringList('savedAccounts', savedAccountsJson);
+    // Check if channel already exists
+    bool channelExists = savedChannels.any((channel) => channel.id == channelModel.id);
+    if (!channelExists) {
+      // Add the channel
+      savedChannelsJson.add(jsonEncode(channelModel.toMap()));
+      await sharedPreferences.setStringList('savedChannels', savedChannelsJson);
       
       // Add to local list
-      savedAccounts.add(userModel);
+      savedChannels.add(channelModel);
       
       // Update state
       final currentState = state.value ?? const AuthenticationState();
-      state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
+      state = AsyncValue.data(currentState.copyWith(savedChannels: savedChannels));
     }
   }
   
-  // Switch to another account
-  Future<void> switchAccount(UserModel selectedAccount) async {
+  // Switch to another channel
+  Future<void> switchChannel(ChannelModel selectedChannel) async {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
     
     try {
       // Sign out current user
       await _repository.signOut();
       
-      // Update SharedPreferences with the selected account
+      // Update SharedPreferences with the selected channel
       SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
       await sharedPreferences.setString(
-          Constants.userModel, jsonEncode(selectedAccount.toMap()));
+          'channelModel', jsonEncode(selectedChannel.toMap()));
       
-      // Update state with the new user model
-      final savedAccounts = await getSavedAccounts();
+      // Update state with the new channel model
+      final savedChannels = await getSavedChannels();
       state = AsyncValue.data(AuthenticationState(
         isSuccessful: true,
-        uid: selectedAccount.uid,
-        phoneNumber: selectedAccount.phoneNumber,
-        userModel: selectedAccount,
-        savedAccounts: savedAccounts,
+        uid: selectedChannel.ownerId,
+        phoneNumber: '', // Phone number might not be directly available in channel model
+        channelModel: selectedChannel,
+        savedChannels: savedChannels,
       ));
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
@@ -487,44 +417,45 @@ class Authentication extends _$Authentication {
     }
   }
   
-  // Remove account from saved accounts
-  Future<void> removeAccount(String uid) async {
+  // Remove channel from saved channels
+  Future<void> removeChannel(String channelId) async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
-    List<String> savedAccountsJson = sharedPreferences.getStringList('savedAccounts') ?? [];
+    List<String> savedChannelsJson = sharedPreferences.getStringList('savedChannels') ?? [];
     
-    // Convert accounts to list of UserModels
-    List<UserModel> savedAccounts = [];
-    for (String accountJson in savedAccountsJson) {
+    // Convert channels to list of ChannelModels
+    List<ChannelModel> savedChannels = [];
+    for (String channelJson in savedChannelsJson) {
       try {
-        savedAccounts.add(UserModel.fromMap(jsonDecode(accountJson)));
+        final Map<String, dynamic> channelMap = jsonDecode(channelJson);
+        savedChannels.add(ChannelModel.fromMap(channelMap, channelMap['id'] ?? ''));
       } catch (e) {
-        debugPrint('Error parsing saved account: $e');
+        debugPrint('Error parsing saved channel: $e');
       }
     }
     
-    // Remove the account
-    savedAccounts.removeWhere((account) => account.uid == uid);
+    // Remove the channel
+    savedChannels.removeWhere((channel) => channel.id == channelId);
     
     // Save updated list
-    List<String> updatedAccountsJson = savedAccounts.map((account) => 
-        jsonEncode(account.toMap())).toList();
-    await sharedPreferences.setStringList('savedAccounts', updatedAccountsJson);
+    List<String> updatedChannelsJson = savedChannels.map((channel) => 
+        jsonEncode(channel.toMap())).toList();
+    await sharedPreferences.setStringList('savedChannels', updatedChannelsJson);
     
     // Update state
     final currentState = state.value ?? const AuthenticationState();
-    state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
+    state = AsyncValue.data(currentState.copyWith(savedChannels: savedChannels));
   }
   
-  // Sign out user
+  // Sign out channel
   Future<void> signOut() async {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
     
     try {
       await _repository.signOut();
       
-      // Clear local user data
+      // Clear local channel data
       SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
-      await sharedPreferences.remove(Constants.userModel);
+      await sharedPreferences.remove('channelModel');
       
       state = AsyncValue.data(const AuthenticationState());
     } on AuthRepositoryException catch (e) {
