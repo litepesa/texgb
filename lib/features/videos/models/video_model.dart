@@ -1,12 +1,12 @@
+// lib/features/videos/models/video_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-class ChannelVideoModel {
+class VideoModel {
   final String id;
-  final String channelId;
-  final String channelName;
-  final String channelImage;
   final String userId;
+  final String userName;
+  final String userImage;
   final String videoUrl;
   final String thumbnailUrl;
   final String caption;
@@ -19,15 +19,14 @@ class ChannelVideoModel {
   final Timestamp createdAt;
   final bool isActive;
   final bool isFeatured;
-  final bool isMultipleImages; // Flag to indicate if this is a carousel of images instead of video
-  final List<String> imageUrls; // Used for multiple images post
+  final bool isMultipleImages;
+  final List<String> imageUrls;
 
-  ChannelVideoModel({
+  VideoModel({
     required this.id,
-    required this.channelId,
-    required this.channelName,
-    required this.channelImage,
     required this.userId,
+    required this.userName,
+    required this.userImage,
     required this.videoUrl,
     required this.thumbnailUrl,
     required this.caption,
@@ -46,10 +45,9 @@ class ChannelVideoModel {
 
   Map<String, dynamic> toMap() {
     return {
-      'channelId': channelId,
-      'channelName': channelName,
-      'channelImage': channelImage,
       'userId': userId,
+      'userName': userName,
+      'userImage': userImage,
       'videoUrl': videoUrl,
       'thumbnailUrl': thumbnailUrl,
       'caption': caption,
@@ -66,19 +64,18 @@ class ChannelVideoModel {
     };
   }
 
-  factory ChannelVideoModel.fromMap(Map<String, dynamic> map, {String? id, bool isLiked = false}) {
+  factory VideoModel.fromMap(Map<String, dynamic> map, {String? id, bool isLiked = false}) {
     final videoId = id ?? map['id'] ?? '';
     
     if (videoId.isEmpty) {
-      debugPrint('WARNING: Creating ChannelVideoModel with empty ID');
+      debugPrint('WARNING: Creating VideoModel with empty ID');
     }
     
-    return ChannelVideoModel(
+    return VideoModel(
       id: videoId,
-      channelId: map['channelId'] ?? '',
-      channelName: map['channelName'] ?? '',
-      channelImage: map['channelImage'] ?? '',
       userId: map['userId'] ?? '',
+      userName: map['userName'] ?? '',
+      userImage: map['userImage'] ?? '',
       videoUrl: map['videoUrl'] ?? '',
       thumbnailUrl: map['thumbnailUrl'] ?? '',
       caption: map['caption'] ?? '',
@@ -96,18 +93,11 @@ class ChannelVideoModel {
     );
   }
 
-  get duration => null;
-
-  get title => null;
-
-  get fileSize => null;
-
-  ChannelVideoModel copyWith({
+  VideoModel copyWith({
     String? id,
-    String? channelId,
-    String? channelName,
-    String? channelImage,
     String? userId,
+    String? userName,
+    String? userImage,
     String? videoUrl,
     String? thumbnailUrl,
     String? caption,
@@ -123,12 +113,11 @@ class ChannelVideoModel {
     bool? isMultipleImages,
     List<String>? imageUrls,
   }) {
-    return ChannelVideoModel(
+    return VideoModel(
       id: id ?? this.id,
-      channelId: channelId ?? this.channelId,
-      channelName: channelName ?? this.channelName,
-      channelImage: channelImage ?? this.channelImage,
       userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      userImage: userImage ?? this.userImage,
       videoUrl: videoUrl ?? this.videoUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       caption: caption ?? this.caption,
@@ -144,5 +133,19 @@ class ChannelVideoModel {
       isMultipleImages: isMultipleImages ?? this.isMultipleImages,
       imageUrls: imageUrls ?? this.imageUrls,
     );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is VideoModel && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() {
+    return 'VideoModel(id: $id, caption: $caption, userName: $userName)';
   }
 }

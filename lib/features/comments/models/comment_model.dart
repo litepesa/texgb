@@ -1,8 +1,7 @@
-// lib/features/channels/models/channel_comment_model.dart
+// lib/features/comments/models/comment_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:textgb/constants.dart';
 
-class ChannelCommentModel {
+class CommentModel {
   final String id;
   final String videoId;
   final String authorId;
@@ -16,7 +15,7 @@ class ChannelCommentModel {
   final String? repliedToCommentId;
   final String? repliedToAuthorName;
 
-  ChannelCommentModel({
+  CommentModel({
     required this.id,
     required this.videoId,
     required this.authorId,
@@ -31,8 +30,8 @@ class ChannelCommentModel {
     this.repliedToAuthorName,
   });
 
-  factory ChannelCommentModel.fromMap(Map<String, dynamic> map, String id) {
-    return ChannelCommentModel(
+  factory CommentModel.fromMap(Map<String, dynamic> map, String id) {
+    return CommentModel(
       id: id,
       videoId: map['videoId'] ?? '',
       authorId: map['authorId'] ?? '',
@@ -64,7 +63,7 @@ class ChannelCommentModel {
     };
   }
 
-  ChannelCommentModel copyWith({
+  CommentModel copyWith({
     String? id,
     String? videoId,
     String? authorId,
@@ -78,7 +77,7 @@ class ChannelCommentModel {
     String? repliedToCommentId,
     String? repliedToAuthorName,
   }) {
-    return ChannelCommentModel(
+    return CommentModel(
       id: id ?? this.id,
       videoId: videoId ?? this.videoId,
       authorId: authorId ?? this.authorId,
@@ -97,7 +96,7 @@ class ChannelCommentModel {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ChannelCommentModel && other.id == id;
+    return other is CommentModel && other.id == id;
   }
 
   @override
@@ -105,6 +104,6 @@ class ChannelCommentModel {
 
   @override
   String toString() {
-    return 'ChannelCommentModel(id: $id, content: $content, authorName: $authorName)';
+    return 'CommentModel(id: $id, content: $content, authorName: $authorName)';
   }
 }

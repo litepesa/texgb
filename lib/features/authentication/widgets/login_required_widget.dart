@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/constants.dart';
 
 class LoginRequiredWidget extends ConsumerWidget {
@@ -27,24 +28,23 @@ class LoginRequiredWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
     
-    // Watch authentication state
-    final authState = ref.watch(authenticationProvider);
-    final isLoggedIn = authState.value?.isSuccessful ?? false;
-    final isAuthLoading = authState.isLoading;
+    // Watch authentication state using convenience providers
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final isLoading = ref.watch(isAuthLoadingProvider);
     
     // Show loading if authentication is loading
-    if (isAuthLoading) {
+    if (isLoading) {
       return const Center(
         child: CircularProgressIndicator(),
       );
     }
     
-    // If user is logged in, allow access
-    if (isLoggedIn) {
+    // If user is authenticated, allow access
+    if (isAuthenticated) {
       return const SizedBox.shrink();
     }
     
-    // User is not logged in, show login prompt
+    // User is not authenticated (guest), show login prompt
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -116,7 +116,7 @@ class LoginRequiredWidget extends ConsumerWidget {
             
             const SizedBox(height: 24),
             
-            // Show benefits for unauthenticated users
+            // Show benefits for guest users
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -155,8 +155,8 @@ class LoginRequiredWidget extends ConsumerWidget {
                   ),
                   _buildBenefitItem(
                     modernTheme,
-                    Icons.card_giftcard,
-                    'Send virtual gifts to support creators',
+                    Icons.people,
+                    'Follow your favorite creators',
                   ),
                 ],
               ),
@@ -164,7 +164,7 @@ class LoginRequiredWidget extends ConsumerWidget {
             
             const SizedBox(height: 16),
             
-            // Continue browsing option for unauthenticated users
+            // Continue browsing option for guest users
             if (showContinueBrowsing) ...[
               TextButton(
                 onPressed: onContinueBrowsing ?? () => Navigator.of(context).pop(),
@@ -236,15 +236,14 @@ Future<bool> requireLogin(
   bool showContinueBrowsing = true,
   VoidCallback? onContinueBrowsing,
 }) async {
-  final authState = ref.read(authenticationProvider).value ?? const AuthenticationState();
-  final isLoggedIn = authState.isSuccessful;
+  final isAuthenticated = ref.read(isAuthenticatedProvider);
   
-  // User is logged in
-  if (isLoggedIn) {
+  // User is authenticated
+  if (isAuthenticated) {
     return true;
   }
   
-  // User is not logged in, show dialog
+  // User is guest, show login dialog
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: showContinueBrowsing,
@@ -267,53 +266,12 @@ Future<bool> requireLogin(
   return result ?? false;
 }
 
-// Legacy function for backward compatibility
-@Deprecated('Use requireLogin instead')
-Future<bool> requireAuthentication(
-  BuildContext context,
-  WidgetRef ref, {
-  String? customTitle,
-  String? customSubtitle,
-  String? customActionText,
-  IconData? customIcon,
-  bool showContinueBrowsing = true,
-  VoidCallback? onContinueBrowsing,
-}) async {
-  return requireLogin(
-    context,
-    ref,
-    customTitle: customTitle,
-    customSubtitle: customSubtitle,
-    customActionText: customActionText,
-    customIcon: customIcon,
-    showContinueBrowsing: showContinueBrowsing,
-    onContinueBrowsing: onContinueBrowsing,
-  );
+// Quick helper to check if action requires authentication
+bool requiresAuthentication(WidgetRef ref) {
+  return !ref.read(isAuthenticatedProvider);
 }
 
-// Legacy function for backward compatibility
-@Deprecated('Use requireLogin instead')
-Future<bool> requireUserChannel(
-  BuildContext context,
-  WidgetRef ref, {
-  String? customTitle,
-  String? customSubtitle,
-  String? customActionText,
-  IconData? customIcon,
-  bool showContinueBrowsing = false,
-}) async {
-  return requireLogin(
-    context,
-    ref,
-    customTitle: customTitle ?? 'Sign In Required',
-    customSubtitle: customSubtitle ?? 'Please sign in to access this feature.',
-    customActionText: customActionText ?? 'Sign In',
-    customIcon: customIcon ?? Icons.login,
-    showContinueBrowsing: showContinueBrowsing,
-  );
-}
-
-// Alternative: Inline widget for embedding in screens with login checking
+// Inline widget for embedding in screens with login checking
 class InlineLoginRequiredWidget extends ConsumerWidget {
   final String title;
   final String subtitle;
@@ -331,15 +289,14 @@ class InlineLoginRequiredWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
-    final authState = ref.watch(authenticationProvider).value ?? const AuthenticationState();
-    final isLoggedIn = authState.isSuccessful;
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
     
-    // Don't show if user is logged in
-    if (isLoggedIn) {
+    // Don't show if user is authenticated
+    if (isAuthenticated) {
       return const SizedBox.shrink();
     }
     
-    // Not logged in
+    // Show for guest users
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(24),
@@ -427,7 +384,7 @@ class InlineLoginRequiredWidget extends ConsumerWidget {
   }
 }
 
-// Simple banner widget to encourage sign-up for unauthenticated users
+// Simple banner widget to encourage sign-up for guest users
 class GuestModeBanner extends ConsumerWidget {
   final VoidCallback? onDismiss;
   final VoidCallback? onSignIn;
@@ -441,11 +398,10 @@ class GuestModeBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
-    final authState = ref.watch(authenticationProvider).value ?? const AuthenticationState();
-    final isLoggedIn = authState.isSuccessful;
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
     
-    // Don't show banner if user is already logged in
-    if (isLoggedIn) return const SizedBox.shrink();
+    // Don't show banner if user is authenticated
+    if (isAuthenticated) return const SizedBox.shrink();
     
     return Container(
       margin: const EdgeInsets.all(16),
@@ -524,5 +480,70 @@ class GuestModeBanner extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+// Helper widget for action buttons that require authentication
+class AuthRequiredActionButton extends ConsumerWidget {
+  final Widget child;
+  final VoidCallback onPressed;
+  final String? loginPrompt;
+
+  const AuthRequiredActionButton({
+    Key? key,
+    required this.child,
+    required this.onPressed,
+    this.loginPrompt,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+
+    return GestureDetector(
+      onTap: () async {
+        if (isAuthenticated) {
+          onPressed();
+        } else {
+          // Show login prompt
+          await requireLogin(
+            context,
+            ref,
+            customSubtitle: loginPrompt ?? 'Please sign in to access this feature.',
+          );
+        }
+      },
+      child: child,
+    );
+  }
+}
+
+// Helper widget for sections that show different content for guests vs authenticated users
+class AuthStateBuilder extends ConsumerWidget {
+  final Widget Function(BuildContext context) guestBuilder;
+  final Widget Function(BuildContext context) authenticatedBuilder;
+  final Widget Function(BuildContext context)? loadingBuilder;
+
+  const AuthStateBuilder({
+    Key? key,
+    required this.guestBuilder,
+    required this.authenticatedBuilder,
+    this.loadingBuilder,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final isLoading = ref.watch(isAuthLoadingProvider);
+
+    if (isLoading && loadingBuilder != null) {
+      return loadingBuilder!(context);
+    }
+
+    if (isAuthenticated) {
+      return authenticatedBuilder(context);
+    } else {
+      return guestBuilder(context);
+    }
   }
 }

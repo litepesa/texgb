@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
 
 class VideoCacheService {
   static final VideoCacheService _instance = VideoCacheService._internal();
@@ -98,7 +98,7 @@ class VideoCacheService {
   /// Intelligent preloading for TikTok-like experience
   /// Preloads current video + next 3 + previous 1
   Future<void> preloadVideosIntelligently(
-    List<ChannelVideoModel> videos, 
+    List<VideoModel> videos, 
     int currentIndex,
   ) async {
     if (videos.isEmpty || currentIndex < 0 || currentIndex >= videos.length) {
@@ -178,7 +178,7 @@ class VideoCacheService {
 
   /// Preload next batch when user is close to end of current batch
   Future<void> preloadNextBatch(
-    List<ChannelVideoModel> videos, 
+    List<VideoModel> videos, 
     int currentIndex,
   ) async {
     // Start preloading when user is 2 videos away from what we've cached

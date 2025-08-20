@@ -1,4 +1,4 @@
-// lib/features/authentication/screens/otp_screen.dart (Updated for Channel-based)
+// lib/features/authentication/screens/otp_screen.dart
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +7,8 @@ import 'package:pinput/pinput.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/authentication/repositories/authentication_repository.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
@@ -127,13 +129,25 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
         if (!mounted) return;
         
         try {
-          // Check if channel exists for this user
-          final channelExists = await authNotifier.checkChannelExists();
-          if (channelExists) {
-            await authNotifier.getChannelDataFromFireStore();
-            await authNotifier.saveChannelDataToSharedPreferences();
+          // Get the current user and repository
+          final repository = ref.read(authenticationRepositoryProvider);
+          final currentUserId = repository.currentUserId;
+          
+          if (currentUserId != null) {
+            // Check if user already has a profile
+            final userExists = await repository.checkUserExists(currentUserId);
+            _navigate(hasProfile: userExists);
+          } else {
+            // Something went wrong with authentication
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Authentication error. Please try again.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
           }
-          _navigate(channelExists: channelExists);
         } catch (e) {
           debugPrint('Error during OTP verification: $e');
           if (mounted) {
@@ -149,10 +163,10 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
     );
   }
 
-  void _navigate({required bool channelExists}) {
+  void _navigate({required bool hasProfile}) {
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(
-      channelExists ? Constants.homeScreen : Constants.createChannelScreen, // Navigate to create channel instead of user info
+      hasProfile ? Constants.homeScreen : Constants.createProfileScreen,
       (route) => false,
     );
   }
@@ -220,18 +234,12 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
                   // Using Consumer for localized rebuilds
                   Consumer(
                     builder: (context, ref, _) {
-                      final authState = ref.watch(authenticationProvider);
-                      final isLoading = authState.maybeWhen(
-                        data: (data) => data.isLoading,
-                        orElse: () => false,
-                      );
-                      final isSuccessful = authState.maybeWhen(
-                        data: (data) => data.isSuccessful,
-                        orElse: () => false,
-                      );
+                      final isLoading = ref.watch(isAuthLoadingProvider);
+                      final isAuthenticated = ref.watch(isAuthenticatedProvider);
+                      
                       return _VerificationStatusIndicator(
                         isLoading: isLoading,
-                        isSuccessful: isSuccessful,
+                        isSuccessful: isAuthenticated,
                       );
                     },
                   ),

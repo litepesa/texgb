@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart (Final Fix - Complete Null Safety)
+// lib/main_screen/home_screen.dart (Simplified - No Auth Controls)
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -6,12 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
-import 'package:textgb/features/channels/widgets/login_required_widget.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -72,19 +70,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
-  // Safe check if user is authenticated using the correct provider
-  bool get _isAuthenticated {
-    if (!mounted) return false;
-    
-    try {
-      final authState = ref.read(authenticationProvider);
-      return authState.value?.isSuccessful ?? false;
-    } catch (e) {
-      debugPrint('Authentication check error: $e');
-      return false;
-    }
-  }
-
   // Safe method to get modern theme with fallback
   ModernThemeExtension _getModernTheme() {
     if (!mounted) {
@@ -120,12 +105,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Handle special post button
     if (index == 2) {
       _navigateToCreatePost();
-      return;
-    }
-
-    // Check authentication for certain tabs
-    if (_requiresAuthentication(index)) {
-      _showAuthenticationDialog(index);
       return;
     }
 
@@ -208,67 +187,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         }
       });
     }
-  }
-
-  // Check if a tab requires authentication
-  bool _requiresAuthentication(int index) {
-    switch (index) {
-      case 0: // Home - No authentication required
-      case 1: // Channels - No authentication required
-        return false;
-      case 3: // Wallet - Requires authentication
-      case 4: // Profile - Requires authentication
-        return !_isAuthenticated;
-      default:
-        return false;
-    }
-  }
-
-  // Show authentication dialog with proper context for each tab
-  void _showAuthenticationDialog(int index) {
-    if (!mounted) return;
-    
-    String title = 'Sign In Required';
-    String subtitle = 'Sign in to access this feature and unlock the full WeiBao experience.';
-    IconData icon = Icons.login;
-
-    switch (index) {
-      case 3: // Wallet
-        title = 'Access Your Wallet';
-        subtitle = 'Sign in to manage your earnings, transactions, and virtual gifts.';
-        icon = Icons.account_balance_wallet;
-        break;
-      case 4: // Profile
-        title = 'Join WeiBao';
-        subtitle = 'Sign in and create your channel to start sharing content and connecting with others.';
-        icon = Icons.login;
-        break;
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => AlertDialog(
-        contentPadding: EdgeInsets.zero,
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.9,
-          child: LoginRequiredWidget(
-            title: title,
-            subtitle: subtitle,
-            actionText: 'Sign In',
-            icon: icon,
-            showContinueBrowsing: true,
-            onContinueBrowsing: () {
-              Navigator.of(context).pop();
-              // Navigate back to home tab
-              if (mounted) {
-                _onTabTapped(0);
-              }
-            },
-          ),
-        ),
-      ),
-    );
   }
   
   void _updateSystemUI() {
@@ -414,20 +332,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _navigateToCreatePost() async {
     if (!mounted) return;
     
-    // Use the LoginRequiredWidget's utility function for create content
-    final hasAccess = await requireLogin(
-      context,
-      ref,
-      customTitle: 'Create Content',
-      customSubtitle: 'Sign in and create a channel to start sharing your content.',
-      customActionText: 'Sign In',
-      customIcon: Icons.video_call,
-      showContinueBrowsing: true,
-      onContinueBrowsing: () => Navigator.of(context).pop(),
-    );
-
-    if (!hasAccess || !mounted) return;
-
     // Pause feed if active
     if (_currentIndex == 0) {
       try {
@@ -461,16 +365,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         body: Center(child: CircularProgressIndicator()),
       );
     }
-
-    // Watch the authentication state using the correct provider with safe handling
-    bool isAuthenticated = false;
-    try {
-      final authState = ref.watch(authenticationProvider);
-      isAuthenticated = authState.value?.isSuccessful ?? false;
-    } catch (e) {
-      debugPrint('Auth state watch error: $e');
-      isAuthenticated = false;
-    }
     
     final modernTheme = _getModernTheme();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -491,14 +385,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Home tab (index 0) - Channels Feed with black background (accessible to all)
+          // Home tab (index 0) - Channels Feed with black background
           Container(
             color: Colors.black,
             child: ChannelsFeedScreen(
               key: _feedScreenKey,
             ),
           ),
-          // Channels tab (index 1) - Uses current theme (accessible to all)
+          // Channels tab (index 1) - Uses current theme
           Container(
             color: modernTheme.backgroundColor,
             child: const ChannelsListScreen(),
@@ -510,34 +404,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Text('Create Post'),
             ),
           ),
-          // Wallet tab (index 3) - Uses LoginRequiredWidget if not authenticated
+          // Wallet tab (index 3) - Let WalletScreen handle its own authentication
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: isAuthenticated 
-                ? const WalletScreen()
-                : const LoginRequiredWidget(
-                    title: 'Access Your Wallet',
-                    subtitle: 'Sign in to manage your earnings, transactions, and virtual gifts.',
-                    actionText: 'Sign In',
-                    icon: Icons.account_balance_wallet,
-                    showContinueBrowsing: true,
-                  ),
+            child: const WalletScreen(),
           ),
-          // Profile tab (index 4) - Uses LoginRequiredWidget if not authenticated
-          isAuthenticated
-              ? const MyChannelScreen()
-              : const LoginRequiredWidget(
-                  title: 'Join WeiBao',
-                  subtitle: 'Sign in and create your channel to start sharing content and connecting with others.',
-                  actionText: 'Sign In',
-                  icon: Icons.login,
-                  showContinueBrowsing: true,
-                ),
+          // Profile tab (index 4) - Let MyChannelScreen handle its own authentication
+          const MyChannelScreen(),
         ],
       ),
       
-      bottomNavigationBar: _buildTikTokBottomNav(modernTheme, isAuthenticated),
+      bottomNavigationBar: _buildTikTokBottomNav(modernTheme),
       
       // Remove FAB since we have dedicated post button
       floatingActionButton: null,
@@ -545,7 +423,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // TikTok-style bottom navigation with video progress indicator
-  Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme, bool isAuthenticated) {
+  Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
     final isHomeTab = _currentIndex == 0;
     
     Color backgroundColor;
@@ -594,7 +472,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     index,
                     modernTheme,
                     isHomeTab,
-                    isAuthenticated,
                   );
                 }),
               ),
@@ -709,38 +586,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int index,
     ModernThemeExtension modernTheme,
     bool isHomeTab,
-    bool isAuthenticated,
   ) {
     final isSelected = _currentIndex == index;
-    final requiresAuth = _requiresAuthentication(index);
     
     Color iconColor;
     Color textColor;
     
     if (isHomeTab) {
       // Home tab colors
-      if (requiresAuth && !isAuthenticated) {
-        // Dimmed colors for auth-required tabs when not authenticated
-        iconColor = Colors.white.withOpacity(0.4);
-        textColor = Colors.white.withOpacity(0.4);
-      } else {
-        iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-        textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-      }
+      iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
+      textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
     } else {
       // Other tabs - use current theme with safe fallbacks
-      if (requiresAuth && !isAuthenticated) {
-        // Dimmed colors for auth-required tabs when not authenticated
-        iconColor = (modernTheme.textSecondaryColor ?? Colors.grey[600]!).withOpacity(0.5);
-        textColor = (modernTheme.textSecondaryColor ?? Colors.grey[600]!).withOpacity(0.5);
-      } else {
-        iconColor = isSelected 
-            ? (modernTheme.primaryColor ?? Colors.blue) 
-            : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-        textColor = isSelected 
-            ? (modernTheme.primaryColor ?? Colors.blue) 
-            : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
-      }
+      iconColor = isSelected 
+          ? (modernTheme.primaryColor ?? Colors.blue) 
+          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+      textColor = isSelected 
+          ? (modernTheme.primaryColor ?? Colors.blue) 
+          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
     }
 
     return GestureDetector(
@@ -752,37 +615,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Stack(
-              children: [
-                Icon(
-                  _tabIcons[index],
-                  color: iconColor,
-                  size: 24,
-                ),
-                // Show lock icon for auth-required tabs when not authenticated
-                if (requiresAuth && !isAuthenticated)
-                  Positioned(
-                    right: -2,
-                    top: -2,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: isHomeTab 
-                            ? Colors.black 
-                            : (modernTheme.surfaceColor ?? Colors.white),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.lock,
-                        color: isHomeTab 
-                            ? Colors.white.withOpacity(0.7) 
-                            : (modernTheme.textSecondaryColor ?? Colors.grey[600]),
-                        size: 8,
-                      ),
-                    ),
-                  ),
-              ],
+            Icon(
+              _tabIcons[index],
+              color: iconColor,
+              size: 24,
             ),
             const SizedBox(height: 4),
             if (_tabNames[index].isNotEmpty)
@@ -859,7 +695,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
               ),
             ),
-      // Remove sign in button from app bar
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
