@@ -13,7 +13,8 @@ import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/channels/widgets/channel_video_item.dart';
-import 'package:textgb/features/channels/widgets/virtual_gifts_bottom_sheet.dart'; // Add this import
+import 'package:textgb/features/channels/widgets/virtual_gifts_bottom_sheet.dart';
+import 'package:textgb/features/channels/widgets/channel_required_widget.dart'; // Add this import
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
@@ -139,6 +140,61 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
         break;
       case AppLifecycleState.hidden:
         break;
+    }
+  }
+
+  // Helper method to check if user has channel before allowing interactions
+  Future<bool> _checkUserHasChannel(String actionName) async {
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    final channelsState = ref.read(channelsProvider);
+    
+    // If user is not authenticated OR doesn't have a channel, show the channel required widget
+    if (currentUser == null || channelsState.userChannel == null) {
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          contentPadding: EdgeInsets.zero,
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            child: ChannelRequiredWidget(
+              title: 'Channel Required',
+              subtitle: currentUser == null 
+                  ? 'You need to log in and create a channel to $actionName.'
+                  : 'You need to create a channel to $actionName.',
+              actionText: currentUser == null ? 'Get Started' : 'Create Channel',
+              icon: _getIconForAction(actionName),
+            ),
+          ),
+        ),
+      );
+
+      return result ?? false;
+    }
+
+    return true; // User is authenticated and has channel
+  }
+
+  // Helper method to get appropriate icon for different actions
+  IconData _getIconForAction(String actionName) {
+    switch (actionName.toLowerCase()) {
+      case 'like videos':
+      case 'like':
+        return Icons.favorite;
+      case 'comment':
+      case 'comment on videos':
+        return Icons.comment;
+      case 'send gifts':
+      case 'gift':
+        return Icons.card_giftcard;
+      case 'save videos':
+      case 'save':
+        return Icons.bookmark;
+      case 'share videos':
+      case 'share':
+        return Icons.share;
+      default:
+        return Icons.video_call;
     }
   }
 
@@ -510,22 +566,22 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     _resumeFromNavigation();
   }
 
-  // NEW: Show virtual gifts bottom sheet
-  void _showVirtualGifts(ChannelVideoModel? video) {
+  // NEW: Show virtual gifts bottom sheet with channel requirement
+  void _showVirtualGifts(ChannelVideoModel? video) async {
     if (video == null) {
       debugPrint('No video available for gifting');
       return;
     }
 
-    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
-    if (currentUser == null) {
-      debugPrint('User not authenticated');
-      _showSnackBar('Please log in to send gifts');
-      return;
-    }
+    // Check if user has channel before allowing gifts
+    final canInteract = await _checkUserHasChannel('send gifts');
+    if (!canInteract) return;
 
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    
+    // At this point we know user is authenticated and has a channel
     // Check if user is trying to gift their own video
-    if (video.userId == currentUser.uid) {
+    if (video.userId == currentUser!.uid) {
       _showCannotGiftOwnVideoMessage();
       return;
     }
@@ -801,7 +857,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     );
   }
 
-  // TikTok-style right side menu (matching channels feed exactly)
+  // TikTok-style right side menu (matching channels feed exactly) with channel requirements
   Widget _buildRightSideMenu() {
     final currentVideo = _channelVideos.isNotEmpty && _currentVideoIndex < _channelVideos.length 
         ? _channelVideos[_currentVideoIndex] 
@@ -839,7 +895,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Star button (new)
+          // Star button (save/bookmark)
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.star,
@@ -847,8 +903,13 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
               size: 26,
             ),
             label: '0',
-            onTap: () {
-              // TODO: Add save/bookmark functionality
+            onTap: () async {
+              // Check if user has channel before allowing save
+              final canInteract = await _checkUserHasChannel('save videos');
+              if (canInteract) {
+                // TODO: Add save/bookmark functionality
+                _showSnackBar('Save functionality coming soon!');
+              }
             },
           ),
           
@@ -862,12 +923,18 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
               size: 26,
             ),
             label: '0',
-            onTap: () => _showShareOptions(),
+            onTap: () async {
+              // Check if user has channel before allowing share
+              final canInteract = await _checkUserHasChannel('share videos');
+              if (canInteract) {
+                _showShareOptions();
+              }
+            },
           ),
           
           const SizedBox(height: 10),
           
-          // Gift button - UPDATED with virtual gifts functionality
+          // Gift button - UPDATED with virtual gifts functionality and channel requirement
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.gift,
@@ -1044,34 +1111,42 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     );
   }
 
-  void _likeCurrentVideo(ChannelVideoModel? video) {
-    if (video != null) {
-      ref.read(channelVideosProvider.notifier).likeVideo(video.id);
-    }
+  void _likeCurrentVideo(ChannelVideoModel? video) async {
+    if (video == null) return;
+    
+    // Check if user has channel before allowing like
+    final canInteract = await _checkUserHasChannel('like videos');
+    if (!canInteract) return;
+    
+    ref.read(channelVideosProvider.notifier).likeVideo(video.id);
   }
 
-  void _showCommentsForCurrentVideo(ChannelVideoModel? video) {
-    if (video != null && !_isCommentsSheetOpen) {
-      // Set video to small window mode
-      _setVideoWindowMode(true);
-      
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.transparent,
-        builder: (context) => ChannelCommentsBottomSheet(
-          video: video,
-          onClose: () {
-            // Reset video to full screen mode
-            _setVideoWindowMode(false);
-          },
-        ),
-      ).whenComplete(() {
-        // Ensure video returns to full screen mode
-        _setVideoWindowMode(false);
-      });
-    }
+  void _showCommentsForCurrentVideo(ChannelVideoModel? video) async {
+    if (video == null || _isCommentsSheetOpen) return;
+    
+    // Check if user has channel before allowing comments
+    final canInteract = await _checkUserHasChannel('comment on videos');
+    if (!canInteract) return;
+    
+    // Set video to small window mode
+    _setVideoWindowMode(true);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      builder: (context) => ChannelCommentsBottomSheet(
+        video: video,
+        onClose: () {
+          // Reset video to full screen mode
+          _setVideoWindowMode(false);
+        },
+      ),
+    ).whenComplete(() {
+      // Ensure video returns to full screen mode
+      _setVideoWindowMode(false);
+    });
   }
 
   void _showShareOptions() {
