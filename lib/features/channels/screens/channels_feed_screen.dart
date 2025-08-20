@@ -14,6 +14,7 @@ import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/channels/widgets/virtual_gifts_bottom_sheet.dart'; // Add this import
+import 'package:textgb/features/channels/widgets/channel_required_widget.dart'; // Add this import
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/constants.dart';
@@ -52,7 +53,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
   bool _isCommentsSheetOpen = false; // Track comments sheet state
-  bool _isChannelEnsuring = false; // Track channel auto-creation
   
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
@@ -72,7 +72,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _initializeControllers();
     // Use post-frame callback to avoid provider modification during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _ensureChannelAndLoadVideos();
+      _loadVideos();
     });
     _setupCacheCleanup();
     _hasInitialized = true;
@@ -257,30 +257,17 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     });
   }
 
-  // Ensure user has channel before loading videos
-  Future<void> _ensureChannelAndLoadVideos() async {
+  // Simplified method to just load videos without automatic channel creation
+  Future<void> _loadVideos() async {
     if (_isFirstLoad) {
-      debugPrint('ChannelsFeedScreen: Ensuring channel and loading initial videos');
+      debugPrint('ChannelsFeedScreen: Loading initial videos');
       
-      setState(() {
-        _isChannelEnsuring = true;
-      });
-      
-      // Ensure user has a channel first
-      final channel = await ref.read(channelsProvider.notifier).ensureUserHasChannel();
-      
-      if (channel != null) {
-        debugPrint('ChannelsFeedScreen: Channel ensured, loading videos');
-        // Load videos after ensuring channel
-        await ref.read(channelVideosProvider.notifier).loadVideos();
-      } else {
-        debugPrint('ChannelsFeedScreen: Failed to ensure channel');
-      }
+      // Simply load videos - no automatic channel creation
+      await ref.read(channelVideosProvider.notifier).loadVideos();
       
       if (mounted) {
         setState(() {
           _isFirstLoad = false;
-          _isChannelEnsuring = false;
         });
         
         // If a specific video ID was provided, jump to it
@@ -534,21 +521,21 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
   }
 
   // NEW: Show virtual gifts bottom sheet
-  void _showVirtualGifts(ChannelVideoModel? video) {
+  void _showVirtualGifts(ChannelVideoModel? video) async {
     if (video == null) {
       debugPrint('No video available for gifting');
       return;
     }
 
-    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
-    if (currentUser == null) {
-      debugPrint('User not authenticated');
-      _showSnackBar('Please log in to send gifts');
-      return;
-    }
+    // Check if user has channel before allowing gifts
+    final canInteract = await _checkUserHasChannel('send gifts');
+    if (!canInteract) return;
 
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    
+    // At this point we know user is authenticated and has a channel
     // Check if user is trying to gift their own video
-    if (video.userId == currentUser.uid) {
+    if (video.userId == currentUser!.uid) {
       _showCannotGiftOwnVideoMessage();
       return;
     }
@@ -577,7 +564,60 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     });
   }
 
-  // Helper method to handle gift sending
+  // Helper method to check if user has channel before allowing interactions
+  Future<bool> _checkUserHasChannel(String actionName) async {
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    final channelsState = ref.read(channelsProvider);
+    
+    // If user is not authenticated OR doesn't have a channel, show the channel required widget
+    if (currentUser == null || channelsState.userChannel == null) {
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          contentPadding: EdgeInsets.zero,
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            child: ChannelRequiredWidget(
+              title: 'Channel Required',
+              subtitle: currentUser == null 
+                  ? 'You need to log in and create a channel to $actionName.'
+                  : 'You need to create a channel to $actionName.',
+              actionText: currentUser == null ? 'Get Started' : 'Create Channel',
+              icon: _getIconForAction(actionName),
+            ),
+          ),
+        ),
+      );
+
+      return result ?? false;
+    }
+
+    return true; // User is authenticated and has channel
+  }
+
+  // Helper method to get appropriate icon for different actions
+  IconData _getIconForAction(String actionName) {
+    switch (actionName.toLowerCase()) {
+      case 'like videos':
+      case 'like':
+        return Icons.favorite;
+      case 'comment':
+      case 'comment on videos':
+        return Icons.comment;
+      case 'send gifts':
+      case 'gift':
+        return Icons.card_giftcard;
+      case 'save videos':
+      case 'save':
+        return Icons.bookmark;
+      case 'share videos':
+      case 'share':
+        return Icons.share;
+      default:
+        return Icons.video_call;
+    }
+  }
   void _handleGiftSent(ChannelVideoModel video, VirtualGift gift) {
     // TODO: Implement actual gift sending logic
     // This would typically involve:
@@ -689,12 +729,11 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     _setupSystemUI();
     
     final channelVideosState = ref.watch(channelVideosProvider);
-    final channelsState = ref.watch(channelsProvider);
     final systemTopPadding = MediaQuery.of(context).padding.top;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     
-    // Show loading screen during channel ensuring or initial video loading
-    if ((_isFirstLoad && channelVideosState.isLoading) || _isChannelEnsuring || channelsState.isEnsuring) {
+    // Show loading screen during initial video loading
+    if (_isFirstLoad && channelVideosState.isLoading) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -705,11 +744,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
                 color: Colors.white,
               ),
               const SizedBox(height: 24),
-              Text(
-                _isChannelEnsuring || channelsState.isEnsuring 
-                    ? 'Setting up your channel...'
-                    : 'Loading videos...',
-                style: const TextStyle(
+              const Text(
+                'Loading videos...',
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -737,7 +774,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               bottom: systemBottomPadding,
               child: ClipRRect(
                 borderRadius: const BorderRadius.all(Radius.circular(12)),
-                child: _buildBody(channelVideosState, channelsState),
+                child: _buildBody(channelVideosState),
               ),
             ),
             
@@ -770,9 +807,9 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  Widget _buildBody(ChannelVideosState videosState, ChannelsState channelsState) {
+  Widget _buildBody(ChannelVideosState videosState) {
     if (!videosState.isLoading && videosState.videos.isEmpty) {
-      return _buildEmptyState(channelsState);
+      return _buildEmptyState();
     }
 
     return PageView.builder(
@@ -903,8 +940,13 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               size: 26,
             ),
             label: '0',
-            onTap: () {
-              // TODO: Add save/bookmark functionality
+            onTap: () async {
+              // Check if user has channel before allowing save
+              final canInteract = await _checkUserHasChannel('save videos');
+              if (canInteract) {
+                // TODO: Add save/bookmark functionality
+                _showSnackBar('Save functionality coming soon!');
+              }
             },
           ),
           
@@ -918,7 +960,13 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
               size: 26,
             ),
             label: '0',
-            onTap: () => _showShareOptions(),
+            onTap: () async {
+              // Check if user has channel before allowing share
+              final canInteract = await _checkUserHasChannel('share videos');
+              if (canInteract) {
+                _showShareOptions();
+              }
+            },
           ),
           
           const SizedBox(height: 10),
@@ -1071,8 +1119,8 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // Empty state - no more create channel prompt
-  Widget _buildEmptyState(ChannelsState channelsState) {
+  // Empty state - updated to simply show no videos message
+  Widget _buildEmptyState() {
     return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1093,7 +1141,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           ),
           SizedBox(height: 16),
           Text(
-            'Start creating content to see videos here',
+            'Check back later for new videos',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 16,
@@ -1121,34 +1169,42 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     }
   }
 
-  void _likeCurrentVideo(ChannelVideoModel? video) {
-    if (video != null) {
-      ref.read(channelVideosProvider.notifier).likeVideo(video.id);
-    }
+  void _likeCurrentVideo(ChannelVideoModel? video) async {
+    if (video == null) return;
+    
+    // Check if user has channel before allowing like
+    final canInteract = await _checkUserHasChannel('like videos');
+    if (!canInteract) return;
+    
+    ref.read(channelVideosProvider.notifier).likeVideo(video.id);
   }
 
-  void _showCommentsForCurrentVideo(ChannelVideoModel? video) {
-    if (video != null && !_isCommentsSheetOpen) {
-      // Set video to small window mode
-      _setVideoWindowMode(true);
-      
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.transparent,
-        builder: (context) => ChannelCommentsBottomSheet(
-          video: video,
-          onClose: () {
-            // Reset video to full screen mode
-            _setVideoWindowMode(false);
-          },
-        ),
-      ).whenComplete(() {
-        // Ensure video returns to full screen mode
-        _setVideoWindowMode(false);
-      });
-    }
+  void _showCommentsForCurrentVideo(ChannelVideoModel? video) async {
+    if (video == null || _isCommentsSheetOpen) return;
+    
+    // Check if user has channel before allowing comments
+    final canInteract = await _checkUserHasChannel('comment on videos');
+    if (!canInteract) return;
+    
+    // Set video to small window mode
+    _setVideoWindowMode(true);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      builder: (context) => ChannelCommentsBottomSheet(
+        video: video,
+        onClose: () {
+          // Reset video to full screen mode
+          _setVideoWindowMode(false);
+        },
+      ),
+    ).whenComplete(() {
+      // Ensure video returns to full screen mode
+      _setVideoWindowMode(false);
+    });
   }
 
   void _showShareOptions() {

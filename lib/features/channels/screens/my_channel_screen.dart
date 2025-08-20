@@ -11,6 +11,7 @@ import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
+import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class MyChannelScreen extends ConsumerStatefulWidget {
@@ -29,6 +30,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
   bool _isDeleting = false;
   late TabController _tabController;
   Map<String, String> _videoThumbnails = {};
+  bool _hasNoChannel = false;
   
   // Cache manager for video thumbnails
   static final _thumbnailCacheManager = CacheManager(
@@ -58,6 +60,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     setState(() {
       _isLoading = true;
       _error = null;
+      _hasNoChannel = false;
     });
 
     try {
@@ -65,7 +68,14 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
       final userChannel = ref.read(channelsProvider).userChannel;
       
       if (userChannel == null) {
-        throw Exception('Channel not found');
+        // User doesn't have a channel
+        if (mounted) {
+          setState(() {
+            _hasNoChannel = true;
+            _isLoading = false;
+          });
+        }
+        return;
       }
       
       // Get channel videos
@@ -147,8 +157,6 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
       arguments: _channel,
     ).then((_) => _loadChannelData());
   }
-
-
 
   Future<void> _deleteVideo(String videoId) async {
     if (_isDeleting) return;
@@ -247,6 +255,11 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     ).then((_) => _loadChannelData());
   }
 
+  void _onChannelCreated() {
+    // Reload the screen data after channel creation
+    _loadChannelData();
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
@@ -257,9 +270,11 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
       extendBody: true,
       body: _isLoading
           ? _buildLoadingView(modernTheme)
-          : _error != null
-              ? _buildErrorView(modernTheme)
-              : _buildChannelView(modernTheme),
+          : _hasNoChannel
+              ? _buildChannelRequiredView(modernTheme)
+              : _error != null
+                  ? _buildErrorView(modernTheme)
+                  : _buildChannelView(modernTheme),
     );
   }
 
@@ -283,6 +298,99 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildChannelRequiredView(ModernThemeExtension modernTheme) {
+    return Scaffold(
+      backgroundColor: modernTheme.backgroundColor,
+      body: _buildCustomChannelRequiredWidget(modernTheme),
+    );
+  }
+
+  Widget _buildCustomChannelRequiredWidget(ModernThemeExtension modernTheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor?.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.video_call,
+                size: 40,
+                color: modernTheme.primaryColor,
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            Text(
+              'Create Your Channel',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: modernTheme.textColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 12),
+            
+            Text(
+              'Start sharing your content and building your community by creating your own channel.',
+              style: TextStyle(
+                fontSize: 16,
+                color: modernTheme.textSecondaryColor,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 32),
+            
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _navigateToCreateChannel(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Create My Channel',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _navigateToCreateChannel(BuildContext context) async {
+    final result = await Navigator.pushNamed(
+      context,
+      Constants.createChannelScreen,
+    );
+    
+    // If channel was created successfully, reload the screen
+    if (result == true && mounted) {
+      _loadChannelData();
+    }
   }
 
   Widget _buildErrorView(ModernThemeExtension modernTheme) {
