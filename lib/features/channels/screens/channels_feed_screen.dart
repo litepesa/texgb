@@ -786,7 +786,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             // Top navigation - simplified header matching moments feed style
             if (!_isCommentsSheetOpen) // Hide top bar when comments are open
               Positioned(
-                top: systemTopPadding + 16,
+                top: systemTopPadding,
                 left: 0,
                 right: 0,
                 child: _buildSimplifiedHeader(),
