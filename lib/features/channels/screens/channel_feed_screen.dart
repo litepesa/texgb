@@ -693,6 +693,52 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     }
   }
 
+  // Custom back button positioned at top right corner (mirroring follow button style and position)
+  Widget _buildTopRightBackButton() {
+    final systemTopPadding = MediaQuery.of(context).padding.top;
+    
+    return Positioned(
+      top: systemTopPadding + 16, // Match follow button positioning exactly relative to video area
+      right: 16, // Match follow button positioning but on opposite side
+      child: GestureDetector(
+        onTap: _handleBackNavigation,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              CupertinoIcons.arrow_left,
+              color: Colors.white,
+              size: 14,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              'Back',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -778,14 +824,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
               // Small video window when comments are open
               if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
               
-              // Top navigation - updated header with channel name (hide when comments open)
-              if (!_isCommentsSheetOpen)
-                Positioned(
-                  top: systemTopPadding + 16, // Positioned below status bar with some padding
-                  left: 0,
-                  right: 0,
-                  child: _buildChannelHeader(),
-                ),
+              // Custom back button - positioned to match follow button alignment
+              if (!_isCommentsSheetOpen) _buildTopRightBackButton(),
               
               // TikTok-style right side menu - matching channels feed (hide when comments open)
               if (!_isCommentsSheetOpen) _buildRightSideMenu(),
@@ -819,41 +859,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           showVerificationBadge: false,
         );
       },
-    );
-  }
-
-  // Simplified header with only back button
-  Widget _buildChannelHeader() {
-    return Row(
-      children: [
-        // Back button
-        Material(
-          type: MaterialType.transparency,
-          child: IconButton(
-            onPressed: _handleBackNavigation,
-            icon: const Icon(
-              CupertinoIcons.chevron_left,
-              color: Colors.white,
-              size: 28,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            iconSize: 28,
-            padding: const EdgeInsets.all(12), // Larger tap area
-            constraints: const BoxConstraints(
-              minWidth: 44,
-              minHeight: 44,
-            ),
-            splashRadius: 24,
-            tooltip: 'Back',
-          ),
-        ),
-      ],
     );
   }
 
