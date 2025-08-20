@@ -82,11 +82,42 @@ class AppRoot extends ConsumerWidget {
     return themeState.when(
       loading: () => MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: const Scaffold(
+        home: Scaffold(
           extendBodyBehindAppBar: true,
           extendBody: true,
-          body: Center(
-            child: CircularProgressIndicator(),
+          body: Padding(
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top,
+              bottom: MediaQuery.of(context).padding.bottom
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // App logo or branding
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFE2C55),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '微宝 WeiBao',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  CircularProgressIndicator(
+                    color: const Color(0xFFFE2C55),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
