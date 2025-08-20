@@ -1,4 +1,4 @@
-// lib/main.dart (Updated for Channel-based system)
+// lib/main.dart (Updated for unauthenticated access)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -104,22 +104,20 @@ class AppRoot extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         title: 'WeiBao',
         theme: themeData.activeTheme,
-        // Start with a safe screen that handles navigation
-        home: const SafeStartScreen(),
+        // Start directly with HomeScreen - no authentication required
+        home: const HomeScreen(),
         // Define all your routes
         routes: {
           // Authentication routes
           Constants.landingScreen: (context) => const LandingScreen(),
           Constants.loginScreen: (context) => const LoginScreen(),
           Constants.otpScreen: (context) => const OtpScreen(),
-          // Remove userInformationScreen route since we're using createChannelScreen instead
           
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
           
-                 
           // Channel routes with enhanced navigation support
-          Constants.createChannelScreen: (context) => const CreateChannelScreen(), // This is the new route after OTP
+          Constants.createChannelScreen: (context) => const CreateChannelScreen(),
           Constants.channelsFeedScreen: (context) {
             final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
             return ChannelsFeedScreen(
@@ -151,7 +149,7 @@ class AppRoot extends ConsumerWidget {
               body: Center(
                 child: Text('Explore Channels Screen - To be implemented'),
               ),
-            ), // Placeholder for ExploreChannelsScreen
+            ),
           // My Post Screen route
           Constants.myPostScreen: (context) {
             final videoId = ModalRoute.of(context)!.settings.arguments as String;
@@ -200,186 +198,7 @@ class AppRoot extends ConsumerWidget {
   }
 }
 
-// A safe starting screen that handles navigation properly (Updated for channel-based)
-class SafeStartScreen extends StatefulWidget {
-  const SafeStartScreen({super.key});
-
-  @override
-  State<SafeStartScreen> createState() => _SafeStartScreenState();
-}
-
-class _SafeStartScreenState extends State<SafeStartScreen> {
-  bool _hasError = false;
-  String _errorMessage = '';
-  
-  @override
-  void initState() {
-    super.initState();
-    // Schedule navigation after the first frame renders
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _navigateToStartScreen();
-    });
-  }
-  
-  Future<void> _navigateToStartScreen() async {
-    try {
-      // Add a small delay to ensure the widget tree is fully built
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      if (!mounted) return;
-      
-      // Try to show the HomeScreen directly if user has a channel
-      // If there are authentication issues, fallback to LandingScreen
-      try {
-        // Check if user is already signed in
-        final currentUser = FirebaseAuth.instance.currentUser;
-        
-        if (currentUser != null) {
-          // User is signed in, but we need to check if they have a channel
-          // For now, navigate to HomeScreen and let the auth provider handle the logic
-          if (mounted) {
-            Navigator.pushReplacementNamed(context, Constants.homeScreen);
-          }
-        } else {
-          // User is not signed in, navigate to LandingScreen
-          if (mounted) {
-            Navigator.pushReplacementNamed(context, Constants.landingScreen);
-          }
-        }
-      } catch (e) {
-        // If there's an authentication error, go to LandingScreen
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, Constants.landingScreen);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _hasError = true;
-          _errorMessage = 'Error initializing app: ${e.toString()}';
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Get the theme's colors for safe display
-    final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
-    final backgroundColor = theme.scaffoldBackgroundColor;
-    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.white;
-    
-    return Scaffold(
-      // Important for edge-to-edge UI
-      extendBodyBehindAppBar: true,
-      extendBody: true,
-      backgroundColor: backgroundColor,
-      body: _hasError 
-        ? _buildErrorScreen(textColor)
-        : _buildLoadingScreen(primaryColor, backgroundColor, textColor),
-    );
-  }
-  
-  Widget _buildErrorScreen(Color textColor) {
-    return Padding(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top,
-        bottom: MediaQuery.of(context).padding.bottom, 
-        left: 24.0, 
-        right: 24.0
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              color: Colors.red,
-              size: 48,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Something went wrong',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _errorMessage,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _hasError = false;
-                  _errorMessage = '';
-                });
-                _navigateToStartScreen();
-              },
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildLoadingScreen(Color primaryColor, Color backgroundColor, Color textColor) {
-    return Padding(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top,
-        bottom: MediaQuery.of(context).padding.bottom
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // App logo or branding
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFE2C55),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '微宝 WeiBao',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            CircularProgressIndicator(
-              color: const Color(0xFFFE2C55),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Loading your channel...',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Helper class for navigation utilities (Updated for channel-based)
+// Helper class for navigation utilities
 class ChannelNavigationHelper {
   // Navigate to channel profile
   static void navigateToChannelProfile(
@@ -409,17 +228,17 @@ class ChannelNavigationHelper {
     );
   }
 
-  // Navigate to create post
+  // Navigate to create post (requires authentication)
   static void navigateToCreatePost(BuildContext context) {
     Navigator.pushNamed(context, Constants.createChannelPostScreen);
   }
 
-  // Navigate to my channel
+  // Navigate to my channel (requires authentication)
   static void navigateToMyChannel(BuildContext context) {
     Navigator.pushNamed(context, Constants.myChannelScreen);
   }
 
-  // Navigate to edit channel
+  // Navigate to edit channel (requires authentication)
   static void navigateToEditChannel(
     BuildContext context, {
     required ChannelModel channel,
@@ -429,5 +248,26 @@ class ChannelNavigationHelper {
       Constants.editChannelScreen,
       arguments: channel,
     );
+  }
+
+  // Helper method to check if user needs to authenticate for an action
+  static bool requiresAuthentication(BuildContext context) {
+    // You can add your authentication check logic here
+    // For now, we'll assume Firebase Auth
+    return FirebaseAuth.instance.currentUser == null;
+  }
+
+  // Navigate to authentication if required
+  static void navigateToAuthIfRequired(BuildContext context, VoidCallback onAuthenticated) {
+    if (requiresAuthentication(context)) {
+      Navigator.pushNamed(context, Constants.landingScreen).then((_) {
+        // Check if user is now authenticated
+        if (!requiresAuthentication(context)) {
+          onAuthenticated();
+        }
+      });
+    } else {
+      onAuthenticated();
+    }
   }
 }

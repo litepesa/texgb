@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart
+// lib/main_screen/home_screen.dart (Simplified - Using Channel Required Widget)
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +11,7 @@ import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
-//import 'package:textgb/features/profile/screens/my_profile_screen.dart';
+import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
@@ -35,10 +35,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // Video progress tracking
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
-  
   final List<String> _tabNames = [
     'Home',      // Index 0 - Channels Feed (hidden app bar, black background)
-    'Channels',      // Index 1 - Channels List
+    'Channels',  // Index 1 - Channels List
     '',          // Index 2 - Post (no label, special design)
     'Wallet',    // Index 3 - Wallet 
     'Profile'    // Index 4 - Profile
@@ -46,10 +45,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<IconData> _tabIcons = [
     Icons.home,                        // Home
-    Icons.radio_button_checked_rounded,       // Channels
+    Icons.radio_button_checked_rounded, // Channels
     Icons.add,                         // Post (will be styled specially)
-    Icons.account_balance_rounded, // Wallet
-    Icons.person_2_outlined               // Me/Profile
+    Icons.account_balance_rounded,     // Wallet
+    Icons.person_2_outlined            // Me/Profile
   ];
 
   // Feed screen controller for lifecycle management
@@ -71,10 +70,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
+  // Check if user is authenticated
+  bool get _isAuthenticated {
+    return ref.read(isLoggedInProvider);
+  }
+
+  // Check if user has a channel
+  bool get _hasChannel {
+    return ref.read(currentChannelProvider) != null;
+  }
+
   void _onTabTapped(int index) {
     // Handle special post button
     if (index == 2) {
       _navigateToCreatePost();
+      return;
+    }
+
+    // Check authentication for certain tabs
+    if (_requiresAuthentication(index)) {
+      _showAuthenticationDialog();
       return;
     }
 
@@ -130,6 +145,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Future.delayed(const Duration(milliseconds: 50), () {
       _isPageAnimating = false;
     });
+  }
+
+  // Check if a tab requires authentication
+  bool _requiresAuthentication(int index) {
+    switch (index) {
+      case 0: // Home - No authentication required
+      case 1: // Channels - No authentication required
+        return false;
+      case 3: // Wallet - Requires authentication
+      case 4: // Profile - Requires authentication
+        return !_isAuthenticated;
+      default:
+        return false;
+    }
+  }
+
+  // Show authentication dialog using channel required widget
+  void _showAuthenticationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        contentPadding: EdgeInsets.zero,
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.9,
+          child: ChannelRequiredWidget(
+            title: 'Sign In Required',
+            subtitle: 'Sign in to access this feature and unlock the full WeiBao experience.',
+            actionText: 'Sign In',
+            icon: Icons.login,
+            requirementType: RequirementType.authentication,
+            showContinueBrowsing: true,
+            onContinueBrowsing: () {
+              Navigator.of(context).pop();
+              // Navigate back to home tab
+              _onTabTapped(0);
+            },
+          ),
+        ),
+      ),
+    );
   }
   
   void _updateSystemUI() {
@@ -254,6 +310,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _navigateToCreatePost() async {
+    // Check authentication and channel using the channel required widget pattern
+    if (!_isAuthenticated || !_hasChannel) {
+      await showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => AlertDialog(
+          contentPadding: EdgeInsets.zero,
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            child: ChannelRequiredWidget(
+              title: 'Create Content',
+              subtitle: !_isAuthenticated 
+                  ? 'Sign in and create a channel to start sharing your content.'
+                  : 'Create a channel to start sharing your content.',
+              actionText: !_isAuthenticated ? 'Sign In' : 'Create Channel',
+              icon: Icons.video_call,
+              requirementType: RequirementType.both,
+              showContinueBrowsing: true,
+              onContinueBrowsing: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     // Pause feed if active
     if (_currentIndex == 0) {
       _feedScreenKey.currentState?.onScreenBecameInactive();
@@ -293,17 +375,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Home tab (index 0) - Channels Feed with black background
+          // Home tab (index 0) - Channels Feed with black background (accessible to all)
           Container(
             color: Colors.black,
             child: ChannelsFeedScreen(
               key: _feedScreenKey,
-              //onVideoProgressChanged: (progress) {
-                //_videoProgressNotifier.value = progress;
-              //},
             ),
           ),
-          // Channels tab (index 1) - Uses current theme
+          // Channels tab (index 1) - Uses current theme (accessible to all)
           Container(
             color: modernTheme.backgroundColor,
             child: const ChannelsListScreen(),
@@ -315,14 +394,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Text('Create Post'),
             ),
           ),
-          // Wallet tab (index 3)
+          // Wallet tab (index 3) - Uses Channel Required Widget if not authenticated
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const WalletScreen(),
+            child: _isAuthenticated 
+                ? const WalletScreen()
+                : const ChannelRequiredWidget(
+                    title: 'Access Your Wallet',
+                    subtitle: 'Sign in to manage your earnings, transactions, and virtual gifts.',
+                    actionText: 'Sign In',
+                    icon: Icons.account_balance_wallet,
+                    requirementType: RequirementType.authentication,
+                    showContinueBrowsing: true,
+                  ),
           ),
-          // Profile tab (index 4)
-          const MyChannelScreen(),
+          // Profile tab (index 4) - Uses Channel Required Widget if not authenticated or no channel
+          _isAuthenticated && _hasChannel
+              ? const MyChannelScreen()
+              : ChannelRequiredWidget(
+                  title: _isAuthenticated ? 'Create Your Channel' : 'Join WeiBao',
+                  subtitle: _isAuthenticated 
+                      ? 'Create your channel to start sharing content and building your community.'
+                      : 'Sign in and create your channel to start sharing content and connecting with others.',
+                  actionText: _isAuthenticated ? 'Create Channel' : 'Sign In',
+                  icon: _isAuthenticated ? Icons.video_call : Icons.login,
+                  requirementType: _isAuthenticated ? RequirementType.channel : RequirementType.both,
+                  showContinueBrowsing: true,
+                ),
         ],
       ),
       
@@ -499,18 +598,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isHomeTab,
   ) {
     final isSelected = _currentIndex == index;
+    final requiresAuth = _requiresAuthentication(index);
     
     Color iconColor;
     Color textColor;
     
     if (isHomeTab) {
       // Home tab colors
-      iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
-      textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
+      if (requiresAuth && !_isAuthenticated) {
+        // Dimmed colors for auth-required tabs when not authenticated
+        iconColor = Colors.white.withOpacity(0.4);
+        textColor = Colors.white.withOpacity(0.4);
+      } else {
+        iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
+        textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
+      }
     } else {
       // Other tabs - use current theme
-      iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
-      textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+      if (requiresAuth && !_isAuthenticated) {
+        // Dimmed colors for auth-required tabs when not authenticated
+        iconColor = modernTheme.textSecondaryColor!.withOpacity(0.5);
+        textColor = modernTheme.textSecondaryColor!.withOpacity(0.5);
+      } else {
+        iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+        textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+      }
     }
 
     return GestureDetector(
@@ -522,10 +634,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              _tabIcons[index],
-              color: iconColor,
-              size: 24,
+            Stack(
+              children: [
+                Icon(
+                  _tabIcons[index],
+                  color: iconColor,
+                  size: 24,
+                ),
+                // Show lock icon for auth-required tabs when not authenticated
+                if (requiresAuth && !_isAuthenticated)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: isHomeTab ? Colors.black : modernTheme.surfaceColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.lock,
+                        color: isHomeTab ? Colors.white.withOpacity(0.7) : modernTheme.textSecondaryColor,
+                        size: 8,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             if (_tabNames[index].isNotEmpty)
@@ -602,6 +737,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
               ),
             ),
+      // Remove sign in button from app bar
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
