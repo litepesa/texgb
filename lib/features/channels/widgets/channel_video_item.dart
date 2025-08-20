@@ -5,14 +5,15 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
-import 'package:textgb/features/channels/widgets/channel_required_widget.dart'; // Add this import
+import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
-import 'package:textgb/features/authentication/providers/authentication_provider.dart'; // Add this import
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 
@@ -161,11 +162,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
 
   // Helper method to check if user has channel before allowing follow action
   Future<bool> _checkUserHasChannel() async {
-    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
-    final channelsState = ref.read(channelsProvider);
+    final isLoggedIn = ref.read(isLoggedInProvider);
+    final currentChannel = ref.read(currentChannelProvider);
     
     // If user is not authenticated OR doesn't have a channel, show the channel required widget
-    if (currentUser == null || channelsState.userChannel == null) {
+    if (!isLoggedIn || currentChannel == null) {
       final result = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -175,10 +176,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             width: MediaQuery.of(context).size.width * 0.9,
             child: ChannelRequiredWidget(
               title: 'Channel Required',
-              subtitle: currentUser == null 
+              subtitle: !isLoggedIn 
                   ? 'You need to log in and create a channel to follow other channels.'
                   : 'You need to create a channel to follow other channels.',
-              actionText: currentUser == null ? 'Get Started' : 'Create Channel',
+              actionText: !isLoggedIn ? 'Get Started' : 'Create Channel',
               icon: Icons.people,
             ),
           ),

@@ -38,17 +38,17 @@ class ChannelRequiredWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
     
-    // Watch authentication state
+    // Watch authentication state using new channel-based providers
     final isLoggedIn = ref.watch(isLoggedInProvider);
     final isAuthLoading = ref.watch(isAuthLoadingProvider);
-    final currentUser = ref.watch(currentUserProvider);
+    final currentChannel = ref.watch(currentChannelProvider);
     
     // Watch channels state
     final channelsState = ref.watch(channelsProvider);
     
     // Determine what's missing
     final needsAuth = !isLoggedIn;
-    final needsChannel = isLoggedIn && channelsState.userChannel == null;
+    final needsChannel = isLoggedIn && currentChannel == null;
     
     // Show loading if authentication is loading
     if (isAuthLoading) {
@@ -129,7 +129,7 @@ class ChannelRequiredWidget extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             
-            if (isLoggedIn && currentUser != null) ...[
+            if (isLoggedIn && currentChannel != null) ...[
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -138,7 +138,7 @@ class ChannelRequiredWidget extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'Signed in as ${currentUser.name}',
+                  'Signed in as ${currentChannel.name}',
                   style: TextStyle(
                     fontSize: 14,
                     color: modernTheme.primaryColor,
@@ -237,11 +237,11 @@ Future<bool> requireUserAccess(
   String? channelActionText,
 }) async {
   final isLoggedIn = ref.read(isLoggedInProvider);
-  final channelsState = ref.read(channelsProvider);
+  final currentChannel = ref.read(currentChannelProvider);
   
   // Check what's required vs what user has
   final hasAuth = isLoggedIn;
-  final hasChannel = channelsState.userChannel != null;
+  final hasChannel = currentChannel != null;
   
   bool shouldProceed = false;
   
@@ -356,12 +356,12 @@ class InlineChannelRequiredWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final modernTheme = context.modernTheme;
     final isLoggedIn = ref.watch(isLoggedInProvider);
-    final currentUser = ref.watch(currentUserProvider);
+    final currentChannel = ref.watch(currentChannelProvider);
     final channelsState = ref.watch(channelsProvider);
     
     // Determine what actions to show
     final needsAuth = !isLoggedIn;
-    final needsChannel = isLoggedIn && channelsState.userChannel == null;
+    final needsChannel = isLoggedIn && currentChannel == null;
     
     return Container(
       margin: const EdgeInsets.all(16),
@@ -409,7 +409,7 @@ class InlineChannelRequiredWidget extends ConsumerWidget {
             textAlign: TextAlign.center,
           ),
           
-          if (isLoggedIn && currentUser != null) ...[
+          if (isLoggedIn && currentChannel != null) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -418,7 +418,7 @@ class InlineChannelRequiredWidget extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
-                'Signed in as ${currentUser.name}',
+                'Signed in as ${currentChannel.name}',
                 style: TextStyle(
                   fontSize: 12,
                   color: modernTheme.primaryColor,

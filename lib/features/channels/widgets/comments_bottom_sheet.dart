@@ -721,9 +721,12 @@ class _ChannelCommentsBottomSheetState extends ConsumerState<ChannelCommentsBott
   }
 
   Widget _buildEnhancedCommentItem(ChannelCommentModel comment, {bool isReply = false}) {
-    final currentUser = ref.watch(currentUserProvider);
-    final isLiked = currentUser != null && comment.likedBy.contains(currentUser.uid);
-    final isOwn = currentUser?.uid == comment.authorId;
+    final currentChannel = ref.watch(currentChannelProvider);
+    final commentActions = ref.watch(channelCommentActionsProvider);
+    
+    // Use helper methods from the provider to check states
+    final isLiked = commentActions.isCommentLikedByCurrentUser(comment);
+    final isOwn = commentActions.isCommentOwnedByCurrentUser(comment);
 
     return Container(
       padding: EdgeInsets.only(
@@ -1038,6 +1041,8 @@ class _ChannelCommentsBottomSheetState extends ConsumerState<ChannelCommentsBott
   }
 
   Widget _buildCommentInput(double bottomInset, double systemBottomPadding) {
+    final currentChannel = ref.watch(currentChannelProvider);
+    
     return Container(
       padding: EdgeInsets.only(
         left: 16,
@@ -1067,14 +1072,14 @@ class _ChannelCommentsBottomSheetState extends ConsumerState<ChannelCommentsBott
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // User avatar
+              // Channel avatar
               CircleAvatar(
                 radius: 16,
                 backgroundColor: _lightGray,
-                child: ref.watch(currentUserProvider)?.image.isNotEmpty == true
+                child: currentChannel?.profileImage.isNotEmpty == true
                     ? ClipOval(
                         child: Image.network(
-                          ref.watch(currentUserProvider)!.image,
+                          currentChannel!.profileImage,
                           width: 32,
                           height: 32,
                           fit: BoxFit.cover,
@@ -1235,12 +1240,10 @@ class _ChannelCommentsBottomSheetState extends ConsumerState<ChannelCommentsBott
   }
 
   void _likeComment(ChannelCommentModel comment) {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-
-    final isLiked = comment.likedBy.contains(currentUser.uid);
-    ref.read(channelCommentActionsProvider)
-        .toggleLikeComment(comment.id, isLiked);
+    final commentActions = ref.read(channelCommentActionsProvider);
+    final isLiked = commentActions.isCommentLikedByCurrentUser(comment);
+    
+    commentActions.toggleLikeComment(comment.id, isLiked);
         
     // Add haptic feedback
     HapticFeedback.lightImpact();

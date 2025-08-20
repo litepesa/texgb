@@ -14,7 +14,8 @@ import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/channels/widgets/channel_video_item.dart';
 import 'package:textgb/features/channels/widgets/virtual_gifts_bottom_sheet.dart';
-import 'package:textgb/features/channels/widgets/channel_required_widget.dart'; // Add this import
+import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
@@ -145,11 +146,11 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
 
   // Helper method to check if user has channel before allowing interactions
   Future<bool> _checkUserHasChannel(String actionName) async {
-    final currentUser = ref.read(authenticationProvider).valueOrNull?.channelModel;
-    final channelsState = ref.read(channelsProvider);
+    final isLoggedIn = ref.read(isLoggedInProvider);
+    final currentChannel = ref.read(currentChannelProvider);
     
     // If user is not authenticated OR doesn't have a channel, show the channel required widget
-    if (currentUser == null || channelsState.userChannel == null) {
+    if (!isLoggedIn || currentChannel == null) {
       final result = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -159,10 +160,10 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
             width: MediaQuery.of(context).size.width * 0.9,
             child: ChannelRequiredWidget(
               title: 'Channel Required',
-              subtitle: currentUser == null 
+              subtitle: !isLoggedIn 
                   ? 'You need to log in and create a channel to $actionName.'
                   : 'You need to create a channel to $actionName.',
-              actionText: currentUser == null ? 'Get Started' : 'Create Channel',
+              actionText: !isLoggedIn ? 'Get Started' : 'Create Channel',
               icon: _getIconForAction(actionName),
             ),
           ),
@@ -577,11 +578,11 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     final canInteract = await _checkUserHasChannel('send gifts');
     if (!canInteract) return;
 
-    final currentUser = ref.read(authenticationProvider).valueOrNull?.channelModel;
+    final currentChannel = ref.read(currentChannelProvider);
     
     // At this point we know user is authenticated and has a channel
     // Check if user is trying to gift their own video
-    if (video.userId == currentUser!.uid) {
+    if (video.userId == currentChannel!.ownerId) {
       _showCannotGiftOwnVideoMessage();
       return;
     }
@@ -877,7 +878,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           // Like button
           _buildRightMenuItem(
             child: Icon(
-              currentVideo?.isLiked == true ? CupertinoIcons.heart : CupertinoIcons.heart,
+              currentVideo?.isLiked == true ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
             ),

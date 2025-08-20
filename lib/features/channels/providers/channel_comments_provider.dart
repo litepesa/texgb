@@ -40,16 +40,16 @@ class ChannelCommentActions {
     String? repliedToAuthorName,
   }) async {
     try {
-      final currentUser = _ref.read(currentUserProvider);
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
+      final currentChannel = _ref.read(currentChannelProvider);
+      if (currentChannel == null) {
+        throw Exception('Channel not found - user must have a channel to comment');
       }
 
       final commentData = {
         'videoId': videoId,
-        'authorId': currentUser.uid,
-        'authorName': currentUser.name,
-        'authorImage': currentUser.image,
+        'authorId': currentChannel.ownerId, // Use channel owner ID
+        'authorName': currentChannel.name, // Use channel name
+        'authorImage': currentChannel.profileImage, // Use channel profile image
         'content': content.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'likedBy': <String>[],
@@ -83,9 +83,9 @@ class ChannelCommentActions {
 
   Future<bool> toggleLikeComment(String commentId, bool isCurrentlyLiked) async {
     try {
-      final currentUser = _ref.read(currentUserProvider);
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
+      final currentChannel = _ref.read(currentChannelProvider);
+      if (currentChannel == null) {
+        throw Exception('Channel not found - user must have a channel to like comments');
       }
 
       final commentRef = _firestore.collection(Constants.channelComments).doc(commentId);
@@ -93,13 +93,13 @@ class ChannelCommentActions {
       if (isCurrentlyLiked) {
         // Unlike the comment
         await commentRef.update({
-          'likedBy': FieldValue.arrayRemove([currentUser.uid]),
+          'likedBy': FieldValue.arrayRemove([currentChannel.ownerId]),
           'likesCount': FieldValue.increment(-1),
         });
       } else {
         // Like the comment
         await commentRef.update({
-          'likedBy': FieldValue.arrayUnion([currentUser.uid]),
+          'likedBy': FieldValue.arrayUnion([currentChannel.ownerId]),
           'likesCount': FieldValue.increment(1),
         });
       }
@@ -113,9 +113,9 @@ class ChannelCommentActions {
 
   Future<bool> deleteComment(String commentId) async {
     try {
-      final currentUser = _ref.read(currentUserProvider);
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
+      final currentChannel = _ref.read(currentChannelProvider);
+      if (currentChannel == null) {
+        throw Exception('Channel not found - user must have a channel to delete comments');
       }
 
       // Get the comment to check ownership and get video ID
@@ -126,8 +126,8 @@ class ChannelCommentActions {
 
       final commentData = commentDoc.data()!;
       
-      // Check if user owns the comment
-      if (commentData['authorId'] != currentUser.uid) {
+      // Check if channel owner owns the comment
+      if (commentData['authorId'] != currentChannel.ownerId) {
         throw Exception('Not authorized to delete this comment');
       }
 
@@ -180,16 +180,16 @@ class ChannelCommentActions {
 
   Future<bool> reportComment(String commentId, String reason) async {
     try {
-      final currentUser = _ref.read(currentUserProvider);
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
+      final currentChannel = _ref.read(currentChannelProvider);
+      if (currentChannel == null) {
+        throw Exception('Channel not found - user must have a channel to report comments');
       }
 
       await _firestore.collection(Constants.reports).add({
         'type': 'channel_comment',
         'targetId': commentId,
-        'reporterId': currentUser.uid,
-        'reporterName': currentUser.name,
+        'reporterId': currentChannel.ownerId, // Use channel owner ID
+        'reporterName': currentChannel.name, // Use channel name
         'reason': reason,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'pending',
@@ -243,5 +243,33 @@ class ChannelCommentActions {
       debugPrint('Error getting comment by ID: $e');
       return null;
     }
+  }
+
+  // Helper method to check if current user liked a comment
+  bool isCommentLikedByCurrentUser(ChannelCommentModel comment) {
+    final currentChannel = _ref.read(currentChannelProvider);
+    if (currentChannel == null) return false;
+    
+    return comment.likedBy.contains(currentChannel.ownerId);
+  }
+
+  // Helper method to check if current user owns a comment
+  bool isCommentOwnedByCurrentUser(ChannelCommentModel comment) {
+    final currentChannel = _ref.read(currentChannelProvider);
+    if (currentChannel == null) return false;
+    
+    return comment.authorId == currentChannel.ownerId;
+  }
+
+  // Helper method to get current channel info for commenting
+  Map<String, dynamic>? getCurrentChannelInfo() {
+    final currentChannel = _ref.read(currentChannelProvider);
+    if (currentChannel == null) return null;
+    
+    return {
+      'authorId': currentChannel.ownerId,
+      'authorName': currentChannel.name,
+      'authorImage': currentChannel.profileImage,
+    };
   }
 }
