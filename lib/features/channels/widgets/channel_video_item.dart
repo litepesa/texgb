@@ -459,6 +459,10 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
               ],
             ),
           ),
+          
+          // Follow Button - Moved to top left corner
+          if (!_isCommentsSheetOpen)
+            _buildTopLeftFollowButton(),
         ],
       ),
     );
@@ -884,64 +888,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // Get channel info to check if verified
-                    FutureBuilder(
-                      future: ref.read(channelsProvider.notifier).getChannelById(widget.video.channelId),
-                      builder: (context, snapshot) {
-                        final channel = snapshot.data;
-                        if (channel?.isVerified == true) {
-                          return Container(
-                            margin: const EdgeInsets.only(left: 4),
-                            child: const Icon(
-                              Icons.verified,
-                              color: Colors.blue,
-                              size: 16,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black,
-                                  blurRadius: 2,
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
+                    // Removed verified icon - using badge below instead
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              // Animated Follow button that disappears when following - WITH CHANNEL REQUIREMENT
-              if (!isOwner)
-                AnimatedScale(
-                  scale: isFollowing ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  child: AnimatedOpacity(
-                    opacity: isFollowing ? 0.0 : 1.0,
-                    duration: const Duration(milliseconds: 300),
-                    child: GestureDetector(
-                      onTap: _handleFollowToggle,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          border: Border.all(color: Colors.white, width: 1),
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        child: const Text(
-                          'Follow',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              // Follow button removed from here - moved to top left corner
             ],
           ),
           
@@ -1051,7 +1002,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // NEW: Method to build verification badge display (replaces timestamp in channels feed)
+  // UPDATED: Custom styled verification badge (ONLY verified styling changed)
   Widget _buildVerificationBadge() {
     return FutureBuilder(
       future: ref.read(channelsProvider.notifier).getChannelById(widget.video.channelId),
@@ -1059,44 +1010,96 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         final channel = snapshot.data;
         final isVerified = channel?.isVerified ?? false;
         
-        final badgeStyle = TextStyle(
-          color: Colors.white.withOpacity(0.7),
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          height: 1.3,
-          shadows: [
-            Shadow(
-              color: Colors.black.withOpacity(0.7),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        );
-
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isVerified ? Icons.verified : Icons.help_outline,
-              size: 14,
-              color: isVerified ? Colors.blue : Colors.white.withOpacity(0.7),
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.7),
-                  blurRadius: 3,
+        if (isVerified) {
+          // CUSTOM STYLING FOR VERIFIED CHANNELS ONLY - REFINED SIZE TO MATCH CHANNELS LIST
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF1DA1F2), // Twitter blue
+                  Color(0xFF0D8BD9), // Darker blue
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF1DA1F2).withOpacity(0.3),
+                  blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),
               ],
             ),
-            const SizedBox(width: 4),
-            Text(
-              isVerified ? 'Verified' : 'Not Verified',
-              style: badgeStyle.copyWith(
-                color: isVerified ? Colors.blue : Colors.white.withOpacity(0.7),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.verified_rounded,
+                  size: 12,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  'Verified',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        );
+          );
+        } else {
+          // KEEP ORIGINAL STYLING FOR NON-VERIFIED CHANNELS
+          final badgeStyle = TextStyle(
+            color: Colors.white.withOpacity(0.7),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 1.3,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.7),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          );
+
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.help_outline,
+                size: 14,
+                color: Colors.white.withOpacity(0.7),
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.7),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Not Verified',
+                style: badgeStyle,
+              ),
+            ],
+          );
+        }
       },
     );
   }
@@ -1131,6 +1134,50 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             ),
           );
         }),
+      ),
+    );
+  }
+
+  // Follow Button positioned at top left corner
+  Widget _buildTopLeftFollowButton() {
+    final channelsState = ref.watch(channelsProvider);
+    final isFollowing = channelsState.followedChannels.contains(widget.video.channelId);
+    final userChannel = channelsState.userChannel;
+    final isOwner = userChannel != null && userChannel.id == widget.video.channelId;
+    
+    // Don't show follow button if user owns this channel
+    if (isOwner) return const SizedBox.shrink();
+    
+    return Positioned(
+      top: 16,
+      left: 16,
+      child: AnimatedScale(
+        scale: isFollowing ? 0.0 : 1.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        child: AnimatedOpacity(
+          opacity: isFollowing ? 0.0 : 1.0,
+          duration: const Duration(milliseconds: 300),
+          child: GestureDetector(
+            onTap: _handleFollowToggle,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(color: Colors.white, width: 1),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: const Text(
+                'Follow',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
