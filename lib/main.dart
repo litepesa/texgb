@@ -7,7 +7,7 @@ import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/screens/create_channel_screen.dart';
+import 'package:textgb/features/authentication/screens/channel_information_screen.dart';
 import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_post_screen.dart';
@@ -148,7 +148,7 @@ class AppRoot extends ConsumerWidget {
           Constants.homeScreen: (context) => const HomeScreen(),
           
           // Channel routes with enhanced navigation support
-          Constants.createChannelScreen: (context) => const CreateChannelScreen(),
+          Constants.createChannelScreen: (context) => const ChannelInformationScreen(),
           Constants.channelsFeedScreen: (context) {
             final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
             return ChannelsFeedScreen(

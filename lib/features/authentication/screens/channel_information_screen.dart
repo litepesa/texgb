@@ -9,14 +9,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/constants.dart';
 
-class CreateChannelScreen extends ConsumerStatefulWidget {
-  const CreateChannelScreen({Key? key}) : super(key: key);
+class ChannelInformationScreen extends ConsumerStatefulWidget {
+  const ChannelInformationScreen({Key? key}) : super(key: key);
 
   @override
-  ConsumerState<CreateChannelScreen> createState() => _CreateChannelScreenState();
+  ConsumerState<ChannelInformationScreen> createState() => _ChannelInformationScreenState();
 }
 
-class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
+class _ChannelInformationScreenState extends ConsumerState<ChannelInformationScreen> {
   final _formKey = GlobalKey<FormState>();
   
   File? _profileImage;
@@ -149,7 +149,7 @@ class _CreateChannelScreenState extends ConsumerState<CreateChannelScreen> {
         elevation: 0,
         automaticallyImplyLeading: false,
         title: const Text(
-          'Create Channel',
+          'Channel Information',
           style: TextStyle(
             color: Color(0xFF1F2937),
             fontWeight: FontWeight.w600,
