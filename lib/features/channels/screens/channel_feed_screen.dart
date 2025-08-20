@@ -758,7 +758,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
         systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
+        systemNavigationBarContrastEnforced: true,
       ));
     }
     
@@ -856,7 +856,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen, // Pass comments state to video item
-          showVerificationBadge: false,
+          showVerificationBadge: true,
         );
       },
     );

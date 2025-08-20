@@ -864,37 +864,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Channel name with verified badge and follow button (TikTok style)
-          Row(
-            children: [
-              Flexible(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        widget.video.channelName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 2,
-                            ),
-                          ],
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    // Removed verified icon - using badge below instead
-                  ],
-                ),
-              ),
-              // Follow button removed from here - moved to top left corner
-            ],
-          ),
+          // Channel name with verified badge immediately after name
+          _buildChannelNameWithVerification(),
           
           const SizedBox(height: 6),
           
@@ -903,10 +874,137 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 8),
           
-          // Verification badge display or timestamp - UPDATED: conditional based on screen type
-          widget.showVerificationBadge ? _buildVerificationBadge() : _buildTimestampDisplay(),
+          // Always show timestamp at the bottom for consistency
+          _buildTimestampDisplay(),
         ],
       ),
+    );
+  }
+
+  // UPDATED: Channel name with inline verification status
+  Widget _buildChannelNameWithVerification() {
+    return FutureBuilder(
+      future: ref.read(channelsProvider.notifier).getChannelById(widget.video.channelId),
+      builder: (context, snapshot) {
+        final channel = snapshot.data;
+        final isVerified = channel?.isVerified ?? false;
+        
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Channel name
+            Flexible(
+              child: Text(
+                widget.video.channelName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            
+            const SizedBox(width: 6),
+            
+            // Verification status immediately after name
+            if (widget.showVerificationBadge) ...[
+              if (isVerified)
+                // CUSTOM STYLING FOR VERIFIED CHANNELS
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF1DA1F2), // Twitter blue
+                        Color(0xFF0D8BD9), // Darker blue
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1DA1F2).withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.verified_rounded,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Verified',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                // STYLING FOR NON-VERIFIED CHANNELS
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.help_outline,
+                        size: 12,
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Not Verified',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.7),
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.7),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -999,108 +1097,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     return Text(
       _getRelativeTime(),
       style: timestampStyle,
-    );
-  }
-
-  // UPDATED: Custom styled verification badge (ONLY verified styling changed)
-  Widget _buildVerificationBadge() {
-    return FutureBuilder(
-      future: ref.read(channelsProvider.notifier).getChannelById(widget.video.channelId),
-      builder: (context, snapshot) {
-        final channel = snapshot.data;
-        final isVerified = channel?.isVerified ?? false;
-        
-        if (isVerified) {
-          // CUSTOM STYLING FOR VERIFIED CHANNELS ONLY - REFINED SIZE TO MATCH CHANNELS LIST
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF1DA1F2), // Twitter blue
-                  Color(0xFF0D8BD9), // Darker blue
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1DA1F2).withOpacity(0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.verified_rounded,
-                  size: 12,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  'Verified',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 2,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        } else {
-          // KEEP ORIGINAL STYLING FOR NON-VERIFIED CHANNELS
-          final badgeStyle = TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            height: 1.3,
-            shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.7),
-                blurRadius: 3,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          );
-
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.help_outline,
-                size: 14,
-                color: Colors.white.withOpacity(0.7),
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withOpacity(0.7),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Not Verified',
-                style: badgeStyle,
-              ),
-            ],
-          );
-        }
-      },
     );
   }
 
