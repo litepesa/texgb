@@ -544,20 +544,17 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   // Add navigation to user profile
   void _navigateToUserProfile() async {
     if (_videoAuthor == null) return;
-    
+  
     // Pause current video and disable wakelock before navigation
     _pauseForNavigation();
-    
-    // Navigate to user profile screen
+  
+    // Navigate to user profile screen - pass just the userId string
     await Navigator.pushNamed(
       context,
       Constants.userProfileScreen,
-      arguments: {
-        Constants.userId: _videoAuthor!.id,
-        Constants.userModel: _videoAuthor,
-      },
+      arguments: _videoAuthor!.id, // Pass only the userId string, not a Map
     );
-    
+  
     // Resume video when returning (if still active)
     _resumeFromNavigation();
   }
