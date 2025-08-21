@@ -15,8 +15,45 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _balanceVisible = true;
   int _selectedTab = 0; // 0: Overview, 1: Gifts, 2: Coins
 
-  // Empty gifts list for new user experience
-  final List<ReceivedGift> _receivedGifts = [];
+  // Dummy data for received gifts
+  final List<ReceivedGift> _receivedGifts = [
+    ReceivedGift(
+      id: '1',
+      giftName: 'Crown',
+      giftEmoji: '👑',
+      value: 150,
+      sender: 'John Doe',
+      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
+      isConverted: false,
+    ),
+    ReceivedGift(
+      id: '2',
+      giftName: 'Diamond',
+      giftEmoji: '💎',
+      value: 200,
+      sender: 'Jane Smith',
+      timestamp: DateTime.now().subtract(const Duration(hours: 5)),
+      isConverted: true,
+    ),
+    ReceivedGift(
+      id: '3',
+      giftName: 'Fire',
+      giftEmoji: '🔥',
+      value: 50,
+      sender: 'Mike Johnson',
+      timestamp: DateTime.now().subtract(const Duration(days: 1)),
+      isConverted: false,
+    ),
+    ReceivedGift(
+      id: '4',
+      giftName: 'Heart',
+      giftEmoji: '❤️',
+      value: 10,
+      sender: 'Sarah Wilson',
+      timestamp: DateTime.now().subtract(const Duration(days: 2)),
+      isConverted: true,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +64,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(modernTheme),
             _buildTabBar(modernTheme),
             Expanded(
               child: _buildTabContent(modernTheme),
@@ -38,222 +74,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildHeader(ModernThemeExtension modernTheme) {
-    final totalGiftValue = _receivedGifts
-        .where((gift) => !gift.isConverted)
-        .fold(0, (sum, gift) => sum + gift.value);
-    final convertedValue = _receivedGifts
-        .where((gift) => gift.isConverted)
-        .fold(0, (sum, gift) => sum + gift.value);
-
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        children: [
-          // Main Balance Card - Weibao Coins
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24.0),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  modernTheme.primaryColor!,
-                  modernTheme.primaryColor!.withOpacity(0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: modernTheme.primaryColor!.withOpacity(0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Text('🪙', style: TextStyle(fontSize: 20)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Weibao Coins',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _balanceVisible = !_balanceVisible;
-                        });
-                      },
-                      child: Icon(
-                        _balanceVisible ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
-                        color: Colors.white.withOpacity(0.8),
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _balanceVisible ? '0' : '••••••',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      CupertinoIcons.gift,
-                      color: Colors.white.withOpacity(0.8),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      totalGiftValue > 0 ? '$totalGiftValue coins from gifts' : 'No gift coins yet',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Cash Balance & Creator Bonus Row
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: modernTheme.backgroundColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: modernTheme.dividerColor!.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              CupertinoIcons.money_dollar,
-                              color: Colors.green,
-                              size: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Cash Balance',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'KES 0.00',
-                        style: TextStyle(
-                          color: modernTheme.textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: modernTheme.backgroundColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: modernTheme.dividerColor!.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              '⭐',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Creator Bonus',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '0 coins',
-                        style: TextStyle(
-                          color: modernTheme.textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildTabBar(ModernThemeExtension modernTheme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: modernTheme.backgroundColor,
@@ -288,26 +111,30 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
           color: isSelected ? modernTheme.primaryColor : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
               size: 16,
               color: isSelected ? Colors.white : modernTheme.textSecondaryColor,
             ),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                color: isSelected ? Colors.white : modernTheme.textSecondaryColor,
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : modernTheme.textSecondaryColor,
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -397,8 +224,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.purple.shade600,
-                  Colors.purple.shade700,
+                  Colors.green.shade600,
+                  Colors.green.shade700,
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
@@ -421,7 +248,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Get verified to start earning',
+                        'Earn extra for quality content',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.9),
                           fontSize: 14,
@@ -457,7 +284,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             Container(
               width: double.infinity,
               margin: const EdgeInsets.only(bottom: 20),
-              child:               ElevatedButton(
+              child: ElevatedButton(
                 onPressed: () {
                   _showConvertAllDialog(modernTheme);
                 },
@@ -469,7 +296,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   ),
                 ),
                 child: Text(
-                  'Convert All Gifts to Cash (${unconvertedGifts.fold(0, (sum, gift) => sum + gift.value)} coins)',
+                  'Convert All Gifts to Cash (KES ${unconvertedGifts.fold(0, (sum, gift) => sum + gift.value).toStringAsFixed(2)})',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -550,7 +377,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 const Text('🪙', style: TextStyle(fontSize: 48)),
                 const SizedBox(height: 12),
                 const Text(
-                  '0 Weibao Coins',
+                  '2,450 Weibao Coins',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -559,7 +386,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Buy coins to send virtual gifts',
+                  'Use coins to send virtual gifts',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 14,
@@ -647,7 +474,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${gift.value} coins',
+                'KES ${gift.value.toStringAsFixed(2)}',
                 style: TextStyle(
                   color: modernTheme.textColor,
                   fontSize: 16,
@@ -735,7 +562,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
           ),
           Text(
-            '${gift.value} coins',
+            'KES ${gift.value.toStringAsFixed(2)}',
             style: TextStyle(
               color: gift.isConverted ? Colors.green : Colors.amber.shade700,
               fontSize: 14,
@@ -860,53 +687,58 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     required ModernThemeExtension modernTheme,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap ?? () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$title feature coming soon!')),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: modernTheme.backgroundColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: modernTheme.dividerColor!.withOpacity(0.3),
+    return Flexible(
+      child: GestureDetector(
+        onTap: onTap ?? () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$title feature coming soon!')),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: modernTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: modernTheme.dividerColor!.withOpacity(0.3),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 20,
+                ),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
+              const SizedBox(height: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                  fontSize: 10,
+                ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 12,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -925,7 +757,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           style: TextStyle(color: modernTheme.textColor),
         ),
         content: Text(
-          'Convert ${unconvertedGifts.length} gifts to ${totalValue} coins for cash withdrawal?',
+          'Convert ${unconvertedGifts.length} gifts to KES ${totalValue.toStringAsFixed(2)}?',
           style: TextStyle(color: modernTheme.textSecondaryColor),
         ),
         actions: [
@@ -943,7 +775,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Converted ${totalValue} coins to cash!'),
+                  content: Text('Converted KES ${totalValue.toStringAsFixed(2)} to cash!'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -962,7 +794,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Converted ${gift.giftName} (${gift.value} coins) to cash!'),
+        content: Text('Converted ${gift.giftName} to KES ${gift.value.toStringAsFixed(2)}!'),
         backgroundColor: Colors.green,
       ),
     );
@@ -1017,7 +849,7 @@ class ReceivedGift {
   final String id;
   final String giftName;
   final String giftEmoji;
-  final int value; // Value in Weibao coins
+  final int value; // Value in KES
   final String sender;
   final DateTime timestamp;
   bool isConverted;

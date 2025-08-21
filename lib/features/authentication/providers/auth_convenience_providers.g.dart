@@ -72,6 +72,39 @@ final isAuthLoadingProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsAuthLoadingRef = AutoDisposeProviderRef<bool>;
+String _$isUploadingHash() => r'c6b589f32b0935ab4c4edff9b1dcadd59b5f1dc4';
+
+/// See also [isUploading].
+@ProviderFor(isUploading)
+final isUploadingProvider = AutoDisposeProvider<bool>.internal(
+  isUploading,
+  name: r'isUploadingProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$isUploadingHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef IsUploadingRef = AutoDisposeProviderRef<bool>;
+String _$uploadProgressHash() => r'ec7f4378c401e65d5ce5f5ee77379c4f1825c56a';
+
+/// See also [uploadProgress].
+@ProviderFor(uploadProgress)
+final uploadProgressProvider = AutoDisposeProvider<double>.internal(
+  uploadProgress,
+  name: r'uploadProgressProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$uploadProgressHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef UploadProgressRef = AutoDisposeProviderRef<double>;
 String _$currentUserIdHash() => r'8cead6f40c44d22fc793fc76bb78b49e87131f58';
 
 /// See also [currentUserId].

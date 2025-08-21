@@ -35,6 +35,20 @@ bool isAuthLoading(IsAuthLoadingRef ref) {
   return authState.value?.isLoading ?? false;
 }
 
+// Convenience provider to check upload state
+@riverpod
+bool isUploading(IsUploadingRef ref) {
+  final authState = ref.watch(authenticationProvider);
+  return authState.value?.isUploading ?? false;
+}
+
+// Convenience provider to get upload progress
+@riverpod
+double uploadProgress(UploadProgressRef ref) {
+  final authState = ref.watch(authenticationProvider);
+  return authState.value?.uploadProgress ?? 0.0;
+}
+
 // Convenience provider to get current user ID
 @riverpod
 String? currentUserId(CurrentUserIdRef ref) {

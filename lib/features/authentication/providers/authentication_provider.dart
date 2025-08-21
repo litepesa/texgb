@@ -34,6 +34,8 @@ class AuthenticationState {
   final List<String> likedVideos;
   final List<UserModel> users;
   final List<String> followedUsers;
+  final bool isUploading;
+  final double uploadProgress;
 
   const AuthenticationState({
     this.state = AuthState.guest,
@@ -45,6 +47,8 @@ class AuthenticationState {
     this.likedVideos = const [],
     this.users = const [],
     this.followedUsers = const [],
+    this.isUploading = false,
+    this.uploadProgress = 0.0,
   });
 
   AuthenticationState copyWith({
@@ -57,6 +61,8 @@ class AuthenticationState {
     List<String>? likedVideos,
     List<UserModel>? users,
     List<String>? followedUsers,
+    bool? isUploading,
+    double? uploadProgress,
   }) {
     return AuthenticationState(
       state: state ?? this.state,
@@ -68,6 +74,8 @@ class AuthenticationState {
       likedVideos: likedVideos ?? this.likedVideos,
       users: users ?? this.users,
       followedUsers: followedUsers ?? this.followedUsers,
+      isUploading: isUploading ?? this.isUploading,
+      uploadProgress: uploadProgress ?? this.uploadProgress,
     );
   }
 }
@@ -395,15 +403,26 @@ class Authentication extends _$Authentication {
       return;
     }
     
-    state = AsyncValue.data(currentState.copyWith(isLoading: true));
+    // Set uploading state to true
+    state = AsyncValue.data(currentState.copyWith(
+      isUploading: true,
+      uploadProgress: 0.0,
+    ));
     
     try {
       final user = currentState.currentUser!;
       
-      // Upload video to storage
+      // Upload video to storage with progress tracking
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
         reference: 'videos/${user.id}/${DateTime.now().millisecondsSinceEpoch}.mp4',
+        onProgress: (progress) {
+          // Update upload progress in real-time
+          final currentState = state.value ?? const AuthenticationState();
+          state = AsyncValue.data(currentState.copyWith(
+            uploadProgress: progress,
+          ));
+        },
       );
       
       // Generate thumbnail (placeholder for now)
@@ -427,14 +446,18 @@ class Authentication extends _$Authentication {
       ];
       
       state = AsyncValue.data(currentState.copyWith(
-        isLoading: false,
+        isUploading: false,
+        uploadProgress: 1.0,
         videos: updatedVideos,
       ));
       
       onSuccess('Video uploaded successfully');
     } on AuthRepositoryException catch (e) {
       debugPrint('Error uploading video: ${e.message}');
-      state = AsyncValue.data(currentState.copyWith(isLoading: false));
+      state = AsyncValue.data(currentState.copyWith(
+        isUploading: false,
+        uploadProgress: 0.0,
+      ));
       onError(e.message);
     }
   }
@@ -791,6 +814,16 @@ class Authentication extends _$Authentication {
   bool get isLoading {
     final currentState = state.value;
     return currentState?.isLoading ?? false;
+  }
+
+  bool get isUploading {
+    final currentState = state.value;
+    return currentState?.isUploading ?? false;
+  }
+
+  double get uploadProgress {
+    final currentState = state.value;
+    return currentState?.uploadProgress ?? 0.0;
   }
 
   UserModel? get currentUser {

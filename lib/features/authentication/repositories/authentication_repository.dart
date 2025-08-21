@@ -88,8 +88,12 @@ abstract class AuthenticationRepository {
   Future<void> likeComment(String commentId, String userId);
   Future<void> unlikeComment(String commentId, String userId);
 
-  // File operations
-  Future<String> storeFileToStorage({required File file, required String reference});
+  // File operations - UPDATED with progress callback
+  Future<String> storeFileToStorage({
+    required File file, 
+    required String reference,
+    Function(double)? onProgress, // NEW: Progress callback
+  });
 
   // Streams
   Stream<DocumentSnapshot> userStream({required String userId});
@@ -401,7 +405,6 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     }
   }
 
-  // Video operations implementation continues in next artifact due to length...
   @override
   Future<List<VideoModel>> getVideos() async {
     try {
@@ -870,10 +873,26 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     }
   }
 
+  // UPDATED: storeFileToStorage with progress tracking
   @override
-  Future<String> storeFileToStorage({required File file, required String reference}) async {
+  Future<String> storeFileToStorage({
+    required File file, 
+    required String reference,
+    Function(double)? onProgress, // NEW: Progress callback
+  }) async {
     try {
       UploadTask uploadTask = _storage.ref().child(reference).putFile(file);
+      
+      // Listen to upload progress if callback provided
+      if (onProgress != null) {
+        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+          if (snapshot.totalBytes > 0) {
+            double progress = snapshot.bytesTransferred / snapshot.totalBytes;
+            onProgress(progress);
+          }
+        });
+      }
+      
       TaskSnapshot taskSnapshot = await uploadTask;
       String downloadURL = await taskSnapshot.ref.getDownloadURL();
       return downloadURL;

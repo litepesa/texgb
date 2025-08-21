@@ -94,6 +94,7 @@ dependencies:
   ffmpeg_kit_flutter_new_gpl: ^1.6.5
   image: ^4.5.4
   gal: ^2.3.1
+  surrealdb: ^1.1.1
 
 
 
