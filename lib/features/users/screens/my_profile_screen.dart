@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/features/users/widgets/verification_widget.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
@@ -443,7 +444,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
 
-  Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
+ Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
   return Container(
     width: double.infinity,
     decoration: BoxDecoration(
@@ -468,13 +469,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Left side - could add back button or other actions
-              const SizedBox(width: 40), // Placeholder for symmetry
+              // Left side - placeholder for symmetry
+              const SizedBox(width: 40),
               
               // Center - Profile title
-              Text(
+              const Text(
                 'Profile',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -590,39 +591,25 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               const SizedBox(height: 20),
               
               // User name with enhanced styling
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: Text(
-                      _user!.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black26,
-                            offset: Offset(0, 2),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  if (_user!.isVerified) ...[
-                    const SizedBox(width: 12),
-                    const Icon(
-                      Icons.verified,
-                      color: Colors.blue,
-                      size: 28,
+              Text(
+                _user!.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black26,
+                      offset: Offset(0, 2),
+                      blurRadius: 4,
                     ),
                   ],
-                ],
+                ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              
               // User description
               if (_user!.about.isNotEmpty)
                 Text(
@@ -638,42 +625,112 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 ),
               const SizedBox(height: 20),
               
-              // Edit Profile Button with enhanced design
-              GestureDetector(
-                onTap: _editProfile,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
+              // Side-by-side buttons: Verification and Edit Profile
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Verification status button - more prominent and bright
+                  GestureDetector(
+                    onTap: () => VerificationInfoWidget.show(context),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: _user!.isVerified
+                            ? const LinearGradient(
+                                colors: [
+                                  Color(0xFF1565C0), // Deep blue
+                                  Color(0xFF0D47A1), // Darker blue
+                                  Color(0xFF0A1E3D), // Very dark blue
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : const LinearGradient(
+                                colors: [
+                                  Color(0xFF1976D2), // Material blue
+                                  Color(0xFF1565C0), // Darker blue
+                                  Color(0xFF0D47A1), // Deep blue
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _user!.isVerified
+                                ? const Color(0xFF1565C0).withOpacity(0.4)
+                                : const Color(0xFF1976D2).withOpacity(0.4),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _user!.isVerified ? Icons.verified_rounded : Icons.star_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _user!.isVerified ? 'Verified' : 'Get Verified',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black38,
+                                  blurRadius: 3,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.edit,
-                        color: modernTheme.primaryColor,
-                        size: 18,
+                  
+                  const SizedBox(width: 16),
+                  
+                  // Edit Profile Button - simplified without icon
+                  GestureDetector(
+                    onTap: _editProfile,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
+                      child: Text(
                         'Edit Profile',
                         style: TextStyle(
                           color: modernTheme.primaryColor,
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),

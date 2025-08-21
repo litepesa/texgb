@@ -19,6 +19,12 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:dio/dio.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io';
 
 class VideosFeedScreen extends ConsumerStatefulWidget {
   final String? startVideoId; // For direct video navigation
@@ -52,6 +58,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
   bool _isCommentsSheetOpen = false; // Track comments sheet state
+  
+  // Download state management
+  Map<String, bool> _downloadingVideos = {}; // Track which videos are downloading
+  Map<String, double> _downloadProgress = {}; // Track download progress for each video
   
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
@@ -597,9 +607,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       case 'send gifts':
       case 'gift':
         return Icons.card_giftcard;
-      case 'save videos':
-      case 'save':
-        return Icons.bookmark;
+      case 'download videos':
+      case 'download':
+        return Icons.download;
       case 'share videos':
       case 'share':
         return Icons.share;
@@ -926,53 +936,72 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Star button (save/bookmark)
+          // Download button (replaced star/bookmark)
           _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.star,
-              color: Colors.white,
-              size: 26,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Show progress indicator if downloading
+                if (_downloadingVideos[currentVideo?.id] == true)
+                  SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      value: _downloadProgress[currentVideo?.id] ?? 0.0,
+                      color: Colors.white,
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      strokeWidth: 2,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.download,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+              ],
             ),
-            label: '0',
-            onTap: () async {
-              // Check if user is authenticated before allowing save
-              final canInteract = await _requireAuthentication('save videos');
-              if (canInteract) {
-                // TODO: Add save/bookmark functionality
-                _showSnackBar('Save functionality coming soon!');
-              }
-            },
+            label: _downloadingVideos[currentVideo?.id] == true 
+                ? '${((_downloadProgress[currentVideo?.id] ?? 0.0) * 100).toInt()}%'
+                : 'Save',
+            onTap: () => _downloadCurrentVideo(currentVideo),
           ),
           
           const SizedBox(height: 10),
           
-          // Share button
+          // Share button - UPDATED with share_plus functionality
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.arrowshape_turn_up_right,
               color: Colors.white,
               size: 26,
             ),
-            label: '0',
+            label: 'Share',
             onTap: () async {
               // Check if user is authenticated before allowing share
               final canInteract = await _requireAuthentication('share videos');
               if (canInteract) {
-                _showShareOptions();
+                await _shareCurrentVideo(currentVideo);
               }
             },
           ),
           
           const SizedBox(height: 10),
           
-          // Gift button - UPDATED with virtual gifts functionality
+          // Gift button - with exciting emoji
           _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.gift,
-              color: Colors.white,
-              size: 26,
+            child: const Text(
+              '🎁',
+              style: TextStyle(
+                fontSize: 28,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
             ),
-            label: 'Gift',
             onTap: () => _showVirtualGifts(currentVideo),
           ),
           
@@ -1203,65 +1232,235 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     });
   }
 
-  void _showShareOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
+  // NEW: Share current video using share_plus package
+  Future<void> _shareCurrentVideo(VideoModel? video) async {
+    if (video == null) return;
+    
+    try {
+      // Create share content
+      String shareText = '';
+      
+      // Add video caption if available
+      if (video.caption.isNotEmpty) {
+        shareText += video.caption;
+      }
+      
+      // Add creator credit
+      if (shareText.isNotEmpty) {
+        shareText += '\n\n';
+      }
+      shareText += 'Check out this video by ${video.userName}!';
+      
+      // Add hashtags if available
+      if (video.tags.isNotEmpty) {
+        shareText += '\n\n${video.tags.map((tag) => '#$tag').join(' ')}';
+      }
+      
+      // Add app promotion
+      shareText += '\n\nShared via TextGB';
+      
+      // Get the render box for share position (required for iPad)
+      final RenderBox? box = context.findRenderObject() as RenderBox?;
+      
+      // Share using share_plus
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          text: shareText,
+          subject: 'Check out this video!',
+          sharePositionOrigin: box != null 
+              ? box.localToGlobal(Offset.zero) & box.size 
+              : null,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Share Video',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildShareOption(Icons.copy, 'Copy Link'),
-                _buildShareOption(Icons.message, 'Message'),
-                _buildShareOption(Icons.more_horiz, 'More'),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+      );
+      
+      // Show feedback based on share result
+      if (result.status == ShareResultStatus.success) {
+        _showSnackBar('Video shared successfully!');
+      } else if (result.status == ShareResultStatus.dismissed) {
+        // User cancelled sharing - no need to show message
+      } else {
+        _showSnackBar('Failed to share video');
+      }
+      
+    } catch (e) {
+      debugPrint('Error sharing video: $e');
+      _showSnackBar('Failed to share video');
+    }
   }
 
-  Widget _buildShareOption(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: const BoxDecoration(
-            color: Colors.grey,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: Colors.white),
+  // NEW: Download current video functionality
+  Future<void> _downloadCurrentVideo(VideoModel? video) async {
+    if (video == null) return;
+    
+    // Check if user is authenticated before allowing download
+    final canInteract = await _requireAuthentication('download videos');
+    if (!canInteract) return;
+    
+    // Check if already downloading
+    if (_downloadingVideos[video.id] == true) {
+      _showSnackBar('Video is already downloading...');
+      return;
+    }
+    
+    // For image posts, we can't download videos
+    if (video.isMultipleImages) {
+      _showSnackBar('Cannot download image posts');
+      return;
+    }
+    
+    // Check if video URL is valid
+    if (video.videoUrl.isEmpty) {
+      _showSnackBar('Invalid video URL');
+      return;
+    }
+    
+    try {
+      // Request storage permission
+      bool hasPermission = await _requestStoragePermission();
+      if (!hasPermission) {
+        _showSnackBar('Storage permission required to download videos');
+        return;
+      }
+      
+      // Start download
+      await _downloadVideo(video);
+      
+    } catch (e) {
+      debugPrint('Error downloading video: $e');
+      _showSnackBar('Failed to download video');
+      setState(() {
+        _downloadingVideos[video.id] = false;
+        _downloadProgress.remove(video.id);
+      });
+    }
+  }
+  
+  // Request storage permission based on Android version
+  Future<bool> _requestStoragePermission() async {
+    // For Android 13+ (API 33+), we need different permissions
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      if (androidInfo.version.sdkInt >= 33) {
+        // Android 13+ - request media permissions
+        final status = await [
+          Permission.videos,
+          Permission.photos,
+        ].request();
+        
+        return status.values.every((status) => status.isGranted);
+      } else {
+        // Android 12 and below - request storage permission
+        final status = await Permission.storage.request();
+        return status.isGranted;
+      }
+    } else if (Platform.isIOS) {
+      // For iOS, request photos permission
+      final status = await Permission.photos.request();
+      return status.isGranted;
+    }
+    
+    return true; // For other platforms
+  }
+  
+  // Download video with progress tracking
+  Future<void> _downloadVideo(VideoModel video) async {
+    setState(() {
+      _downloadingVideos[video.id] = true;
+      _downloadProgress[video.id] = 0.0;
+    });
+    
+    try {
+      final dio = Dio();
+      
+      // Get download directory
+      Directory? directory;
+      String fileName = 'textgb_${video.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      
+      if (Platform.isAndroid) {
+        // Try to save to Downloads folder
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          // Fallback to app documents directory
+          directory = await getApplicationDocumentsDirectory();
+        }
+      } else if (Platform.isIOS) {
+        // For iOS, save to app documents directory
+        directory = await getApplicationDocumentsDirectory();
+      } else {
+        // For other platforms
+        directory = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+      }
+      
+      final savePath = '${directory.path}/$fileName';
+      
+      // Download with progress tracking
+      await dio.download(
+        video.videoUrl,
+        savePath,
+        onReceiveProgress: (received, total) {
+          if (total != -1) {
+            final progress = received / total;
+            setState(() {
+              _downloadProgress[video.id] = progress;
+            });
+          }
+        },
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: false,
+          validateStatus: (status) {
+            return status! < 500;
+          },
         ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
+      );
+      
+      // Download completed successfully
+      setState(() {
+        _downloadingVideos[video.id] = false;
+        _downloadProgress.remove(video.id);
+      });
+      
+      _showSnackBar('Video saved successfully!');
+      
+      // Optionally, add to device gallery (Android only)
+      if (Platform.isAndroid) {
+        await _addToGallery(savePath);
+      }
+      
+    } catch (e) {
+      debugPrint('Download error: $e');
+      setState(() {
+        _downloadingVideos[video.id] = false;
+        _downloadProgress.remove(video.id);
+      });
+      
+      if (e is DioException) {
+        switch (e.type) {
+          case DioExceptionType.connectionTimeout:
+          case DioExceptionType.receiveTimeout:
+            _showSnackBar('Download timeout. Please try again.');
+            break;
+          case DioExceptionType.connectionError:
+            _showSnackBar('Network error. Check your connection.');
+            break;
+          default:
+            _showSnackBar('Download failed. Please try again.');
+        }
+      } else {
+        _showSnackBar('Download failed. Please try again.');
+      }
+    }
+  }
+  
+  // Add video to Android gallery (optional)
+  Future<void> _addToGallery(String filePath) async {
+    try {
+      // This would require additional packages like gallery_saver
+      // For now, we'll just save to Downloads which should be visible in gallery
+      debugPrint('Video saved to: $filePath');
+    } catch (e) {
+      debugPrint('Error adding to gallery: $e');
+    }
   }
 
   String _formatCount(int count) {

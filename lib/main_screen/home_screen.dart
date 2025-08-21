@@ -637,73 +637,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    String title = 'WeiBao';
-    
-    // Set title based on current tab
-    switch (_currentIndex) {
-      case 1:
-        title = 'WeiBao'; // Show main app name for Users tab (was Channels tab)
-        break;
-      case 3:
-        title = 'Wallet';
-        break;
-      default:
-        title = 'WeiBao';
-    }
-
     Color appBarColor = modernTheme.surfaceColor ?? (isDarkMode ? Colors.grey[900]! : Colors.white);
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
     Color iconColor = modernTheme.primaryColor ?? Colors.blue;
 
+    // Always show the main WeiBao微宝 branding for all tabs with app bar
     return AppBar(
       backgroundColor: appBarColor,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
       iconTheme: IconThemeData(color: iconColor),
-      title: _currentIndex == 3
-          ? Text(
-              title,
+      title: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: "Wei",
               style: TextStyle(
-                color: textColor,
+                color: textColor,          
                 fontWeight: FontWeight.bold,
                 fontSize: 22,
                 letterSpacing: -0.3,
               ),
-            )
-          : RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: "Wei",
-                    style: TextStyle(
-                      color: textColor,          
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  TextSpan(
-                    text: "Bao",
-                    style: TextStyle(
-                      color: iconColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 24,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  TextSpan(
-                    text: "微宝",
-                    style: TextStyle(
-                      color: const Color(0xFFFE2C55),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ],
+            ),
+            TextSpan(
+              text: "Bao",
+              style: TextStyle(
+                color: iconColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 24,
+                letterSpacing: -0.3,
               ),
             ),
+            TextSpan(
+              text: "微宝",
+              style: TextStyle(
+                color: const Color(0xFFFE2C55),
+                fontWeight: FontWeight.w700,
+                fontSize: 22,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
+        ),
+      ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
