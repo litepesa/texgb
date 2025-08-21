@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -443,93 +444,124 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   }
 
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            modernTheme.primaryColor!,
-            modernTheme.primaryColor!.withOpacity(0.8),
-            modernTheme.primaryColor!.withOpacity(0.6),
-          ],
-        ),
+  return Container(
+    width: double.infinity,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          modernTheme.primaryColor!,
+          modernTheme.primaryColor!.withOpacity(0.8),
+          modernTheme.primaryColor!.withOpacity(0.6),
+        ],
       ),
-      child: Column(
-        children: [
-          // Add safe area padding at the top
-          SizedBox(height: MediaQuery.of(context).padding.top),
-          
-          // Profile Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            child: Column(
-              children: [
-                // Profile Image with enhanced styling
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outer glow effect
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.3),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
+    ),
+    child: Column(
+      children: [
+        // Add safe area padding at the top
+        SizedBox(height: MediaQuery.of(context).padding.top),
+        
+        // App bar with theme switcher
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left side - could add back button or other actions
+              const SizedBox(width: 40), // Placeholder for symmetry
+              
+              // Center - Profile title
+              Text(
+                'Profile',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              
+              // Right side - Theme switcher
+              GestureDetector(
+                onTap: () => showThemeSelector(context),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
                     ),
-                    Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
+                  ),
+                  child: const Icon(
+                    Icons.brightness_6,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Profile Content
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          child: Column(
+            children: [
+              // Profile Image with enhanced styling
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer glow effect
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.3),
+                          Colors.transparent,
                         ],
                       ),
-                      child: ClipOval(
-                        child: _user!.profileImage.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: _user!.profileImage,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (context, error, stackTrace) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(
-                                    Icons.person,
-                                    size: 50,
+                    ),
+                  ),
+                  Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 4,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: _user!.profileImage.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: _user!.profileImage,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: CircularProgressIndicator(
                                     color: Colors.white,
+                                    strokeWidth: 2,
                                   ),
                                 ),
-                                // Enhanced cache options for better performance
-                                memCacheWidth: 110,
-                                memCacheHeight: 110,
-                                maxWidthDiskCache: 220,
-                                maxHeightDiskCache: 220,
-                              )
-                            : Container(
+                              ),
+                              errorWidget: (context, error, stackTrace) => Container(
                                 color: Colors.grey[300],
                                 child: const Icon(
                                   Icons.person,
@@ -537,195 +569,209 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                   color: Colors.white,
                                 ),
                               ),
+                              // Enhanced cache options for better performance
+                              memCacheWidth: 110,
+                              memCacheHeight: 110,
+                              maxWidthDiskCache: 220,
+                              maxHeightDiskCache: 220,
+                            )
+                          : Container(
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.person,
+                                size: 50,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // User name with enhanced styling
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      _user!.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black26,
+                            offset: Offset(0, 2),
+                            blurRadius: 4,
+                          ),
+                        ],
                       ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  if (_user!.isVerified) ...[
+                    const SizedBox(width: 12),
+                    const Icon(
+                      Icons.verified,
+                      color: Colors.blue,
+                      size: 28,
                     ),
                   ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              // User description
+              if (_user!.about.isNotEmpty)
+                Text(
+                  _user!.about,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    letterSpacing: 0.5,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 20),
-                
-                // User name with enhanced styling
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _user!.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black26,
-                              offset: Offset(0, 2),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    if (_user!.isVerified) ...[
-                      const SizedBox(width: 12),
-                      const Icon(
-                        Icons.verified,
-                        color: Colors.blue,
-                        size: 28,
+              const SizedBox(height: 20),
+              
+              // Edit Profile Button with enhanced design
+              GestureDetector(
+                onTap: _editProfile,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
                       ),
                     ],
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // User description
-                if (_user!.about.isNotEmpty)
-                  Text(
-                    _user!.about,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      letterSpacing: 0.5,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                const SizedBox(height: 20),
-                
-                // Edit Profile Button with enhanced design
-                GestureDetector(
-                  onTap: _editProfile,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.edit,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.edit,
+                        color: modernTheme.primaryColor,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Edit Profile',
+                        style: TextStyle(
                           color: modernTheme.primaryColor,
-                          size: 18,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Edit Profile',
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Stats Row with 4 items
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem(
-                _user!.videosCount.toString(),
-                'Posts',
-                Icons.video_library,
-                modernTheme,
-              ),
-              _buildStatItem(
-                _user!.followers.toString(),
-                'Followers',
-                Icons.people,
-                modernTheme,
-              ),
-              _buildStatItem(
-                _user!.following.toString(),
-                'Following',
-                Icons.person_add,
-                modernTheme,
-              ),
-              _buildStatItem(
-                _user!.likesCount.toString(),
-                'Likes',
-                Icons.favorite,
-                modernTheme,
               ),
             ],
           ),
-          
-          // Tags
-          if (_user!.tags.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 32,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _user!.tags.length,
-                itemBuilder: (context, index) {
-                  final tag = _user!.tags[index];
-                  return Container(
-                    margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: modernTheme.primaryColor!.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: modernTheme.primaryColor!.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Text(
-                      '#$tag',
-                      style: TextStyle(
-                        color: modernTheme.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  );
-                },
-              ),
+        ),
+      ],
+    ),
+  );
+}
+
+    Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: modernTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
-        ],
-      ),
-    );
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Stats Row with 4 items
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(
+                  _user!.videosCount.toString(),
+                  'Posts',
+                  Icons.video_library,
+                  modernTheme,
+                ),
+                _buildStatItem(
+                  _user!.followers.toString(),
+                  'Followers',
+                  Icons.people,
+                  modernTheme,
+                ),
+                _buildStatItem(
+                  _user!.following.toString(),
+                  'Following',
+                  Icons.person_add,
+                  modernTheme,
+                ),
+                _buildStatItem(
+                  _user!.likesCount.toString(),
+                  'Likes',
+                  Icons.favorite,
+                  modernTheme,
+                ),
+              ],
+            ),
+          
+            // Tags
+            if (_user!.tags.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 32,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _user!.tags.length,
+                  itemBuilder: (context, index) {
+                    final tag = _user!.tags[index];
+                    return Container(
+                      margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor!.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: modernTheme.primaryColor!.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        '#$tag',
+                        style: TextStyle(
+                          color: modernTheme.primaryColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
   }
 
   Widget _buildStatItem(
