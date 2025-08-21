@@ -678,7 +678,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     text: "Wei",
                     style: TextStyle(
                       color: textColor,          
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.bold,
                       fontSize: 22,
                       letterSpacing: -0.3,
                     ),
@@ -689,6 +689,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       color: iconColor,
                       fontWeight: FontWeight.w700,
                       fontSize: 24,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  TextSpan(
+                    text: "微宝",
+                    style: TextStyle(
+                      color: const Color(0xFFFE2C55),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
                       letterSpacing: -0.3,
                     ),
                   ),
