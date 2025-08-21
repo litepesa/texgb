@@ -154,7 +154,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       final video = await _picker.pickVideo(
         source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: Constants.maxVideoLength ~/ 60),
+        maxDuration: const Duration(minutes: 5),
       );
       
       if (video != null) {
@@ -190,7 +190,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       final video = await _picker.pickVideo(
         source: ImageSource.camera,
-        maxDuration: const Duration(seconds: Constants.maxVideoLength),
+        maxDuration: const Duration(minutes: 5),
       );
       
       if (video != null) {
@@ -226,12 +226,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     final videoInfo = await _analyzeVideo(videoFile);
     print('DEBUG: Video analysis - ${videoInfo.toString()}');
     
-    if (videoInfo.duration.inSeconds > Constants.maxVideoLength) {
-      print('DEBUG: Video exceeds ${Constants.maxVideoLength} seconds, offering trim option');
+    if (videoInfo.duration.inSeconds > 300) { // 5 minutes
+      print('DEBUG: Video exceeds 5 minutes, offering trim option');
       await _showVideoTrimDialog(videoFile, videoInfo, isRequired: true);
       return;
     } else {
-      print('DEBUG: Video under ${Constants.maxVideoLength} seconds, offering optional trim');
+      print('DEBUG: Video under 5 minutes, offering optional trim');
       await _showVideoTrimDialog(videoFile, videoInfo, isRequired: false);
       return;
     }
@@ -504,9 +504,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         print('DEBUG: ${images.length} images selected');
         List<File> imageFiles = images.map((xFile) => File(xFile.path)).toList();
         
-        if (imageFiles.length > Constants.maxImageCount) {
-          imageFiles = imageFiles.sublist(0, Constants.maxImageCount);
-          _showMessage('Maximum ${Constants.maxImageCount} images allowed. Only the first ${Constants.maxImageCount} images were selected.');
+        if (imageFiles.length > 10) {
+          imageFiles = imageFiles.sublist(0, 10);
+          _showMessage('Maximum 10 images allowed. Only the first 10 images were selected.');
         }
         
         setState(() {
@@ -556,16 +556,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   Future<void> _showVideoTrimDialog(File videoFile, VideoInfo videoInfo, {required bool isRequired}) async {
     final durationMinutes = (videoInfo.duration.inSeconds / 60).round();
     final durationSeconds = videoInfo.duration.inSeconds;
-    final maxVideoMinutes = (Constants.maxVideoLength / 60).round();
     
     String title;
     String content;
     List<Widget> actions = [];
     
     if (isRequired) {
-      // Video is over max length - trimming is required
+      // Video is over 5 minutes - trimming is required
       title = 'Video Too Long';
-      content = 'Your video is ${durationMinutes} minutes long. Videos must be ${maxVideoMinutes} minutes or less.\n\n'
+      content = 'Your video is ${durationMinutes} minutes long. Videos must be 5 minutes or less.\n\n'
           'Choose how you want to trim it:';
       
       actions = [
@@ -577,10 +576,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           },
         ),
         TextButton(
-          child: Text('First ${maxVideoMinutes} Minutes'),
+          child: const Text('First 5 Minutes'),
           onPressed: () async {
             Navigator.of(context).pop();
-            await _trimVideoToMaxLength(videoFile, videoInfo);
+            await _trimVideoTo5Minutes(videoFile, videoInfo);
           },
         ),
         TextButton(
@@ -592,7 +591,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         ),
       ];
     } else {
-      // Video is under max length - trimming is optional
+      // Video is under 5 minutes - trimming is optional
       title = 'Trim Video?';
       content = 'Your video is ${durationSeconds} seconds long.\n\n'
           'Would you like to trim it to a shorter clip, or use the full video?';
@@ -718,10 +717,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
-  // Enhanced trim to max length with caching
-  Future<void> _trimVideoToMaxLength(File videoFile, VideoInfo videoInfo) async {
+  // Enhanced trim to 5 minutes with caching
+  Future<void> _trimVideoTo5Minutes(File videoFile, VideoInfo videoInfo) async {
     try {
-      print('DEBUG: Starting video trim to ${Constants.maxVideoLength} seconds');
+      print('DEBUG: Starting video trim to 5 minutes');
       
       // Ensure wakelock is active during trimming
       await _enableWakelock();
@@ -729,9 +728,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       // Show loading indicator
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Trimming video to ${Constants.maxVideoLength ~/ 60} minutes...'),
-            duration: const Duration(seconds: 30),
+          const SnackBar(
+            content: Text('Trimming video to 5 minutes...'),
+            duration: Duration(seconds: 30),
           ),
         );
       }
@@ -739,15 +738,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       // Create unique filename with timestamp
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileExtension = path.extension(videoFile.path);
-      final trimmedFileName = 'trimmed_${Constants.maxVideoLength}s_${timestamp}${fileExtension}';
+      final trimmedFileName = 'trimmed_5min_${timestamp}${fileExtension}';
       
       // Use cache directory for trimmed file
       final tempDir = Directory.systemTemp;
       final trimmedPath = path.join(tempDir.path, trimmedFileName);
       
-      // FFmpeg command to trim video to max length
+      // FFmpeg command to trim video to first 5 minutes (300 seconds)
       final command = '-y -i "${videoFile.path}" '
-          '-t ${Constants.maxVideoLength} '          // Trim to max seconds
+          '-t 300 '                               // Trim to 300 seconds (5 minutes)
           '-c:v libx264 '                         // Re-encode video for consistency
           '-c:a aac '                             // Re-encode audio for consistency
           '-avoid_negative_ts make_zero '         // Ensure timestamps start at 0
@@ -1108,7 +1107,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Max ${Constants.maxVideoLength ~/ 60} minutes • Videos under 1 minute perform better',
+                          'Max 5 minutes • Videos under 1 minute perform better',
                           style: TextStyle(
                             color: modernTheme.textSecondaryColor,
                             fontSize: 12,
@@ -1223,27 +1222,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ),
                   filled: true,
                   fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
-                  helperText: '${_captionController.text.length}/${Constants.maxCaptionLength}',
-                  helperStyle: TextStyle(
-                    color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-                    fontSize: 12,
-                  ),
                 ),
                 style: TextStyle(color: modernTheme.textColor),
                 maxLines: 3,
-                maxLength: Constants.maxCaptionLength,
-                buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return Constants.requiredField;
-                  }
-                  if (value.length > Constants.maxCaptionLength) {
-                    return Constants.captionTooLong;
+                    return 'Please enter a caption';
                   }
                   return null;
                 },
                 enabled: !isLoading && !_isOptimizing,
-                onChanged: (value) => setState(() {}), // Update character count
               ),
               
               const SizedBox(height: 16),
@@ -1263,23 +1251,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   filled: true,
                   fillColor: modernTheme.surfaceColor?.withOpacity(0.3),
                   hintText: 'e.g. sports, travel, music',
-                  helperText: 'Separate tags with commas (max ${Constants.maxHashtagsPerPost})',
-                  helperStyle: TextStyle(
-                    color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-                    fontSize: 12,
-                  ),
                 ),
                 style: TextStyle(color: modernTheme.textColor),
                 enabled: !isLoading && !_isOptimizing,
-                validator: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    final tags = value.split(',').map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList();
-                    if (tags.length > Constants.maxHashtagsPerPost) {
-                      return 'Maximum ${Constants.maxHashtagsPerPost} tags allowed';
-                    }
-                  }
-                  return null;
-                },
               ),
               
               const SizedBox(height: 24),
@@ -1316,7 +1290,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   Widget _buildVideoPickerPlaceholder(ModernThemeExtension modernTheme) {
     return AspectRatio(
-      aspectRatio: Constants.videoAspectRatio,
+      aspectRatio: 9 / 16,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.grey.shade800,
@@ -1410,7 +1384,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       );
     } else {
       return AspectRatio(
-        aspectRatio: Constants.videoAspectRatio,
+        aspectRatio: 9 / 16,
         child: Container(
           decoration: BoxDecoration(
             color: Colors.grey.shade800,
@@ -1474,7 +1448,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Up to ${Constants.maxImageCount} images',
+              'Up to 10 images',
               style: TextStyle(
                 color: modernTheme.textSecondaryColor,
                 fontSize: 12,
