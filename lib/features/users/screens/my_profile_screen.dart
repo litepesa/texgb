@@ -252,7 +252,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   void _openVideoDetails(VideoModel video) {
     Navigator.pushNamed(
       context, 
-      Constants.postDetailScreen,
+      Constants.myPostScreen,
       arguments: {
         Constants.videoId: video.id,
         Constants.videoModel: video,

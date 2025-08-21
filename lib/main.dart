@@ -1,4 +1,4 @@
-// lib/main.dart (Updated for TikTok-style authentication system)
+// lib/main.dart (Updated with missing routes)
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +16,7 @@ import 'package:textgb/features/users/screens/user_profile_screen.dart';
 import 'package:textgb/features/videos/screens/single_video_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
+import 'package:textgb/features/videos/screens/my_post_screen.dart'; // Add this import
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
@@ -171,6 +172,26 @@ class AppRoot extends ConsumerWidget {
             throw ArgumentError('Invalid arguments for SingleVideoScreen');
           },
           
+          // Add the missing post detail/my post routes
+          Constants.postDetailScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            final videoId = args[Constants.videoId] as String;
+            return MyPostScreen(videoId: videoId);
+          },
+          
+          Constants.myPostScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments;
+            if (args is String) {
+              // Direct video ID
+              return MyPostScreen(videoId: args);
+            } else if (args is Map<String, dynamic>) {
+              // Map with video ID
+              final videoId = args[Constants.videoId] as String;
+              return MyPostScreen(videoId: videoId);
+            }
+            throw ArgumentError('Invalid arguments for MyPostScreen');
+          },
+          
           Constants.userProfileScreen: (context) {
             final userId = ModalRoute.of(context)!.settings.arguments as String;
             return UserProfileScreen(userId: userId);
@@ -231,6 +252,24 @@ class AppRoot extends ConsumerWidget {
                 ),
                 settings: settings,
               );
+            case '/my-post':
+              // Handle my post route dynamically
+              final args = settings.arguments;
+              if (args is String) {
+                return MaterialPageRoute(
+                  builder: (context) => MyPostScreen(videoId: args),
+                  settings: settings,
+                );
+              } else if (args is Map<String, dynamic>) {
+                final videoId = args[Constants.videoId] as String?;
+                if (videoId != null) {
+                  return MaterialPageRoute(
+                    builder: (context) => MyPostScreen(videoId: videoId),
+                    settings: settings,
+                  );
+                }
+              }
+              break;
           }
           
           // Return null to let the default route handling take over
@@ -314,7 +353,7 @@ class UserNavigationHelper {
     Navigator.pushNamed(context, Constants.usersListScreen);
   }
 
-  // Navigate to post detail
+  // Navigate to post detail - UPDATED
   static void navigateToPostDetail(
     BuildContext context, {
     required String videoId,
@@ -327,6 +366,18 @@ class UserNavigationHelper {
         Constants.videoId: videoId,
         Constants.videoModel: videoModel,
       },
+    );
+  }
+
+  // Navigate to my post - NEW METHOD
+  static void navigateToMyPost(
+    BuildContext context, {
+    required String videoId,
+  }) {
+    Navigator.pushNamed(
+      context,
+      Constants.myPostScreen,
+      arguments: videoId,
     );
   }
 
