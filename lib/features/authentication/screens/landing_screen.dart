@@ -1,10 +1,8 @@
-// lib/features/authentication/screens/landing_screen.dart
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 
 // State provider for loading state
@@ -35,15 +33,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
       final isAuthenticated = await authNotifier.checkAuthenticationState();
 
       if (isAuthenticated && mounted) {
-        // Check if user has profile
-        final userProfile = await authNotifier.getUserProfile();
-        if (userProfile != null) {
-          // User is fully authenticated with profile
-          Navigator.pushReplacementNamed(context, Constants.homeScreen);
-        } else {
-          // User is authenticated but needs to create profile
-          Navigator.pushReplacementNamed(context, Constants.createProfileScreen);
-        }
+        Navigator.pushReplacementNamed(context, Constants.homeScreen);
       }
     } catch (e) {
       debugPrint('Authentication check error: $e');
@@ -222,15 +212,6 @@ class _AppLogo extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: wechatGreen,
                     letterSpacing: -1.0,
-                  ),
-                ),
-                TextSpan(
-                  text: "微宝",
-                  style: TextStyle(
-                    color: const Color(0xFFFE2C55),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 40,
-                    letterSpacing: -0.3,
                   ),
                 ),
               ],

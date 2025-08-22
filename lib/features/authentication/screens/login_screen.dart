@@ -1,11 +1,9 @@
-// lib/features/authentication/screens/login_screen.dart
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -51,8 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch the authentication state using convenience providers
-    final isLoading = ref.watch(isAuthLoadingProvider);
+    final authState = ref.watch(authenticationProvider);
     final authNotifier = ref.read(authenticationProvider.notifier);
     final size = MediaQuery.of(context).size;
 
@@ -74,29 +71,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       children: [
                         TextSpan(
                           text: 'Wei',
-                          style: TextStyle(
-                            fontSize: 40,
+                          style: GoogleFonts.poppins(
+                            fontSize: 44,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
-                            letterSpacing: -0.3,
+                            letterSpacing: -0.5,
                           ),
                         ),
                         TextSpan(
                           text: 'Bao',
-                          style: TextStyle(
-                            fontSize: 45,
-                            fontWeight: FontWeight.w700,
+                          style: GoogleFonts.poppins(
+                            fontSize: 44,
+                            fontWeight: FontWeight.bold,
                             color: wechatGreen,
-                            letterSpacing: -1.0,
-                          ),
-                        ),
-                        TextSpan(
-                          text: "微宝",
-                          style: TextStyle(
-                            color: const Color(0xFFFE2C55),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 40,
-                            letterSpacing: -0.3,
+                            letterSpacing: -0.5,
                           ),
                         ),
                       ],
@@ -314,22 +302,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         elevation: 0,
                         shadowColor: Colors.transparent,
                       ),
-                      child: isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
+                      child: authState.when(
+                        data: (data) => data.isLoading
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                'Continue',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            )
-                          : Text(
-                              'Continue',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                        loading: () => const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        ),
+                        error: (error, stack) => Text(
+                          'Continue',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
