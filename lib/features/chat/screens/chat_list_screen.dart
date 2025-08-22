@@ -1,4 +1,4 @@
-// lib/features/chat/screens/chat_list_screen.dart - Updated with Caching
+// lib/features/chat/screens/chat_list_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -382,81 +382,27 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              style: TextStyle(color: modernTheme.textColor),
-              decoration: InputDecoration(
-                hintText: 'Search chats...',
-                hintStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: modernTheme.textSecondaryColor,
-                  size: 20,
-                ),
-                filled: true,
-                fillColor: modernTheme.backgroundColor?.withOpacity(0.5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-              onChanged: (query) => chatListNotifier.setSearchQuery(query),
-            ),
+      child: TextField(
+        style: TextStyle(color: modernTheme.textColor),
+        decoration: InputDecoration(
+          hintText: 'Search chats...',
+          hintStyle: TextStyle(color: modernTheme.textSecondaryColor),
+          prefixIcon: Icon(
+            Icons.search,
+            color: modernTheme.textSecondaryColor,
+            size: 20,
           ),
-          const SizedBox(width: 8),
-          PopupMenuButton<String>(
-            icon: Icon(
-              Icons.more_vert,
-              color: modernTheme.textColor,
-            ),
-            color: modernTheme.surfaceColor,
-            onSelected: _handleMenuAction,
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'refresh',
-                child: Row(
-                  children: [
-                    Icon(Icons.refresh, color: modernTheme.textColor, size: 20),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Refresh',
-                      style: TextStyle(color: modernTheme.textColor),
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'clear_cache',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_sweep, color: modernTheme.textColor, size: 20),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Clear Cache',
-                      style: TextStyle(color: modernTheme.textColor),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          filled: true,
+          fillColor: modernTheme.backgroundColor?.withOpacity(0.5),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide.none,
           ),
-        ],
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        onChanged: (query) => chatListNotifier.setSearchQuery(query),
       ),
     );
-  }
-
-  void _handleMenuAction(String action) {
-    switch (action) {
-      case 'refresh':
-        ref.refresh(chatListProvider);
-        break;
-      case 'clear_cache':
-        _clearChatListCache();
-        break;
-    }
   }
 
   Widget _buildNotAuthenticatedState(ModernThemeExtension modernTheme) {

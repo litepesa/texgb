@@ -1,4 +1,4 @@
-
+//main.dart
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +13,15 @@ import 'package:textgb/features/authentication/screens/user_information_screen.d
 
 // Chat screens
 import 'package:textgb/features/chat/screens/chat_screen.dart';
+
+
+// Moments screens
+import 'package:textgb/features/moments/models/moment_model.dart';
+import 'package:textgb/features/moments/screens/create_moment_screen.dart';
+import 'package:textgb/features/moments/screens/moment_comments_screen.dart';
+import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
+import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
+import 'package:textgb/features/moments/screens/my_moments_screen.dart';
 
 // Contact screens
 import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
@@ -181,6 +190,25 @@ class AppRoot extends ConsumerWidget {
             final args = ModalRoute.of(context)!.settings.arguments as UserModel;
             return ContactProfileScreen(contact: args);
           },
+
+          // Moments routes
+          Constants.momentsRecommendationsScreen: (context) => const MomentsRecommendationsScreen(),
+
+          Constants.momentsFeedScreen: (context) {
+            final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+            return MomentsFeedScreen(
+              startMomentId: args?['startMomentId'] as String?,
+            );
+          },
+
+          Constants.createMomentScreen: (context) => const CreateMomentScreen(),
+
+          Constants.momentCommentsScreen: (context) {
+            final moment = ModalRoute.of(context)!.settings.arguments as MomentModel;
+            return MomentCommentsScreen(moment: moment);
+          },
+
+          Constants.myMomentsScreen: (context) => const MyMomentsScreen(),
 
           // Status routes
           Constants.statusScreen: (context) => const StatusScreen(),

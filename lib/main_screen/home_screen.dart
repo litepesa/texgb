@@ -6,12 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
+import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/chat/screens/chat_list_screen.dart';
+import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
-import 'package:textgb/features/status/screens/status_screen.dart';
-import 'package:textgb/features/groups/screens/groups_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 
@@ -30,15 +29,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isPageAnimating = false;
   
   final List<String> _tabNames = [
-    'Chats',
-    'Groups',
-    'Status',
+    'Inbox',
+    'Moments',
     'Commerce'
   ];
   
   final List<IconData> _tabIcons = [
     CupertinoIcons.bubble_left_bubble_right,
-    Icons.group,
     Icons.donut_large_rounded,
     Icons.radio_button_checked_rounded
   ];
@@ -122,19 +119,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           // Chats tab (index 0)
           Container(
             color: modernTheme.surfaceColor,
-            child: const ChatListScreen(),
+            child: const ChatsTab(),
           ),
-          // Groups tab (index 1)
+          // Status tab (index 1)
           Container(
             color: modernTheme.backgroundColor,
-            child: const GroupsScreen(),
+            child: const MomentsRecommendationsScreen(),
           ),
-          // Status tab (index 2)
-          Container(
-            color: modernTheme.backgroundColor,
-            child: const StatusScreen(),
-          ),
-          // Channels tab (index 3)
+          // Channels tab (index 2)
           Container(
             color: modernTheme.backgroundColor,
             child: const ChannelsListScreen(),
@@ -172,7 +164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(4, (index) {
+              children: List.generate(3, (index) {
                 return _buildBottomNavItem(index, modernTheme);
               }),
             ),
@@ -243,7 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   // Show FAB on Chats, Status and Channels tabs
   bool _shouldShowFab() {
-    return _currentIndex == 0 || _currentIndex == 2 || _currentIndex == 3;
+    return _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 2;
   }
   
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
@@ -433,7 +425,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
       ]);
-    } else if (_currentIndex == 3) {
+    } else if (_currentIndex == 2) {
       // Channels tab - add "My Channel" and "Explore" options
       items.addAll([
         PopupMenuItem<String>(
@@ -500,7 +492,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ]);
     }
-    // Groups (index 1) and Status (index 2) tabs have empty dropdown menus as requested
+    // Status tab (index 1) has empty dropdown menu as requested
 
     return items;
   }
@@ -516,7 +508,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         onPressed: () => Navigator.pushNamed(context, Constants.contactsScreen),
         child: const Icon(CupertinoIcons.bubble_left_bubble_right_fill),
       );
-    } else if (_currentIndex == 2) {
+    } else if (_currentIndex == 1) {
       // Status tab - Create Status FAB
       return FloatingActionButton(
         heroTag: "status_fab",
@@ -526,7 +518,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         onPressed: () => _createStatus(),
         child: const Icon(Icons.camera_alt),
       );
-    } else if (_currentIndex == 3) {
+    } else if (_currentIndex == 2) {
       // Channels tab - Create Post FAB
       return FloatingActionButton(
         heroTag: "channels_fab",

@@ -1,1037 +1,598 @@
-// lib/features/channels/screens/channels_feed_screen.dart
-
-import 'dart:async';
+// lib/features/moments/widgets/moment_comments_bottom_sheet.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
-import 'package:textgb/features/channels/providers/channels_provider.dart';
-import 'package:textgb/features/channels/widgets/channel_video_item.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
-import 'package:textgb/features/channels/services/video_cache_service.dart';
-import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
-import 'package:textgb/constants.dart';
-import 'package:video_player/video_player.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import 'package:textgb/features/moments/models/moment_model.dart';
+import 'package:textgb/features/moments/models/moment_comment_model.dart';
+import 'package:textgb/features/moments/providers/moments_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/shared/utilities/global_methods.dart';
 
-class ChannelsFeedScreen extends ConsumerStatefulWidget {
-  final String? startVideoId; // For direct video navigation
-  final String? channelId; // For channel-specific filtering (optional)
+class ExpandableCommentText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+  final bool isMainComment;
 
-  const ChannelsFeedScreen({
-    Key? key,
-    this.startVideoId,
-    this.channelId,
-  }) : super(key: key);
+  const ExpandableCommentText({
+    super.key,
+    required this.text,
+    required this.style,
+    this.maxLines = 3,
+    this.isMainComment = true,
+  });
 
   @override
-  ConsumerState<ChannelsFeedScreen> createState() => ChannelsFeedScreenState();
+  State<ExpandableCommentText> createState() => _ExpandableCommentTextState();
 }
 
-class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen> 
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver, RouteAware {
-  
-  // Core controllers
-  final PageController _pageController = PageController();
-  
-  // Cache service
-  final VideoCacheService _cacheService = VideoCacheService();
-  
-  // State management
-  bool _isFirstLoad = true;
-  int _currentVideoIndex = 0;
-  bool _isScreenActive = true;
-  bool _isAppInForeground = true;
-  bool _hasInitialized = false;
-  bool _isNavigatingAway = false; // Track navigation state
-  bool _isManuallyPaused = false; // Track if user manually paused the video
-  bool _isCommentsSheetOpen = false; // Track comments sheet state
-  
-  VideoPlayerController? _currentVideoController;
-  Timer? _cacheCleanupTimer;
-  
-  // Store original system UI for restoration
-  SystemUiOverlayStyle? _originalSystemUiStyle;
-  
-  static const Duration _cacheCleanupInterval = Duration(minutes: 10);
-
-  @override
-  bool get wantKeepAlive => true;
+class _ExpandableCommentTextState extends State<ExpandableCommentText>
+    with TickerProviderStateMixin {
+  bool _isExpanded = false;
+  bool _needsExpansion = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _initializeControllers();
-    _loadVideos();
-    _setupCacheCleanup();
-    _hasInitialized = true;
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Store original system UI after dependencies are available
-    if (_originalSystemUiStyle == null) {
-      _storeOriginalSystemUI();
-    }
-  }
-
-  void _storeOriginalSystemUI() {
-    // Store the current system UI style before making changes
-    final brightness = Theme.of(context).brightness;
-    _originalSystemUiStyle = SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
     );
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    
-    switch (state) {
-      case AppLifecycleState.resumed:
-        _isAppInForeground = true;
-        if (_isScreenActive && !_isNavigatingAway && !_isCommentsSheetOpen) {
-          _startFreshPlayback();
-        }
-        break;
-      case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-        _isAppInForeground = false;
-        _stopPlayback();
-        break;
-      case AppLifecycleState.hidden:
-        break;
-    }
-  }
-
-  void onScreenBecameActive() {
-    if (!_hasInitialized) return;
-    
-    debugPrint('ChannelsFeedScreen: Screen became active');
-    _isScreenActive = true;
-    _isNavigatingAway = false; // Reset navigation state
-    
-    // Setup system UI when becoming active
-    _setupSystemUI();
-    
-    if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
-      _startFreshPlayback();
-      _startIntelligentPreloading();
-      WakelockPlus.enable();
-    }
-  }
-
-  void onScreenBecameInactive() {
-    if (!_hasInitialized) return;
-    
-    debugPrint('ChannelsFeedScreen: Screen became inactive');
-    _isScreenActive = false;
-    _stopPlayback();
-    
-    // Restore original system UI when becoming inactive
-    _restoreOriginalSystemUI();
-    
-    WakelockPlus.disable();
-  }
-
-  void _restoreOriginalSystemUI() {
-    if (_originalSystemUiStyle != null) {
-      SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
-    } else {
-      // Fallback: restore based on current theme
-      final brightness = Theme.of(context).brightness;
-      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-      ));
-    }
-  }
-
-  // New method to handle navigation away from feed
-  void _pauseForNavigation() {
-    debugPrint('ChannelsFeedScreen: Pausing for navigation');
-    _isNavigatingAway = true;
-    _stopPlayback();
-  }
-
-  // New method to handle returning from navigation
-  void _resumeFromNavigation() {
-    debugPrint('ChannelsFeedScreen: Resuming from navigation');
-    _isNavigatingAway = false;
-    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
-      // Add a small delay to ensure the screen is fully visible before starting playback
-      Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
-          _startFreshPlayback();
-        }
-      });
-    }
-  }
-
-  void _startFreshPlayback() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) return;
-    
-    debugPrint('ChannelsFeedScreen: Starting fresh playback');
-    
-    // Only seek to beginning for truly fresh starts (new videos or screen activation)
-    // Don't seek when resuming from manual pause
-    if (_currentVideoController?.value.isInitialized == true) {
-      _currentVideoController!.play();
-      debugPrint('ChannelsFeedScreen: Video controller playing');
-    } else {
-      // If video controller isn't ready, trigger a re-initialization
-      debugPrint('ChannelsFeedScreen: Video controller not ready, attempting initialization');
-      final videos = ref.read(channelVideosProvider).videos;
-      if (videos.isNotEmpty && _currentVideoIndex < videos.length) {
-        // This will trigger the video item to reinitialize if needed
-        setState(() {});
-      }
-    }
-    
-    _startIntelligentPreloading();
-    
-    WakelockPlus.enable();
-  }
-
-  void _stopPlayback() {
-    debugPrint('ChannelsFeedScreen: Stopping playback');
-    
-    if (_currentVideoController?.value.isInitialized == true) {
-      _currentVideoController!.pause();
-      // Seek to beginning for fresh start next time
-      _currentVideoController!.seekTo(Duration.zero);
-    }
-  }
-
-  // Add method to control video window mode (matching moments feed exactly)
-  void _setVideoWindowMode(bool isSmallWindow) {
-    setState(() {
-      _isCommentsSheetOpen = isSmallWindow;
-    });
-    
-    // IMPORTANT: Don't pause video when comments open - keep playing like moments feed
-    // Video should continue playing in both full screen and reduced window
-  }
-
-  // Add this new method to build the small video window (matching moments feed exactly)
-  Widget _buildSmallVideoWindow() {
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    
-    return Positioned(
-      top: systemTopPadding + 20,
-      right: 20,
-      child: GestureDetector(
-        onTap: () {
-          // Close comments and return to full screen
-          Navigator.of(context).pop();
-          _setVideoWindowMode(false);
-        },
-        child: Container(
-          width: 120,
-          height: 180,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.4),
-                blurRadius: 15,
-                spreadRadius: 3,
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              children: [
-                // Video content
-                Positioned.fill(
-                  child: _buildCurrentVideoWidget(),
-                ),
-                
-                // Close button overlay
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCurrentVideoWidget() {
-    final videos = ref.read(channelVideosProvider).videos;
-    if (videos.isEmpty || _currentVideoIndex >= videos.length) {
-      return Container(color: Colors.black);
-    }
-    
-    final currentVideo = videos[_currentVideoIndex];
-    
-    return ChannelVideoItem(
-      video: currentVideo,
-      isActive: false, // Don't auto-play in small window
-      isCommentsOpen: true, // Mark as comments mode
-    );
-  }
-
-  void _initializeControllers() {
-    // Controllers initialization if needed in the future
-  }
-
-  void _setupSystemUI() {
-    // Set both status bar and navigation bar to black for immersive TikTok-style experience
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black, // Changed from transparent to black
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black, // Keep black for immersive experience
-      systemNavigationBarIconBrightness: Brightness.light,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
     ));
-  }
-
-  void _setupCacheCleanup() {
-    _cacheCleanupTimer = Timer.periodic(_cacheCleanupInterval, (timer) {
-      _cacheService.cleanupOldCache();
+    
+    // Check if text needs expansion after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfNeedsExpansion();
     });
-  }
-
-  Future<void> _loadVideos() async {
-    if (_isFirstLoad) {
-      debugPrint('ChannelsFeedScreen: Loading initial videos');
-      await ref.read(channelVideosProvider.notifier).loadVideos();
-      
-      if (mounted) {
-        setState(() {
-          _isFirstLoad = false;
-        });
-        
-        // If a specific video ID was provided, jump to it
-        if (widget.startVideoId != null) {
-          _jumpToVideo(widget.startVideoId!);
-        }
-        
-        if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isCommentsSheetOpen) {
-          Timer(const Duration(milliseconds: 500), () {
-            if (mounted && _isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isCommentsSheetOpen) {
-              _startIntelligentPreloading();
-            }
-          });
-        }
-      }
-    }
-  }
-
-  // Add this method to jump to a specific video
-  void _jumpToVideo(String videoId) {
-    final videos = ref.read(channelVideosProvider).videos;
-    final videoIndex = videos.indexWhere((video) => video.id == videoId);
-    
-    if (videoIndex != -1) {
-      debugPrint('ChannelsFeedScreen: Jumping to video at index $videoIndex');
-      
-      // Use a delay to ensure the PageView is ready and videos are loaded
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted && _pageController.hasClients) {
-          _pageController.jumpToPage(videoIndex);
-          
-          // Update the current video index
-          setState(() {
-            _currentVideoIndex = videoIndex;
-          });
-          
-          debugPrint('ChannelsFeedScreen: Successfully jumped to video $videoId at index $videoIndex');
-        }
-      });
-    } else {
-      debugPrint('ChannelsFeedScreen: Video with ID $videoId not found in list');
-    }
-  }
-
-  void _startIntelligentPreloading() {
-    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
-    
-    final videos = ref.read(channelVideosProvider).videos;
-    if (videos.isEmpty) return;
-    
-    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
-    _cacheService.preloadVideosIntelligently(videos, _currentVideoIndex);
-  }
-
-  void _preloadNextBatch() {
-    final videos = ref.read(channelVideosProvider).videos;
-    if (videos.isEmpty) return;
-    
-    _cacheService.preloadNextBatch(videos, _currentVideoIndex);
-  }
-
-  void _onVideoControllerReady(VideoPlayerController controller) {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
-    
-    debugPrint('Video controller ready, setting up fresh playback');
-    
-    setState(() {
-      _currentVideoController = controller;
-    });
-
-    // Always start fresh from the beginning for NEW videos
-    controller.seekTo(Duration.zero);
-    
-    WakelockPlus.enable();
-    
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
-      _startIntelligentPreloading();
-    }
-  }
-
-  // Separate method for starting fresh video (seeks to beginning)
-  void _startFreshVideo() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) return;
-    
-    debugPrint('ChannelsFeedScreen: Starting fresh video from beginning');
-    
-    if (_currentVideoController?.value.isInitialized == true) {
-      _currentVideoController!.seekTo(Duration.zero);
-      _currentVideoController!.play();
-    }
-    
-    _startFreshPlayback();
-  }
-
-  // Method to handle manual play/pause from video item
-  void onManualPlayPause(bool isPlaying) {
-    debugPrint('ChannelsFeedScreen: Manual play/pause - isPlaying: $isPlaying');
-    setState(() {
-      _isManuallyPaused = !isPlaying;
-    });
-  }
-
-  void _onPageChanged(int index) {
-    final videos = ref.read(channelVideosProvider).videos;
-    if (index >= videos.length || !_isScreenActive) return;
-
-    debugPrint('Page changed to: $index');
-
-    setState(() {
-      _currentVideoIndex = index;
-      _currentVideoController = null;
-      _isManuallyPaused = false; // Reset manual pause state for new video
-    });
-
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
-      _startIntelligentPreloading();
-      WakelockPlus.enable();
-    }
-    
-    ref.read(channelVideosProvider.notifier).incrementViewCount(videos[index].id);
   }
 
   @override
   void dispose() {
-    debugPrint('ChannelsFeedScreen: Disposing');
-    
-    WidgetsBinding.instance.removeObserver(this);
-    
-    _cacheCleanupTimer?.cancel();
-    
-    _pageController.dispose();
-    
-    _stopPlayback();
-    _cacheService.dispose();
-    
-    // Restore original system UI on dispose
-    _restoreOriginalSystemUI();
-    
-    WakelockPlus.disable();
-    
+    _animationController.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
+  void _checkIfNeedsExpansion() {
+    final TextPainter textPainter = TextPainter(
+      text: TextSpan(text: widget.text, style: widget.style),
+      maxLines: widget.maxLines,
+      textDirection: TextDirection.ltr,
+    );
     
-    // Setup system UI for current theme
-    _setupSystemUI();
+    textPainter.layout(maxWidth: MediaQuery.of(context).size.width - 120); // Account for avatar and padding
     
-    final channelVideosState = ref.watch(channelVideosProvider);
-    final channelsState = ref.watch(channelsProvider);
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
-    
-    if (_isFirstLoad && channelVideosState.isLoading) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: SizedBox.shrink(),
-      );
-    }
-    
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      extendBody: true,
-      backgroundColor: Colors.black,
-      body: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
-        child: Stack(
-          children: [
-            // Main content - positioned to avoid covering status bar and system nav
-            Positioned(
-              top: systemTopPadding, // Start below status bar
-              left: 0,
-              right: 0,
-              bottom: systemBottomPadding, // Reserve space above system nav
-              child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
-                child: _buildBody(channelVideosState, channelsState),
-              ),
-            ),
-            
-            // Small video window when comments are open (matching moments feed exactly)
-            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-          
-          // Top navigation - simplified header matching moments feed style
-          if (!_isCommentsSheetOpen) // Hide top bar when comments are open
-            Positioned(
-              top: systemTopPadding + 16, // Positioned below status bar with some padding
-              left: 0,
-              right: 0,
-              child: _buildSimplifiedHeader(),
-            ),
-          
-          // TikTok-style right side menu
-          if (!_isCommentsSheetOpen) // Hide right menu when comments are open
-            _buildRightSideMenu(),
-          
-          // Cache performance indicator (debug mode only)
-          if (kDebugMode && !_isCommentsSheetOpen)
-            Positioned(
-              top: systemTopPadding + 120,
-              left: 16,
-              child: _buildCacheDebugInfo(),
-            ),
-        ],
-      ),
-    ));
-  }
-
-  Widget _buildBody(ChannelVideosState videosState, ChannelsState channelsState) {
-    
-    if (!videosState.isLoading && channelsState.userChannel == null) {
-      return _buildCreateChannelPrompt();
-    }
-
-    if (!videosState.isLoading && videosState.videos.isEmpty) {
-      return _buildEmptyState(channelsState);
-    }
-
-    return PageView.builder(
-      controller: _pageController,
-      scrollDirection: Axis.vertical,
-      itemCount: videosState.videos.length,
-      onPageChanged: _onPageChanged,
-      physics: _isScreenActive && !_isCommentsSheetOpen ? null : const NeverScrollableScrollPhysics(),
-      itemBuilder: (context, index) {
-        final video = videosState.videos[index];
-        
-        return ChannelVideoItem(
-          video: video,
-          isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
-          onVideoControllerReady: _onVideoControllerReady,
-          onManualPlayPause: onManualPlayPause,
-          isCommentsOpen: _isCommentsSheetOpen, // Pass comments state to video item
-        );
-      },
-    );
-  }
-
-  // New simplified header matching moments feed screen style
-  Widget _buildSimplifiedHeader() {
-    return Row(
-      children: [
-        // Back button
-        Material(
-          type: MaterialType.transparency,
-          child: IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(
-              CupertinoIcons.chevron_left,
-              color: Colors.white,
-              size: 28,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            iconSize: 28,
-            padding: const EdgeInsets.all(12),
-            constraints: const BoxConstraints(
-              minWidth: 44,
-              minHeight: 44,
-            ),
-            splashRadius: 24,
-            tooltip: 'Back',
-          ),
-        ),
-        
-        // "Discover" title with icon in center - matching moments style
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(width: 8),
-              Text(
-                'Discover',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.7),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        // Search button
-        IconButton(
-          onPressed: () {
-            // TODO: Add search functionality
-          },
-          icon: const Icon(
-            CupertinoIcons.search,
-            color: Colors.white,
-            size: 28,
-            shadows: [
-              Shadow(
-                color: Colors.black,
-                blurRadius: 3,
-                offset: Offset(0, 1),
-              ),
-            ],
-          ),
-          iconSize: 28,
-          padding: const EdgeInsets.all(12),
-          constraints: const BoxConstraints(
-            minWidth: 44,
-            minHeight: 44,
-          ),
-          splashRadius: 24,
-          tooltip: 'Search',
-        ),
-      ],
-    );
-  }
-
-  // TikTok-style right side menu (Douyin icons) - optimized positioning
-  Widget _buildRightSideMenu() {
-    final videos = ref.watch(channelVideosProvider).videos;
-    final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
-        ? videos[_currentVideoIndex] 
-        : null;
-    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
-
-    return Positioned(
-      right: 4, // Much closer to edge
-      bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
-      child: Column(
-        children: [
-          // Like button
-          _buildRightMenuItem(
-            child: Icon(
-              currentVideo?.isLiked == true ? CupertinoIcons.heart : CupertinoIcons.heart,
-              color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
-              size: 26,
-            ),
-            label: _formatCount(currentVideo?.likes ?? 0),
-            onTap: () => _likeCurrentVideo(currentVideo),
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // Comment button
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.text_bubble,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: _formatCount(currentVideo?.comments ?? 0),
-            onTap: () => _showCommentsForCurrentVideo(currentVideo),
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // Star button (save/bookmark)
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.star,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: '0',
-            onTap: () {
-              // TODO: Add save/bookmark functionality
-            },
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // Share button
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.arrowshape_turn_up_right,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: '0',
-            onTap: () => _showShareOptions(),
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // Gift button
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.gift,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: 'Gift',
-            onTap: () {
-              // TODO: Implement gift functionality
-            },
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // DM button - custom white rounded square with 'DM' text (from moments feed)
-          _buildRightMenuItem(
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Center(
-                child: Text(
-                  'DM',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            label: 'Inbox',
-            onTap: () {
-              // TODO: Add DM functionality
-            },
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // Profile avatar with red border - moved to bottom and changed to rounded square
-          _buildRightMenuItem(
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8), // Rounded square instead of circle
-                border: Border.all(color: Colors.red, width: 2),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6), // Slightly smaller radius for the image
-                child: currentVideo?.channelImage.isNotEmpty == true
-                    ? Image.network(
-                        currentVideo!.channelImage,
-                        width: 44,
-                        height: 44,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: 44,
-                            height: 44,
-                            color: Colors.grey,
-                            child: Center(
-                              child: Text(
-                                currentVideo?.channelName.isNotEmpty == true
-                                    ? currentVideo!.channelName[0].toUpperCase()
-                                    : "U",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      )
-                    : Container(
-                        width: 44,
-                        height: 44,
-                        color: Colors.grey,
-                        child: Center(
-                          child: Text(
-                            currentVideo?.channelName.isNotEmpty == true
-                                ? currentVideo!.channelName[0].toUpperCase()
-                                : "U",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-              ),
-            ),
-            onTap: () => _navigateToChannelProfile(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRightMenuItem({
-    required Widget child,
-    String? label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4), // Reduced padding
-            child: child,
-          ),
-          if (label != null) ...[
-            const SizedBox(height: 2), // Reduced spacing
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11, // Slightly smaller text
-                fontWeight: FontWeight.w500,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 2,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCacheDebugInfo() {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _cacheService.getCacheStats(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-        
-        final stats = snapshot.data!;
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.7),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Cache: ${stats['fileCount']} files (${stats['totalSizeMB']}MB)',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                ),
-              ),
-              Text(
-                'Queue: ${stats['queueLength']} | Loading: ${stats['preloadingCount']}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildCreateChannelPrompt() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.video_library,
-            color: Colors.white,
-            size: 80,
-          ),
-          SizedBox(height: 24),
-          Text(
-            'Create your Channel',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 32),
-          // Add create channel button here
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(ChannelsState channelsState) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.videocam_off_outlined,
-            color: Colors.white,
-            size: 80,
-          ),
-          SizedBox(height: 24),
-          Text(
-            'No Videos Yet',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          // Add create post button here
-        ],
-      ),
-    );
-  }
-
-  void _navigateToChannelProfile() async {
-    final videos = ref.read(channelVideosProvider).videos;
-    if (_currentVideoIndex < videos.length) {
-      // Pause video before navigation
-      _pauseForNavigation();
-      
-      final result = await Navigator.of(context).pushNamed(
-        Constants.channelProfileScreen,
-        arguments: videos[_currentVideoIndex].channelId,
-      );
-      
-      // Resume video after returning from navigation
-      _resumeFromNavigation();
-    }
-  }
-
-  void _likeCurrentVideo(ChannelVideoModel? video) {
-    if (video != null) {
-      ref.read(channelVideosProvider.notifier).likeVideo(video.id);
-    }
-  }
-
-  void _showCommentsForCurrentVideo(ChannelVideoModel? video) {
-    if (video != null && !_isCommentsSheetOpen) {
-      // Set video to small window mode (matching moments feed exactly)
-      _setVideoWindowMode(true);
-      
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.transparent,
-        builder: (context) => ChannelCommentsBottomSheet(
-          video: video,
-          onClose: () {
-            // Reset video to full screen mode
-            _setVideoWindowMode(false);
-          },
-        ),
-      ).whenComplete(() {
-        // Ensure video returns to full screen mode
-        _setVideoWindowMode(false);
+    if (textPainter.didExceedMaxLines) {
+      setState(() {
+        _needsExpansion = true;
       });
     }
   }
 
-  void _showShareOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
+  void _toggleExpansion() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+    
+    if (_isExpanded) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
+    
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
+  }
+
+  String _getTruncatedText() {
+    if (!_needsExpansion || _isExpanded) return widget.text;
+    
+    final words = widget.text.split(' ');
+    if (words.length <= 20) return widget.text; // Don't truncate very short texts
+    
+    // Find a good breaking point (roughly 2-3 lines worth)
+    final targetLength = widget.isMainComment ? 120 : 100;
+    int currentLength = 0;
+    int wordIndex = 0;
+    
+    for (int i = 0; i < words.length; i++) {
+      currentLength += words[i].length + 1; // +1 for space
+      if (currentLength > targetLength) {
+        wordIndex = i;
+        break;
+      }
+    }
+    
+    if (wordIndex == 0) wordIndex = words.length ~/ 2; // Fallback
+    
+    return '${words.take(wordIndex).join(' ')}...';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = _getTruncatedText();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedCrossFade(
+          firstChild: Text(
+            displayText,
+            style: widget.style,
+          ),
+          secondChild: Text(
+            widget.text,
+            style: widget.style,
+          ),
+          crossFadeState: _isExpanded 
+              ? CrossFadeState.showSecond 
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Share Video',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        
+        if (_needsExpansion) ...[
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: _toggleExpansion,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              child: Text(
+                _isExpanded ? 'Show less' : 'Read more',
+                style: TextStyle(
+                  color: const Color(0xFF007AFF), // iOS blue
+                  fontSize: widget.isMainComment ? 12 : 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class MomentCommentsBottomSheet extends ConsumerStatefulWidget {
+  final MomentModel moment;
+  final VoidCallback? onClose;
+
+  const MomentCommentsBottomSheet({
+    super.key,
+    required this.moment,
+    this.onClose,
+  });
+
+  @override
+  ConsumerState<MomentCommentsBottomSheet> createState() => _MomentCommentsBottomSheetState();
+}
+
+class _MomentCommentsBottomSheetState extends ConsumerState<MomentCommentsBottomSheet>
+    with TickerProviderStateMixin {
+  final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+  
+  late AnimationController _slideController;
+  late Animation<Offset> _slideAnimation;
+  
+  String? _replyingToCommentId;
+  String? _replyingToAuthorName;
+  bool _isExpanded = false;
+
+  // Custom theme-independent colors
+  static const Color _pureWhite = Color(0xFFFFFFFF);
+  static const Color _pureBlack = Color(0xFF000000);
+  static const Color _darkGray = Color(0xFF3C3C43);
+  static const Color _mediumGray = Color(0xFF8E8E93);
+  static const Color _lightGray = Color(0xFFF2F2F7);
+  static const Color _borderGray = Color(0xFFE5E5E7);
+  static const Color _iosBlue = Color(0xFF007AFF);
+  static const Color _iosRed = Color(0xFFFF3B30);
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAnimations();
+    _setupKeyboardListener();
+    _setupTextControllerListener();
+  }
+
+  void _initializeAnimations() {
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    // Start animation
+    _slideController.forward();
+  }
+
+  void _setupKeyboardListener() {
+    _commentFocusNode.addListener(() {
+      if (_commentFocusNode.hasFocus) {
+        _expandSheet();
+      }
+    });
+  }
+
+  void _setupTextControllerListener() {
+    _commentController.addListener(() {
+      setState(() {}); // Update UI when text changes for send button state
+    });
+  }
+
+  void _expandSheet() {
+    if (!_isExpanded) {
+      setState(() {
+        _isExpanded = true;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _slideController.dispose();
+    _commentController.dispose();
+    _commentFocusNode.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _closeSheet() async {
+    // Animate out
+    await _slideController.reverse();
+    
+    if (mounted) {
+      widget.onClose?.call();
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final sheetHeight = _isExpanded ? screenHeight * 0.9 : screenHeight * 0.6;
+    
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          _closeSheet();
+        }
+      },
+      child: Theme(
+        // Force light theme for the bottom sheet regardless of app theme
+        data: ThemeData(
+          brightness: Brightness.light,
+          scaffoldBackgroundColor: Colors.transparent,
+          colorScheme: const ColorScheme.light(
+            surface: _pureWhite,
+            onSurface: _pureBlack,
+            primary: _iosBlue,
+            onPrimary: _pureWhite,
+          ),
+        ),
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          resizeToAvoidBottomInset: false,
+          body: Stack(
+            children: [
+              // Dimmed background
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: _closeSheet,
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5),
+                  ),
+                ),
+              ),
+              
+              // Comments bottom sheet with custom white theme
+              SlideTransition(
+                position: _slideAnimation,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    height: sheetHeight + bottomInset + systemBottomPadding,
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: _pureWhite,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x1A000000), // 10% black shadow
+                          blurRadius: 20,
+                          spreadRadius: 0,
+                          offset: Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildSheetHeader(),
+                        _buildMomentInfo(),
+                        Expanded(child: _buildCommentsList()),
+                        _buildCommentInput(bottomInset, systemBottomPadding),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSheetHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: const BoxDecoration(
+        color: _pureWhite,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Drag handle
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: _borderGray,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Header with title and close button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
               children: [
-                _buildShareOption(Icons.copy, 'Copy Link'),
-                _buildShareOption(Icons.message, 'Message'),
-                _buildShareOption(Icons.more_horiz, 'More'),
+                const Expanded(
+                  child: Text(
+                    'Comments',
+                    style: TextStyle(
+                      color: _pureBlack,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _closeSheet,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: _lightGray,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: _mediumGray,
+                      size: 20,
+                    ),
+                  ),
+                ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMomentInfo() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: _pureWhite,
+        border: Border(
+          bottom: BorderSide(
+            color: _borderGray,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundImage: widget.moment.authorImage.isNotEmpty
+                ? NetworkImage(widget.moment.authorImage)
+                : null,
+            backgroundColor: _lightGray,
+            child: widget.moment.authorImage.isEmpty
+                ? Text(
+                    widget.moment.authorName.isNotEmpty 
+                        ? widget.moment.authorName[0].toUpperCase()
+                        : "U",
+                    style: const TextStyle(
+                      color: _mediumGray,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.moment.authorName,
+                  style: const TextStyle(
+                    color: _pureBlack,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+                Text(
+                  timeago.format(widget.moment.createdAt),
+                  style: const TextStyle(
+                    color: _mediumGray,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentsList() {
+    final commentsStream = ref.watch(momentCommentsStreamProvider(widget.moment.id));
+
+    return commentsStream.when(
+      loading: () => const Center(
+        child: CircularProgressIndicator(
+          color: _iosBlue,
+        ),
+      ),
+      error: (error, stack) => _buildErrorState(error.toString()),
+      data: (comments) {
+        if (comments.isEmpty) {
+          return _buildEmptyCommentsState();
+        }
+
+        // Group comments by replies
+        final groupedComments = _groupCommentsByReplies(comments);
+
+        return Container(
+          color: _pureWhite,
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: groupedComments.length,
+            itemBuilder: (context, index) {
+              final commentGroup = groupedComments[index];
+              return _buildCommentGroup(commentGroup);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  List<CommentGroup> _groupCommentsByReplies(List<MomentCommentModel> comments) {
+    final Map<String, CommentGroup> groups = {};
+    final List<CommentGroup> result = [];
+
+    // First pass: create groups for main comments
+    for (final comment in comments) {
+      if (!comment.isReply) {
+        final group = CommentGroup(mainComment: comment, replies: []);
+        groups[comment.id] = group;
+        result.add(group);
+      }
+    }
+
+    // Second pass: add replies to their groups
+    for (final comment in comments) {
+      if (comment.isReply && comment.repliedToCommentId != null) {
+        final group = groups[comment.repliedToCommentId!];
+        if (group != null) {
+          group.replies.add(comment);
+        }
+      }
+    }
+
+    // Sort replies by creation time (oldest first)
+    for (final group in result) {
+      group.replies.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    }
+
+    return result;
+  }
+
+  Widget _buildCommentGroup(CommentGroup group) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      child: _buildCommentThread(group),
+    );
+  }
+
+  Widget _buildCommentThread(CommentGroup group) {
+    return Column(
+      children: [
+        _buildEnhancedCommentItem(group.mainComment),
+        if (group.replies.isNotEmpty) ...[
+          // Show first 2 replies directly
+          Padding(
+            padding: const EdgeInsets.only(left: 48),
+            child: Column(
+              children: group.replies.take(2).map((reply) => 
+                _buildEnhancedCommentItem(reply, isReply: true)
+              ).toList(),
+            ),
+          ),
+          
+          // Show "view more replies" if there are more than 2
+          if (group.replies.length > 2) ...[
+            _buildViewMoreReplies(group),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildViewMoreReplies(CommentGroup group) {
+    return Container(
+      padding: const EdgeInsets.only(left: 64, right: 16, top: 8, bottom: 8),
+      child: GestureDetector(
+        onTap: () => _showAllReplies(group),
+        child: Row(
+          children: [
+            Container(
+              width: 20,
+              height: 1,
+              color: _borderGray,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'View ${group.replies.length - 2} more replies',
+              style: const TextStyle(
+                color: _iosBlue,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.keyboard_arrow_down,
+              color: _iosBlue,
+              size: 16,
             ),
           ],
         ),
@@ -1039,65 +600,769 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  Widget _buildShareOption(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: const BoxDecoration(
-            color: Colors.grey,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: Colors.white),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white,
-          ),
-        ),
-      ],
+  void _showAllReplies(CommentGroup group) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildFullRepliesSheet(group),
     );
   }
 
-  String _formatCount(int count) {
-    if (count == 0) return '0';
-    if (count < 1000) {
-      return count.toString();
-    } else if (count < 1000000) {
-      return '${(count / 1000).toStringAsFixed(1)}K';
+  Widget _buildFullRepliesSheet(CommentGroup group) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: const BoxDecoration(
+        color: _pureWhite,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: _pureWhite,
+              border: Border(
+                bottom: BorderSide(color: _borderGray),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Replies to ${group.mainComment.authorName}',
+                    style: const TextStyle(
+                      color: _pureBlack,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(
+                    Icons.close,
+                    color: _mediumGray,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Original comment (condensed)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: const BoxDecoration(
+              color: _lightGray,
+              border: Border(
+                bottom: BorderSide(color: _borderGray),
+              ),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundImage: group.mainComment.authorImage.isNotEmpty
+                      ? NetworkImage(group.mainComment.authorImage)
+                      : null,
+                  backgroundColor: _borderGray,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        group.mainComment.authorName,
+                        style: const TextStyle(
+                          color: _pureBlack,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        group.mainComment.content,
+                        style: const TextStyle(
+                          color: _darkGray,
+                          fontSize: 13,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // All replies
+          Expanded(
+            child: Container(
+              color: _pureWhite,
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: group.replies.length,
+                itemBuilder: (context, index) {
+                  return _buildEnhancedCommentItem(group.replies[index], isReply: true);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedCommentItem(MomentCommentModel comment, {bool isReply = false}) {
+    final currentUser = ref.watch(currentUserProvider);
+    final isLiked = currentUser != null && comment.likedBy.contains(currentUser.uid);
+    final isOwn = currentUser?.uid == comment.authorId;
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: isReply ? 32 : 16,
+        right: 16,
+        top: 12,
+        bottom: isReply ? 8 : 12,
+      ),
+      color: _pureWhite,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: isReply ? 14 : 16,
+            backgroundImage: comment.authorImage.isNotEmpty
+                ? NetworkImage(comment.authorImage)
+                : null,
+            backgroundColor: _lightGray,
+            child: comment.authorImage.isEmpty
+                ? Text(
+                    comment.authorName.isNotEmpty 
+                        ? comment.authorName[0].toUpperCase()
+                        : "U",
+                    style: TextStyle(
+                      color: _mediumGray,
+                      fontSize: isReply ? 10 : 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Enhanced comment bubble with expandable text
+                Container(
+                  padding: EdgeInsets.all(isReply ? 10 : 12),
+                  decoration: BoxDecoration(
+                    color: isReply ? _lightGray : const Color(0xFFEBEBF0),
+                    borderRadius: BorderRadius.circular(isReply ? 14 : 16),
+                    border: comment.isReply && comment.repliedToAuthorName != null 
+                        ? Border.all(
+                            color: _iosBlue.withOpacity(0.3),
+                            width: 1,
+                          )
+                        : null,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Author name
+                      Text(
+                        comment.authorName,
+                        style: TextStyle(
+                          color: _pureBlack,
+                          fontSize: isReply ? 13 : 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      
+                      // Reply indicator
+                      if (comment.isReply && comment.repliedToAuthorName != null) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.reply,
+                              color: _iosBlue,
+                              size: 11,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Replying to ${comment.repliedToAuthorName}',
+                              style: const TextStyle(
+                                color: _iosBlue,
+                                fontSize: 10,
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      
+                      const SizedBox(height: 4),
+                      
+                      // Enhanced expandable comment content
+                      ExpandableCommentText(
+                        text: comment.content,
+                        style: TextStyle(
+                          color: _pureBlack,
+                          fontSize: isReply ? 13 : 14,
+                          height: 1.3,
+                        ),
+                        maxLines: isReply ? 2 : 3,
+                        isMainComment: !isReply,
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 8),
+                
+                // Comment actions
+                Row(
+                  children: [
+                    // Time
+                    Text(
+                      _formatTimeAgo(comment.createdAt),
+                      style: const TextStyle(
+                        color: _mediumGray,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    
+                    const SizedBox(width: 16),
+                    
+                    // Like button with enhanced animation
+                    GestureDetector(
+                      onTap: () => _likeComment(comment),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isLiked ? _iosRed.withOpacity(0.1) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              child: Icon(
+                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                key: ValueKey(isLiked),
+                                color: isLiked ? _iosRed : _mediumGray,
+                                size: 14,
+                              ),
+                            ),
+                            if (comment.likesCount > 0) ...[
+                              const SizedBox(width: 4),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: Text(
+                                  comment.likesCount.toString(),
+                                  key: ValueKey(comment.likesCount),
+                                  style: TextStyle(
+                                    color: isLiked ? _iosRed : _mediumGray,
+                                    fontSize: 11,
+                                    fontWeight: isLiked ? FontWeight.w600 : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    // Reply button (only for main comments)
+                    if (!isReply) ...[
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: () => _replyToComment(comment),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Reply',
+                            style: TextStyle(
+                              color: _iosBlue,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    
+                    // Delete button
+                    if (isOwn) ...[
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: () => _deleteComment(comment),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Delete',
+                            style: TextStyle(
+                              color: _iosRed,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 7) {
+      return '${(difference.inDays / 7).floor()}w ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
     } else {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
+      return 'Just now';
     }
   }
-}
 
-// Extension for tab management 
-extension ChannelsFeedScreenExtension on ChannelsFeedScreenState {
-  static void handleTabChanged(GlobalKey<ChannelsFeedScreenState> feedScreenKey, bool isActive) {
-    final state = feedScreenKey.currentState;
-    if (state != null) {
-      if (isActive) {
-        state.onScreenBecameActive();
-      } else {
-        state.onScreenBecameInactive();
+  Widget _buildEmptyCommentsState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 48,
+            color: Color(0xFFAEAEB2),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'No comments yet',
+            style: TextStyle(
+              color: _pureBlack,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Be the first to comment!',
+            style: TextStyle(
+              color: _darkGray,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            size: 48,
+            color: _iosRed,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Failed to load comments',
+            style: TextStyle(
+              color: _pureBlack,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            error,
+            style: const TextStyle(
+              color: _darkGray,
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              ref.invalidate(momentCommentsStreamProvider(widget.moment.id));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _iosBlue,
+              foregroundColor: _pureWhite,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentInput(double bottomInset, double systemBottomPadding) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 12,
+        bottom: 12 + bottomInset + systemBottomPadding,
+      ),
+      decoration: const BoxDecoration(
+        color: _pureWhite,
+        border: Border(
+          top: BorderSide(
+            color: _borderGray,
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0D000000), // 5% black shadow
+            blurRadius: 10,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          if (_replyingToCommentId != null) _buildReplyingIndicator(),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // User avatar
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: _lightGray,
+                child: ref.watch(currentUserProvider)?.image.isNotEmpty == true
+                    ? ClipOval(
+                        child: Image.network(
+                          ref.watch(currentUserProvider)!.image,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.person,
+                        color: _mediumGray,
+                        size: 18,
+                      ),
+              ),
+              const SizedBox(width: 12),
+              
+              // Comment input field
+              Expanded(
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 100),
+                  decoration: BoxDecoration(
+                    color: _lightGray,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _commentFocusNode.hasFocus 
+                          ? _iosBlue.withOpacity(0.5)
+                          : Colors.transparent,
+                      width: 1,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _commentController,
+                    focusNode: _commentFocusNode,
+                    decoration: InputDecoration(
+                      hintText: _replyingToCommentId != null 
+                          ? 'Reply to $_replyingToAuthorName...'
+                          : 'Add a comment...',
+                      hintStyle: const TextStyle(
+                        color: _mediumGray,
+                        fontSize: 14,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      isDense: true,
+                    ),
+                    style: const TextStyle(
+                      color: _pureBlack,
+                      fontSize: 14,
+                    ),
+                    maxLines: null,
+                    maxLength: 500,
+                    buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                      return null; // Hide default counter
+                    },
+                    textCapitalization: TextCapitalization.sentences,
+                    onTap: _expandSheet,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              
+              // Send button with animation
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                child: GestureDetector(
+                  onTap: _commentController.text.trim().isNotEmpty ? _sendComment : null,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _commentController.text.trim().isNotEmpty
+                          ? _iosBlue
+                          : _borderGray,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.send,
+                      color: _commentController.text.trim().isNotEmpty
+                          ? _pureWhite
+                          : _mediumGray,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          // Character count
+          if (_commentController.text.length > 200) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                '${_commentController.text.length}/500',
+                style: TextStyle(
+                  color: _commentController.text.length > 450 
+                      ? _iosRed
+                      : _mediumGray,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyingIndicator() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: _iosBlue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _iosBlue.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.reply,
+            color: _iosBlue,
+            size: 14,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Replying to $_replyingToAuthorName',
+              style: const TextStyle(
+                color: _iosBlue,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: _cancelReply,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: _iosBlue.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                color: _iosBlue,
+                size: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _likeComment(MomentCommentModel comment) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    final isLiked = comment.likedBy.contains(currentUser.uid);
+    ref.read(momentCommentActionsProvider)
+        .toggleLikeComment(comment.id, isLiked);
+        
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
+  }
+
+  void _replyToComment(MomentCommentModel comment) {
+    setState(() {
+      _replyingToCommentId = comment.id;
+      _replyingToAuthorName = comment.authorName;
+    });
+    _commentFocusNode.requestFocus();
+    _expandSheet();
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingToCommentId = null;
+      _replyingToAuthorName = null;
+    });
+  }
+
+  void _deleteComment(MomentCommentModel comment) {
+    showDialog(
+      context: context,
+      builder: (context) => Theme(
+        data: ThemeData(
+          brightness: Brightness.light,
+          dialogBackgroundColor: _pureWhite,
+        ),
+        child: AlertDialog(
+          backgroundColor: _pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Delete Comment',
+            style: TextStyle(
+              color: _pureBlack,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: const Text(
+            'Are you sure you want to delete this comment? This action cannot be undone.',
+            style: TextStyle(
+              color: _darkGray,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: _mediumGray,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ref.read(momentCommentActionsProvider)
+                    .deleteComment(comment.id);
+                HapticFeedback.lightImpact();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: _iosRed,
+              ),
+              child: const Text(
+                'Delete',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendComment() async {
+    final content = _commentController.text.trim();
+    if (content.isEmpty) return;
+
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
+
+    final success = await ref
+        .read(momentCommentActionsProvider)
+        .addComment(
+          momentId: widget.moment.id,
+          content: content,
+          repliedToCommentId: _replyingToCommentId,
+          repliedToAuthorName: _replyingToAuthorName,
+        );
+
+    if (success) {
+      _commentController.clear();
+      _cancelReply();
+      
+      // Scroll to bottom to show new comment
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } else {
+      if (mounted) {
+        showSnackBar(context, 'Failed to send comment');
       }
     }
   }
 }
 
-class ChannelsFeedController {
-  final GlobalKey<ChannelsFeedScreenState> _key;
-  
-  ChannelsFeedController(this._key);
-  
-  void setActive(bool isActive) {
-    ChannelsFeedScreenExtension.handleTabChanged(_key, isActive);
-  }
-  
-  void pause() => setActive(false);
-  void resume() => setActive(true);
+class CommentGroup {
+  final MomentCommentModel mainComment;
+  final List<MomentCommentModel> replies;
+
+  CommentGroup({
+    required this.mainComment,
+    required this.replies,
+  });
 }
