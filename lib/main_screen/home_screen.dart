@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
+import 'package:textgb/features/chat/screens/chat_list_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
@@ -122,7 +122,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           // Chats tab (index 0)
           Container(
             color: modernTheme.surfaceColor,
-            child: const ChatsTab(),
+            child: const ChatListScreen(),
           ),
           // Groups tab (index 1)
           Container(

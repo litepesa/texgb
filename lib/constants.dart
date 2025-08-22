@@ -35,6 +35,13 @@ class Constants {
   static const String channelsListScreen = '/channelsListScreen';
   static const String recommendedPostsScreen = '/recommendedPostsScreen';
 
+  // Moments feature routes (keeping for backward compatibility)
+  static const String momentsFeedScreen = '/momentsFeedScreen';
+  static const String createMomentScreen = '/createMomentScreen';
+  static const String myMomentsScreen = '/myMomentsScreen';
+  static const String momentsRecommendationsScreen = '/momentsRecommendationsScreen';
+  static const String momentCommentsScreen = '/momentCommentsScreen';
+
   // Status-related routes
   static const String statusScreen = '/status';
   static const String createStatusScreen = '/create-status';
@@ -44,6 +51,24 @@ class Constants {
   // Status collection names
   static const String statusCollection = 'status';
   static const String statusViewsCollection = 'statusViews';
+
+  // Moments collections
+  static const String moments = 'moments';
+  static const String momentComments = 'moment_comments';
+  static const String momentFiles = 'moment_files';
+  static const String momentLikes = 'moment_likes';
+
+  // ===== MOMENTS MODEL FIELD NAMES =====
+  
+  static const String momentId = 'momentId';
+  static const String momentContent = 'momentContent';
+  static const String momentMediaUrls = 'momentMediaUrls';
+  static const String momentMediaType = 'momentMediaType';
+  static const String momentPrivacy = 'momentPrivacy';
+  static const String momentVisibleTo = 'momentVisibleTo';
+  static const String momentCreatedAt = 'momentCreatedAt';
+  static const String momentLikesCount = 'momentLikesCount';
+  static const String momentCommentsCount = 'momentCommentsCount';
 
   // Status settings
   static const Duration statusDuration = Duration(hours: 24);
