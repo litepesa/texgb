@@ -17,7 +17,7 @@ class ChannelProfileBottomNav extends StatelessWidget {
   final VoidCallback onCommentsPressed;
 
   const ChannelProfileBottomNav({
-    Key? key,
+    super.key,
     required this.progressBarHeight,
     required this.bottomNavContentHeight,
     required this.progressNotifier,
@@ -28,7 +28,7 @@ class ChannelProfileBottomNav extends StatelessWidget {
     required this.onDMPressed,
     required this.onLikePressed,
     required this.onCommentsPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

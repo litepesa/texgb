@@ -17,9 +17,9 @@ class ChannelProfileScreen extends ConsumerStatefulWidget {
   final String channelId;
   
   const ChannelProfileScreen({
-    Key? key,
+    super.key,
     required this.channelId,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<ChannelProfileScreen> createState() => _ChannelProfileScreenState();

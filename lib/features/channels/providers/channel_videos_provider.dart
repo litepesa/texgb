@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/channel_video_model.dart';
-import '../models/channel_model.dart';
 import '../repositories/channel_repository.dart';
 
 // Define the channel videos state

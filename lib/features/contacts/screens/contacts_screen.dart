@@ -16,7 +16,7 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ContactsScreen extends ConsumerStatefulWidget {
-  const ContactsScreen({Key? key}) : super(key: key);
+  const ContactsScreen({super.key});
 
   @override
   ConsumerState<ContactsScreen> createState() => _ContactsScreenState();

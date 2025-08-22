@@ -8,7 +8,7 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 class PrivacySettingsScreen extends ConsumerStatefulWidget {
-  const PrivacySettingsScreen({Key? key}) : super(key: key);
+  const PrivacySettingsScreen({super.key});
 
   @override
   ConsumerState<PrivacySettingsScreen> createState() => _PrivacySettingsScreenState();

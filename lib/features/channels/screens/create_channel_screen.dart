@@ -7,7 +7,7 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:image_picker/image_picker.dart';
 
 class CreateChannelScreen extends ConsumerStatefulWidget {
-  const CreateChannelScreen({Key? key}) : super(key: key);
+  const CreateChannelScreen({super.key});
 
   @override
   ConsumerState<CreateChannelScreen> createState() => _CreateChannelScreenState();

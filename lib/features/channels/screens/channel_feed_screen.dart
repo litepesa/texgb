@@ -13,9 +13,13 @@ import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/channels/widgets/channel_video_item.dart';
-import 'package:textgb/features/channels/widgets/virtual_gifts_bottom_sheet.dart';
-import 'package:textgb/features/channels/widgets/channel_required_widget.dart'; // Add this import
+import 'package:textgb/features/channels/widgets/channel_required_widget.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
+import 'package:textgb/features/chat/models/video_reaction_model.dart';
+import 'package:textgb/features/chat/widgets/video_reaction_input.dart';
+import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -140,61 +144,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
         break;
       case AppLifecycleState.hidden:
         break;
-    }
-  }
-
-  // Helper method to check if user has channel before allowing interactions
-  Future<bool> _checkUserHasChannel(String actionName) async {
-    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
-    final channelsState = ref.read(channelsProvider);
-    
-    // If user is not authenticated OR doesn't have a channel, show the channel required widget
-    if (currentUser == null || channelsState.userChannel == null) {
-      final result = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          contentPadding: EdgeInsets.zero,
-          content: SizedBox(
-            width: MediaQuery.of(context).size.width * 0.9,
-            child: ChannelRequiredWidget(
-              title: 'Channel Required',
-              subtitle: currentUser == null 
-                  ? 'You need to log in and create a channel to $actionName.'
-                  : 'You need to create a channel to $actionName.',
-              actionText: currentUser == null ? 'Get Started' : 'Create Channel',
-              icon: _getIconForAction(actionName),
-            ),
-          ),
-        ),
-      );
-
-      return result ?? false;
-    }
-
-    return true; // User is authenticated and has channel
-  }
-
-  // Helper method to get appropriate icon for different actions
-  IconData _getIconForAction(String actionName) {
-    switch (actionName.toLowerCase()) {
-      case 'like videos':
-      case 'like':
-        return Icons.favorite;
-      case 'comment':
-      case 'comment on videos':
-        return Icons.comment;
-      case 'send gifts':
-      case 'gift':
-        return Icons.card_giftcard;
-      case 'save videos':
-      case 'save':
-        return Icons.bookmark;
-      case 'share videos':
-      case 'share':
-        return Icons.share;
-      default:
-        return Icons.video_call;
     }
   }
 
@@ -566,70 +515,132 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     _resumeFromNavigation();
   }
 
-  // NEW: Show virtual gifts bottom sheet with channel requirement
-  void _showVirtualGifts(ChannelVideoModel? video) async {
+  // NEW: Navigate to channel owner chat with video reaction system
+  Future<void> _navigateToChannelOwnerChat(ChannelVideoModel? video) async {
     if (video == null) {
-      debugPrint('No video available for gifting');
+      debugPrint('No video available for reaction');
       return;
     }
-
-    // Check if user has channel before allowing gifts
-    final canInteract = await _checkUserHasChannel('send gifts');
-    if (!canInteract) return;
 
     final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
-    
-    // At this point we know user is authenticated and has a channel
-    // Check if user is trying to gift their own video
-    if (video.userId == currentUser!.uid) {
-      _showCannotGiftOwnVideoMessage();
+    if (currentUser == null) {
+      debugPrint('User not authenticated');
       return;
     }
 
-    // Pause video before showing gifts
+    // Check if user is trying to react to their own video
+    if (video.userId == currentUser.uid) {
+      _showCannotReactToOwnVideoMessage();
+      return;
+    }
+
+    // Pause video before showing reaction input
     _pauseForNavigation();
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => VirtualGiftsBottomSheet(
-        recipientName: video.channelName,
-        recipientImage: video.channelImage,
-        onGiftSelected: (gift) {
-          _handleGiftSent(video, gift);
-        },
-        onClose: () {
-          // Resume video when gifts sheet is closed
-          _resumeFromNavigation();
-        },
-      ),
-    ).whenComplete(() {
-      // Ensure video resumes if sheet is dismissed
+    try {
+      // Get channel details to get channel owner info
+      final channel = await ref.read(channelsProvider.notifier).getChannelById(video.channelId);
+      
+      if (channel == null) {
+        debugPrint('Channel not found');
+        _resumeFromNavigation();
+        return;
+      }
+
+      // Get channel owner's user data
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final channelOwner = await authNotifier.getUserDataById(channel.ownerId);
+      
+      if (channelOwner == null) {
+        debugPrint('Channel owner not found');
+        _resumeFromNavigation();
+        return;
+      }
+
+      // Show reaction input bottom sheet
+      final reaction = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => VideoReactionInput(
+          video: video,
+          onSendReaction: (reaction) => Navigator.pop(context, reaction),
+          onCancel: () => Navigator.pop(context),
+        ),
+      );
+
+      // If reaction was provided, create chat and send reaction
+      if (reaction != null && reaction.trim().isNotEmpty && mounted) {
+        final chatListNotifier = ref.read(chatListProvider.notifier);
+        final chatId = await chatListNotifier.createOrGetChat(currentUser.uid, channelOwner.uid);
+        
+        if (chatId != null) {
+          // Send video reaction message
+          await _sendVideoReactionMessage(
+            chatId: chatId,
+            video: video,
+            reaction: reaction,
+            senderId: currentUser.uid,
+          );
+
+          // Navigate to chat to show the sent reaction
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                chatId: chatId,
+                contact: channelOwner,
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error creating video reaction: $e');
+      _showSnackBar('Failed to send reaction');
+    } finally {
+      // Resume video after interaction
       _resumeFromNavigation();
-    });
+    }
   }
 
-  // Helper method to handle gift sending
-  void _handleGiftSent(ChannelVideoModel video, VirtualGift gift) {
-    // TODO: Implement actual gift sending logic
-    // This would typically involve:
-    // 1. Deducting the gift price from user's wallet
-    // 2. Adding the gift to the channel owner's earnings
-    // 3. Recording the gift transaction
-    // 4. Optionally sending a notification to the channel owner
-    
-    debugPrint('Gift sent: ${gift.name} (KES ${gift.price}) to ${video.channelName}');
-    
-    // Show success message
-    _showSnackBar('${gift.emoji} ${gift.name} sent to ${video.channelName}!');
-    
-    // TODO: You might want to also send this as a chat message like video reactions
-    // or create a separate gifts system
+  // Helper method to send video reaction message
+  Future<void> _sendVideoReactionMessage({
+    required String chatId,
+    required ChannelVideoModel video,
+    required String reaction,
+    required String senderId,
+  }) async {
+    try {
+      final chatRepository = ref.read(chatRepositoryProvider);
+      
+      // Create video reaction data
+      final videoReaction = VideoReactionModel(
+        videoId: video.id,
+        videoUrl: video.videoUrl,
+        thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
+            ? video.imageUrls.first 
+            : video.thumbnailUrl,
+        channelName: video.channelName,
+        channelImage: video.channelImage,
+        reaction: reaction,
+        timestamp: DateTime.now(),
+      );
+
+      // Send as a video reaction message
+      await chatRepository.sendVideoReactionMessage(
+        chatId: chatId,
+        senderId: senderId,
+        videoReaction: videoReaction,
+      );
+      
+    } catch (e) {
+      debugPrint('Error sending video reaction message: $e');
+      rethrow;
+    }
   }
 
-  // Helper method to show cannot gift own video message
-  void _showCannotGiftOwnVideoMessage() {
+  // Helper method to show cannot react to own video message
+  void _showCannotReactToOwnVideoMessage() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -644,13 +655,13 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
-              Icons.card_giftcard,
+              Icons.info_outline,
               color: Colors.orange,
               size: 48,
             ),
             const SizedBox(height: 16),
             const Text(
-              'Cannot Gift Your Own Video',
+              'Cannot React to Your Own Video',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -659,7 +670,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
             ),
             const SizedBox(height: 8),
             const Text(
-              'You cannot send gifts to your own channel videos.',
+              'You cannot send reactions to your own channel videos.',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white70,
@@ -691,52 +702,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
         ),
       );
     }
-  }
-
-  // Custom back button positioned at top right corner (mirroring follow button style and position)
-  Widget _buildTopRightBackButton() {
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    
-    return Positioned(
-      top: systemTopPadding + 16, // Match follow button positioning exactly relative to video area
-      right: 16, // Match follow button positioning but on opposite side
-      child: GestureDetector(
-        onTap: _handleBackNavigation,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              CupertinoIcons.chevron_left,
-              color: Colors.white,
-              size: 14,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            const SizedBox(width: 4),
-            const Text(
-              'Back',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -824,8 +789,14 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
               // Small video window when comments are open
               if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
               
-              // Custom back button - positioned to match follow button alignment
-              if (!_isCommentsSheetOpen) _buildTopRightBackButton(),
+              // Top navigation - updated header with channel name (hide when comments open)
+              if (!_isCommentsSheetOpen)
+                Positioned(
+                  top: systemTopPadding + 16, // Positioned below status bar with some padding
+                  left: 0,
+                  right: 0,
+                  child: _buildChannelHeader(),
+                ),
               
               // TikTok-style right side menu - matching channels feed (hide when comments open)
               if (!_isCommentsSheetOpen) _buildRightSideMenu(),
@@ -856,13 +827,47 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen, // Pass comments state to video item
-          showVerificationBadge: false,
         );
       },
     );
   }
 
-  // TikTok-style right side menu (matching channels feed exactly) with channel requirements
+  // Simplified header with only back button
+  Widget _buildChannelHeader() {
+    return Row(
+      children: [
+        // Back button
+        Material(
+          type: MaterialType.transparency,
+          child: IconButton(
+            onPressed: _handleBackNavigation,
+            icon: const Icon(
+              CupertinoIcons.chevron_left,
+              color: Colors.white,
+              size: 28,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+            iconSize: 28,
+            padding: const EdgeInsets.all(12), // Larger tap area
+            constraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: 44,
+            ),
+            splashRadius: 24,
+            tooltip: 'Back',
+          ),
+        ),
+      ],
+    );
+  }
+
+  // TikTok-style right side menu (matching channels feed exactly)
   Widget _buildRightSideMenu() {
     final currentVideo = _channelVideos.isNotEmpty && _currentVideoIndex < _channelVideos.length 
         ? _channelVideos[_currentVideoIndex] 
@@ -900,7 +905,7 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Star button (save/bookmark)
+          // Star button (new)
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.star,
@@ -908,13 +913,8 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
               size: 26,
             ),
             label: '0',
-            onTap: () async {
-              // Check if user has channel before allowing save
-              final canInteract = await _checkUserHasChannel('save videos');
-              if (canInteract) {
-                // TODO: Add save/bookmark functionality
-                _showSnackBar('Save functionality coming soon!');
-              }
+            onTap: () {
+              // TODO: Add save/bookmark functionality
             },
           ),
           
@@ -928,26 +928,33 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
               size: 26,
             ),
             label: '0',
-            onTap: () async {
-              // Check if user has channel before allowing share
-              final canInteract = await _checkUserHasChannel('share videos');
-              if (canInteract) {
-                _showShareOptions();
-              }
-            },
+            onTap: () => _showShareOptions(),
           ),
           
           const SizedBox(height: 10),
           
-          // Gift button - UPDATED with virtual gifts functionality and channel requirement
+          // DM button - UPDATED with video reaction navigation
           _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.gift,
-              color: Colors.white,
-              size: 26,
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Center(
+                child: Text(
+                  'DM',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
-            label: 'Gift',
-            onTap: () => _showVirtualGifts(currentVideo),
+            label: 'Inbox',
+            onTap: () => _navigateToChannelOwnerChat(currentVideo),
           ),
           
           const SizedBox(height: 10),
@@ -1072,7 +1079,21 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           if (_isOwner) ...[
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, Constants.createChannelPostScreen),
+              onPressed: () async {
+                // Check if user has channel before allowing creation
+                final hasChannel = await requireUserChannel(
+                  context,
+                  ref,
+                  customTitle: 'Channel Required',
+                  customSubtitle: 'You need to create a channel before you can upload content.',
+                  customActionText: 'Create Channel',
+                  customIcon: Icons.video_call,
+                );
+                
+                if (hasChannel && mounted) {
+                  Navigator.pushNamed(context, Constants.createChannelPostScreen);
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF0050),
                 foregroundColor: Colors.white,
@@ -1116,42 +1137,34 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
     );
   }
 
-  void _likeCurrentVideo(ChannelVideoModel? video) async {
-    if (video == null) return;
-    
-    // Check if user has channel before allowing like
-    final canInteract = await _checkUserHasChannel('like videos');
-    if (!canInteract) return;
-    
-    ref.read(channelVideosProvider.notifier).likeVideo(video.id);
+  void _likeCurrentVideo(ChannelVideoModel? video) {
+    if (video != null) {
+      ref.read(channelVideosProvider.notifier).likeVideo(video.id);
+    }
   }
 
-  void _showCommentsForCurrentVideo(ChannelVideoModel? video) async {
-    if (video == null || _isCommentsSheetOpen) return;
-    
-    // Check if user has channel before allowing comments
-    final canInteract = await _checkUserHasChannel('comment on videos');
-    if (!canInteract) return;
-    
-    // Set video to small window mode
-    _setVideoWindowMode(true);
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.transparent,
-      builder: (context) => ChannelCommentsBottomSheet(
-        video: video,
-        onClose: () {
-          // Reset video to full screen mode
-          _setVideoWindowMode(false);
-        },
-      ),
-    ).whenComplete(() {
-      // Ensure video returns to full screen mode
-      _setVideoWindowMode(false);
-    });
+  void _showCommentsForCurrentVideo(ChannelVideoModel? video) {
+    if (video != null && !_isCommentsSheetOpen) {
+      // Set video to small window mode
+      _setVideoWindowMode(true);
+      
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.transparent,
+        builder: (context) => ChannelCommentsBottomSheet(
+          video: video,
+          onClose: () {
+            // Reset video to full screen mode
+            _setVideoWindowMode(false);
+          },
+        ),
+      ).whenComplete(() {
+        // Ensure video returns to full screen mode
+        _setVideoWindowMode(false);
+      });
+    }
   }
 
   void _showShareOptions() {

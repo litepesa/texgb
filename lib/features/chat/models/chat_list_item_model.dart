@@ -48,17 +48,17 @@ class ChatListItemModel {
       case MessageEnum.text:
         return '$prefix${chat.lastMessage}';
       case MessageEnum.image:
-        return '${prefix}📷 Photo';
+        return '$prefix📷 Photo';
       case MessageEnum.video:
-        return '${prefix}📹 Video';
+        return '$prefix📹 Video';
       case MessageEnum.file:
-        return '${prefix}📎 Document';
+        return '$prefix📎 Document';
       case MessageEnum.audio:
-        return '${prefix}🎤 Voice message';
+        return '$prefix🎤 Voice message';
       case MessageEnum.location:
-        return '${prefix}📍 Location';
+        return '$prefix📍 Location';
       case MessageEnum.contact:
-        return '${prefix}👤 Contact';
+        return '$prefix👤 Contact';
       default:
         return '$prefix${chat.lastMessage}';
     }

@@ -17,9 +17,9 @@ class MyPostScreen extends ConsumerStatefulWidget {
   final String videoId;
   
   const MyPostScreen({
-    Key? key,
+    super.key,
     required this.videoId,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<MyPostScreen> createState() => _MyPostScreenState();

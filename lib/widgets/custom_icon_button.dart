@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class CustomIconButton extends StatelessWidget {
+  const CustomIconButton({super.key});
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;

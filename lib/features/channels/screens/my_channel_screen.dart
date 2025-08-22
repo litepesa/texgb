@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/widgets/verification_widget.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -518,94 +519,129 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
     );
   }
 
-  Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            modernTheme.primaryColor!,
-            modernTheme.primaryColor!.withOpacity(0.8),
-            modernTheme.primaryColor!.withOpacity(0.6),
-          ],
-        ),
+Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
+  return Container(
+    width: double.infinity,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          modernTheme.primaryColor!,
+          modernTheme.primaryColor!.withOpacity(0.8),
+          modernTheme.primaryColor!.withOpacity(0.6),
+        ],
       ),
-      child: Column(
-        children: [
-          // Add safe area padding at the top
-          SizedBox(height: MediaQuery.of(context).padding.top),
-          
-          // Profile Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            child: Column(
-              children: [
-                // Profile Image with enhanced styling
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outer glow effect
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.3),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(32),
+        bottomRight: Radius.circular(32),
+      ),
+    ),
+    child: Column(
+      children: [
+        // Add safe area padding at the top
+        SizedBox(height: MediaQuery.of(context).padding.top),
+        
+        // App bar with back button and title
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left side - Back button
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
                     ),
-                    Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+              
+              // Center - Channel title
+              const Text(
+                'My Channel',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              
+              // Right side - placeholder for symmetry
+              const SizedBox(width: 40),
+            ],
+          ),
+        ),
+        
+        // Channel Content
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          child: Column(
+            children: [
+              // Channel Image with enhanced styling (matching profile design)
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer glow effect
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.3),
+                          Colors.transparent,
                         ],
                       ),
-                      child: ClipOval(
-                        child: _channel!.profileImage.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: _channel!.profileImage,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (context, error, stackTrace) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(
-                                    Icons.person,
-                                    size: 50,
+                    ),
+                  ),
+                  Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 4,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: _channel!.profileImage.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: _channel!.profileImage,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: CircularProgressIndicator(
                                     color: Colors.white,
+                                    strokeWidth: 2,
                                   ),
                                 ),
-                                // Enhanced cache options for better performance
-                                memCacheWidth: 110,
-                                memCacheHeight: 110,
-                                maxWidthDiskCache: 220,
-                                maxHeightDiskCache: 220,
-                              )
-                            : Container(
+                              ),
+                              errorWidget: (context, error, stackTrace) => Container(
                                 color: Colors.grey[300],
                                 child: const Icon(
                                   Icons.person,
@@ -613,100 +649,175 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                                   color: Colors.white,
                                 ),
                               ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                
-                // Channel name with enhanced styling
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _channel!.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black26,
-                              offset: Offset(0, 2),
-                              blurRadius: 4,
+                              // Enhanced cache options for better performance
+                              memCacheWidth: 110,
+                              memCacheHeight: 110,
+                              maxWidthDiskCache: 220,
+                              maxHeightDiskCache: 220,
+                            )
+                          : Container(
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.person,
+                                size: 50,
+                                color: Colors.white,
+                              ),
                             ),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
                     ),
-                    if (_channel!.isVerified) ...[
-                      const SizedBox(width: 12),
-                      const Icon(
-                        Icons.verified,
-                        color: Colors.blue,
-                        size: 28,
-                      ),
-                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // Channel name (clean without verification badge)
+              Text(
+                _channel!.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black26,
+                      offset: Offset(0, 2),
+                      blurRadius: 4,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                // Channel description
-                if (_channel!.description.isNotEmpty)
-                  Text(
-                    _channel!.description,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      letterSpacing: 0.5,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              
+              // Channel description
+              if (_channel!.description.isNotEmpty)
+                Text(
+                  _channel!.description,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    letterSpacing: 0.5,
                   ),
-                const SizedBox(height: 20),
-                
-                // Edit Channel Button with enhanced design
-                GestureDetector(
-                  onTap: _editChannel,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(width: 8),
-                        Text(
-                          'Edit Channel',
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
+              const SizedBox(height: 20),
+              
+              // Side-by-side buttons: Verification and Edit Channel (matching profile layout)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Verification status button - more prominent and bright (matching profile)
+                  GestureDetector(
+                    onTap: () => VerificationInfoWidget.show(context),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: _channel!.isVerified
+                            ? const LinearGradient(
+                                colors: [
+                                  Color(0xFF1565C0), // Deep blue
+                                  Color(0xFF0D47A1), // Darker blue
+                                  Color(0xFF0A1E3D), // Very dark blue
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : const LinearGradient(
+                                colors: [
+                                  Color(0xFF1976D2), // Material blue
+                                  Color(0xFF1565C0), // Darker blue
+                                  Color(0xFF0D47A1), // Deep blue
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _channel!.isVerified
+                                ? const Color(0xFF1565C0).withOpacity(0.4)
+                                : const Color(0xFF1976D2).withOpacity(0.4),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _channel!.isVerified ? Icons.verified_rounded : Icons.star_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _channel!.isVerified ? 'Verified' : 'Get Verified',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black38,
+                                  blurRadius: 3,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(width: 16),
+                  
+                  // Edit Channel Button - simplified without icon (matching profile)
+                  GestureDetector(
+                    onTap: _editChannel,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        'Edit Channel',
+                        style: TextStyle(
+                          color: modernTheme.primaryColor,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildChannelInfoCard(ModernThemeExtension modernTheme) {
     return Container(

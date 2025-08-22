@@ -17,11 +17,11 @@ class VideoTrimScreen extends StatefulWidget {
   final Function(File) onTrimComplete;
 
   const VideoTrimScreen({
-    Key? key,
+    super.key,
     required this.videoFile,
     required this.videoInfo,
     required this.onTrimComplete,
-  }) : super(key: key);
+  });
 
   @override
   State<VideoTrimScreen> createState() => _VideoTrimScreenState();
@@ -242,7 +242,7 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
       final fileExtension = path.extension(widget.videoFile.path);
       final startSeconds = _startTime.inSeconds;
       final endSeconds = _endTime.inSeconds;
-      final trimmedFileName = 'manual_trim_${startSeconds}_${endSeconds}_${timestamp}${fileExtension}';
+      final trimmedFileName = 'manual_trim_${startSeconds}_${endSeconds}_$timestamp$fileExtension';
       
       // Use cache directory for better file management
       final tempDir = Directory.systemTemp;
@@ -345,7 +345,7 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
   String _formatDuration(Duration duration) {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
-    return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override

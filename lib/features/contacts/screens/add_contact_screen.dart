@@ -8,7 +8,7 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 class AddContactScreen extends ConsumerStatefulWidget {
-  const AddContactScreen({Key? key}) : super(key: key);
+  const AddContactScreen({super.key});
 
   @override
   ConsumerState<AddContactScreen> createState() => _AddContactScreenState();
@@ -46,7 +46,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
       // Ensure phone number is in international format
       String phoneNumber = _phoneController.text.trim();
       if (!phoneNumber.startsWith('+')) {
-        phoneNumber = '+' + phoneNumber; // Add + if missing
+        phoneNumber = '+$phoneNumber'; // Add + if missing
       }
       
       final user = await contactsNotifier.searchUserByPhoneNumber(phoneNumber);

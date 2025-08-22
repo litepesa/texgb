@@ -15,9 +15,9 @@ class ContactProfileScreen extends ConsumerStatefulWidget {
   final UserModel contact;
 
   const ContactProfileScreen({
-    Key? key,
+    super.key,
     required this.contact,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<ContactProfileScreen> createState() => _ContactProfileScreenState();

@@ -1,13 +1,9 @@
 // lib/main_screen/home_screen.dart
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
@@ -17,7 +13,6 @@ import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/features/status/screens/status_screen.dart';
 import 'package:textgb/features/groups/screens/groups_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/widgets/custom_icon_button.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {

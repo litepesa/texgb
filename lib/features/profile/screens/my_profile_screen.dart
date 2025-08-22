@@ -1,7 +1,6 @@
 // lib/features/profile/screens/my_profile_screen.dart
 import 'dart:io';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -13,7 +12,6 @@ import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
@@ -384,100 +382,155 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   }
   
   // Enhanced profile header with optimized image caching
-  Widget _buildEnhancedProfileHeader(UserModel user, ModernThemeExtension modernTheme) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            modernTheme.primaryColor!,
-            modernTheme.primaryColor!.withOpacity(0.8),
-            modernTheme.primaryColor!.withOpacity(0.6),
-          ],
-        ),
+  // Enhanced profile header with optimized image caching and curved edges
+Widget _buildEnhancedProfileHeader(UserModel user, ModernThemeExtension modernTheme) {
+  return Container(
+    width: double.infinity,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          modernTheme.primaryColor!,
+          modernTheme.primaryColor!.withOpacity(0.8),
+          modernTheme.primaryColor!.withOpacity(0.6),
+        ],
       ),
-      child: Column(
-        children: [
-          // Add safe area padding at the top
-          SizedBox(height: MediaQuery.of(context).padding.top),
-          
-          // Profile Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            child: Column(
-              children: [
-                // Profile Image with enhanced caching
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outer glow effect
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.3),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(32),
+        bottomRight: Radius.circular(32),
+      ),
+    ),
+    child: Column(
+      children: [
+        // Add safe area padding at the top
+        SizedBox(height: MediaQuery.of(context).padding.top),
+        
+        // App bar with back button and theme switcher
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left side - Back button
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
                     ),
-                    Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+              
+              // Center - Profile title
+              const Text(
+                'Profile',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              
+              // Right side - Theme switcher
+              GestureDetector(
+                onTap: () => showThemeSelector(context),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.brightness_6,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Profile Content
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          child: Column(
+            children: [
+              // Profile Image with enhanced caching
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer glow effect
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.3),
+                          Colors.transparent,
                         ],
                       ),
-                      child: ClipOval(
-                        child: _profileImage != null 
-                          ? Image.file(
-                              _profileImage!,
+                    ),
+                  ),
+                  Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 4,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: _profileImage != null 
+                        ? Image.file(
+                            _profileImage!,
+                            fit: BoxFit.cover,
+                          )
+                        : user.image.isNotEmpty 
+                          ? CachedNetworkImage(
+                              imageUrl: user.image,
+                              cacheManager: ProfileImageCacheManager.instance,
                               fit: BoxFit.cover,
-                            )
-                          : user.image.isNotEmpty 
-                            ? CachedNetworkImage(
-                                imageUrl: user.image,
-                                cacheManager: ProfileImageCacheManager.instance,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (context, error, stackTrace) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(
-                                    Icons.person,
-                                    size: 50,
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: CircularProgressIndicator(
                                     color: Colors.white,
+                                    strokeWidth: 2,
                                   ),
                                 ),
-                                // Enhanced cache options for better performance
-                                memCacheWidth: 110,
-                                memCacheHeight: 110,
-                                maxWidthDiskCache: 220,
-                                maxHeightDiskCache: 220,
-                              )
-                            : Container(
+                              ),
+                              errorWidget: (context, error, stackTrace) => Container(
                                 color: Colors.grey[300],
                                 child: const Icon(
                                   Icons.person,
@@ -485,133 +538,147 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                   color: Colors.white,
                                 ),
                               ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: GestureDetector(
-                        onTap: _selectImage,
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                modernTheme.primaryColor!,
-                                modernTheme.primaryColor!.withOpacity(0.8),
-                              ],
-                            ),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 3,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                              // Enhanced cache options for better performance
+                              memCacheWidth: 110,
+                              memCacheHeight: 110,
+                              maxWidthDiskCache: 220,
+                              maxHeightDiskCache: 220,
+                            )
+                          : Container(
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.person,
+                                size: 50,
+                                color: Colors.white,
                               ),
+                            ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: _selectImage,
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              modernTheme.primaryColor!,
+                              modernTheme.primaryColor!.withOpacity(0.8),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.camera_alt,
+                          shape: BoxShape.circle,
+                          border: Border.all(
                             color: Colors.white,
-                            size: 20,
+                            width: 3,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 20,
                         ),
                       ),
                     ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // Name with enhanced styling
+              Text(
+                user.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black26,
+                      offset: Offset(0, 2),
+                      blurRadius: 4,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                
-                // Name with enhanced styling
-                Text(
-                  user.name,
-                  style: const TextStyle(
+              ),
+              const SizedBox(height: 8),
+              // Phone number with icon
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.phone,
+                    color: Colors.white70,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    user.phoneNumber,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // Edit Profile Button with enhanced design
+              GestureDetector(
+                onTap: () {
+                  Navigator.pushNamed(context, Constants.editProfileScreen);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
                     color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black26,
-                        offset: Offset(0, 2),
-                        blurRadius: 4,
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.edit,
+                        color: modernTheme.primaryColor,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Edit Profile',
+                        style: TextStyle(
+                          color: modernTheme.primaryColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                // Phone number with icon
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.phone,
-                      color: Colors.white70,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      user.phoneNumber,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                
-                // Edit Profile Button with enhanced design
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pushNamed(context, Constants.editProfileScreen);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.edit,
-                          color: modernTheme.primaryColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Edit Profile',
-                          style: TextStyle(
-                            color: modernTheme.primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
   
   // New prominent My Posts feature
   Widget _buildMyPostsFeature(ModernThemeExtension modernTheme) {

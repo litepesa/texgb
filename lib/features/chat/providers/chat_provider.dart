@@ -247,7 +247,7 @@ class ChatList extends _$ChatList {
       final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
       
       // If video reaction is provided, send it as the first message
-      if (videoReaction != null && chatId != null) {
+      if (videoReaction != null) {
         await _sendVideoReactionMessage(chatId, currentUser.uid, videoReaction);
       }
       
@@ -285,28 +285,26 @@ class ChatList extends _$ChatList {
       // Create or get existing chat
       final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
       
-      if (chatId != null) {
-        // Create video reaction data
-        final videoReaction = VideoReactionModel(
-          videoId: video.id,
-          videoUrl: video.videoUrl,
-          thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
-              ? video.imageUrls.first 
-              : video.thumbnailUrl,
-          channelName: video.channelName,
-          channelImage: video.channelImage,
-          reaction: reaction,
-          timestamp: DateTime.now(),
-        );
+      // Create video reaction data
+      final videoReaction = VideoReactionModel(
+        videoId: video.id,
+        videoUrl: video.videoUrl,
+        thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
+            ? video.imageUrls.first 
+            : video.thumbnailUrl,
+        channelName: video.channelName,
+        channelImage: video.channelImage,
+        reaction: reaction,
+        timestamp: DateTime.now(),
+      );
 
-        // Send video reaction message
-        await _repository.sendVideoReactionMessage(
-          chatId: chatId,
-          senderId: currentUser.uid,
-          videoReaction: videoReaction,
-        );
-      }
-      
+      // Send video reaction message
+      await _repository.sendVideoReactionMessage(
+        chatId: chatId,
+        senderId: currentUser.uid,
+        videoReaction: videoReaction,
+      );
+          
       return chatId;
     } catch (e) {
       debugPrint('Error creating chat with video reaction: $e');

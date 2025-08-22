@@ -1,6 +1,5 @@
 // lib/features/channels/models/channel_comment_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:textgb/constants.dart';
 
 class ChannelCommentModel {
   final String id;

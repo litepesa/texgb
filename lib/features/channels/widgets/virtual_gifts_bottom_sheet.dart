@@ -8,12 +8,12 @@ class VirtualGiftsBottomSheet extends StatefulWidget {
   final VoidCallback? onClose;
 
   const VirtualGiftsBottomSheet({
-    Key? key,
+    super.key,
     this.recipientName,
     this.recipientImage,
     this.onGiftSelected,
     this.onClose,
-  }) : super(key: key);
+  });
 
   @override
   State<VirtualGiftsBottomSheet> createState() => _VirtualGiftsBottomSheetState();

@@ -11,9 +11,9 @@ class EditChannelScreen extends ConsumerStatefulWidget {
   final ChannelModel channel;
   
   const EditChannelScreen({
-    Key? key, 
+    super.key, 
     required this.channel,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<EditChannelScreen> createState() => _EditChannelScreenState();

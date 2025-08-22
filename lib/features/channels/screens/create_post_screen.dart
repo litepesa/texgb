@@ -42,7 +42,7 @@ class VideoInfo {
 }
 
 class CreatePostScreen extends ConsumerStatefulWidget {
-  const CreatePostScreen({Key? key}) : super(key: key);
+  const CreatePostScreen({super.key});
 
   @override
   ConsumerState<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -560,7 +560,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     if (isRequired) {
       // Video is over 5 minutes - trimming is required
       title = 'Video Too Long';
-      content = 'Your video is ${durationMinutes} minutes long. Videos must be 5 minutes or less.\n\n'
+      content = 'Your video is $durationMinutes minutes long. Videos must be 5 minutes or less.\n\n'
           'Choose how you want to trim it:';
       
       actions = [
@@ -589,7 +589,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     } else {
       // Video is under 5 minutes - trimming is optional
       title = 'Trim Video?';
-      content = 'Your video is ${durationSeconds} seconds long.\n\n'
+      content = 'Your video is $durationSeconds seconds long.\n\n'
           'Would you like to trim it to a shorter clip, or use the full video?';
       
       actions = [
@@ -734,7 +734,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       // Create unique filename with timestamp
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileExtension = path.extension(videoFile.path);
-      final trimmedFileName = 'trimmed_5min_${timestamp}${fileExtension}';
+      final trimmedFileName = 'trimmed_5min_$timestamp$fileExtension';
       
       // Use cache directory for trimmed file
       final tempDir = Directory.systemTemp;
@@ -747,7 +747,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           '-c:a aac '                             // Re-encode audio for consistency
           '-avoid_negative_ts make_zero '         // Ensure timestamps start at 0
           '-movflags +faststart '                 // Web streaming optimization
-          '"${trimmedPath}"';
+          '"$trimmedPath"';
       
       print('DEBUG: Trimming command: $command');
       

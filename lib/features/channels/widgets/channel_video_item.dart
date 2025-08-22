@@ -28,7 +28,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
   final bool showVerificationBadge; // NEW: Control whether to show verification or timestamp
   
   const ChannelVideoItem({
-    Key? key,
+    super.key,
     required this.video,
     required this.isActive,
     this.onVideoControllerReady,
@@ -38,7 +38,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
     this.hasFailed = false,
     this.isCommentsOpen = false, // Default to false
     this.showVerificationBadge = true, // Default to verification for main feed
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<ChannelVideoItem> createState() => _ChannelVideoItemState();

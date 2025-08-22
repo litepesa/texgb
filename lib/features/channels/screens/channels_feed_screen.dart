@@ -26,10 +26,10 @@ class ChannelsFeedScreen extends ConsumerStatefulWidget {
   final String? channelId; // For channel-specific filtering (optional)
 
   const ChannelsFeedScreen({
-    Key? key,
+    super.key,
     this.startVideoId,
     this.channelId,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<ChannelsFeedScreen> createState() => ChannelsFeedScreenState();
@@ -1008,8 +1008,8 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
                             color: Colors.grey,
                             child: Center(
                               child: Text(
-                                currentVideo?.channelName.isNotEmpty == true
-                                    ? currentVideo!.channelName[0].toUpperCase()
+                                currentVideo.channelName.isNotEmpty == true
+                                    ? currentVideo.channelName[0].toUpperCase()
                                     : "U",
                                 style: const TextStyle(
                                   color: Colors.white,

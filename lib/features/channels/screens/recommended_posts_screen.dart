@@ -11,7 +11,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class RecommendedPostsScreen extends ConsumerStatefulWidget {
-  const RecommendedPostsScreen({Key? key}) : super(key: key);
+  const RecommendedPostsScreen({super.key});
 
   @override
   ConsumerState<RecommendedPostsScreen> createState() => _RecommendedPostsScreenState();
@@ -299,7 +299,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                     child: Stack(
                       children: [
                         // Main thumbnail content
-                        Container(
+                        SizedBox(
                           width: double.infinity,
                           height: double.infinity,
                           child: _buildThumbnailContent(video),

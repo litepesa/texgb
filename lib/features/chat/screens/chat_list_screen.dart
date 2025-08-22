@@ -6,7 +6,6 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';

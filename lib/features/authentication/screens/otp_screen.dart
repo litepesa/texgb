@@ -420,8 +420,8 @@ class _VerificationStatusIndicator extends StatelessWidget {
   const _VerificationStatusIndicator({
     required this.isLoading,
     required this.isSuccessful,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -461,8 +461,8 @@ class _ResendCodeWidget extends StatelessWidget {
     required this.resendEnabled,
     required this.resendTimer,
     required this.onResend,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

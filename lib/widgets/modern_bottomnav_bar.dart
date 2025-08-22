@@ -1,5 +1,4 @@
 // lib/widgets/modern_bottomnav_bar.dart - Improved for better spacing
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class ModernBottomNavBar extends StatelessWidget {

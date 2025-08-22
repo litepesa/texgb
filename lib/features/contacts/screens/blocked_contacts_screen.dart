@@ -7,7 +7,7 @@ import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
 class BlockedContactsScreen extends ConsumerStatefulWidget {
-  const BlockedContactsScreen({Key? key}) : super(key: key);
+  const BlockedContactsScreen({super.key});
 
   @override
   ConsumerState<BlockedContactsScreen> createState() => _BlockedContactsScreenState();

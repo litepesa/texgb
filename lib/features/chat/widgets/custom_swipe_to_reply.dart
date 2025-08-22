@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
-import 'package:textgb/features/chat/widgets/message_bubble.dart';
 
 class CustomSwipeToReply extends StatefulWidget {
   final Widget child;

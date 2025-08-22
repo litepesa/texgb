@@ -1,5 +1,4 @@
 // lib/features/chat/models/chat_model.dart
-import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 
 class ChatModel {

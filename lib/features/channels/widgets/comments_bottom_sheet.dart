@@ -3,14 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/channels/models/channel_comment_model.dart';
 import 'package:textgb/features/channels/providers/channel_comments_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-import 'package:textgb/constants.dart';
 
 class ExpandableCommentText extends StatefulWidget {
   final String text;

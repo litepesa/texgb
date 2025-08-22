@@ -12,12 +12,12 @@ class ChannelRequiredWidget extends ConsumerWidget {
   final IconData icon;
 
   const ChannelRequiredWidget({
-    Key? key,
+    super.key,
     this.title = 'Channel Required',
     this.subtitle = 'You need to create a channel to perform this action.',
     this.actionText = 'Create Channel',
     this.icon = Icons.video_call,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -167,11 +167,11 @@ class InlineChannelRequiredWidget extends ConsumerWidget {
   final VoidCallback? onCreateChannel;
 
   const InlineChannelRequiredWidget({
-    Key? key,
+    super.key,
     this.title = 'Create Your Channel',
     this.subtitle = 'Start sharing your content by creating a channel.',
     this.onCreateChannel,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

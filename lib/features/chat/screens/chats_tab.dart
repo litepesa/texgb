@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/chat/screens/chat_list_screen.dart';
 
 class ChatsTab extends ConsumerWidget {
-  const ChatsTab({Key? key}) : super(key: key);
+  const ChatsTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

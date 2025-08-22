@@ -1,10 +1,8 @@
 // Enhanced contacts_provider.dart with better performance and caching
 import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/contacts/repositories/contacts_repository.dart';
 import 'package:textgb/models/user_model.dart';
