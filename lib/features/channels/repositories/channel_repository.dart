@@ -30,7 +30,7 @@ abstract class ChannelRepository {
   Future<void> unfollowChannel(String channelId, String userId);
   Future<List<String>> getFollowedChannels(String userId);
 
-  // Video operations
+  // Video operations - UPDATED: Added price parameter
   Future<List<ChannelVideoModel>> getChannelVideos({bool forceRefresh = false});
   Future<List<ChannelVideoModel>> getVideosByChannelId(String channelId);
   Future<ChannelVideoModel?> getVideoById(String videoId);
@@ -42,6 +42,7 @@ abstract class ChannelRepository {
     required String videoUrl,
     required String thumbnailUrl,
     required String caption,
+    required double price, // NEW: Price parameter
     List<String>? tags,
   });
   Future<ChannelVideoModel> createImagePost({
@@ -51,6 +52,7 @@ abstract class ChannelRepository {
     required String userId,
     required List<String> imageUrls,
     required String caption,
+    required double price, // NEW: Price parameter
     List<String>? tags,
   });
   Future<void> deleteVideo(String videoId, String userId);
@@ -408,6 +410,7 @@ class FirebaseChannelRepository implements ChannelRepository {
     required String videoUrl,
     required String thumbnailUrl,
     required String caption,
+    required double price, // NEW: Price parameter
     List<String>? tags,
   }) async {
     try {
@@ -423,6 +426,7 @@ class FirebaseChannelRepository implements ChannelRepository {
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         caption: caption,
+        price: price, // Include price
         likes: 0,
         comments: 0,
         views: 0,
@@ -461,6 +465,7 @@ class FirebaseChannelRepository implements ChannelRepository {
     required String userId,
     required List<String> imageUrls,
     required String caption,
+    required double price, // NEW: Price parameter
     List<String>? tags,
   }) async {
     try {
@@ -476,6 +481,7 @@ class FirebaseChannelRepository implements ChannelRepository {
         videoUrl: '',
         thumbnailUrl: imageUrls.isNotEmpty ? imageUrls.first : '',
         caption: caption,
+        price: price, // Include price
         likes: 0,
         comments: 0,
         views: 0,

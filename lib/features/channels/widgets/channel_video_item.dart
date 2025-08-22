@@ -400,30 +400,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     });
   }
 
-  // Helper method to get dummy price data
-  String _getDummyPrice() {
-    // Dummy prices for different video IDs - will be replaced with actual data later
-    final prices = [
-      'KES 1,999',
-      'KES 2,499', 
-      'KES 3,999',
-      'KES 899',
-      'KES 5,499',
-      'KES 1,299',
-      'KES 4,799',
-    ];
-    
-    // Use video ID hash to get consistent price for same video
-    final index = widget.video.id.hashCode.abs() % prices.length;
-    return prices[index];
-  }
-
   // Add this method to handle buy button tap
   void _handleBuyTap() {
     // TODO: Implement buy functionality
     // For now, just show a debug message
     debugPrint('Buy button tapped for video: ${widget.video.id}');
-    debugPrint('Price: ${_getDummyPrice()}');
+    debugPrint('Price: ${widget.video.formattedPrice}');
     
     // Optional: Add haptic feedback
     // HapticFeedback.lightImpact();
@@ -911,13 +893,16 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 6),
           
-          // Smart caption with hashtags (combined)
-          _buildSmartCaption(),
+          // Smart caption with hashtags (combined) - only show if not empty
+          if (widget.video.caption.isNotEmpty)
+            _buildSmartCaption(),
           
-          const SizedBox(height: 8),
+          // Add spacing only if caption exists
+          if (widget.video.caption.isNotEmpty)
+            const SizedBox(height: 8),
           
-          // Price display with BUY button (replaces timestamp)
-          _buildPriceDisplay(),
+          // UPDATED: Real price display with BUY button
+          _buildRealPriceDisplay(),
         ],
       ),
     );
@@ -1050,12 +1035,12 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // Updated method to build price display with BUY button (replaces timestamp)
-  Widget _buildPriceDisplay() {
+  // UPDATED: Real price display using actual video price data
+  Widget _buildRealPriceDisplay() {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Price container
+        // Price container using real price from video model
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -1096,9 +1081,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                 ],
               ),
               const SizedBox(width: 6),
-              // Price text
+              // UPDATED: Real price text using video.formattedPrice
               Text(
-                _getDummyPrice(),
+                widget.video.formattedPrice, // Use real price from model
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,

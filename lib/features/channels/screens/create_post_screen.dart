@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/features/channels/widgets/video_trim_screen.dart';
@@ -77,7 +78,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Wakelock state tracking
   bool _wakelockActive = false;
   
-  final TextEditingController _captionController = TextEditingController();
+  // UPDATED: Replace caption with price input
+  final TextEditingController _priceController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
 
   @override
@@ -89,7 +91,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   @override
   void dispose() {
     _videoPlayerController?.dispose();
-    _captionController.dispose();
+    _priceController.dispose(); // Updated from _captionController
     _tagsController.dispose();
     // Clean up cache when disposing (optional)
     _cacheManager.emptyCache();
@@ -813,7 +815,19 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     return result ?? false;
   }
 
-  // Modified submit form to check for channel before uploading
+  // Parse price from text input
+  double _parsePriceInput() {
+    final text = _priceController.text.trim();
+    if (text.isEmpty) return 0.0;
+    
+    try {
+      return double.parse(text);
+    } catch (e) {
+      return 0.0; // Return 0 if parsing fails
+    }
+  }
+
+  // Modified submit form to check for channel before uploading and use price
   void _submitForm() async {
     print('DEBUG: Form submission started');
     
@@ -851,7 +865,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
       }
       
-      print('DEBUG: Submitting ${_isVideoMode ? 'video' : 'images'}');
+      // Parse price from input
+      final price = _parsePriceInput();
+      
+      print('DEBUG: Submitting ${_isVideoMode ? 'video' : 'images'} with price: KES $price');
       
       if (_isVideoMode) {
         // Optimize video before upload if we have video info
@@ -871,7 +888,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         
         channelVideosNotifier.uploadVideo(
           videoFile: videoToUpload,
-          caption: _captionController.text,
+          caption: '', // Empty caption since we're using price
+          price: price, // Include price
           tags: tags,
           onSuccess: (message) {
             print('DEBUG: Video upload success: $message');
@@ -887,7 +905,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       } else {
         channelVideosNotifier.uploadImages(
           imageFiles: _imageFiles,
-          caption: _captionController.text,
+          caption: '', // Empty caption since we're using price
+          price: price, // Include price
           tags: tags,
           onSuccess: (message) {
             print('DEBUG: Images upload success: $message');
@@ -1201,12 +1220,18 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ],
                 ),
               
-              // Caption
+              // UPDATED: Price input field (replaces caption)
               TextFormField(
-                controller: _captionController,
+                controller: _priceController,
                 decoration: InputDecoration(
-                  labelText: 'Caption *',
+                  labelText: 'Price (Optional)',
                   labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                  prefixText: 'KES ',
+                  prefixStyle: TextStyle(
+                    color: modernTheme.textColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  hintText: '0',
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
                   ),
@@ -1217,14 +1242,23 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     borderSide: BorderSide(color: Colors.red),
                   ),
                 ),
-                maxLines: 3,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a caption';
-                  }
-                  return null;
-                },
+                keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly, // Only allow digits
+                ],
                 enabled: !channelVideosState.isUploading && !_isOptimizing,
+                // No validation required since price is optional
+              ),
+              
+              const SizedBox(height: 8),
+              
+              // Price formatting helper text
+              Text(
+                'Enter amount in KES (leave empty for free item)',
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                  fontSize: 12,
+                ),
               ),
               
               const SizedBox(height: 16),

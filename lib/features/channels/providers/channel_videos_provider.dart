@@ -211,10 +211,11 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     }
   }
 
-  // Upload a new video to the channel - UPDATED: Auto-ensure channel
+  // Upload a new video to the channel - UPDATED: Added price parameter
   Future<void> uploadVideo({
     required File videoFile,
     required String caption,
+    required double price, // NEW: Price parameter
     List<String>? tags,
     required Function(String) onSuccess,
     required Function(String) onError,
@@ -232,11 +233,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       
       // CRITICAL: Ensure user has a channel before uploading
       debugPrint('DEBUG: Ensuring user has channel before video upload');
-      // Note: We need access to the channels provider here
-      // This will be handled by the calling screen
       
-      // For now, we'll assume the channel is ensured by the calling screen
-      // and we'll get it from the repository
       final userChannel = await _repository.getUserChannel(uid);
       if (userChannel == null) {
         throw RepositoryException('No channel found. Please create a channel first.');
@@ -255,7 +252,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       // For now, we'll just use an empty string as placeholder
       const thumbnailUrl = '';
       
-      // Create video
+      // Create video with price
       final videoData = await _repository.createVideo(
         channelId: userChannel.id,
         channelName: userChannel.name,
@@ -264,6 +261,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
         caption: caption,
+        price: price, // Include price
         tags: tags,
       );
       
@@ -299,10 +297,11 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     }
   }
 
-  // Upload multiple images to the channel - UPDATED: Auto-ensure channel
+  // Upload multiple images to the channel - UPDATED: Added price parameter
   Future<void> uploadImages({
     required List<File> imageFiles,
     required String caption,
+    required double price, // NEW: Price parameter
     List<String>? tags,
     required Function(String) onSuccess,
     required Function(String) onError,
@@ -345,7 +344,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         state = state.copyWith(uploadProgress: progress);
       }
       
-      // Create image post
+      // Create image post with price
       final postData = await _repository.createImagePost(
         channelId: userChannel.id,
         channelName: userChannel.name,
@@ -353,6 +352,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         userId: uid,
         imageUrls: imageUrls,
         caption: caption,
+        price: price, // Include price
         tags: tags,
       );
       

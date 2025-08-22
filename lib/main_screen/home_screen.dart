@@ -9,6 +9,8 @@ import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
+import 'package:textgb/features/moments/screens/my_moments_screen.dart';
+import 'package:textgb/features/moments/screens/create_moment_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -342,11 +344,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               builder: (context) => const MyChannelScreen(),
             ),
           );
-        } else if (value == 'explore_channels') {
+        } else if (value == 'my_moments') {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const ChannelsListScreen(),
+              builder: (context) => const MyMomentsScreen(),
             ),
           );
         }
@@ -425,6 +427,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
       ]);
+    } else if (_currentIndex == 1) {
+      // Moments tab - add "My Moments" option
+      items.addAll([
+        PopupMenuItem<String>(
+          value: 'my_moments',
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: modernTheme.primaryColor?.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.photo_library_outlined,
+                  color: modernTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'My Moments',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ]);
     } else if (_currentIndex == 2) {
       // Channels tab - add "My Channel" and "Explore" options
       items.addAll([
@@ -442,7 +479,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.video_library_outlined,
+                  Icons.account_balance_rounded,
                   color: modernTheme.primaryColor,
                   size: 20,
                 ),
@@ -459,40 +496,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ],
           ),
         ),
-        PopupMenuItem<String>(
-          value: 'explore_channels',
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: modernTheme.primaryColor?.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.explore_outlined,
-                  color: modernTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Explore Channels',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
       ]);
     }
-    // Status tab (index 1) has empty dropdown menu as requested
 
     return items;
   }
@@ -509,14 +514,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: const Icon(CupertinoIcons.bubble_left_bubble_right_fill),
       );
     } else if (_currentIndex == 1) {
-      // Status tab - Create Status FAB
+      // Moments tab - Create Moment FAB
       return FloatingActionButton(
-        heroTag: "status_fab",
+        heroTag: "moments_fab",
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         elevation: 4,
-        onPressed: () => _createStatus(),
-        child: const Icon(Icons.camera_alt),
+        onPressed: () => _createMoment(),
+        child: const Icon(Icons.donut_large_rounded),
       );
     } else if (_currentIndex == 2) {
       // Channels tab - Create Post FAB
@@ -533,7 +538,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return const SizedBox.shrink();
   }
 
-  // Status creation method
+  // Moment creation method
+  void _createMoment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CreateMomentScreen(),
+      ),
+    );
+  }
+
+  // Status creation method (legacy - keeping for reference)
   void _createStatus() {
     // TODO: Implement status creation
     ScaffoldMessenger.of(context).showSnackBar(

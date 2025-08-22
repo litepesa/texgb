@@ -10,6 +10,7 @@ class ChannelVideoModel {
   final String videoUrl;
   final String thumbnailUrl;
   final String caption;
+  final double price; // NEW: Price field for business posts
   final int likes;
   final int comments;
   final int views;
@@ -31,6 +32,7 @@ class ChannelVideoModel {
     required this.videoUrl,
     required this.thumbnailUrl,
     required this.caption,
+    this.price = 0.0, // Default price is 0
     required this.likes,
     required this.comments,
     required this.views,
@@ -53,6 +55,7 @@ class ChannelVideoModel {
       'videoUrl': videoUrl,
       'thumbnailUrl': thumbnailUrl,
       'caption': caption,
+      'price': price, // Include price in map
       'likes': likes,
       'comments': comments,
       'views': views,
@@ -82,6 +85,7 @@ class ChannelVideoModel {
       videoUrl: map['videoUrl'] ?? '',
       thumbnailUrl: map['thumbnailUrl'] ?? '',
       caption: map['caption'] ?? '',
+      price: (map['price'] ?? 0.0).toDouble(), // Handle price conversion
       likes: map['likes'] ?? 0,
       comments: map['comments'] ?? 0,
       views: map['views'] ?? 0,
@@ -111,6 +115,7 @@ class ChannelVideoModel {
     String? videoUrl,
     String? thumbnailUrl,
     String? caption,
+    double? price, // Add price to copyWith
     int? likes,
     int? comments,
     int? views,
@@ -132,6 +137,7 @@ class ChannelVideoModel {
       videoUrl: videoUrl ?? this.videoUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       caption: caption ?? this.caption,
+      price: price ?? this.price, // Include price in copyWith
       likes: likes ?? this.likes,
       comments: comments ?? this.comments,
       views: views ?? this.views,
@@ -144,5 +150,34 @@ class ChannelVideoModel {
       isMultipleImages: isMultipleImages ?? this.isMultipleImages,
       imageUrls: imageUrls ?? this.imageUrls,
     );
+  }
+
+  /// Formats the price for display
+  /// Rules: 
+  /// - Up to 999,999: "KES 999,999"
+  /// - 1,000,000+: "KES 1M", "KES 1.5M", etc.
+  /// - Default (0): "KES 0"
+  String get formattedPrice {
+    if (price == 0) {
+      return 'KES 0';
+    }
+    
+    if (price < 1000000) {
+      // Format with commas for thousands
+      return 'KES ${price.toInt().toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (Match m) => '${m[1]},',
+      )}';
+    } else {
+      // Format in millions
+      double millions = price / 1000000;
+      if (millions == millions.toInt()) {
+        // Whole number of millions
+        return 'KES ${millions.toInt()}M';
+      } else {
+        // Decimal millions (e.g., 1.5M)
+        return 'KES ${millions.toStringAsFixed(1)}M';
+      }
+    }
   }
 }
