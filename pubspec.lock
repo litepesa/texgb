@@ -1012,10 +1012,10 @@ packages:
     dependency: "direct main"
     description:
       name: http
-      sha256: fe7ab022b76f3034adc518fb6ea04a82387620e19977665ea18d30a1cf43442f
+      sha256: bb2ce4590bc2667c96f318d68cac1b5a7987ec819351d32b1c987239a815e007
       url: "https://pub.dev"
     source: hosted
-    version: "1.3.0"
+    version: "1.5.0"
   http_multi_server:
     dependency: transitive
     description:
@@ -1789,14 +1789,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.0"
-  surrealdb:
-    dependency: "direct main"
-    description:
-      name: surrealdb
-      sha256: "4e111c2c79288066381000f151b059de67c4cb77c2953832a0c63d6f9cdca68f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.1.1"
   swipe_to:
     dependency: "direct main"
     description:
