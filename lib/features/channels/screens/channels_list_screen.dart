@@ -839,7 +839,7 @@ class _ChannelsListScreenState extends ConsumerState<ChannelsListScreen> {
                         children: [
                           _buildStatChip(
                             icon: Icons.play_circle_outline_rounded,
-                            text: '${channel.videosCount} videos',
+                            text: '${channel.videosCount} posts',
                             theme: theme,
                           ),
                           _buildStatChip(

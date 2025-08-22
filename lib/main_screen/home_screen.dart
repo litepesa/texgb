@@ -269,31 +269,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildAppBarTitle(ModernThemeExtension modernTheme) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: "Wei",
-            style: TextStyle(
-              color: modernTheme.textColor,          
-              fontWeight: FontWeight.w500,
-              fontSize: 22,
-              letterSpacing: -0.3,
-            ),
+  return RichText(
+    text: TextSpan(
+      children: [
+        TextSpan(
+          text: "Wei",
+          style: TextStyle(
+            color: modernTheme.textColor,          
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            letterSpacing: -0.3,
           ),
-          TextSpan(
-            text: "Bao",
-            style: TextStyle(
-              color: modernTheme.primaryColor,
-              fontWeight: FontWeight.w800,
-              fontSize: 24,
-              letterSpacing: -0.3,
-            ),
+        ),
+        TextSpan(
+          text: "Bao",
+          style: TextStyle(
+            color: modernTheme.primaryColor,
+            fontWeight: FontWeight.w700,
+            fontSize: 24,
+            letterSpacing: -0.3,
           ),
-        ],
-      ),
-    );
-  }
+        ),
+        TextSpan(
+          text: "微宝",
+          style: TextStyle(
+            color: const Color(0xFFFE2C55),
+            fontWeight: FontWeight.w700,
+            fontSize: 22,
+            letterSpacing: -0.3,
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildThreeDotMenu(ModernThemeExtension modernTheme) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

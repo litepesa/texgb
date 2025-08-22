@@ -214,6 +214,15 @@ class _AppLogo extends StatelessWidget {
                     letterSpacing: -1.0,
                   ),
                 ),
+                TextSpan(
+                  text: "微宝",
+                  style: TextStyle(
+                    color: const Color(0xFFFE2C55),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 40,
+                    letterSpacing: -0.3,
+                  ),
+                ),
               ],
             ),
           ),

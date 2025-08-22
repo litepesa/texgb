@@ -400,6 +400,46 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     });
   }
 
+  // Helper method to get dummy price data
+  String _getDummyPrice() {
+    // Dummy prices for different video IDs - will be replaced with actual data later
+    final prices = [
+      'KES 1,999',
+      'KES 2,499', 
+      'KES 3,999',
+      'KES 899',
+      'KES 5,499',
+      'KES 1,299',
+      'KES 4,799',
+    ];
+    
+    // Use video ID hash to get consistent price for same video
+    final index = widget.video.id.hashCode.abs() % prices.length;
+    return prices[index];
+  }
+
+  // Add this method to handle buy button tap
+  void _handleBuyTap() {
+    // TODO: Implement buy functionality
+    // For now, just show a debug message
+    debugPrint('Buy button tapped for video: ${widget.video.id}');
+    debugPrint('Price: ${_getDummyPrice()}');
+    
+    // Optional: Add haptic feedback
+    // HapticFeedback.lightImpact();
+    
+    // Show "Feature coming soon" message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Feature coming soon!'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: const Color(0xFFFF6B6B),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _likeAnimationController.dispose();
@@ -876,8 +916,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 8),
           
-          // Always show timestamp at the bottom for consistency
-          _buildTimestampDisplay(),
+          // Price display with BUY button (replaces timestamp)
+          _buildPriceDisplay(),
         ],
       ),
     );
@@ -1010,95 +1050,137 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // Helper method to format timestamp as relative time with better formatting
-  String _getRelativeTime() {
-    final now = DateTime.now();
-    final videoTime = widget.video.createdAt.toDate();
-    final difference = now.difference(videoTime);
-
-    if (difference.inSeconds < 30) {
-      return 'Just now';
-    } else if (difference.inSeconds < 60) {
-      return 'Less than a minute ago';
-    } else if (difference.inMinutes < 60) {
-      final minutes = difference.inMinutes;
-      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
-    } else if (difference.inHours < 24) {
-      final hours = difference.inHours;
-      return hours == 1 ? '1 hour ago' : '$hours hours ago';
-    } else if (difference.inDays < 7) {
-      final days = difference.inDays;
-      return days == 1 ? 'Yesterday' : '$days days ago';
-    } else if (difference.inDays < 30) {
-      final weeks = (difference.inDays / 7).floor();
-      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
-    } else if (difference.inDays < 365) {
-      final months = (difference.inDays / 30).floor();
-      return months == 1 ? '1 month ago' : '$months months ago';
-    } else {
-      final years = (difference.inDays / 365).floor();
-      return years == 1 ? '1 year ago' : '$years years ago';
-    }
-  }
-
-  // Helper method to format timestamp as absolute date/time
-  String _getFormattedDateTime() {
-    final videoTime = widget.video.createdAt.toDate();
-    final now = DateTime.now();
-    final difference = now.difference(videoTime);
-
-    if (difference.inDays == 0) {
-      // Today - show just time
-      return 'Today ${_formatTime(videoTime)}';
-    } else if (difference.inDays == 1) {
-      // Yesterday
-      return 'Yesterday ${_formatTime(videoTime)}';
-    } else if (difference.inDays < 7) {
-      // This week - show day and time
-      return '${_formatDayOfWeek(videoTime)} ${_formatTime(videoTime)}';
-    } else {
-      // Older - show date and time
-      return '${_formatDate(videoTime)} ${_formatTime(videoTime)}';
-    }
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final hour = dateTime.hour == 0 ? 12 : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
-  }
-
-  String _formatDayOfWeek(DateTime dateTime) {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return days[dateTime.weekday % 7];
-  }
-
-  String _formatDate(DateTime dateTime) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${months[dateTime.month - 1]} ${dateTime.day}';
-  }
-
-  // Method to build timestamp display (kept for other screens)
-  Widget _buildTimestampDisplay() {
-    final timestampStyle = TextStyle(
-      color: Colors.white.withOpacity(0.7),
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      height: 1.3,
-      shadows: [
-        Shadow(
-          color: Colors.black.withOpacity(0.7),
-          blurRadius: 3,
-          offset: const Offset(0, 1),
+  // Updated method to build price display with BUY button (replaces timestamp)
+  Widget _buildPriceDisplay() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Price container
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF4CAF50), // Green start
+                Color(0xFF2E7D32), // Darker green end
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Price icon
+              const Icon(
+                Icons.local_offer,
+                color: Colors.white,
+                size: 16,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+              const SizedBox(width: 6),
+              // Price text
+              Text(
+                _getDummyPrice(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(width: 8), // Space between price and buy button
+        
+        // BUY button
+        GestureDetector(
+          onTap: _handleBuyTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFFF6B6B), // Coral red start
+                  Color(0xFFE55353), // Darker red end
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Shopping cart icon
+                const Icon(
+                  Icons.shopping_cart,
+                  color: Colors.white,
+                  size: 16,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 6),
+                // BUY text
+                const Text(
+                  'BUY',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
-    );
-
-    return Text(
-      _getRelativeTime(),
-      style: timestampStyle,
     );
   }
 

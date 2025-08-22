@@ -71,20 +71,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       children: [
                         TextSpan(
                           text: 'Wei',
-                          style: GoogleFonts.poppins(
-                            fontSize: 44,
+                          style: TextStyle(
+                            fontSize: 40,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
-                            letterSpacing: -0.5,
+                            letterSpacing: -0.3,
                           ),
                         ),
                         TextSpan(
                           text: 'Bao',
-                          style: GoogleFonts.poppins(
-                            fontSize: 44,
-                            fontWeight: FontWeight.bold,
+                          style: TextStyle(
+                            fontSize: 45,
+                            fontWeight: FontWeight.w700,
                             color: wechatGreen,
-                            letterSpacing: -0.5,
+                            letterSpacing: -1.0,
+                          ),
+                        ),
+                        TextSpan(
+                          text: "微宝",
+                          style: TextStyle(
+                            color: const Color(0xFFFE2C55),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 40,
+                            letterSpacing: -0.3,
                           ),
                         ),
                       ],
