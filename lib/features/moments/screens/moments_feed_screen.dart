@@ -1,4 +1,4 @@
-// lib/features/moments/screens/moments_feed_screen.dart - With lifecycle methods like ChannelsFeedScreen
+// lib/features/moments/screens/moments_feed_screen.dart - Complete with DM functionality
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -10,6 +10,12 @@ import 'package:video_player/video_player.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/providers/moments_provider.dart';
 import 'package:textgb/features/moments/widgets/moment_comments_bottom_sheet.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
+import 'package:textgb/features/chat/models/moment_reaction_model.dart';
+import 'package:textgb/features/chat/widgets/moment_reaction_input.dart';
+import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/constants.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -601,6 +607,199 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
+  // NEW: Navigate to moment author chat with moment reaction system
+  Future<void> _navigateToMomentAuthorChat(MomentModel? moment) async {
+    if (moment == null) {
+      debugPrint('No moment available for reaction');
+      return;
+    }
+
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    if (currentUser == null) {
+      debugPrint('User not authenticated');
+      return;
+    }
+
+    // Check if user is trying to react to their own moment
+    if (moment.authorId == currentUser.uid) {
+      _showCannotReactToOwnMomentMessage();
+      return;
+    }
+
+    // Pause video before showing reaction input
+    _pauseForNavigation();
+
+    try {
+      // Get moment author's user data
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final momentAuthor = await authNotifier.getUserDataById(moment.authorId);
+      
+      if (momentAuthor == null) {
+        debugPrint('Moment author not found');
+        _resumeFromNavigation();
+        return;
+      }
+
+      // Show moment reaction input bottom sheet
+      final reaction = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => MomentReactionInput(
+          moment: moment,
+          onSendReaction: (reaction) => Navigator.pop(context, reaction),
+          onCancel: () => Navigator.pop(context),
+        ),
+      );
+
+      // If reaction was provided, create chat and send reaction
+      if (reaction != null && reaction.trim().isNotEmpty && mounted) {
+        final chatListNotifier = ref.read(chatListProvider.notifier);
+        final chatId = await chatListNotifier.createOrGetChat(currentUser.uid, momentAuthor.uid);
+        
+        if (chatId != null) {
+          // Send moment reaction message
+          await _sendMomentReactionMessage(
+            chatId: chatId,
+            moment: moment,
+            reaction: reaction,
+            senderId: currentUser.uid,
+          );
+
+          // Navigate to chat to show the sent reaction
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                chatId: chatId,
+                contact: momentAuthor,
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error creating moment reaction: $e');
+      _showSnackBar('Failed to send reaction');
+    } finally {
+      // Resume video after interaction
+      _resumeFromNavigation();
+    }
+  }
+
+  // Helper method to send moment reaction message
+  Future<void> _sendMomentReactionMessage({
+    required String chatId,
+    required MomentModel moment,
+    required String reaction,
+    required String senderId,
+  }) async {
+    try {
+      final chatRepository = ref.read(chatRepositoryProvider);
+      
+      // Determine media URL and type
+      final String mediaUrl = moment.hasVideo 
+          ? moment.videoUrl! 
+          : (moment.hasImages && moment.imageUrls.isNotEmpty 
+              ? moment.imageUrls.first 
+              : '');
+      
+      final String thumbnailUrl = moment.hasImages && moment.imageUrls.isNotEmpty 
+          ? moment.imageUrls.first 
+          : (moment.videoThumbnail ?? '');
+          
+      final String mediaType = moment.hasVideo ? 'video' : 'image';
+      
+      // Create moment reaction data
+      final momentReaction = MomentReactionModel(
+        momentId: moment.id,
+        mediaUrl: mediaUrl,
+        thumbnailUrl: thumbnailUrl,
+        authorName: moment.authorName,
+        authorImage: moment.authorImage,
+        content: moment.content,
+        reaction: reaction,
+        timestamp: DateTime.now(),
+        mediaType: mediaType,
+      );
+
+      // Send as a moment reaction message
+      await chatRepository.sendMomentReactionMessage(
+        chatId: chatId,
+        senderId: senderId,
+        momentReaction: momentReaction,
+      );
+      
+    } catch (e) {
+      debugPrint('Error sending moment reaction message: $e');
+      rethrow;
+    }
+  }
+
+  // Helper method to show cannot react to own moment message
+  void _showCannotReactToOwnMomentMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.info_outline,
+              color: Colors.orange,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot React to Your Own Moment',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send reactions to your own moments.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show snackbar
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   // Add the expandable caption method from status viewer
   Widget _buildExpandableCaption(String caption, int momentIndex) {
     // Check if caption needs truncation (more than 2 lines estimated)
@@ -1099,7 +1298,7 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
-  // TikTok-style right side menu - with Gift and DM icons
+  // TikTok-style right side menu - UPDATED with DM functionality
   Widget _buildRightSideMenu() {
     final momentsAsyncValue = ref.watch(momentsFeedStreamProvider);
     if (!momentsAsyncValue.hasValue) return const SizedBox.shrink();
@@ -1160,7 +1359,7 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // DM button - custom white rounded square with 'DM' text
+          // DM button - UPDATED with moment reaction navigation
           _buildRightMenuItem(
             child: Container(
               width: 28,
@@ -1181,9 +1380,7 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
               ),
             ),
             label: 'Inbox',
-            onTap: () {
-              // TODO: Add DM functionality
-            },
+            onTap: () => _navigateToMomentAuthorChat(currentMoment),
           ),
         ],
       ),

@@ -1,4 +1,4 @@
-// lib/features/chat/repositories/chat_repository.dart
+// lib/features/chat/repositories/chat_repository.dart - Updated with moment reaction support
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -9,6 +9,7 @@ import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
+import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:uuid/uuid.dart';
 
 abstract class ChatRepository {
@@ -39,6 +40,12 @@ abstract class ChatRepository {
     required String chatId,
     required String senderId,
     required VideoReactionModel videoReaction,
+  });
+  // NEW: Moment reaction message
+  Future<String> sendMomentReactionMessage({
+    required String chatId,
+    required String senderId,
+    required MomentReactionModel momentReaction,
   });
   Stream<List<MessageModel>> getMessagesStream(String chatId);
   Future<void> updateMessageStatus(String chatId, String messageId, MessageStatus status);
@@ -550,6 +557,90 @@ class FirebaseChatRepository implements ChatRepository {
       return messageId;
     } catch (e) {
       throw ChatRepositoryException('Failed to send video reaction message: $e');
+    }
+  }
+
+  // NEW: Send moment reaction message
+  @override
+  Future<String> sendMomentReactionMessage({
+    required String chatId,
+    required String senderId,
+    required MomentReactionModel momentReaction,
+  }) async {
+    try {
+      final messageId = _uuid.v4();
+      
+      // Create moment reaction message using text type with special metadata
+      final reactionMessage = MessageModel(
+        messageId: messageId,
+        chatId: chatId,
+        senderId: senderId,
+        content: momentReaction.reaction, // The reaction text
+        type: MessageEnum.text, // Use text type to avoid breaking existing message handling
+        status: MessageStatus.sending,
+        timestamp: DateTime.now(),
+        mediaUrl: momentReaction.mediaUrl, // Original moment media URL
+        mediaMetadata: {
+          'isMomentReaction': true, // Flag to identify moment reactions
+          'momentReaction': momentReaction.toMap(), // Store full reaction data
+          'thumbnailUrl': momentReaction.thumbnailUrl,
+          'momentId': momentReaction.momentId,
+          'authorName': momentReaction.authorName,
+          'authorImage': momentReaction.authorImage,
+          'mediaType': momentReaction.mediaType,
+          'momentContent': momentReaction.content,
+        },
+      );
+
+      // Add message to subcollection
+      await _firestore
+          .collection(Constants.chats)
+          .doc(chatId)
+          .collection(Constants.messages)
+          .doc(messageId)
+          .set(reactionMessage.toMap());
+
+      // Update chat's last message
+      final lastMessagePreview = momentReaction.reaction.isNotEmpty 
+          ? 'Reacted: ${momentReaction.reaction}'
+          : 'Reacted to a moment';
+
+      await _firestore.collection(Constants.chats).doc(chatId).update({
+        'lastMessage': lastMessagePreview,
+        'lastMessageType': MessageEnum.text.name, // Keep as text to avoid breaking chat list
+        'lastMessageSender': senderId,
+        'lastMessageTime': reactionMessage.timestamp.millisecondsSinceEpoch,
+      });
+
+      // Increment unread count for other participants
+      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
+      if (chatDoc.exists) {
+        final chat = ChatModel.fromMap(chatDoc.data()!);
+        final updates = <String, dynamic>{};
+        
+        for (final participantId in chat.participants) {
+          if (participantId != senderId) {
+            final currentUnread = chat.getUnreadCount(participantId);
+            updates['unreadCounts.$participantId'] = currentUnread + 1;
+            
+            // Automatically mark as delivered for other participants
+            Future.delayed(const Duration(seconds: 2), () {
+              markMessageAsDelivered(chatId, messageId, participantId);
+            });
+          }
+        }
+        
+        if (updates.isNotEmpty) {
+          await _firestore.collection(Constants.chats).doc(chatId).update(updates);
+        }
+      }
+
+      // Mark as sent
+      await updateMessageStatus(chatId, messageId, MessageStatus.sent);
+
+      return messageId;
+    } catch (e) {
+      throw ChatRepositoryException('Failed to send moment reaction message: $e');
     }
   }
 
