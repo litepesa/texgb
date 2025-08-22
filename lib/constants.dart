@@ -35,9 +35,32 @@ class Constants {
   static const String channelsListScreen = '/channelsListScreen';
   static const String recommendedPostsScreen = '/recommendedPostsScreen';
 
-  // Status routes
-  static const String statusScreen = '/statusScreen';
-  static const String createStatusScreen = '/createStatusScreen';
+  // Status-related routes
+  static const String statusScreen = '/status';
+  static const String createStatusScreen = '/create-status';
+  static const String statusViewerScreen = '/status-viewer';
+  static const String statusTypeSelectionScreen = '/status-type-selection';
+
+  // Status collection names
+  static const String statusCollection = 'status';
+  static const String statusViewsCollection = 'statusViews';
+
+  // Status settings
+  static const Duration statusDuration = Duration(hours: 24);
+  static const Duration statusViewDuration = Duration(seconds: 5);
+  static const int maxStatusMediaSize = 50 * 1024 * 1024; // 50MB
+  static const int maxStatusTextLength = 700;
+  static const Duration maxVideoStatusDuration = Duration(seconds: 30);
+
+  // Status storage paths
+  static const String statusStoragePath = 'status';
+  static const String statusThumbnailsPath = 'status/thumbnails';
+
+  // Status shared preferences keys
+  static const String statusPrivacyKey = 'status_privacy';
+  static const String statusAllowedViewersKey = 'status_allowed_viewers';
+  static const String statusExcludedViewersKey = 'status_excluded_viewers';
+  static const String lastStatusCleanupKey = 'last_status_cleanup';
   
   // Groups routes
   static const String groupsScreen = '/groupsScreen';

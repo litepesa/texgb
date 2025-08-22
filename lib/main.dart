@@ -1,39 +1,71 @@
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
+
+// Authentication screens
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
-import 'package:textgb/constants.dart';
+
+// Chat screens
+import 'package:textgb/features/chat/screens/chat_screen.dart';
+
+// Contact screens
+import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
+import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
+import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+
+// Profile screens
+import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
+import 'package:textgb/features/profile/screens/my_profile_screen.dart';
+
+// Settings screens
+import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
+
+// Wallet screens
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+
+// Channel screens
 import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
 import 'package:textgb/features/channels/screens/my_post_screen.dart';
 import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
 import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/chat/screens/chat_screen.dart';
-import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
-import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
-import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
-import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
-import 'package:textgb/features/profile/screens/my_profile_screen.dart';
-import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+
+// Status screens
+import 'package:textgb/features/status/screens/status_screen.dart';
+import 'package:textgb/features/status/screens/create_status_screen.dart';
+import 'package:textgb/features/status/screens/status_viewer_screen.dart';
+
+// Groups screens
+import 'package:textgb/features/groups/screens/groups_screen.dart';
+
+// Models
+import 'package:textgb/features/channels/models/channel_model.dart';
+import 'package:textgb/features/status/models/status_model.dart';
+import 'package:textgb/models/user_model.dart';
+
+// Constants and utilities
+import 'package:textgb/constants.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
-import 'package:textgb/models/user_model.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
-import 'package:textgb/features/status/screens/status_screen.dart';
-import 'package:textgb/features/groups/screens/groups_screen.dart';
+
+// Enums
+import 'package:textgb/enums/enums.dart';
+
+// Firebase
+import 'package:firebase_auth/firebase_auth.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -150,7 +182,12 @@ class AppRoot extends ConsumerWidget {
             return ContactProfileScreen(contact: args);
           },
 
+          // Status routes
           Constants.statusScreen: (context) => const StatusScreen(),
+          Constants.createStatusScreen: (context) => const StatusTypeSelectionScreen(),
+          Constants.statusTypeSelectionScreen: (context) => const StatusTypeSelectionScreen(),
+
+          // Groups route
           Constants.groupsScreen: (context) => const GroupsScreen(),
                  
           // Channel routes with enhanced navigation support
@@ -214,8 +251,8 @@ class AppRoot extends ConsumerWidget {
         onGenerateRoute: (settings) {
           // Handle dynamic routes that need custom logic
           switch (settings.name) {
+            // Chat routes
             case '/chat':
-              // Handle chat route with parameters
               final args = settings.arguments as Map<String, dynamic>?;
               if (args != null && args.containsKey('chatId') && args.containsKey('contact')) {
                 return MaterialPageRoute(
@@ -229,11 +266,119 @@ class AppRoot extends ConsumerWidget {
               break;
               
             case '/contact-profile':
-              // Handle contact profile route
               final contact = settings.arguments as UserModel?;
               if (contact != null) {
                 return MaterialPageRoute(
                   builder: (context) => ContactProfileScreen(contact: contact),
+                  settings: settings,
+                );
+              }
+              break;
+
+            // Status routes
+            case '/create-status-with-type':
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null) {
+                return MaterialPageRoute(
+                  builder: (context) => CreateStatusScreen(
+                    type: args['type'] as StatusType,
+                    mediaFile: args['mediaFile'] as File?,
+                    initialText: args['initialText'] as String?,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+              
+            case '/status-viewer':
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null) {
+                return MaterialPageRoute(
+                  builder: (context) => StatusViewerScreen(
+                    status: args['status'] as StatusModel,
+                    initialIndex: args['initialIndex'] as int? ?? 0,
+                    allStatuses: args['allStatuses'] as List<StatusModel>? ?? const [],
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+
+            case '/create-text-status':
+              final initialText = settings.arguments as String?;
+              return MaterialPageRoute(
+                builder: (context) => CreateStatusScreen(
+                  type: StatusType.text,
+                  initialText: initialText,
+                ),
+                settings: settings,
+              );
+
+            case '/create-image-status':
+              final imageFile = settings.arguments as File?;
+              if (imageFile != null) {
+                return MaterialPageRoute(
+                  builder: (context) => CreateStatusScreen(
+                    type: StatusType.image,
+                    mediaFile: imageFile,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+
+            case '/create-video-status':
+              final videoFile = settings.arguments as File?;
+              if (videoFile != null) {
+                return MaterialPageRoute(
+                  builder: (context) => CreateStatusScreen(
+                    type: StatusType.video,
+                    mediaFile: videoFile,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+
+            // Channel routes
+            case '/channel-feed':
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null) {
+                return MaterialPageRoute(
+                  builder: (context) => ChannelsFeedScreen(
+                    startVideoId: args['startVideoId'] as String?,
+                    channelId: args['channelId'] as String?,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+
+            case '/channel-profile':
+              final channelId = settings.arguments as String?;
+              if (channelId != null) {
+                return MaterialPageRoute(
+                  builder: (context) => ChannelProfileScreen(channelId: channelId),
+                  settings: settings,
+                );
+              }
+              break;
+
+            case '/edit-channel':
+              final channel = settings.arguments as ChannelModel?;
+              if (channel != null) {
+                return MaterialPageRoute(
+                  builder: (context) => EditChannelScreen(channel: channel),
+                  settings: settings,
+                );
+              }
+              break;
+
+            case '/my-post':
+              final videoId = settings.arguments as String?;
+              if (videoId != null) {
+                return MaterialPageRoute(
+                  builder: (context) => MyPostScreen(videoId: videoId),
                   settings: settings,
                 );
               }
@@ -427,7 +572,7 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
 }
 
 // Helper class for navigation utilities
-class ChatNavigationHelper {
+class NavigationHelper {
   // Navigate to chat screen
   static void navigateToChat(
     BuildContext context, {
@@ -453,6 +598,130 @@ class ChatNavigationHelper {
       context,
       Constants.contactProfileScreen,
       arguments: contact,
+    );
+  }
+
+  // Navigate to status viewer
+  static void navigateToStatusViewer(
+    BuildContext context, {
+    required StatusModel status,
+    int initialIndex = 0,
+    List<StatusModel> allStatuses = const [],
+  }) {
+    Navigator.pushNamed(
+      context,
+      '/status-viewer',
+      arguments: {
+        'status': status,
+        'initialIndex': initialIndex,
+        'allStatuses': allStatuses,
+      },
+    );
+  }
+
+  // Navigate to create status with type
+  static void navigateToCreateStatus(
+    BuildContext context, {
+    required StatusType type,
+    File? mediaFile,
+    String? initialText,
+  }) {
+    Navigator.pushNamed(
+      context,
+      '/create-status-with-type',
+      arguments: {
+        'type': type,
+        'mediaFile': mediaFile,
+        'initialText': initialText,
+      },
+    );
+  }
+
+  // Navigate to text status creation
+  static void navigateToCreateTextStatus(
+    BuildContext context, {
+    String? initialText,
+  }) {
+    Navigator.pushNamed(
+      context,
+      '/create-text-status',
+      arguments: initialText,
+    );
+  }
+
+  // Navigate to image status creation
+  static void navigateToCreateImageStatus(
+    BuildContext context, {
+    required File imageFile,
+  }) {
+    Navigator.pushNamed(
+      context,
+      '/create-image-status',
+      arguments: imageFile,
+    );
+  }
+
+  // Navigate to video status creation
+  static void navigateToCreateVideoStatus(
+    BuildContext context, {
+    required File videoFile,
+  }) {
+    Navigator.pushNamed(
+      context,
+      '/create-video-status',
+      arguments: videoFile,
+    );
+  }
+
+  // Navigate to channel feed
+  static void navigateToChannelFeed(
+    BuildContext context, {
+    String? startVideoId,
+    String? channelId,
+  }) {
+    Navigator.pushNamed(
+      context,
+      '/channel-feed',
+      arguments: {
+        'startVideoId': startVideoId,
+        'channelId': channelId,
+      },
+    );
+  }
+
+  // Navigate to channel profile
+  static void navigateToChannelProfile(
+    BuildContext context, {
+    required String channelId,
+  }) {
+    Navigator.pushNamed(
+      context,
+      '/channel-profile',
+      arguments: channelId,
+    );
+  }
+
+  // Navigate to edit channel
+  static void navigateToEditChannel(
+    BuildContext context, {
+    required ChannelModel channel,
+  }) {
+    Navigator.pushNamed(
+      context,
+      '/edit-channel',
+      arguments: channel,
+    );
+  }
+
+  // Navigate to my post
+  static void navigateToMyPost(
+    BuildContext context, {
+    required String videoId,
+  }) {
+    Navigator.pushNamed(
+      context,
+      '/my-post',
+      arguments: videoId,
     );
   }
 

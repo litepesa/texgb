@@ -6,11 +6,12 @@ part of 'chat_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$chatListHash() => r'b5f6a7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4';
+String _$chatListHash() => r'5e705145c0b266abff72a99300bc96c429533d7f';
 
 /// See also [ChatList].
 @ProviderFor(ChatList)
-final chatListProvider = AutoDisposeAsyncNotifierProvider<ChatList, ChatListState>.internal(
+final chatListProvider =
+    AutoDisposeAsyncNotifierProvider<ChatList, ChatListState>.internal(
   ChatList.new,
   name: r'chatListProvider',
   debugGetCreateSourceHash:

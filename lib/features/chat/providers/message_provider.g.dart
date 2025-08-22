@@ -6,7 +6,7 @@ part of 'message_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$messageNotifierHash() => r'f8e9d0c1b2a3456789abcdef01234567890abcde';
+String _$messageNotifierHash() => r'aeedcc1c98e686d16f1422ab6fa8af38431d3b3a';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -29,7 +29,8 @@ class _SystemHash {
   }
 }
 
-abstract class _$MessageNotifier extends BuildlessAutoDisposeAsyncNotifier<MessageState> {
+abstract class _$MessageNotifier
+    extends BuildlessAutoDisposeAsyncNotifier<MessageState> {
   late final String chatId;
 
   FutureOr<MessageState> build(
@@ -80,8 +81,8 @@ class MessageNotifierFamily extends Family<AsyncValue<MessageState>> {
 }
 
 /// See also [MessageNotifier].
-class MessageNotifierProvider
-    extends AutoDisposeAsyncNotifierProviderImpl<MessageNotifier, MessageState> {
+class MessageNotifierProvider extends AutoDisposeAsyncNotifierProviderImpl<
+    MessageNotifier, MessageState> {
   /// See also [MessageNotifier].
   MessageNotifierProvider(
     String chatId,
@@ -90,9 +91,12 @@ class MessageNotifierProvider
           from: messageNotifierProvider,
           name: r'messageNotifierProvider',
           debugGetCreateSourceHash:
-              const bool.fromEnvironment('dart.vm.product') ? null : _$messageNotifierHash,
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$messageNotifierHash,
           dependencies: MessageNotifierFamily._dependencies,
-          allTransitiveDependencies: MessageNotifierFamily._allTransitiveDependencies,
+          allTransitiveDependencies:
+              MessageNotifierFamily._allTransitiveDependencies,
           chatId: chatId,
         );
 
@@ -134,7 +138,8 @@ class MessageNotifierProvider
   }
 
   @override
-  AutoDisposeAsyncNotifierProviderElement<MessageNotifier, MessageState> createElement() {
+  AutoDisposeAsyncNotifierProviderElement<MessageNotifier, MessageState>
+      createElement() {
     return _MessageNotifierProviderElement(this);
   }
 
@@ -152,19 +157,20 @@ class MessageNotifierProvider
   }
 }
 
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
 mixin MessageNotifierRef on AutoDisposeAsyncNotifierProviderRef<MessageState> {
   /// The parameter `chatId` of this provider.
   String get chatId;
 }
 
 class _MessageNotifierProviderElement
-    extends AutoDisposeAsyncNotifierProviderElement<MessageNotifier, MessageState>
-    with MessageNotifierRef {
+    extends AutoDisposeAsyncNotifierProviderElement<MessageNotifier,
+        MessageState> with MessageNotifierRef {
   _MessageNotifierProviderElement(super.provider);
 
   @override
   String get chatId => (origin as MessageNotifierProvider).chatId;
 }
-
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
