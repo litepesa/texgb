@@ -792,9 +792,9 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
               // Top navigation - updated header with channel name (hide when comments open)
               if (!_isCommentsSheetOpen)
                 Positioned(
-                  top: systemTopPadding + 16, // Positioned below status bar with some padding
+                  top: systemTopPadding + 16, // Same positioning as single video screen
                   left: 0,
-                  right: 0,
+                  right: 16, // Add right padding to align with video content
                   child: _buildChannelHeader(),
                 ),
               
@@ -835,32 +835,43 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
   // Simplified header with only back button
   Widget _buildChannelHeader() {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        // Back button
-        Material(
-          type: MaterialType.transparency,
-          child: IconButton(
-            onPressed: _handleBackNavigation,
-            icon: const Icon(
-              CupertinoIcons.chevron_left,
-              color: Colors.white,
-              size: 28,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
+        // Back button - using same style as single video screen
+        GestureDetector(
+          onTap: _handleBackNavigation,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                CupertinoIcons.arrow_left,
+                color: Colors.white,
+                size: 14,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                'Back',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 3,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            iconSize: 28,
-            padding: const EdgeInsets.all(12), // Larger tap area
-            constraints: const BoxConstraints(
-              minWidth: 44,
-              minHeight: 44,
-            ),
-            splashRadius: 24,
-            tooltip: 'Back',
+              ),
+            ],
           ),
         ),
       ],

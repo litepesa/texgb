@@ -26,6 +26,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
   final bool hasFailed;
   final bool isCommentsOpen; // New parameter to track comments state
   final bool showVerificationBadge; // NEW: Control whether to show verification or timestamp
+  final bool showFollowButton; // NEW: Control whether to show follow button
   
   const ChannelVideoItem({
     super.key,
@@ -38,6 +39,7 @@ class ChannelVideoItem extends ConsumerStatefulWidget {
     this.hasFailed = false,
     this.isCommentsOpen = false, // Default to false
     this.showVerificationBadge = true, // Default to verification for main feed
+    this.showFollowButton = true, // Default to show follow button
   });
 
   @override
@@ -460,8 +462,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             ),
           ),
           
-          // Follow Button - Moved to top left corner
-          if (!_isCommentsSheetOpen)
+          // Follow Button - Moved to top left corner (conditionally shown)
+          if (!_isCommentsSheetOpen && widget.showFollowButton)
             _buildTopLeftFollowButton(),
         ],
       ),
@@ -1134,7 +1136,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // Follow Button positioned at top left corner
+  // Follow Button positioned at top left corner (conditionally shown)
   Widget _buildTopLeftFollowButton() {
     final channelsState = ref.watch(channelsProvider);
     final isFollowing = channelsState.followedChannels.contains(widget.video.channelId);
