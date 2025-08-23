@@ -368,7 +368,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
                   ),
                 ),
                 child: const Text(
-                  'Create My Channel',
+                  'Create Business Channel',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -572,7 +572,7 @@ Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
               
               // Center - Channel title
               const Text(
-                'My Channel',
+                'Business Channel',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,

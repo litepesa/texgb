@@ -157,6 +157,7 @@ class FirebaseChannelRepository implements ChannelRepository {
 
       final userData = userDoc.data()!;
       final userName = userData['name'] ?? 'User';
+      final userPhoneNumber = userData['phoneNumber'] ?? ''; // NEW: Get phone number
       final userImage = userData['image'] ?? '';
 
       // CRITICAL: Use atomic transaction to prevent duplicate channels
@@ -189,11 +190,12 @@ class FirebaseChannelRepository implements ChannelRepository {
           }
         }
 
-        // Create new channel
+        // Create new channel with phone number
         final channel = ChannelModel(
           id: channelId,
           ownerId: userId,
           ownerName: userName,
+          ownerPhoneNumber: userPhoneNumber, // NEW: Include phone number
           ownerImage: userImage,
           name: name,
           description: description,
@@ -219,7 +221,7 @@ class FirebaseChannelRepository implements ChannelRepository {
           'ownedChannels': FieldValue.arrayUnion([channelId]),
         });
 
-        debugPrint('DEBUG: Created channel $channelId for user $userId');
+        debugPrint('DEBUG: Created channel $channelId for user $userId with phone: $userPhoneNumber');
         return channel;
       });
     } catch (e) {
@@ -723,6 +725,58 @@ class FirebaseChannelRepository implements ChannelRepository {
 
   String _generateId() {
     return _firestore.collection('temp').doc().id;
+  }
+
+  // NEW: Migration method to update existing channels with phone numbers
+  Future<void> migrateExistingChannelsWithPhoneNumbers() async {
+    try {
+      debugPrint('Starting migration: Adding phone numbers to existing channels');
+      
+      final channelsSnapshot = await _firestore
+          .collection(_channelsCollection)
+          .get();
+
+      int updatedCount = 0;
+      int totalCount = channelsSnapshot.docs.length;
+      
+      for (final channelDoc in channelsSnapshot.docs) {
+        final channelData = channelDoc.data();
+        final ownerId = channelData['ownerId'];
+        
+        // Check if phone number is already present
+        if (ownerId != null && !channelData.containsKey('ownerPhoneNumber')) {
+          try {
+            // Get user's phone number
+            final userDoc = await _firestore
+                .collection(_usersCollection)
+                .doc(ownerId)
+                .get();
+                
+            if (userDoc.exists) {
+              final userData = userDoc.data()!;
+              final phoneNumber = userData['phoneNumber'] ?? '';
+              
+              // Update channel with phone number
+              await channelDoc.reference.update({
+                'ownerPhoneNumber': phoneNumber,
+              });
+              
+              updatedCount++;
+              debugPrint('Updated channel ${channelDoc.id} with phone: $phoneNumber');
+            } else {
+              debugPrint('User $ownerId not found for channel ${channelDoc.id}');
+            }
+          } catch (e) {
+            debugPrint('Error updating channel ${channelDoc.id}: $e');
+          }
+        }
+      }
+      
+      debugPrint('Migration completed: Updated $updatedCount out of $totalCount channels');
+    } catch (e) {
+      debugPrint('Migration failed: $e');
+      throw RepositoryException('Failed to migrate channels: $e');
+    }
   }
 }
 

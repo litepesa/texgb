@@ -5,6 +5,7 @@ class ChannelModel {
   final String id;
   final String ownerId;
   final String ownerName;
+  final String ownerPhoneNumber; // NEW: Added owner phone number
   final String ownerImage;
   final String name;
   final String description;
@@ -17,7 +18,7 @@ class ChannelModel {
   final List<String> tags;
   final List<String> followerUIDs;
   final Timestamp createdAt;
-  final Timestamp? lastPostAt; // New field for last post timestamp
+  final Timestamp? lastPostAt;
   final bool isActive;
   final bool isFeatured;
 
@@ -25,6 +26,7 @@ class ChannelModel {
     required this.id,
     required this.ownerId,
     required this.ownerName,
+    required this.ownerPhoneNumber, // NEW: Required parameter
     required this.ownerImage,
     required this.name,
     required this.description,
@@ -37,7 +39,7 @@ class ChannelModel {
     required this.tags,
     required this.followerUIDs,
     required this.createdAt,
-    this.lastPostAt, // Optional - null if no posts yet
+    this.lastPostAt,
     required this.isActive,
     required this.isFeatured,
   });
@@ -46,6 +48,7 @@ class ChannelModel {
     return {
       'ownerId': ownerId,
       'ownerName': ownerName,
+      'ownerPhoneNumber': ownerPhoneNumber, // NEW: Include in map
       'ownerImage': ownerImage,
       'name': name,
       'description': description,
@@ -58,7 +61,7 @@ class ChannelModel {
       'tags': tags,
       'followerUIDs': followerUIDs,
       'createdAt': createdAt,
-      'lastPostAt': lastPostAt, // Include in map
+      'lastPostAt': lastPostAt,
       'isActive': isActive,
       'isFeatured': isFeatured,
     };
@@ -73,6 +76,7 @@ class ChannelModel {
       id: id,
       ownerId: map['ownerId'] ?? '',
       ownerName: map['ownerName'] ?? '',
+      ownerPhoneNumber: map['ownerPhoneNumber'] ?? '', // NEW: Extract from map
       ownerImage: map['ownerImage'] ?? '',
       name: map['name'] ?? '',
       description: map['description'] ?? '',
@@ -85,7 +89,7 @@ class ChannelModel {
       tags: List<String>.from(map['tags'] ?? []),
       followerUIDs: List<String>.from(map['followerUIDs'] ?? []),
       createdAt: map['createdAt'] ?? Timestamp.now(),
-      lastPostAt: map['lastPostAt'], // Can be null
+      lastPostAt: map['lastPostAt'],
       isActive: map['isActive'] ?? true,
       isFeatured: map['isFeatured'] ?? false,
     );
@@ -95,6 +99,7 @@ class ChannelModel {
     String? id,
     String? ownerId,
     String? ownerName,
+    String? ownerPhoneNumber, // NEW: Add to copyWith
     String? ownerImage,
     String? name,
     String? description,
@@ -107,7 +112,7 @@ class ChannelModel {
     List<String>? tags,
     List<String>? followerUIDs,
     Timestamp? createdAt,
-    Timestamp? lastPostAt, // Add to copyWith
+    Timestamp? lastPostAt,
     bool? isActive,
     bool? isFeatured,
   }) {
@@ -115,6 +120,7 @@ class ChannelModel {
       id: id ?? this.id,
       ownerId: ownerId ?? this.ownerId,
       ownerName: ownerName ?? this.ownerName,
+      ownerPhoneNumber: ownerPhoneNumber ?? this.ownerPhoneNumber, // NEW: Include in copyWith
       ownerImage: ownerImage ?? this.ownerImage,
       name: name ?? this.name,
       description: description ?? this.description,
@@ -131,5 +137,10 @@ class ChannelModel {
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
     );
+  }
+
+  @override
+  String toString() {
+    return 'ChannelModel(id: $id, name: $name, ownerName: $ownerName, ownerPhoneNumber: $ownerPhoneNumber)';
   }
 }
