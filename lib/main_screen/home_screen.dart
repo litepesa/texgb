@@ -385,7 +385,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               const SizedBox(width: 16),
               Text(
-                'Profile',
+                'My Profile',
                 style: TextStyle(
                   color: modernTheme.textColor,
                   fontSize: 15,

@@ -50,17 +50,9 @@ import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 
-// Status screens
-import 'package:textgb/features/status/screens/status_screen.dart';
-import 'package:textgb/features/status/screens/create_status_screen.dart';
-import 'package:textgb/features/status/screens/status_viewer_screen.dart';
-
-// Groups screens
-import 'package:textgb/features/groups/screens/groups_screen.dart';
 
 // Models
 import 'package:textgb/features/channels/models/channel_model.dart';
-import 'package:textgb/features/status/models/status_model.dart';
 import 'package:textgb/models/user_model.dart';
 
 // Constants and utilities
@@ -210,14 +202,7 @@ class AppRoot extends ConsumerWidget {
 
           Constants.myMomentsScreen: (context) => const MyMomentsScreen(),
 
-          // Status routes
-          Constants.statusScreen: (context) => const StatusScreen(),
-          Constants.createStatusScreen: (context) => const StatusTypeSelectionScreen(),
-          Constants.statusTypeSelectionScreen: (context) => const StatusTypeSelectionScreen(),
-
-          // Groups route
-          Constants.groupsScreen: (context) => const GroupsScreen(),
-                 
+                           
           // Channel routes with enhanced navigation support
           Constants.channelsFeedScreen: (context) {
             final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
@@ -303,70 +288,6 @@ class AppRoot extends ConsumerWidget {
               }
               break;
 
-            // Status routes
-            case '/create-status-with-type':
-              final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null) {
-                return MaterialPageRoute(
-                  builder: (context) => CreateStatusScreen(
-                    type: args['type'] as StatusType,
-                    mediaFile: args['mediaFile'] as File?,
-                    initialText: args['initialText'] as String?,
-                  ),
-                  settings: settings,
-                );
-              }
-              break;
-              
-            case '/status-viewer':
-              final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null) {
-                return MaterialPageRoute(
-                  builder: (context) => StatusViewerScreen(
-                    status: args['status'] as StatusModel,
-                    initialIndex: args['initialIndex'] as int? ?? 0,
-                    allStatuses: args['allStatuses'] as List<StatusModel>? ?? const [],
-                  ),
-                  settings: settings,
-                );
-              }
-              break;
-
-            case '/create-text-status':
-              final initialText = settings.arguments as String?;
-              return MaterialPageRoute(
-                builder: (context) => CreateStatusScreen(
-                  type: StatusType.text,
-                  initialText: initialText,
-                ),
-                settings: settings,
-              );
-
-            case '/create-image-status':
-              final imageFile = settings.arguments as File?;
-              if (imageFile != null) {
-                return MaterialPageRoute(
-                  builder: (context) => CreateStatusScreen(
-                    type: StatusType.image,
-                    mediaFile: imageFile,
-                  ),
-                  settings: settings,
-                );
-              }
-              break;
-
-            case '/create-video-status':
-              final videoFile = settings.arguments as File?;
-              if (videoFile != null) {
-                return MaterialPageRoute(
-                  builder: (context) => CreateStatusScreen(
-                    type: StatusType.video,
-                    mediaFile: videoFile,
-                  ),
-                  settings: settings,
-                );
-              }
-              break;
 
             // Channel routes
             case '/channel-feed':
@@ -629,77 +550,6 @@ class NavigationHelper {
     );
   }
 
-  // Navigate to status viewer
-  static void navigateToStatusViewer(
-    BuildContext context, {
-    required StatusModel status,
-    int initialIndex = 0,
-    List<StatusModel> allStatuses = const [],
-  }) {
-    Navigator.pushNamed(
-      context,
-      '/status-viewer',
-      arguments: {
-        'status': status,
-        'initialIndex': initialIndex,
-        'allStatuses': allStatuses,
-      },
-    );
-  }
-
-  // Navigate to create status with type
-  static void navigateToCreateStatus(
-    BuildContext context, {
-    required StatusType type,
-    File? mediaFile,
-    String? initialText,
-  }) {
-    Navigator.pushNamed(
-      context,
-      '/create-status-with-type',
-      arguments: {
-        'type': type,
-        'mediaFile': mediaFile,
-        'initialText': initialText,
-      },
-    );
-  }
-
-  // Navigate to text status creation
-  static void navigateToCreateTextStatus(
-    BuildContext context, {
-    String? initialText,
-  }) {
-    Navigator.pushNamed(
-      context,
-      '/create-text-status',
-      arguments: initialText,
-    );
-  }
-
-  // Navigate to image status creation
-  static void navigateToCreateImageStatus(
-    BuildContext context, {
-    required File imageFile,
-  }) {
-    Navigator.pushNamed(
-      context,
-      '/create-image-status',
-      arguments: imageFile,
-    );
-  }
-
-  // Navigate to video status creation
-  static void navigateToCreateVideoStatus(
-    BuildContext context, {
-    required File videoFile,
-  }) {
-    Navigator.pushNamed(
-      context,
-      '/create-video-status',
-      arguments: videoFile,
-    );
-  }
 
   // Navigate to channel feed
   static void navigateToChannelFeed(

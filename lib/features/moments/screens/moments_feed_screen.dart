@@ -1,6 +1,5 @@
-// lib/features/moments/screens/moments_feed_screen.dart - Complete with DM functionality
+// lib/features/moments/screens/moments_feed_screen.dart - Simplified version
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
@@ -9,6 +8,7 @@ import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/features/moments/models/moment_model.dart';
 import 'package:textgb/features/moments/providers/moments_provider.dart';
+import 'package:textgb/features/moments/widgets/moment_video_item.dart';
 import 'package:textgb/features/moments/widgets/moment_comments_bottom_sheet.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
@@ -16,10 +16,10 @@ import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/features/chat/widgets/moment_reaction_input.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
+import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/constants.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:carousel_slider/carousel_slider.dart';
 
 class MomentsFeedScreen extends ConsumerStatefulWidget {
   final String? startMomentId;
@@ -60,23 +60,8 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   bool _hasNavigatedToStart = false;
   bool _isCommentsSheetOpen = false;
   bool _hasInitialized = false;
-  bool _isNavigatingAway = false; // Track navigation state
-  bool _isManuallyPaused = false; // Track if user manually paused the video
-  
-  // Video controllers
-  Map<int, VideoPlayerController> _videoControllers = {};
-  Map<int, bool> _videoInitialized = {};
-  
-  // Caption expansion state
-  final Map<int, bool> _captionExpanded = {};
-  
-  // Animation controllers for like effect
-  late AnimationController _likeAnimationController;
-  late AnimationController _heartScaleController;
-  late Animation<double> _heartScaleAnimation;
-  late AnimationController _burstAnimationController;
-  late Animation<double> _burstAnimation;
-  bool _showLikeAnimation = false;
+  bool _isNavigatingAway = false;
+  bool _isManuallyPaused = false;
   
   // Store original system UI for restoration
   SystemUiOverlayStyle? _originalSystemUiStyle;
@@ -88,25 +73,20 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initializeAnimationControllers();
     _setupSystemUI();
     _hasInitialized = true;
-    
-    // Enable wakelock for video playback
     WakelockPlus.enable();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Store original system UI after dependencies are available
     if (_originalSystemUiStyle == null) {
       _storeOriginalSystemUI();
     }
   }
 
   void _storeOriginalSystemUI() {
-    // Store the current system UI style before making changes
     final brightness = Theme.of(context).brightness;
     _originalSystemUiStyle = SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -119,7 +99,6 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   }
 
   void _setupSystemUI() {
-    // Set both status bar and navigation bar to black for immersive TikTok-style experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.black,
       statusBarIconBrightness: Brightness.light,
@@ -134,7 +113,6 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     if (_originalSystemUiStyle != null) {
       SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
     } else {
-      // Fallback: restore based on current theme
       final brightness = Theme.of(context).brightness;
       SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -147,40 +125,6 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
   }
 
-  void _initializeAnimationControllers() {
-    // Like animation controllers
-    _likeAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    
-    _heartScaleController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    
-    _heartScaleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.3,
-    ).animate(CurvedAnimation(
-      parent: _heartScaleController,
-      curve: Curves.elasticOut,
-    ));
-    
-    _burstAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    
-    _burstAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _burstAnimationController,
-      curve: Curves.easeOut,
-    ));
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
@@ -189,33 +133,30 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
         if (_isScreenActive && !_isCommentsSheetOpen && !_isNavigatingAway) {
-          _startFreshPlayback();
+          WakelockPlus.enable();
         }
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
         _isAppInForeground = false;
-        _pauseAllVideos();
+        WakelockPlus.disable();
         break;
       case AppLifecycleState.hidden:
         break;
     }
   }
 
-  // Lifecycle methods matching ChannelsFeedScreen
+  // Lifecycle methods
   void onScreenBecameActive() {
     if (!_hasInitialized) return;
     
     debugPrint('MomentsFeedScreen: Screen became active');
     _isScreenActive = true;
-    _isNavigatingAway = false; // Reset navigation state
-    
-    // Setup system UI when becoming active
+    _isNavigatingAway = false;
     _setupSystemUI();
     
     if (_isAppInForeground && !_isManuallyPaused) {
-      _startFreshPlayback();
       WakelockPlus.enable();
     }
   }
@@ -225,41 +166,25 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     
     debugPrint('MomentsFeedScreen: Screen became inactive');
     _isScreenActive = false;
-    _pauseAllVideos();
-    
-    // Restore original system UI when becoming inactive
     _restoreOriginalSystemUI();
-    
     WakelockPlus.disable();
   }
 
-  // New method to handle navigation away from feed
   void _pauseForNavigation() {
     debugPrint('MomentsFeedScreen: Pausing for navigation');
     _isNavigatingAway = true;
-    _pauseAllVideos();
   }
 
-  // New method to handle returning from navigation
   void _resumeFromNavigation() {
     debugPrint('MomentsFeedScreen: Resuming from navigation');
     _isNavigatingAway = false;
     if (_isScreenActive && _isAppInForeground && !_isManuallyPaused) {
-      // Add a small delay to ensure the screen is fully visible before starting playback
       Future.delayed(const Duration(milliseconds: 200), () {
         if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused) {
-          _startFreshPlayback();
+          WakelockPlus.enable();
         }
       });
     }
-  }
-
-  void _startFreshPlayback() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused) return;
-    
-    debugPrint('MomentsFeedScreen: Starting fresh playback');
-    _playCurrentVideo();
-    WakelockPlus.enable();
   }
 
   @override
@@ -267,134 +192,11 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     debugPrint('MomentsFeedScreen: Disposing');
     
     WidgetsBinding.instance.removeObserver(this);
-    
-    // Stop all playback and disable wakelock before disposing
-    _pauseAllVideos();
-    
-    // Restore original system UI on dispose
     _restoreOriginalSystemUI();
-    
-    // Dispose animation controllers
-    _likeAnimationController.dispose();
-    _heartScaleController.dispose();
-    _burstAnimationController.dispose();
-    
-    // Dispose video controllers
-    for (final controller in _videoControllers.values) {
-      controller.dispose();
-    }
-    _videoControllers.clear();
-    _videoInitialized.clear();
-    
     _pageController.dispose();
-    
-    // Final wakelock disable
     WakelockPlus.disable();
     
     super.dispose();
-  }
-
-  void _pauseAllVideos() {
-    for (final controller in _videoControllers.values) {
-      controller.pause();
-    }
-    WakelockPlus.disable();
-  }
-
-  void _playCurrentVideo() {
-    if (!_isScreenActive || !_isAppInForeground || _isCommentsSheetOpen) {
-      WakelockPlus.disable();
-      return;
-    }
-    
-    final controller = _videoControllers[_currentIndex];
-    if (controller != null && _videoInitialized[_currentIndex] == true) {
-      controller.seekTo(Duration.zero);
-      controller.play();
-      WakelockPlus.enable();
-    } else {
-      // For images or when video is not ready, still enable wakelock
-      WakelockPlus.enable();
-    }
-  }
-
-  void _pauseCurrentVideo() {
-    final controller = _videoControllers[_currentIndex];
-    if (controller != null && _videoInitialized[_currentIndex] == true) {
-      controller.pause();
-    }
-    WakelockPlus.disable();
-  }
-
-  void _togglePlayPause() {
-    if (_isCommentsSheetOpen) return; // Don't toggle when comments are open
-    
-    final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
-    if (!momentsAsyncValue.hasValue) return;
-    
-    final moments = momentsAsyncValue.value!;
-    if (_currentIndex >= moments.length) return;
-    
-    final currentMoment = moments[_currentIndex];
-    if (!currentMoment.hasVideo) return;
-    
-    final controller = _videoControllers[_currentIndex];
-    if (controller != null && _videoInitialized[_currentIndex] == true) {
-      if (controller.value.isPlaying) {
-        controller.pause();
-        _isManuallyPaused = true;
-        WakelockPlus.disable();
-      } else {
-        controller.play();
-        _isManuallyPaused = false;
-        WakelockPlus.enable();
-      }
-    }
-  }
-
-  void _handleDoubleTap() {
-    if (_isCommentsSheetOpen) return; // Don't handle double tap when comments are open
-    
-    final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
-    if (!momentsAsyncValue.hasValue) return;
-    
-    final moments = momentsAsyncValue.value!;
-    if (_currentIndex >= moments.length) return;
-    
-    // Trigger like animation
-    setState(() {
-      _showLikeAnimation = true;
-    });
-    
-    // Start all animations
-    _heartScaleController.forward().then((_) {
-      Future.delayed(const Duration(milliseconds: 200), () {
-        _heartScaleController.reverse();
-      });
-    });
-    
-    _burstAnimationController.forward().then((_) {
-      _burstAnimationController.reset();
-    });
-    
-    _likeAnimationController.forward().then((_) {
-      _likeAnimationController.reset();
-      if (mounted) {
-        setState(() {
-          _showLikeAnimation = false;
-        });
-      }
-    });
-    
-    // Like the current moment
-    final currentMoment = moments[_currentIndex];
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser != null && !currentMoment.likedBy.contains(currentUser.uid)) {
-      ref.read(momentsProvider.notifier).toggleLikeMoment(currentMoment.id, false);
-    }
-    
-    // Haptic feedback
-    HapticFeedback.mediumImpact();
   }
 
   // Enhanced back navigation with proper system UI restoration
@@ -405,13 +207,9 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       return;
     }
     
-    // Pause playback and disable wakelock before leaving
-    _pauseCurrentVideo();
-    
-    // Restore the original system UI style
+    WakelockPlus.disable();
     _restoreOriginalSystemUI();
     
-    // Small delay to ensure system UI is properly restored
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
         Navigator.of(context).pop();
@@ -419,32 +217,8 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     });
   }
 
-  Future<void> _initializeVideoController(int index, String videoUrl) async {
-    try {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-      _videoControllers[index] = controller;
-      
-      await controller.initialize();
-      controller.setLooping(true);
-      
-      if (mounted) {
-        setState(() {
-          _videoInitialized[index] = true;
-        });
-      }
-      
-      if (index == _currentIndex && _isScreenActive && _isAppInForeground && !_isCommentsSheetOpen) {
-        controller.play();
-        WakelockPlus.enable();
-      }
-    } catch (e) {
-      debugPrint('Error initializing video $index: $e');
-    }
-  }
-
-  // Simplified page change method (pure chronological)
   void _onPageChanged(int index) {
-    if (_isCommentsSheetOpen) return; // Don't change pages when comments are open
+    if (_isCommentsSheetOpen) return;
     
     final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
     if (!momentsAsyncValue.hasValue) return;
@@ -460,28 +234,16 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       return;
     }
 
-    // Pause current video and disable wakelock
-    _pauseCurrentVideo();
-    
     setState(() {
       _currentIndex = index;
       _isManuallyPaused = false; // Reset manual pause state for new video
     });
 
-    // Initialize video controller if needed
-    final moment = moments[index];
-    if (moment.hasVideo && !_videoControllers.containsKey(index)) {
-      _initializeVideoController(index, moment.videoUrl!);
-    }
-
-    // Play new video (this will enable wakelock if appropriate)
-    _playCurrentVideo();
-    
     // Record view
+    final moment = moments[index];
     ref.read(momentsProvider.notifier).recordView(moment.id);
   }
 
-  // Simplified navigation method (chronological)
   void _navigateToStartMoment(List<MomentModel> moments) {
     if (_hasNavigatedToStart) return;
     
@@ -509,35 +271,19 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         });
         
         final moment = moments[startIndex];
-        if (moment.hasVideo && !_videoControllers.containsKey(startIndex)) {
-          _initializeVideoController(startIndex, moment.videoUrl!);
-        }
-        
-        Future.delayed(const Duration(milliseconds: 100), () {
-          _playCurrentVideo();
-        });
-        
         ref.read(momentsProvider.notifier).recordView(moment.id);
       }
     });
   }
 
-  Widget _buildCurrentVideoWidget() {
-    final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
-    if (!momentsAsyncValue.hasValue) return const SizedBox.shrink();
-    
-    final moments = momentsAsyncValue.value!;
-    if (_currentIndex >= moments.length) return const SizedBox.shrink();
-    
-    final currentMoment = moments[_currentIndex];
-    
-    if (currentMoment.hasVideo) {
-      return _buildVideoPlayer(_currentIndex);
-    } else if (currentMoment.hasImages) {
-      return _buildImageCarousel(currentMoment.imageUrls);
-    } else {
-      return _buildTextContent(currentMoment);
-    }
+  void _onVideoControllerReady(VideoPlayerController controller) {
+    // Handle video controller ready if needed
+  }
+
+  void _onManualPlayPause(bool isPlaying) {
+    setState(() {
+      _isManuallyPaused = !isPlaying;
+    });
   }
 
   // Add this method to control video window mode
@@ -547,16 +293,22 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     });
   }
 
-  // Add this new method to build the small video window
+  // Build the small video window
   Widget _buildSmallVideoWindow() {
     final systemTopPadding = MediaQuery.of(context).padding.top;
+    final momentsAsyncValue = ref.read(momentsFeedStreamProvider);
+    if (!momentsAsyncValue.hasValue) return const SizedBox.shrink();
+    
+    final moments = momentsAsyncValue.value!;
+    if (_currentIndex >= moments.length) return const SizedBox.shrink();
+    
+    final currentMoment = moments[_currentIndex];
     
     return Positioned(
       top: systemTopPadding + 20,
       right: 20,
       child: GestureDetector(
         onTap: () {
-          // Close comments and return to full screen
           Navigator.of(context).pop();
           _setVideoWindowMode(false);
         },
@@ -579,7 +331,14 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
               children: [
                 // Video content
                 Positioned.fill(
-                  child: _buildCurrentVideoWidget(),
+                  child: MomentVideoItem(
+                    moment: currentMoment,
+                    momentIndex: _currentIndex,
+                    isActive: true,
+                    isCommentsOpen: true,
+                    onVideoControllerReady: _onVideoControllerReady,
+                    onManualPlayPause: _onManualPlayPause,
+                  ),
                 ),
                 
                 // Close button overlay
@@ -626,7 +385,6 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       return;
     }
 
-    // Pause video before showing reaction input
     _pauseForNavigation();
 
     try {
@@ -681,7 +439,6 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       debugPrint('Error creating moment reaction: $e');
       _showSnackBar('Failed to send reaction');
     } finally {
-      // Resume video after interaction
       _resumeFromNavigation();
     }
   }
@@ -788,6 +545,81 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
+  // NEW: Show virtual gifts bottom sheet for current moment
+  Future<void> _showVirtualGiftsForCurrentMoment(MomentModel? moment) async {
+    if (moment == null) {
+      debugPrint('No moment available for gift');
+      return;
+    }
+
+    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
+    if (currentUser == null) {
+      debugPrint('User not authenticated');
+      return;
+    }
+
+    // Check if user is trying to gift to their own moment
+    if (moment.authorId == currentUser.uid) {
+      _showCannotGiftToOwnMomentMessage();
+      return;
+    }
+
+    // Pause video before showing gifts
+    _pauseForNavigation();
+
+    try {
+      // Get moment author's user data for recipient info
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final momentAuthor = await authNotifier.getUserDataById(moment.authorId);
+      
+      if (momentAuthor == null) {
+        debugPrint('Moment author not found');
+        _resumeFromNavigation();
+        return;
+      }
+
+      // Show virtual gifts bottom sheet
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => VirtualGiftsBottomSheet(
+          recipientName: momentAuthor.name, // Fixed: use 'name' instead of 'displayName'
+          recipientImage: momentAuthor.image, // Fixed: use 'image' instead of 'profilePictureUrl'
+          onGiftSelected: (gift) => _handleGiftSent(gift, moment, momentAuthor),
+          onClose: () {
+            // Resume video when gifts sheet closes
+            _resumeFromNavigation();
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error showing virtual gifts: $e');
+      _showSnackBar('Failed to load gifts');
+    } finally {
+      // Resume video after interaction
+      _resumeFromNavigation();
+    }
+  }
+
+  // NEW: Handle gift being sent
+  void _handleGiftSent(VirtualGift gift, MomentModel moment, dynamic momentAuthor) {
+    // TODO: Implement actual gift sending logic here
+    // This would typically involve:
+    // 1. Deducting coins from user's balance
+    // 2. Adding coins to recipient's balance
+    // 3. Creating a gift transaction record
+    // 4. Possibly sending a notification to the recipient
+    
+    debugPrint('Gift sent: ${gift.name} (${gift.price} KES) to ${momentAuthor.displayName}');
+    
+    // Show success message
+    _showSnackBar('${gift.emoji} ${gift.name} sent to ${momentAuthor.name}!'); // Fixed: use 'name' instead of 'displayName'
+    
+    // Optional: Trigger celebration animation on the moment
+    // You could add a gift animation overlay similar to the like animation
+  }
+
   // Helper method to show snackbar
   void _showSnackBar(String message) {
     if (mounted) {
@@ -800,89 +632,54 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     }
   }
 
-  // Add the expandable caption method from status viewer
-  Widget _buildExpandableCaption(String caption, int momentIndex) {
-    // Check if caption needs truncation (more than 2 lines estimated)
-    final isLongCaption = caption.length > 100 || caption.split('\n').length > 2;
-    final isExpanded = _captionExpanded[momentIndex] ?? false;
-    
-    // Create truncated version
-    String displayText = caption;
-    if (isLongCaption && !isExpanded) {
-      // Split by lines first
-      final lines = caption.split('\n');
-      if (lines.length > 2) {
-        displayText = lines.take(2).join('\n');
-        // If the second line is too long, truncate it
-        final secondLineWords = displayText.split(' ');
-        if (secondLineWords.length > 15) {
-          displayText = secondLineWords.take(15).join(' ');
-        }
-      } else {
-        // Single long line - truncate by words
-        final words = caption.split(' ');
-        if (words.length > 15) {
-          displayText = words.take(15).join(' ');
-        }
-      }
-    }
-    
-    return GestureDetector(
-      onTap: () {
-        if (isLongCaption) {
-          setState(() {
-            _captionExpanded[momentIndex] = !isExpanded;
-          });
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        child: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              height: 1.3,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 2,
-                ),
-              ],
+  // NEW: Helper method to show cannot gift to own moment message
+  void _showCannotGiftToOwnMomentMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.info_outline,
+              color: Colors.orange,
+              size: 48,
             ),
-            children: [
-              TextSpan(text: displayText),
-              if (isLongCaption) ...[
-                if (!isExpanded) ...[
-                  const TextSpan(text: '... '),
-                  TextSpan(
-                    text: 'more',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Colors.white.withOpacity(0.8),
-                    ),
-                  ),
-                ] else ...[
-                  if (displayText != caption)
-                    TextSpan(
-                      text: caption.substring(displayText.length),
-                    ),
-                  const TextSpan(text: ' '),
-                  TextSpan(
-                    text: 'less',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Colors.white.withOpacity(0.8),
-                    ),
-                  ),
-                ],
-              ],
-            ],
-          ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot Gift to Your Own Moment',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send gifts to your own moments.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
         ),
       ),
     );
@@ -892,7 +689,6 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
   Widget build(BuildContext context) {
     super.build(context);
     
-    // Ensure system UI is properly set
     _setupSystemUI();
     
     final systemTopPadding = MediaQuery.of(context).padding.top;
@@ -901,7 +697,7 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     return WillPopScope(
       onWillPop: () async {
         _handleBackNavigation();
-        return false; // Prevent default pop behavior
+        return false;
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -911,7 +707,7 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           borderRadius: const BorderRadius.all(Radius.circular(12)),
           child: Stack(
             children: [
-              // Main video content - positioned to avoid covering status bar and system nav
+              // Main video content
               Positioned(
                 top: systemTopPadding,
                 left: 0,
@@ -927,10 +723,9 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
               if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
               
               // Top bar with back button and title
-              if (!_isCommentsSheetOpen) // Hide top bar when comments are open
-                _buildTopBar(systemTopPadding),
+              if (!_isCommentsSheetOpen) _buildTopBar(systemTopPadding),
               
-              // TikTok-style right side menu (hide when comments are open)
+              // TikTok-style right side menu
               if (!_isCommentsSheetOpen) _buildRightSideMenu(),
             ],
           ),
@@ -939,7 +734,6 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
-  // Simplified top bar
   Widget _buildTopBar(double systemTopPadding) {
     return Positioned(
       top: systemTopPadding + 16,
@@ -1071,24 +865,14 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
             
             final moment = moments[index];
             
-            return GestureDetector(
-              onTap: _togglePlayPause,
-              onDoubleTap: _handleDoubleTap,
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: Colors.black,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _buildMomentContent(moment, index),
-                    
-                    // Like animation overlay
-                    if (_showLikeAnimation && index == _currentIndex)
-                      _buildLikeAnimationOverlay(),
-                  ],
-                ),
-              ),
+            return MomentVideoItem(
+              moment: moment,
+              momentIndex: index,
+              isActive: index == _currentIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
+              isCommentsOpen: _isCommentsSheetOpen,
+              onVideoControllerReady: _onVideoControllerReady,
+              onManualPlayPause: _onManualPlayPause,
+              onGiftSent: (gift) => _handleGiftSent(gift, moment, null), // Pass gift callback
             );
           },
         );
@@ -1096,209 +880,7 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     );
   }
 
-  Widget _buildMomentContent(MomentModel moment, int index) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Main content
-        if (moment.hasVideo)
-          _buildVideoPlayer(index)
-        else if (moment.hasImages)
-          _buildImageCarousel(moment.imageUrls)
-        else
-          _buildTextContent(moment),
-        
-        // Bottom info overlay - minimal like ChannelFeedScreen
-        Positioned(
-          left: 16,
-          right: 80, // Leave space for right side menu  
-          bottom: 16,
-          child: _buildMomentInfo(moment, index),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVideoPlayer(int index) {
-    final controller = _videoControllers[index];
-    final isInitialized = _videoInitialized[index] ?? false;
-    
-    if (controller == null || !isInitialized) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      );
-    }
-    
-    return SizedBox.expand(
-      child: FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: controller.value.size.width,
-          height: controller.value.size.height,
-          child: VideoPlayer(controller),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImageCarousel(List<String> imageUrls) {
-    if (imageUrls.isEmpty) return _buildPlaceholder();
-    
-    return CarouselSlider(
-      options: CarouselOptions(
-        height: double.infinity,
-        viewportFraction: 1.0,
-        enableInfiniteScroll: imageUrls.length > 1,
-        autoPlay: imageUrls.length > 1,
-        autoPlayInterval: const Duration(seconds: 4),
-      ),
-      items: imageUrls.map((imageUrl) {
-        return SizedBox.expand(
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: Colors.black,
-                child: const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildTextContent(MomentModel moment) {
-    return Container(
-      color: context.modernTheme.primaryColor,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Text(
-            moment.content,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              height: 1.4,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceholder() {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Colors.black,
-      child: const Center(
-        child: Icon(
-          Icons.broken_image,
-          color: Colors.white,
-          size: 64,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMomentInfo(MomentModel moment, int momentIndex) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Author info
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundImage: moment.authorImage.isNotEmpty
-                  ? NetworkImage(moment.authorImage)
-                  : null,
-              backgroundColor: Colors.grey[300],
-              child: moment.authorImage.isEmpty
-                  ? Text(
-                      moment.authorName.isNotEmpty 
-                          ? moment.authorName[0].toUpperCase()
-                          : "U",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                moment.authorName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        
-        // Expandable caption with professional styling like status viewer
-        if (moment.content.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _buildExpandableCaption(moment.content, momentIndex),
-        ],
-
-        const SizedBox(height: 8),
-        
-        // Simple timestamp only - keeping same styling as before
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.schedule,
-                color: Colors.white.withOpacity(0.7),
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _getTimeAgo(moment.createdAt),
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // TikTok-style right side menu - UPDATED with DM functionality
+  // TikTok-style right side menu
   Widget _buildRightSideMenu() {
     final momentsAsyncValue = ref.watch(momentsFeedStreamProvider);
     if (!momentsAsyncValue.hasValue) return const SizedBox.shrink();
@@ -1344,7 +926,7 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Gift button
+          // Gift button - UPDATED to show virtual gifts
           _buildRightMenuItem(
             child: const Icon(
               CupertinoIcons.gift,
@@ -1352,14 +934,12 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
               size: 28,
             ),
             label: 'Gift',
-            onTap: () {
-              // TODO: Add gift functionality
-            },
+            onTap: () => _showVirtualGiftsForCurrentMoment(currentMoment),
           ),
           
           const SizedBox(height: 10),
           
-          // DM button - UPDATED with moment reaction navigation
+          // DM button
           _buildRightMenuItem(
             child: Container(
               width: 28,
@@ -1420,133 +1000,6 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
         ],
       ),
     );
-  }
-
-  // Like animation overlay - More exciting with burst effect and floating hearts
-  Widget _buildLikeAnimationOverlay() {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Stack(
-          children: [
-            // Burst effect background
-            Center(
-              child: AnimatedBuilder(
-                animation: _burstAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _burstAnimation.value * 3,
-                    child: Opacity(
-                      opacity: (1 - _burstAnimation.value).clamp(0.0, 0.5),
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              Colors.red.withOpacity(0.6),
-                              Colors.pink.withOpacity(0.4),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            
-            // Center heart that scales
-            Center(
-              child: AnimatedBuilder(
-                animation: _heartScaleAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _heartScaleAnimation.value,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.red.withOpacity(0.6),
-                            blurRadius: 20,
-                            spreadRadius: 10,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.favorite,
-                        color: Colors.red,
-                        size: 100,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            
-            // Floating hearts
-            ..._buildFloatingHearts(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _buildFloatingHearts() {
-    const heartCount = 8;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    
-    return List.generate(heartCount, (index) {
-      final offsetX = (index * 0.25 - 1) * screenWidth * 0.5;
-      final startY = screenHeight * 0.6;
-      final endY = screenHeight * 0.1;
-      
-      return AnimatedBuilder(
-        animation: _likeAnimationController,
-        builder: (context, child) {
-          final progress = _likeAnimationController.value;
-          final opacity = (1.0 - progress).clamp(0.0, 1.0);
-          final y = startY + (endY - startY) * progress;
-          
-          return Positioned(
-            left: screenWidth / 2 + offsetX,
-            top: y,
-            child: Transform.rotate(
-              angle: (index - 4) * 0.3 + progress * 2,
-              child: Opacity(
-                opacity: opacity,
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withOpacity(0.5),
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.favorite,
-                    color: index % 2 == 0 ? Colors.red : Colors.pink,
-                    size: 25 + (index % 3) * 10.0,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    });
   }
 
   Widget _buildLoadingState() {
@@ -1647,37 +1100,12 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
     final isLiked = moment.likedBy.contains(currentUser.uid);
     ref.read(momentsProvider.notifier).toggleLikeMoment(moment.id, isLiked);
     
-    // Trigger animation when liking via button
+    // Trigger haptic feedback for button tap
     if (!isLiked) {
-      setState(() {
-        _showLikeAnimation = true;
-      });
-      
-      // Start all animations
-      _heartScaleController.forward().then((_) {
-        Future.delayed(const Duration(milliseconds: 200), () {
-          _heartScaleController.reverse();
-        });
-      });
-      
-      _burstAnimationController.forward().then((_) {
-        _burstAnimationController.reset();
-      });
-      
-      _likeAnimationController.forward().then((_) {
-        _likeAnimationController.reset();
-        if (mounted) {
-          setState(() {
-            _showLikeAnimation = false;
-          });
-        }
-      });
-      
       HapticFeedback.mediumImpact();
     }
   }
 
-  // Updated method to control video window mode
   void _showCommentsForCurrentMoment(MomentModel? moment) {
     if (moment == null || _isCommentsSheetOpen) return;
     
@@ -1700,21 +1128,6 @@ class MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen>
       // Ensure video returns to full screen mode
       _setVideoWindowMode(false);
     });
-  }
-
-  String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
   }
 
   String _formatCount(int count) {

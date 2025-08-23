@@ -1360,7 +1360,7 @@ class _VirtualGiftsBottomSheetState extends State<VirtualGiftsBottomSheet>
                   // Here you would navigate to top-up screen
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Redirecting to wallet top-up...'),
+                      content: Text('Wallet top-up coming soon...'),
                       backgroundColor: Color(0xFF4CAF50),
                     ),
                   );

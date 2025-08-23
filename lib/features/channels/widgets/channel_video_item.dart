@@ -754,7 +754,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // Smart caption widget that shows truncated or full text with hashtags
+  // Smart caption widget that shows truncated or full text (no hashtags since tags are replaced with price)
   Widget _buildSmartCaption() {
     if (widget.video.caption.isEmpty) return const SizedBox.shrink();
 
@@ -776,12 +776,8 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       fontWeight: FontWeight.w500,
     );
 
-    // Combine caption with hashtags on new line
+    // Just use caption text (no tags since price replaces tags)
     String fullText = widget.video.caption;
-    if (widget.video.tags.isNotEmpty) {
-      final hashtags = widget.video.tags.map((tag) => '#$tag').join(' ');
-      fullText += '\n$hashtags';
-    }
 
     return GestureDetector(
       onTap: _toggleCaptionExpansion,
@@ -893,13 +889,11 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
           
           const SizedBox(height: 6),
           
-          // Smart caption with hashtags (combined) - only show if not empty
-          if (widget.video.caption.isNotEmpty)
+          // Smart caption (product/service description) - always show if not empty
+          if (widget.video.caption.isNotEmpty) ...[
             _buildSmartCaption(),
-          
-          // Add spacing only if caption exists
-          if (widget.video.caption.isNotEmpty)
             const SizedBox(height: 8),
+          ],
           
           // UPDATED: Real price display with BUY button
           _buildRealPriceDisplay(),

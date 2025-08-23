@@ -78,9 +78,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Wakelock state tracking
   bool _wakelockActive = false;
   
-  // UPDATED: Replace caption with price input
+  // UPDATED: Caption is required, price replaces tags
+  final TextEditingController _captionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
-  final TextEditingController _tagsController = TextEditingController();
 
   @override
   void initState() {
@@ -91,8 +91,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   @override
   void dispose() {
     _videoPlayerController?.dispose();
-    _priceController.dispose(); // Updated from _captionController
-    _tagsController.dispose();
+    _captionController.dispose(); // Caption controller
+    _priceController.dispose(); // Price controller (replaces tags)
     // Clean up cache when disposing (optional)
     _cacheManager.emptyCache();
     // Ensure wakelock is disabled when leaving the screen
@@ -860,11 +860,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       // Enable wakelock during upload process
       await _enableWakelock();
       
-      List<String> tags = [];
-      if (_tagsController.text.isNotEmpty) {
-        tags = _tagsController.text.split(',').map((tag) => tag.trim()).toList();
-      }
-      
       // Parse price from input
       final price = _parsePriceInput();
       
@@ -888,9 +883,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         
         channelVideosNotifier.uploadVideo(
           videoFile: videoToUpload,
-          caption: '', // Empty caption since we're using price
+          caption: _captionController.text, // Use caption for description
           price: price, // Include price
-          tags: tags,
+          tags: null, // No tags field anymore
           onSuccess: (message) {
             print('DEBUG: Video upload success: $message');
             _showSuccess(message);
@@ -905,9 +900,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       } else {
         channelVideosNotifier.uploadImages(
           imageFiles: _imageFiles,
-          caption: '', // Empty caption since we're using price
+          caption: _captionController.text, // Use caption for description
           price: price, // Include price
-          tags: tags,
+          tags: null, // No tags field anymore
           onSuccess: (message) {
             print('DEBUG: Images upload success: $message');
             _showSuccess(message);
@@ -1220,7 +1215,36 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ],
                 ),
               
-              // UPDATED: Price input field (replaces caption)
+              // Caption (Product/Service Description) - REQUIRED for search
+              TextFormField(
+                controller: _captionController,
+                decoration: InputDecoration(
+                  labelText: 'Description *',
+                  labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: modernTheme.primaryColor!),
+                  ),
+                  errorBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.red),
+                  ),
+                  hintText: 'Describe your product or service...',
+                ),
+                maxLines: 3,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a description';
+                  }
+                  return null;
+                },
+                enabled: !channelVideosState.isUploading && !_isOptimizing,
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // UPDATED: Price input field (replaces tags)
               TextFormField(
                 controller: _priceController,
                 decoration: InputDecoration(
@@ -1259,25 +1283,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   color: modernTheme.textSecondaryColor,
                   fontSize: 12,
                 ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Tags (Optional)
-              TextFormField(
-                controller: _tagsController,
-                decoration: InputDecoration(
-                  labelText: 'Tags (Comma separated, Optional)',
-                  labelStyle: TextStyle(color: modernTheme.textSecondaryColor),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.textSecondaryColor!.withOpacity(0.3)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: modernTheme.primaryColor!),
-                  ),
-                  hintText: 'e.g. sports, travel, music',
-                ),
-                enabled: !channelVideosState.isUploading && !_isOptimizing,
               ),
               
               const SizedBox(height: 24),

@@ -211,12 +211,12 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     }
   }
 
-  // Upload a new video to the channel - UPDATED: Added price parameter
+  // Upload a new video to the channel - UPDATED: Price replaces tags
   Future<void> uploadVideo({
     required File videoFile,
     required String caption,
-    required double price, // NEW: Price parameter
-    List<String>? tags,
+    required double price, // Price parameter
+    List<String>? tags, // Keep tags parameter for compatibility but will be null
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -252,7 +252,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
       // For now, we'll just use an empty string as placeholder
       const thumbnailUrl = '';
       
-      // Create video with price
+      // Create video with caption and price (no tags)
       final videoData = await _repository.createVideo(
         channelId: userChannel.id,
         channelName: userChannel.name,
@@ -262,7 +262,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         thumbnailUrl: thumbnailUrl,
         caption: caption,
         price: price, // Include price
-        tags: tags,
+        tags: [], // Empty tags since price replaces tags functionality
       );
       
       // Update local state
@@ -297,12 +297,12 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
     }
   }
 
-  // Upload multiple images to the channel - UPDATED: Added price parameter
+  // Upload multiple images to the channel - UPDATED: Price replaces tags
   Future<void> uploadImages({
     required List<File> imageFiles,
     required String caption,
-    required double price, // NEW: Price parameter
-    List<String>? tags,
+    required double price, // Price parameter
+    List<String>? tags, // Keep tags parameter for compatibility but will be null
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -344,7 +344,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         state = state.copyWith(uploadProgress: progress);
       }
       
-      // Create image post with price
+      // Create image post with caption and price (no tags)
       final postData = await _repository.createImagePost(
         channelId: userChannel.id,
         channelName: userChannel.name,
@@ -353,7 +353,7 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
         imageUrls: imageUrls,
         caption: caption,
         price: price, // Include price
-        tags: tags,
+        tags: [], // Empty tags since price replaces tags functionality
       );
       
       // Update local state
