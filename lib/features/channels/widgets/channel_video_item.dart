@@ -400,28 +400,6 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     });
   }
 
-  // Add this method to handle buy button tap
-  void _handleBuyTap() {
-    // TODO: Implement buy functionality
-    // For now, just show a debug message
-    debugPrint('Buy button tapped for video: ${widget.video.id}');
-    debugPrint('Price: ${widget.video.formattedPrice}');
-    
-    // Optional: Add haptic feedback
-    // HapticFeedback.lightImpact();
-    
-    // Show "Feature coming soon" message
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Feature coming soon!'),
-          duration: const Duration(seconds: 2),
-          backgroundColor: const Color(0xFFFF6B6B),
-        ),
-      );
-    }
-  }
-
   @override
   void dispose() {
     _likeAnimationController.dispose();
@@ -473,7 +451,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
                 if (_showLikeAnimation && !_isCommentsSheetOpen)
                   _buildLikeAnimation(),
                 
-                // Bottom content overlay (TikTok style) - moved to very bottom
+                // Bottom content overlay (TikTok style) - moved to very bottom - UPDATED WITHOUT PRICE
                 if (!_isCommentsSheetOpen)
                   _buildBottomContentOverlay(),
                 
@@ -484,9 +462,9 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             ),
           ),
           
-          // Follow Button - Moved to top left corner (conditionally shown)
-          if (!_isCommentsSheetOpen && widget.showFollowButton)
-            _buildTopLeftFollowButton(),
+          // Follow Button - Moved to top left corner (conditionally shown) - REMOVED COMPLETELY
+          // if (!_isCommentsSheetOpen && widget.showFollowButton)
+          //   _buildTopLeftFollowButton(),
         ],
       ),
     );
@@ -754,7 +732,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // Smart caption widget that shows truncated or full text (no hashtags since tags are replaced with price)
+  // Smart caption widget that shows truncated or full text
   Widget _buildSmartCaption() {
     if (widget.video.caption.isEmpty) return const SizedBox.shrink();
 
@@ -776,7 +754,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
       fontWeight: FontWeight.w500,
     );
 
-    // Just use caption text (no tags since price replaces tags)
+    // Just use caption text
     String fullText = widget.video.caption;
 
     return GestureDetector(
@@ -866,7 +844,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
     );
   }
 
-  // TikTok-style bottom content overlay - hide when comments open
+  // TikTok-style bottom content overlay - REMOVED PRICE AND BUY BUTTON
   Widget _buildBottomContentOverlay() {
     // Hide all overlay content when comments are open
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
@@ -884,7 +862,7 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Channel name with verified badge immediately after name
+          // Channel name (no verification status)
           _buildChannelNameWithVerification(),
           
           const SizedBox(height: 6),
@@ -894,272 +872,27 @@ class _ChannelVideoItemState extends ConsumerState<ChannelVideoItem>
             _buildSmartCaption(),
             const SizedBox(height: 8),
           ],
-          
-          // UPDATED: Real price display with BUY button
-          _buildRealPriceDisplay(),
         ],
       ),
     );
   }
 
-  // UPDATED: Channel name with inline verification status
+  // Channel name only (no verification status)
   Widget _buildChannelNameWithVerification() {
-    return FutureBuilder(
-      future: ref.read(channelsProvider.notifier).getChannelById(widget.video.channelId),
-      builder: (context, snapshot) {
-        final channel = snapshot.data;
-        final isVerified = channel?.isVerified ?? false;
-        
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Channel name
-            Flexible(
-              child: Text(
-                widget.video.channelName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            
-            const SizedBox(width: 6),
-            
-            // Verification status immediately after name
-            if (widget.showVerificationBadge) ...[
-              if (isVerified)
-                // CUSTOM STYLING FOR VERIFIED CHANNELS
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF1DA1F2), // Twitter blue
-                        Color(0xFF0D8BD9), // Darker blue
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF1DA1F2).withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.verified_rounded,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Verified',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                // STYLING FOR NON-VERIFIED CHANNELS
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.help_outline,
-                        size: 12,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Not Verified',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.7),
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.7),
-                              blurRadius: 3,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  // UPDATED: Real price display using actual video price data
-  Widget _buildRealPriceDisplay() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Price container using real price from video model
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF4CAF50), // Green start
-                Color(0xFF2E7D32), // Darker green end
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
-            ),
+    return Text(
+      widget.video.channelName,
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+        shadows: [
+          Shadow(
+            color: Colors.black,
+            blurRadius: 2,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Price icon
-              const Icon(
-                Icons.local_offer,
-                color: Colors.white,
-                size: 16,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 2,
-                  ),
-                ],
-              ),
-              const SizedBox(width: 6),
-              // UPDATED: Real price text using video.formattedPrice
-              Text(
-                widget.video.formattedPrice, // Use real price from model
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        const SizedBox(width: 8), // Space between price and buy button
-        
-        // BUY button
-        GestureDetector(
-          onTap: _handleBuyTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFFF6B6B), // Coral red start
-                  Color(0xFFE55353), // Darker red end
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Shopping cart icon
-                const Icon(
-                  Icons.shopping_cart,
-                  color: Colors.white,
-                  size: 16,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 6),
-                // BUY text
-                const Text(
-                  'BUY',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
+      overflow: TextOverflow.ellipsis,
     );
   }
 

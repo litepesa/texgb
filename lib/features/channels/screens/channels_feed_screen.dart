@@ -15,11 +15,6 @@ import 'package:textgb/features/channels/services/video_cache_service.dart';
 import 'package:textgb/features/channels/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/channels/widgets/channel_required_widget.dart'; // Add this import
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart';
-import 'package:textgb/features/chat/screens/chat_screen.dart';
-import 'package:textgb/features/chat/models/video_reaction_model.dart';
-import 'package:textgb/features/chat/widgets/video_reaction_input.dart';
-import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
@@ -524,183 +519,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // NEW: Navigate to channel owner chat with video reaction system
-  Future<void> _navigateToChannelOwnerChat(ChannelVideoModel? video) async {
-    if (video == null) {
-      debugPrint('No video available for reaction');
-      return;
-    }
-
-    final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
-    if (currentUser == null) {
-      debugPrint('User not authenticated');
-      return;
-    }
-
-    // Check if user is trying to react to their own video
-    if (video.userId == currentUser.uid) {
-      _showCannotReactToOwnVideoMessage();
-      return;
-    }
-
-    // Pause video before showing reaction input
-    _pauseForNavigation();
-
-    try {
-      // Get channel details to get channel owner info
-      final channel = await ref.read(channelsProvider.notifier).getChannelById(video.channelId);
-      
-      if (channel == null) {
-        debugPrint('Channel not found');
-        _resumeFromNavigation();
-        return;
-      }
-
-      // Get channel owner's user data
-      final authNotifier = ref.read(authenticationProvider.notifier);
-      final channelOwner = await authNotifier.getUserDataById(channel.ownerId);
-      
-      if (channelOwner == null) {
-        debugPrint('Channel owner not found');
-        _resumeFromNavigation();
-        return;
-      }
-
-      // Show reaction input bottom sheet
-      final reaction = await showModalBottomSheet<String>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => VideoReactionInput(
-          video: video,
-          onSendReaction: (reaction) => Navigator.pop(context, reaction),
-          onCancel: () => Navigator.pop(context),
-        ),
-      );
-
-      // If reaction was provided, create chat and send reaction
-      if (reaction != null && reaction.trim().isNotEmpty && mounted) {
-        final chatListNotifier = ref.read(chatListProvider.notifier);
-        final chatId = await chatListNotifier.createOrGetChat(currentUser.uid, channelOwner.uid);
-        
-        if (chatId != null) {
-          // Send video reaction message
-          await _sendVideoReactionMessage(
-            chatId: chatId,
-            video: video,
-            reaction: reaction,
-            senderId: currentUser.uid,
-          );
-
-          // Navigate to chat to show the sent reaction
-          await Navigator.of(context).push<bool>(
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(
-                chatId: chatId,
-                contact: channelOwner,
-              ),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('Error creating video reaction: $e');
-      _showSnackBar('Failed to send reaction');
-    } finally {
-      // Resume video after interaction
-      _resumeFromNavigation();
-    }
-  }
-
-  // Helper method to send video reaction message
-  Future<void> _sendVideoReactionMessage({
-    required String chatId,
-    required ChannelVideoModel video,
-    required String reaction,
-    required String senderId,
-  }) async {
-    try {
-      final chatRepository = ref.read(chatRepositoryProvider);
-      
-      // Create video reaction data
-      final videoReaction = VideoReactionModel(
-        videoId: video.id,
-        videoUrl: video.videoUrl,
-        thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
-            ? video.imageUrls.first 
-            : video.thumbnailUrl,
-        channelName: video.channelName,
-        channelImage: video.channelImage,
-        reaction: reaction,
-        timestamp: DateTime.now(),
-      );
-
-      // Send as a video reaction message
-      await chatRepository.sendVideoReactionMessage(
-        chatId: chatId,
-        senderId: senderId,
-        videoReaction: videoReaction,
-      );
-      
-    } catch (e) {
-      debugPrint('Error sending video reaction message: $e');
-      rethrow;
-    }
-  }
-
-  // Helper method to show cannot react to own video message
-  void _showCannotReactToOwnVideoMessage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.info_outline,
-              color: Colors.orange,
-              size: 48,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Cannot React to Your Own Video',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'You cannot send reactions to your own channel videos.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // Helper method to check if user has channel before allowing interactions
   Future<bool> _checkUserHasChannel(String actionName) async {
     final currentUser = ref.read(authenticationProvider).valueOrNull?.userModel;
@@ -898,43 +716,12 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // Header with back button, title, and search
+  // Header with search only (removed back button and Discover text)
   Widget _buildSimplifiedHeader() {
     return Row(
       children: [
-        // Back button
-        IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(
-            CupertinoIcons.chevron_left,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-        
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(width: 8),
-              Text(
-                'Discover',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.7),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        // Spacer to push search button to the right
+        const Spacer(),
         
         // Search button
         IconButton(
@@ -966,7 +753,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
     );
   }
 
-  // TikTok-style right side menu (Douyin icons) - optimized positioning (with DM button)
+  // TikTok-style right side menu - REMOVED DM BUTTON
   Widget _buildRightSideMenu() {
     final videos = ref.watch(channelVideosProvider).videos;
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
@@ -1001,33 +788,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             ),
             label: _formatCount(currentVideo?.comments ?? 0),
             onTap: () => _showCommentsForCurrentVideo(currentVideo),
-          ),
-          
-          const SizedBox(height: 10),
-          
-          
-          // DM button - UPDATED with video reaction navigation (same as channel feed)
-          _buildRightMenuItem(
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Center(
-                child: Text(
-                  'DM',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            label: 'Inbox',
-            onTap: () => _navigateToChannelOwnerChat(currentVideo),
           ),
           
           const SizedBox(height: 10),
