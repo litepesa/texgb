@@ -118,10 +118,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   // Helper method to determine verification status
   bool _isContactVerified() {
-    return widget.contact.name.isNotEmpty && 
-           (widget.contact.name[0].toUpperCase() == 'A' || 
-            widget.contact.name[0].toUpperCase() == 'B' ||
-            widget.chatId.hashCode % 3 == 0);
+    return widget.contact.isVerified;
   }
 
   // Cache management methods
@@ -262,13 +259,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     });
   }
 
-  // Handle moment tap - navigate back to moments feed
+  // Handle moment tap - play video if it's a video moment, otherwise navigate to moments feed
   void _handleMomentTap(MomentReactionModel momentReaction) {
-    Navigator.pushNamed(
-      context,
-      '/moments-feed',
-      arguments: {'startMomentId': momentReaction.momentId},
-    );
+    // If it's a video moment, play it using the video player overlay
+    if (momentReaction.mediaType == 'video' && momentReaction.mediaUrl.isNotEmpty) {
+      // Directly show the video player with the moment's video URL
+      _showVideoPlayer(momentReaction.mediaUrl);
+    } else {
+      // For image moments, navigate to moments feed
+      Navigator.pushNamed(
+        context,
+        '/moments-feed',
+        arguments: {'startMomentId': momentReaction.momentId},
+      );
+    }
   }
 
   // Method to get cached contact image
@@ -663,7 +667,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         final isCurrentUser = message.senderId == currentUser.uid;
         final isLastInGroup = _isLastInGroup(state.messages, index);
         
-        // NEW: Check if this is a moment reaction and show MomentReactionBubble
+        // Check if this is a moment reaction and show MomentReactionBubble
         if (message.mediaMetadata?['isMomentReaction'] == true) {
           final momentReactionData = message.mediaMetadata!['momentReaction'] as Map<String, dynamic>;
           final momentReaction = MomentReactionModel.fromMap(momentReactionData);
