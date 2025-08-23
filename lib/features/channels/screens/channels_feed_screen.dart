@@ -918,7 +918,7 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
             children: [
               const SizedBox(width: 8),
               Text(
-                'For You',
+                'Discover',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 16,
@@ -1005,44 +1005,6 @@ class ChannelsFeedScreenState extends ConsumerState<ChannelsFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Star button (save/bookmark)
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.star,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: '0',
-            onTap: () async {
-              // Check if user has channel before allowing save
-              final canInteract = await _checkUserHasChannel('save videos');
-              if (canInteract) {
-                // TODO: Add save/bookmark functionality
-                _showSnackBar('Save functionality coming soon!');
-              }
-            },
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // Share button
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.arrowshape_turn_up_right,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: '0',
-            onTap: () async {
-              // Check if user has channel before allowing share
-              final canInteract = await _checkUserHasChannel('share videos');
-              if (canInteract) {
-                _showShareOptions();
-              }
-            },
-          ),
-          
-          const SizedBox(height: 10),
           
           // DM button - UPDATED with video reaction navigation (same as channel feed)
           _buildRightMenuItem(

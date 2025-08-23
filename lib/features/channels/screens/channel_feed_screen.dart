@@ -916,33 +916,6 @@ class _ChannelFeedScreenState extends ConsumerState<ChannelFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Star button (new)
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.star,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: '0',
-            onTap: () {
-              // TODO: Add save/bookmark functionality
-            },
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // Share button
-          _buildRightMenuItem(
-            child: const Icon(
-              CupertinoIcons.arrowshape_turn_up_right,
-              color: Colors.white,
-              size: 26,
-            ),
-            label: '0',
-            onTap: () => _showShareOptions(),
-          ),
-          
-          const SizedBox(height: 10),
           
           // DM button - UPDATED with video reaction navigation
           _buildRightMenuItem(
