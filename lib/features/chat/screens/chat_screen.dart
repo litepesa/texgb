@@ -1,4 +1,4 @@
-// lib/features/chat/screens/chat_screen.dart - Updated with Moment Reaction Support
+// lib/features/chat/screens/chat_screen.dart - Updated with Moment Reaction Support Only
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,13 +9,11 @@ import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
-import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/features/chat/providers/message_provider.dart';
 import 'package:textgb/features/chat/widgets/message_input.dart';
 import 'package:textgb/features/chat/widgets/swipe_to_wrapper.dart';
 import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
-import 'package:textgb/features/chat/widgets/video_reaction_bubble.dart';
 import 'package:textgb/features/moments/widgets/moment_reaction_bubble.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -124,113 +122,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
            (widget.contact.name[0].toUpperCase() == 'A' || 
             widget.contact.name[0].toUpperCase() == 'B' ||
             widget.chatId.hashCode % 3 == 0);
-  }
-
-  // NEW: Build message bubble with reaction detection
-  Widget _buildMessageBubble(MessageModel message, bool isCurrentUser) {
-    // Check if this is a moment reaction
-    if (message.mediaMetadata?['isMomentReaction'] == true) {
-      final momentReactionData = message.mediaMetadata!['momentReaction'] as Map<String, dynamic>;
-      final momentReaction = MomentReactionModel.fromMap(momentReactionData);
-      
-      return Container(
-        margin: EdgeInsets.only(
-          top: 4,
-          bottom: 4,
-          left: isCurrentUser ? 64 : 8,
-          right: isCurrentUser ? 8 : 64,
-        ),
-        child: Row(
-          mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            if (!isCurrentUser) ...[
-              _buildContactAvatar(radius: 12),
-              const SizedBox(width: 8),
-            ],
-            Flexible(
-              child: MomentReactionBubble(
-                momentReaction: momentReaction,
-                isCurrentUser: isCurrentUser,
-                onMomentTap: () => _handleMomentTap(momentReaction),
-                onLongPress: () => _showMessageOptions(message, isCurrentUser),
-              ),
-            ),
-            if (isCurrentUser) ...[
-              const SizedBox(width: 8),
-              _buildContactAvatar(radius: 12),
-            ],
-          ],
-        ),
-      );
-    }
-    
-    // Check if this is a video reaction
-    else if (message.mediaMetadata?['isVideoReaction'] == true) {
-      final videoReactionData = message.mediaMetadata!['videoReaction'] as Map<String, dynamic>;
-      final videoReaction = VideoReactionModel.fromMap(videoReactionData);
-      
-      return Container(
-        margin: EdgeInsets.only(
-          top: 4,
-          bottom: 4,
-          left: isCurrentUser ? 64 : 8,
-          right: isCurrentUser ? 8 : 64,
-        ),
-        child: Row(
-          mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            if (!isCurrentUser) ...[
-              _buildContactAvatar(radius: 12),
-              const SizedBox(width: 8),
-            ],
-            Flexible(
-              child: VideoReactionBubble(
-                videoReaction: videoReaction,
-                isCurrentUser: isCurrentUser,
-                onVideoTap: () => _handleVideoTap(videoReaction),
-                onLongPress: () => _showMessageOptions(message, isCurrentUser),
-              ),
-            ),
-            if (isCurrentUser) ...[
-              const SizedBox(width: 8),
-              _buildContactAvatar(radius: 12),
-            ],
-          ],
-        ),
-      );
-    }
-    
-    // Regular message types (use existing SwipeToWrapper)
-    else {
-      return SwipeToWrapper(
-        message: message,
-        isCurrentUser: isCurrentUser,
-        isLastInGroup: true, // You can adjust this logic as needed
-        fontSize: _fontSize,
-        contactName: widget.contact.name,
-        onLongPress: () => _showMessageOptions(message, isCurrentUser),
-        onVideoTap: () => _handleVideoThumbnailTap(message),
-        onRightSwipe: () => _replyToMessage(message),
-      );
-    }
-  }
-
-  // Handle moment tap - navigate back to moments feed
-  void _handleMomentTap(MomentReactionModel momentReaction) {
-    Navigator.pushNamed(
-      context,
-      '/moments-feed',
-      arguments: {'startMomentId': momentReaction.momentId},
-    );
-  }
-
-  // Handle video reaction tap - navigate back to channel feed  
-  void _handleVideoTap(VideoReactionModel videoReaction) {
-    Navigator.pushNamed(
-      context,
-      '/channel-feed',
-      arguments: {'videoId': videoReaction.videoId},
-    );
   }
 
   // Cache management methods
@@ -369,6 +260,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       _isVideoPlayerVisible = false;
       _currentVideoUrl = null;
     });
+  }
+
+  // Handle moment tap - navigate back to moments feed
+  void _handleMomentTap(MomentReactionModel momentReaction) {
+    Navigator.pushNamed(
+      context,
+      '/moments-feed',
+      arguments: {'startMomentId': momentReaction.momentId},
+    );
   }
 
   // Method to get cached contact image
@@ -761,9 +661,55 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       itemBuilder: (context, index) {
         final message = state.messages[index];
         final isCurrentUser = message.senderId == currentUser.uid;
+        final isLastInGroup = _isLastInGroup(state.messages, index);
         
-        // NEW: Use the updated message bubble builder that detects reactions
-        return _buildMessageBubble(message, isCurrentUser);
+        // NEW: Check if this is a moment reaction and show MomentReactionBubble
+        if (message.mediaMetadata?['isMomentReaction'] == true) {
+          final momentReactionData = message.mediaMetadata!['momentReaction'] as Map<String, dynamic>;
+          final momentReaction = MomentReactionModel.fromMap(momentReactionData);
+          
+          return Container(
+            margin: EdgeInsets.only(
+              top: 4,
+              bottom: 4,
+              left: isCurrentUser ? 64 : 8,
+              right: isCurrentUser ? 8 : 64,
+            ),
+            child: Row(
+              mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+              children: [
+                if (!isCurrentUser) ...[
+                  _buildContactAvatar(radius: 12),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                  child: MomentReactionBubble(
+                    momentReaction: momentReaction,
+                    isCurrentUser: isCurrentUser,
+                    onMomentTap: () => _handleMomentTap(momentReaction),
+                    onLongPress: () => _showMessageOptions(message, isCurrentUser),
+                  ),
+                ),
+                if (isCurrentUser) ...[
+                  const SizedBox(width: 8),
+                  _buildContactAvatar(radius: 12),
+                ],
+              ],
+            ),
+          );
+        }
+        
+        // Use existing SwipeToWrapper for all other messages (including video reactions)
+        return SwipeToWrapper(
+          message: message,
+          isCurrentUser: isCurrentUser,
+          isLastInGroup: isLastInGroup,
+          fontSize: _fontSize,
+          contactName: widget.contact.name,
+          onLongPress: () => _showMessageOptions(message, isCurrentUser),
+          onVideoTap: () => _handleVideoThumbnailTap(message),
+          onRightSwipe: () => _replyToMessage(message),
+        );
       },
     );
   }

@@ -548,17 +548,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // Status creation method (legacy - keeping for reference)
-  void _createStatus() {
-    // TODO: Implement status creation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Create Status - To be implemented'),
-        backgroundColor: context.modernTheme.primaryColor,
-      ),
-    );
-  }
-
   // Channel post creation method
   void _createChannelPost() {
     Navigator.push(
