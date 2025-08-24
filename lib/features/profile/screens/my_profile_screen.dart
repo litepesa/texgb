@@ -356,6 +356,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               // My Posts - Prominent Feature
               _buildMyPostsFeature(modernTheme),
               
+              // Theme Settings Tile
+              _buildThemeSettingsTile(modernTheme),
+              
               // Add extra padding at the bottom for the bottom nav bar
               SizedBox(height: bottomPadding),
             ],
@@ -365,7 +368,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
   
-  // Enhanced profile header with optimized image caching and curved edges
+  // Enhanced profile header with theme switcher removed
 Widget _buildEnhancedProfileHeader(UserModel user, ModernThemeExtension modernTheme) {
   return Container(
     width: double.infinity,
@@ -389,7 +392,7 @@ Widget _buildEnhancedProfileHeader(UserModel user, ModernThemeExtension modernTh
         // Add safe area padding at the top
         SizedBox(height: MediaQuery.of(context).padding.top),
         
-        // App bar with back button and theme switcher
+        // App bar with back button only
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -428,27 +431,8 @@ Widget _buildEnhancedProfileHeader(UserModel user, ModernThemeExtension modernTh
                 ),
               ),
               
-              // Right side - Theme switcher
-              GestureDetector(
-                onTap: () => showThemeSelector(context),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.brightness_6,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
+              // Right side - Empty space to center the title
+              const SizedBox(width: 40),
             ],
           ),
         ),
@@ -663,7 +647,7 @@ Widget _buildEnhancedProfileHeader(UserModel user, ModernThemeExtension modernTh
   );
 }
   
-  // New prominent My Posts feature
+  // My Posts feature
   Widget _buildMyPostsFeature(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -835,6 +819,79 @@ Widget _buildEnhancedProfileHeader(UserModel user, ModernThemeExtension modernTh
                       ),
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // New theme settings tile
+  Widget _buildThemeSettingsTile(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => showThemeSelector(context),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: modernTheme.primaryColor!.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.brightness_6,
+                    color: modernTheme.primaryColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Theme Settings',
+                        style: TextStyle(
+                          color: modernTheme.textColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Customize your app appearance',
+                        style: TextStyle(
+                          color: modernTheme.textSecondaryColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: modernTheme.textSecondaryColor,
+                  size: 16,
                 ),
               ],
             ),

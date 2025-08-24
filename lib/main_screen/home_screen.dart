@@ -5,9 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/channels/screens/my_channel_screen.dart';
-import 'package:textgb/features/channels/screens/channels_list_screen.dart';
+//import 'package:textgb/features/channels/screens/channels_list_screen.dart';
 import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
-//import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
+import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
 import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/channels/screens/create_post_screen.dart';
 import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
@@ -38,9 +38,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.radio_button_checked_rounded,
-    Icons.radio_button_checked_rounded,
-    Icons.radio_button_checked_rounded
+    Icons.video_library_outlined,
+    CupertinoIcons.compass,
+    Icons.account_balance_rounded
   ];
 
   @override
@@ -143,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           // Discover tab (index 1) - Channels List Screen with app bar (no dropdown)
           Container(
             color: modernTheme.backgroundColor,
-            child: const ChannelsListScreen(),
+            child: const RecommendedPostsScreen(),
           ),
           
           // Wallet tab (index 2) - Wallet Screen with app bar (no dropdown)
