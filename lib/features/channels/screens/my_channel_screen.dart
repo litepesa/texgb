@@ -473,10 +473,7 @@ class _MyChannelScreenState extends ConsumerState<MyChannelScreen>
               // Channel Header
               _buildChannelHeader(modernTheme),
               
-              // Channel Info Card
-              _buildChannelInfoCard(modernTheme),
-              
-              // Tab Bar
+              // Tab Bar (directly after header, no info card)
               Container(
                 color: modernTheme.surfaceColor,
                 child: TabBar(
@@ -570,10 +567,10 @@ Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
                 ),
               ),
               
-              // Center - Channel title
-              const Text(
-                'Business Channel',
-                style: TextStyle(
+              // Center - Channel name as title
+              Text(
+                _channel!.name,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -589,7 +586,7 @@ Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
         
         // Channel Content
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           child: Column(
             children: [
               // Channel Image with enhanced styling (matching profile design)
@@ -598,8 +595,8 @@ Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
                 children: [
                   // Outer glow effect
                   Container(
-                    width: 120,
-                    height: 120,
+                    width: 130,
+                    height: 130,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
@@ -611,8 +608,8 @@ Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
                     ),
                   ),
                   Container(
-                    width: 110,
-                    height: 110,
+                    width: 120,
+                    height: 120,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -650,10 +647,10 @@ Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
                                 ),
                               ),
                               // Enhanced cache options for better performance
-                              memCacheWidth: 110,
-                              memCacheHeight: 110,
-                              maxWidthDiskCache: 220,
-                              maxHeightDiskCache: 220,
+                              memCacheWidth: 120,
+                              memCacheHeight: 120,
+                              maxWidthDiskCache: 240,
+                              maxHeightDiskCache: 240,
                             )
                           : Container(
                               color: Colors.grey[300],
@@ -667,149 +664,33 @@ Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               
-              // Channel name (clean without verification badge)
-              Text(
-                _channel!.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black26,
-                      offset: Offset(0, 2),
-                      blurRadius: 4,
+              // Edit Channel Button - centered and simplified
+              GestureDetector(
+                onTap: _editChannel,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'Edit Channel',
+                    style: TextStyle(
+                      color: modernTheme.primaryColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              
-              // Channel description
-              if (_channel!.description.isNotEmpty)
-                Text(
-                  _channel!.description,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    letterSpacing: 0.5,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              const SizedBox(height: 20),
-              
-              // Side-by-side buttons: Verification and Edit Channel (matching profile layout)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Verification status button - more prominent and bright (matching profile)
-                  GestureDetector(
-                    onTap: () => VerificationInfoWidget.show(context),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      decoration: BoxDecoration(
-                        gradient: _channel!.isVerified
-                            ? const LinearGradient(
-                                colors: [
-                                  Color(0xFF1565C0), // Deep blue
-                                  Color(0xFF0D47A1), // Darker blue
-                                  Color(0xFF0A1E3D), // Very dark blue
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : const LinearGradient(
-                                colors: [
-                                  Color(0xFF1976D2), // Material blue
-                                  Color(0xFF1565C0), // Darker blue
-                                  Color(0xFF0D47A1), // Deep blue
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                        borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _channel!.isVerified
-                                ? const Color(0xFF1565C0).withOpacity(0.4)
-                                : const Color(0xFF1976D2).withOpacity(0.4),
-                            blurRadius: 12,
-                            spreadRadius: 2,
-                            offset: const Offset(0, 4),
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.25),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _channel!.isVerified ? Icons.verified_rounded : Icons.star_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _channel!.isVerified ? 'Verified' : 'Get Verified',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black38,
-                                  blurRadius: 3,
-                                  offset: Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 16),
-                  
-                  // Edit Channel Button - simplified without icon (matching profile)
-                  GestureDetector(
-                    onTap: _editChannel,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        'Edit Channel',
-                        style: TextStyle(
-                          color: modernTheme.primaryColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -949,184 +830,246 @@ Widget _buildChannelHeader(ModernThemeExtension modernTheme) {
       return _buildEmptyState(modernTheme);
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.only(
-        left: 4,
-        right: 4,
-        top: 4,
-        bottom: 20,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: Row(
+        children: _channelVideos.asMap().entries.map((entry) {
+          final index = entry.key;
+          final video = entry.value;
+          return Container(
+            margin: EdgeInsets.only(right: index < _channelVideos.length - 1 ? 16 : 0),
+            child: _buildVideoCard(video, modernTheme),
+          );
+        }).toList(),
       ),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-        childAspectRatio: 9 / 16,
-      ),
-      itemCount: _channelVideos.length,
-      itemBuilder: (context, index) {
-        final video = _channelVideos[index];
-        return _buildVideoCard(video, modernTheme);
-      },
     );
   }
 
   Widget _buildVideoCard(ChannelVideoModel video, ModernThemeExtension modernTheme) {
+    final cardWidth = MediaQuery.of(context).size.width * 0.6; // 60% of screen width
+    final cardHeight = cardWidth * (16 / 9); // 9:16 aspect ratio
+    
     return GestureDetector(
       onTap: () => _openVideoDetails(video),
       onLongPress: () => _confirmDeleteVideo(video),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Thumbnail covering the entire tile
-          if (video.isMultipleImages && video.imageUrls.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: video.imageUrls.first,
-              fit: BoxFit.cover,
-              memCacheHeight: 600,
-              placeholder: (context, url) => Container(
-                color: modernTheme.surfaceColor,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      modernTheme.primaryColor!,
-                    ),
-                  ),
-                ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                child: Icon(
-                  Icons.photo_library,
-                  color: modernTheme.primaryColor,
-                  size: 48,
-                ),
-              ),
-            )
-          else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id))
-            Image.file(
-              File(_videoThumbnails[video.id]!),
-              fit: BoxFit.cover,
-            )
-          else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: video.thumbnailUrl,
-              fit: BoxFit.cover,
-              memCacheHeight: 600,
-              placeholder: (context, url) => Container(
-                color: modernTheme.surfaceColor,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      modernTheme.primaryColor!,
-                    ),
-                  ),
-                ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                child: Icon(
-                  Icons.play_circle_fill,
-                  color: modernTheme.primaryColor,
-                  size: 48,
-                ),
-              ),
-            )
-          else
-            Container(
-              color: modernTheme.primaryColor!.withOpacity(0.1),
-              child: Icon(
-                video.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
-                color: modernTheme.primaryColor,
-                size: 48,
-              ),
+      child: Container(
+        width: cardWidth,
+        height: cardHeight,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
-          
-          // Gradient overlay at bottom
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 60,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.7),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          
-          // View count at bottom left
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _formatViewCount(video.views),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        offset: Offset(0, 1),
-                        blurRadius: 3,
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Main thumbnail
+              if (video.isMultipleImages && video.imageUrls.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: video.imageUrls.first,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: modernTheme.surfaceColor,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          modernTheme.primaryColor!,
+                        ),
                       ),
-                    ],
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: modernTheme.primaryColor!.withOpacity(0.1),
+                    child: Icon(
+                      Icons.photo_library,
+                      color: modernTheme.primaryColor,
+                      size: 64,
+                    ),
+                  ),
+                )
+              else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id))
+                Image.file(
+                  File(_videoThumbnails[video.id]!),
+                  fit: BoxFit.cover,
+                )
+              else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: video.thumbnailUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: modernTheme.surfaceColor,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          modernTheme.primaryColor!,
+                        ),
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: modernTheme.primaryColor!.withOpacity(0.1),
+                    child: Icon(
+                      Icons.play_circle_fill,
+                      color: modernTheme.primaryColor,
+                      size: 64,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  color: modernTheme.primaryColor!.withOpacity(0.1),
+                  child: Icon(
+                    video.isMultipleImages ? Icons.photo_library : Icons.play_circle_fill,
+                    color: modernTheme.primaryColor,
+                    size: 64,
                   ),
                 ),
-              ],
-            ),
-          ),
-          
-          // Multiple images indicator
-          if (video.isMultipleImages && video.imageUrls.length > 1)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4),
+              
+              // Gradient overlay at bottom
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.8),
+                        Colors.black.withOpacity(0.4),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
                 ),
-                child: Row(
+              ),
+              
+              // Content info at bottom
+              Positioned(
+                bottom: 16,
+                left: 16,
+                right: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.photo_library,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${video.imageUrls.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    // Stats row only
+                    Row(
+                      children: [
+                        // Views
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.visibility,
+                              color: Colors.white70,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatViewCount(video.views),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 16),
+                        
+                        // Likes
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.favorite,
+                              color: Colors.white70,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatViewCount(video.likes),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        
+                        // Comments
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.comment,
+                              color: Colors.white70,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              video.comments.toString(),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ),
-        ],
+              
+              // Multiple images indicator (top right)
+              if (video.isMultipleImages && video.imageUrls.length > 1)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.photo_library,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${video.imageUrls.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
