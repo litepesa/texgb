@@ -18,25 +18,25 @@ class UserInformationScreen extends ConsumerStatefulWidget {
 
 class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _aboutMeController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final FocusNode _nameFocusNode = FocusNode();
-  final FocusNode _aboutMeFocusNode = FocusNode();
+  final FocusNode _bioFocusNode = FocusNode();
 
   File? finalFileImage;
   bool isImageProcessing = false;
   bool isSubmitting = false;
   bool _hasInteractedWithName = false;
-  bool _hasInteractedWithAbout = false;
+  bool _hasInteractedWithBio = false;
 
   @override
   void initState() {
     super.initState();
-    _aboutMeController.text = "Hey there, I'm using WeiBao";
+    _bioController.text = "New to WeiBao, excited to watch amazing dramas!";
     
     // Add listener for focus changes to track user interaction
     _nameFocusNode.addListener(_onNameFocusChange);
-    _aboutMeFocusNode.addListener(_onAboutFocusChange);
+    _bioFocusNode.addListener(_onBioFocusChange);
     
     // Auto-focus name field after a brief delay
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -54,10 +54,10 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
     }
   }
 
-  void _onAboutFocusChange() {
-    if (!_aboutMeFocusNode.hasFocus && !_hasInteractedWithAbout) {
+  void _onBioFocusChange() {
+    if (!_bioFocusNode.hasFocus && !_hasInteractedWithBio) {
       setState(() {
-        _hasInteractedWithAbout = true;
+        _hasInteractedWithBio = true;
       });
     }
   }
@@ -65,11 +65,11 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _aboutMeController.dispose();
+    _bioController.dispose();
     _nameFocusNode.removeListener(_onNameFocusChange);
-    _aboutMeFocusNode.removeListener(_onAboutFocusChange);
+    _bioFocusNode.removeListener(_onBioFocusChange);
     _nameFocusNode.dispose();
-    _aboutMeFocusNode.dispose();
+    _bioFocusNode.dispose();
     super.dispose();
   }
 
@@ -119,11 +119,11 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
         AndroidUiSettings(
           toolbarTitle: 'Crop Profile Photo',
           toolbarColor: Colors.white,
-          toolbarWidgetColor: const Color(0xFF09BB07),
+          toolbarWidgetColor: const Color(0xFFFE2C55),
           initAspectRatio: CropAspectRatioPreset.square,
           lockAspectRatio: true,
           statusBarColor: Colors.white,
-          activeControlsWidgetColor: const Color(0xFF09BB07),
+          activeControlsWidgetColor: const Color(0xFFFE2C55),
         ),
         IOSUiSettings(
           minimumAspectRatio: 1.0,
@@ -163,10 +163,10 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF09BB07).withOpacity(0.1),
+                      color: const Color(0xFFFE2C55).withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.photo_library_rounded, color: Color(0xFF09BB07)),
+                    child: const Icon(Icons.photo_library_rounded, color: Color(0xFFFE2C55)),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -234,17 +234,24 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
         throw Exception('Authentication data is missing');
       }
 
+      // Create user model with drama app fields
       final userModel = UserModel(
         uid: authState.uid!,
         name: _nameController.text.trim(),
         phoneNumber: authState.phoneNumber!,
-        image: '',
-        token: '',
-        aboutMe: _aboutMeController.text.trim(),
+        profileImage: '',
+        fcmToken: '',
+        bio: _bioController.text.trim(),
         lastSeen: '',
         createdAt: '',
-        contactsUIDs: [],
-        blockedUIDs: [],
+        updatedAt: '',
+        userType: UserType.viewer, // Default to viewer
+        favoriteDramas: const [],
+        watchHistory: const [],
+        dramaProgress: const {},
+        unlockedDramas: const [],
+        coinsBalance: 0, // Start with 0 coins
+        preferences: const UserPreferences(),
       );
 
       await authNotifier.saveUserDataToFireStore(
@@ -413,7 +420,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                             labelText: 'Your Name',
                             labelStyle: TextStyle(
                               color: _nameFocusNode.hasFocus
-                                  ? const Color(0xFF09BB07)
+                                  ? const Color(0xFFFE2C55)
                                   : Colors.grey.shade700,
                               fontWeight: FontWeight.w500,
                             ),
@@ -421,7 +428,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                             prefixIcon: Icon(
                               Icons.person_outline,
                               color: _nameFocusNode.hasFocus || _nameController.text.isNotEmpty
-                                  ? const Color(0xFF09BB07)
+                                  ? const Color(0xFFFE2C55)
                                   : Colors.grey.shade600,
                             ),
                             border: OutlineInputBorder(
@@ -435,7 +442,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: const BorderSide(
-                                color: Color(0xFF09BB07),
+                                color: Color(0xFFFE2C55),
                                 width: 1.5,
                               ),
                             ),
@@ -464,16 +471,16 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                                 : null,
                           ),
                           onChanged: (text) => setState(() {}),
-                          onFieldSubmitted: (_) => _aboutMeFocusNode.requestFocus(),
+                          onFieldSubmitted: (_) => _bioFocusNode.requestFocus(),
                         ),
                       ),
                       
                       const SizedBox(height: 20),
                       
-                      // About me field with modern styling
+                      // Bio field with modern styling
                       TextFormField(
-                        controller: _aboutMeController,
-                        focusNode: _aboutMeFocusNode,
+                        controller: _bioController,
+                        focusNode: _bioFocusNode,
                         keyboardType: TextInputType.multiline,
                         textCapitalization: TextCapitalization.sentences,
                         maxLines: 3,
@@ -488,10 +495,10 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                             color: Colors.grey.shade500,
                             fontSize: 16,
                           ),
-                          labelText: 'About Me',
+                          labelText: 'Bio',
                           labelStyle: TextStyle(
-                            color: _aboutMeFocusNode.hasFocus
-                                ? const Color(0xFF09BB07)
+                            color: _bioFocusNode.hasFocus
+                                ? const Color(0xFFFE2C55)
                                 : Colors.grey.shade700,
                             fontWeight: FontWeight.w500,
                           ),
@@ -500,10 +507,10 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                             padding: const EdgeInsets.only(bottom: 50),
                             child: Icon(
                               Icons.description_outlined,
-                              color: _aboutMeFocusNode.hasFocus ||
-                                     (_aboutMeController.text.isNotEmpty && 
-                                      _aboutMeController.text != "Hey there, I'm using TexGB")
-                                  ? const Color(0xFF09BB07)
+                              color: _bioFocusNode.hasFocus ||
+                                     (_bioController.text.isNotEmpty && 
+                                      _bioController.text != "New to WeiBao, excited to watch amazing dramas!")
+                                  ? const Color(0xFFFE2C55)
                                   : Colors.grey.shade600,
                             ),
                           ),
@@ -518,7 +525,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: const BorderSide(
-                              color: Color(0xFF09BB07),
+                              color: Color(0xFFFE2C55),
                               width: 1.5,
                             ),
                           ),
@@ -530,12 +537,12 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                           ),
                           suffixIcon: Padding(
                             padding: const EdgeInsets.only(bottom: 50),
-                            child: _aboutMeController.text.isNotEmpty && 
-                                  _aboutMeController.text != "Hey there, I'm using TexGB"
+                            child: _bioController.text.isNotEmpty && 
+                                  _bioController.text != "New to WeiBao, excited to watch amazing dramas!"
                                 ? IconButton(
                                     icon: const Icon(Icons.clear, size: 18),
                                     onPressed: () {
-                                      _aboutMeController.text = "Hey there, I'm using TexGB";
+                                      _bioController.text = "New to WeiBao, excited to watch amazing dramas!";
                                       setState(() {});
                                     },
                                   )
@@ -579,7 +586,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                   color: Colors.black.withOpacity(0.5),
                   child: const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFF09BB07),
+                      color: Color(0xFFFE2C55),
                     ),
                   ),
                 ),
@@ -607,7 +614,7 @@ class _ProfileImageSelector extends StatelessWidget {
       tag: 'profile_image',
       child: GestureDetector(
         onTap: onTap,
-        behavior: HitTestBehavior.opaque, // Prevent tap-through
+        behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           width: 150,
@@ -617,14 +624,14 @@ class _ProfileImageSelector extends StatelessWidget {
             color: Colors.grey.shade50,
             border: Border.all(
               color: finalFileImage != null 
-                  ? const Color(0xFF09BB07) 
+                  ? const Color(0xFFFE2C55) 
                   : Colors.grey.shade300,
               width: finalFileImage != null ? 2 : 1,
             ),
             boxShadow: [
               BoxShadow(
                 color: finalFileImage != null
-                    ? const Color(0xFF09BB07).withOpacity(0.15)
+                    ? const Color(0xFFFE2C55).withOpacity(0.15)
                     : Colors.black.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
@@ -653,7 +660,7 @@ class _ProfileImageSelector extends StatelessWidget {
                             const SizedBox(height: 8),
                             Text(
                               'Add Photo',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.black54,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -687,7 +694,7 @@ class _ProfileImageSelector extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.edit,
-                      color: Color(0xFF09BB07),
+                      color: Color(0xFFFE2C55),
                       size: 20,
                     ),
                   ),
@@ -713,7 +720,7 @@ class _PickerOptionTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
-    this.iconColor = const Color(0xFF09BB07),
+    this.iconColor = const Color(0xFFFE2C55),
     this.textColor = Colors.black87,
   });
 
@@ -773,7 +780,7 @@ class _ActionButton extends StatelessWidget {
           BoxShadow(
             color: isLoading 
                 ? Colors.grey.withOpacity(0.1) 
-                : const Color(0xFF09BB07).withOpacity(0.2),
+                : const Color(0xFFFE2C55).withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -782,7 +789,7 @@ class _ActionButton extends StatelessWidget {
       ),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF09BB07),
+          backgroundColor: const Color(0xFFFE2C55),
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -807,7 +814,7 @@ class _ActionButton extends StatelessWidget {
                   children: [
                     Text(
                       'Get Started',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                         fontSize: 16,

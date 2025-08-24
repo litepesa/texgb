@@ -1,4 +1,4 @@
-// lib/features/authentication/authentication_provider.dart (Updated)
+// lib/features/authentication/authentication_provider.dart (Updated for Drama App)
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,7 +13,7 @@ import 'auth_repository_provider.dart';
 
 part 'authentication_provider.g.dart';
 
-// State class for authentication (unchanged)
+// State class for authentication (simplified for drama app)
 class AuthenticationState {
   final bool isLoading;
   final bool isSuccessful;
@@ -245,25 +245,28 @@ class Authentication extends _$Authentication {
     return _repository.userStream(userID: userID);
   }
 
-  // Get all users stream
+  // Get all users stream (for admin purposes)
   Stream<QuerySnapshot> getAllUsersStream({required String userID}) {
     return _repository.getAllUsersStream(userID: userID);
   }
 
-  // Add contact to user's contacts
-  Future<void> addContact({required String contactID}) async {
+  // DRAMA-SPECIFIC METHODS
+
+  // Add drama to favorites
+  Future<void> addToFavorites({required String dramaId}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
     
     try {
-      await _repository.addContact(
+      await _repository.addToFavorites(
         userUid: currentState!.userModel!.uid,
-        contactId: contactID,
+        dramaId: dramaId,
       );
       
       // Update local model
-      final updatedUser = currentState.userModel!.copyWith();
-      updatedUser.contactsUIDs.add(contactID);
+      final updatedUser = currentState.userModel!.copyWith(
+        favoriteDramas: [...currentState.userModel!.favoriteDramas, dramaId],
+      );
       
       state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
     } on AuthRepositoryException catch (e) {
@@ -272,20 +275,23 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Remove contact from user's contacts
-  Future<void> removeContact({required String contactID}) async {
+  // Remove drama from favorites
+  Future<void> removeFromFavorites({required String dramaId}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
     
     try {
-      await _repository.removeContact(
+      await _repository.removeFromFavorites(
         userUid: currentState!.userModel!.uid,
-        contactId: contactID,
+        dramaId: dramaId,
       );
       
       // Update local model
-      final updatedUser = currentState.userModel!.copyWith();
-      updatedUser.contactsUIDs.remove(contactID);
+      final updatedFavorites = List<String>.from(currentState.userModel!.favoriteDramas)
+        ..remove(dramaId);
+      final updatedUser = currentState.userModel!.copyWith(
+        favoriteDramas: updatedFavorites,
+      );
       
       state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
     } on AuthRepositoryException catch (e) {
@@ -294,20 +300,21 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Block a contact
-  Future<void> blockContact({required String contactID}) async {
+  // Add episode to watch history
+  Future<void> addToWatchHistory({required String episodeId}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
     
     try {
-      await _repository.blockContact(
+      await _repository.addToWatchHistory(
         userUid: currentState!.userModel!.uid,
-        contactId: contactID,
+        episodeId: episodeId,
       );
       
       // Update local model
-      final updatedUser = currentState.userModel!.copyWith();
-      updatedUser.blockedUIDs.add(contactID);
+      final updatedUser = currentState.userModel!.copyWith(
+        watchHistory: [...currentState.userModel!.watchHistory, episodeId],
+      );
       
       state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
     } on AuthRepositoryException catch (e) {
@@ -316,20 +323,24 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Unblock a contact
-  Future<void> unblockContact({required String contactID}) async {
+  // Update drama progress (last watched episode)
+  Future<void> updateDramaProgress({required String dramaId, required int episodeNumber}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
     
     try {
-      await _repository.unblockContact(
+      await _repository.updateDramaProgress(
         userUid: currentState!.userModel!.uid,
-        contactId: contactID,
+        dramaId: dramaId,
+        episodeNumber: episodeNumber,
       );
       
       // Update local model
-      final updatedUser = currentState.userModel!.copyWith();
-      updatedUser.blockedUIDs.remove(contactID);
+      final updatedProgress = Map<String, int>.from(currentState.userModel!.dramaProgress);
+      updatedProgress[dramaId] = episodeNumber;
+      final updatedUser = currentState.userModel!.copyWith(
+        dramaProgress: updatedProgress,
+      );
       
       state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
     } on AuthRepositoryException catch (e) {
@@ -338,40 +349,30 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Get a list of contacts
-  Future<List<UserModel>> getContactsList(
-    String uid,
-    List<String> groupMembersUIDs,
-  ) async {
+  // Unlock premium drama
+  Future<void> unlockDrama({required String dramaId}) async {
+    final currentState = state.value;
+    if (currentState?.userModel == null) return;
+    
     try {
-      return await _repository.getContactsList(uid, groupMembersUIDs);
+      await _repository.unlockDrama(
+        userUid: currentState!.userModel!.uid,
+        dramaId: dramaId,
+      );
+      
+      // Update local model
+      final updatedUser = currentState.userModel!.copyWith(
+        unlockedDramas: [...currentState.userModel!.unlockedDramas, dramaId],
+      );
+      
+      state = AsyncValue.data(currentState.copyWith(userModel: updatedUser));
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
-      return [];
+      debugPrint(e.toString());
     }
   }
 
-  // Get a list of blocked contacts
-  Future<List<UserModel>> getBlockedContactsList({required String uid}) async {
-    try {
-      return await _repository.getBlockedContactsList(uid: uid);
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      return [];
-    }
-  }
-
-  // Search for users by phone number
-  Future<UserModel?> searchUserByPhoneNumber({required String phoneNumber}) async {
-    try {
-      return await _repository.searchUserByPhoneNumber(phoneNumber: phoneNumber);
-    } on AuthRepositoryException catch (e) {
-      debugPrint('Error searching user: ${e.message}');
-      return null;
-    }
-  }
-
-  // Get user data by ID
+  // Get user data by ID (for admin purposes)
   Future<UserModel?> getUserDataById(String userId) async {
     try {
       return await _repository.getUserDataById(userId);
@@ -404,7 +405,7 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Account switching methods (kept same for now, can be refactored later if needed)
+  // ACCOUNT SWITCHING METHODS (simplified for drama app)
   
   // Get saved accounts from SharedPreferences
   Future<List<UserModel>> getSavedAccounts() async {
@@ -532,7 +533,7 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Store file to storage (kept for backward compatibility)
+  // Store file to storage (for profile images, etc.)
   Future<String> storeFileToStorage({required File file, required String reference}) async {
     try {
       return await _repository.storeFileToStorage(file: file, reference: reference);

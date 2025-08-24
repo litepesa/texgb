@@ -86,7 +86,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     with SingleTickerProviderStateMixin {
   File? _profileImage;
   bool _isUpdating = false;
-  late TextEditingController _aboutController;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -94,8 +93,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   @override
   void initState() {
     super.initState();
-    final user = ref.read(currentUserProvider);
-    _aboutController = TextEditingController(text: user?.aboutMe ?? '');
     
     // Initialize animations
     _animationController = AnimationController(
@@ -121,7 +118,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   
   @override
   void dispose() {
-    _aboutController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -135,15 +131,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       List<String> imagesToPreload = [];
       
       // Add current user's image
-      if (user?.image.isNotEmpty == true) {
-        imagesToPreload.add(user!.image);
+      if (user?.profileImage.isNotEmpty == true) {
+        imagesToPreload.add(user!.profileImage);
       }
       
       // Add saved accounts' images for quick switching
       if (authState?.savedAccounts != null) {
         for (var account in authState!.savedAccounts!) {
-          if (account.image.isNotEmpty) {
-            imagesToPreload.add(account.image);
+          if (account.profileImage.isNotEmpty) {
+            imagesToPreload.add(account.profileImage);
           }
         }
       }
@@ -188,12 +184,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 leading: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: context.modernTheme.primaryColor!.withOpacity(0.1),
+                    color: const Color(0xFFFE2C55).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.camera_alt,
-                    color: context.modernTheme.primaryColor,
+                    color: Color(0xFFFE2C55),
                   ),
                 ),
                 title: const Text('Take a photo'),
@@ -207,12 +203,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 leading: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: context.modernTheme.primaryColor!.withOpacity(0.1),
+                    color: const Color(0xFFFE2C55).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.photo_library,
-                    color: context.modernTheme.primaryColor,
+                    color: Color(0xFFFE2C55),
                   ),
                 ),
                 title: const Text('Choose from gallery'),
@@ -253,11 +249,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
 
     try {
       // Upload new image if selected
-      String imageUrl = user.image;
+      String imageUrl = user.profileImage;
       if (_profileImage != null) {
         // Clear old cached image first
-        if (user.image.isNotEmpty) {
-          await ProfileImageCacheManager.clearUserProfileImage(user.image);
+        if (user.profileImage.isNotEmpty) {
+          await ProfileImageCacheManager.clearUserProfileImage(user.profileImage);
         }
         
         imageUrl = await storeFileToStorage(
@@ -273,8 +269,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
 
       // Create updated user model
       final updatedUser = user.copyWith(
-        aboutMe: _aboutController.text.trim(),
-        image: imageUrl,
+        profileImage: imageUrl,
       );
 
       // Save to Firebase
@@ -330,6 +325,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               
               const SizedBox(height: 24),
               
+              // Drama Stats Card
+              _buildDramaStatsCard(user, modernTheme),
+              
+              const SizedBox(height: 16),
+              
+              // Wallet Card
+              _buildWalletCard(user, modernTheme),
+              
+              const SizedBox(height: 16),
+              
               // Theme Settings Tile
               _buildThemeSettingsTile(modernTheme),
               
@@ -351,16 +356,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            modernTheme.primaryColor!,
-            modernTheme.primaryColor!.withOpacity(0.9),
-            modernTheme.primaryColor!.withOpacity(0.7),
+            const Color(0xFFFE2C55),
+            const Color(0xFFFE2C55).withOpacity(0.9),
+            const Color(0xFFFE2C55).withOpacity(0.7),
           ],
           stops: const [0.0, 0.6, 1.0],
         ),
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: modernTheme.primaryColor!.withOpacity(0.4),
+            color: const Color(0xFFFE2C55).withOpacity(0.4),
             blurRadius: 25,
             offset: const Offset(0, 15),
             spreadRadius: 0,
@@ -435,9 +440,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                           _profileImage!,
                           fit: BoxFit.cover,
                         )
-                      : user.image.isNotEmpty 
+                      : user.profileImage.isNotEmpty 
                         ? CachedNetworkImage(
-                            imageUrl: user.image,
+                            imageUrl: user.profileImage,
                             cacheManager: ProfileImageCacheManager.instance,
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(
@@ -500,7 +505,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                         ),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: modernTheme.primaryColor!.withOpacity(0.3),
+                          color: const Color(0xFFFE2C55).withOpacity(0.3),
                           width: 2,
                         ),
                         boxShadow: [
@@ -510,15 +515,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                             offset: const Offset(0, 6),
                           ),
                           BoxShadow(
-                            color: modernTheme.primaryColor!.withOpacity(0.3),
+                            color: const Color(0xFFFE2C55).withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.camera_alt_rounded,
-                        color: modernTheme.primaryColor,
+                        color: Color(0xFFFE2C55),
                         size: 22,
                       ),
                     ),
@@ -526,14 +531,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 32),
             
             // Name with enhanced typography
             Text(
               user.name,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 40,
+                fontSize: 32,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
                 height: 1.1,
@@ -547,18 +552,42 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
             
-            // Subtle divider line
+            const SizedBox(height: 8),
+            
+            // User type badge
             Container(
-              width: 100,
-              height: 5,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(3),
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    user.isAdmin ? Icons.admin_panel_settings : Icons.person,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    user.isAdmin ? 'Administrator' : 'Drama Fan',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 40),
+            
+            const SizedBox(height: 32),
             
             // Enhanced Edit Profile button
             Material(
@@ -593,7 +622,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                       ),
                     ],
                     border: Border.all(
-                      color: modernTheme.primaryColor!.withOpacity(0.1),
+                      color: const Color(0xFFFE2C55).withOpacity(0.1),
                       width: 1,
                     ),
                   ),
@@ -603,20 +632,20 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: modernTheme.primaryColor!.withOpacity(0.1),
+                          color: const Color(0xFFFE2C55).withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.edit_rounded,
-                          color: modernTheme.primaryColor,
+                          color: Color(0xFFFE2C55),
                           size: 18,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
+                      const Text(
                         'Edit Profile',
                         style: TextStyle(
-                          color: modernTheme.primaryColor,
+                          color: Color(0xFFFE2C55),
                           fontSize: 19,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.4,
@@ -628,6 +657,192 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Drama stats card
+  Widget _buildDramaStatsCard(UserModel user, ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: modernTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFE2C55).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.tv,
+                    color: Color(0xFFFE2C55),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'My Drama Stats',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    'Favorites',
+                    user.favoriteDramas.length.toString(),
+                    Icons.favorite,
+                    Colors.red.shade400,
+                  ),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Watched',
+                    user.watchHistory.length.toString(),
+                    Icons.play_circle,
+                    Colors.green.shade400,
+                  ),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Unlocked',
+                    user.unlockedDramas.length.toString(),
+                    Icons.lock_open,
+                    Colors.blue.shade400,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Wallet card
+  Widget _buildWalletCard(UserModel user, ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: modernTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => Navigator.pushNamed(context, Constants.walletScreen),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.orange.shade400, Colors.orange.shade600],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_wallet,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Wallet Balance',
+                        style: TextStyle(
+                          color: modernTheme.textColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${user.coinsBalance} coins',
+                        style: TextStyle(
+                          color: modernTheme.textSecondaryColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: modernTheme.textSecondaryColor,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

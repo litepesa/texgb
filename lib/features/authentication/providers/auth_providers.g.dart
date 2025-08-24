@@ -55,5 +55,55 @@ final isAuthLoadingProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsAuthLoadingRef = AutoDisposeProviderRef<bool>;
+String _$isAdminHash() => r'837a90a9c0cc751b3e87824b16ceb93918faaca8';
+
+/// See also [isAdmin].
+@ProviderFor(isAdmin)
+final isAdminProvider = AutoDisposeProvider<bool>.internal(
+  isAdmin,
+  name: r'isAdminProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$isAdminHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef IsAdminRef = AutoDisposeProviderRef<bool>;
+String _$canUnlockDramaHash() => r'f2e9bff05bd3b1c1be8be2f0e035f1f1694dae9d';
+
+/// See also [canUnlockDrama].
+@ProviderFor(canUnlockDrama)
+final canUnlockDramaProvider = AutoDisposeProvider<bool>.internal(
+  canUnlockDrama,
+  name: r'canUnlockDramaProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$canUnlockDramaHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef CanUnlockDramaRef = AutoDisposeProviderRef<bool>;
+String _$userCoinBalanceHash() => r'ef86b312827b4aefc57815c2a250f5e7081d4fde';
+
+/// See also [userCoinBalance].
+@ProviderFor(userCoinBalance)
+final userCoinBalanceProvider = AutoDisposeProvider<int>.internal(
+  userCoinBalance,
+  name: r'userCoinBalanceProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$userCoinBalanceHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef UserCoinBalanceRef = AutoDisposeProviderRef<int>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

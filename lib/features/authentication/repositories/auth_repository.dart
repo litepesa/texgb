@@ -5,9 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import '../../../models/user_model.dart';
-import '../../../constants.dart'; // Import constants
+import '../../../constants.dart';
 
-// Abstract repository interface
+// Abstract repository interface (simplified for drama app)
 abstract class AuthRepository {
   // Authentication operations
   Future<bool> checkAuthenticationState();
@@ -35,14 +35,12 @@ abstract class AuthRepository {
   });
   Future<void> updateUserProfile(UserModel updatedUser);
 
-  // Contact management
-  Future<void> addContact({required String userUid, required String contactId});
-  Future<void> removeContact({required String userUid, required String contactId});
-  Future<void> blockContact({required String userUid, required String contactId});
-  Future<void> unblockContact({required String userUid, required String contactId});
-  Future<List<UserModel>> getContactsList(String uid, List<String> groupMembersUIDs);
-  Future<List<UserModel>> getBlockedContactsList({required String uid});
-  Future<UserModel?> searchUserByPhoneNumber({required String phoneNumber});
+  // Drama-specific user operations
+  Future<void> addToFavorites({required String userUid, required String dramaId});
+  Future<void> removeFromFavorites({required String userUid, required String dramaId});
+  Future<void> addToWatchHistory({required String userUid, required String episodeId});
+  Future<void> updateDramaProgress({required String userUid, required String dramaId, required int episodeNumber});
+  Future<void> unlockDrama({required String userUid, required String dramaId});
 
   // Streams
   Stream<DocumentSnapshot> userStream({required String userID});
@@ -99,9 +97,8 @@ class FirebaseAuthRepository implements AuthRepository {
         throw AuthRepositoryException('Phone verification failed: ${e.message}');
       },
       codeSent: (String verificationId, int? resendToken) async {
-        // Navigate to OTP screen using the correct route from constants
         Navigator.of(context).pushNamed(
-          Constants.otpScreen, // Use the constant instead of hardcoded string
+          Constants.otpScreen,
           arguments: {
             Constants.verificationId: verificationId,
             Constants.phoneNumber: phoneNumber,
@@ -196,13 +193,15 @@ class FirebaseAuthRepository implements AuthRepository {
           file: fileImage,
           reference: 'userImages/${userModel.uid}',
         );
-        updatedUserModel = updatedUserModel.copyWith(image: imageUrl);
+        updatedUserModel = updatedUserModel.copyWith(profileImage: imageUrl);
       }
 
       // Update timestamps
+      final now = DateTime.now().microsecondsSinceEpoch.toString();
       final finalUserModel = updatedUserModel.copyWith(
-        lastSeen: DateTime.now().microsecondsSinceEpoch.toString(),
-        createdAt: DateTime.now().microsecondsSinceEpoch.toString(),
+        lastSeen: now,
+        createdAt: now,
+        updatedAt: now,
       );
 
       // Save to Firestore
@@ -222,129 +221,72 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<void> updateUserProfile(UserModel updatedUser) async {
     try {
+      final userWithTimestamp = updatedUser.copyWith(
+        updatedAt: DateTime.now().microsecondsSinceEpoch.toString(),
+      );
+
       await _firestore
           .collection(_usersCollection)
-          .doc(updatedUser.uid)
-          .update(updatedUser.toMap());
+          .doc(userWithTimestamp.uid)
+          .update(userWithTimestamp.toMap());
     } on FirebaseException catch (e) {
       throw AuthRepositoryException('Failed to update user profile: ${e.message}');
     }
   }
 
+  // Drama-specific user operations
   @override
-  Future<void> addContact({required String userUid, required String contactId}) async {
+  Future<void> addToFavorites({required String userUid, required String dramaId}) async {
     try {
       await _firestore.collection(_usersCollection).doc(userUid).update({
-        'contactsUIDs': FieldValue.arrayUnion([contactId]),
+        Constants.favoriteDramas: FieldValue.arrayUnion([dramaId]),
       });
     } on FirebaseException catch (e) {
-      throw AuthRepositoryException('Failed to add contact: ${e.message}');
+      throw AuthRepositoryException('Failed to add to favorites: ${e.message}');
     }
   }
 
   @override
-  Future<void> removeContact({required String userUid, required String contactId}) async {
+  Future<void> removeFromFavorites({required String userUid, required String dramaId}) async {
     try {
       await _firestore.collection(_usersCollection).doc(userUid).update({
-        'contactsUIDs': FieldValue.arrayRemove([contactId]),
+        Constants.favoriteDramas: FieldValue.arrayRemove([dramaId]),
       });
     } on FirebaseException catch (e) {
-      throw AuthRepositoryException('Failed to remove contact: ${e.message}');
+      throw AuthRepositoryException('Failed to remove from favorites: ${e.message}');
     }
   }
 
   @override
-  Future<void> blockContact({required String userUid, required String contactId}) async {
+  Future<void> addToWatchHistory({required String userUid, required String episodeId}) async {
     try {
       await _firestore.collection(_usersCollection).doc(userUid).update({
-        'blockedUIDs': FieldValue.arrayUnion([contactId]),
+        Constants.watchHistory: FieldValue.arrayUnion([episodeId]),
       });
     } on FirebaseException catch (e) {
-      throw AuthRepositoryException('Failed to block contact: ${e.message}');
+      throw AuthRepositoryException('Failed to add to watch history: ${e.message}');
     }
   }
 
   @override
-  Future<void> unblockContact({required String userUid, required String contactId}) async {
+  Future<void> updateDramaProgress({required String userUid, required String dramaId, required int episodeNumber}) async {
     try {
       await _firestore.collection(_usersCollection).doc(userUid).update({
-        'blockedUIDs': FieldValue.arrayRemove([contactId]),
+        '${Constants.dramaProgress}.$dramaId': episodeNumber,
       });
     } on FirebaseException catch (e) {
-      throw AuthRepositoryException('Failed to unblock contact: ${e.message}');
+      throw AuthRepositoryException('Failed to update drama progress: ${e.message}');
     }
   }
 
   @override
-  Future<List<UserModel>> getContactsList(String uid, List<String> groupMembersUIDs) async {
+  Future<void> unlockDrama({required String userUid, required String dramaId}) async {
     try {
-      List<UserModel> contactsList = [];
-
-      DocumentSnapshot documentSnapshot =
-          await _firestore.collection(_usersCollection).doc(uid).get();
-
-      List<dynamic> contactsUIDs = documentSnapshot.get('contactsUIDs');
-
-      for (String contactUID in contactsUIDs) {
-        if (groupMembersUIDs.isNotEmpty && groupMembersUIDs.contains(contactUID)) {
-          continue;
-        }
-        DocumentSnapshot contactSnapshot =
-            await _firestore.collection(_usersCollection).doc(contactUID).get();
-        UserModel contact =
-            UserModel.fromMap(contactSnapshot.data() as Map<String, dynamic>);
-        contactsList.add(contact);
-      }
-
-      return contactsList;
-    } catch (e) {
-      throw AuthRepositoryException('Failed to get contacts list: $e');
-    }
-  }
-
-  @override
-  Future<List<UserModel>> getBlockedContactsList({required String uid}) async {
-    try {
-      List<UserModel> blockedContactsList = [];
-
-      DocumentSnapshot documentSnapshot =
-          await _firestore.collection(_usersCollection).doc(uid).get();
-
-      List<dynamic> blockedUIDs = documentSnapshot.get('blockedUIDs');
-
-      for (String blockedUID in blockedUIDs) {
-        DocumentSnapshot blockedSnapshot = await _firestore
-            .collection(_usersCollection)
-            .doc(blockedUID)
-            .get();
-        UserModel blockedContact =
-            UserModel.fromMap(blockedSnapshot.data() as Map<String, dynamic>);
-        blockedContactsList.add(blockedContact);
-      }
-
-      return blockedContactsList;
-    } catch (e) {
-      throw AuthRepositoryException('Failed to get blocked contacts: $e');
-    }
-  }
-
-  @override
-  Future<UserModel?> searchUserByPhoneNumber({required String phoneNumber}) async {
-    try {
-      QuerySnapshot querySnapshot = await _firestore
-          .collection(_usersCollection)
-          .where('phoneNumber', isEqualTo: phoneNumber)
-          .limit(1)
-          .get();
-      
-      if (querySnapshot.docs.isEmpty) {
-        return null;
-      }
-      
-      return UserModel.fromMap(
-          querySnapshot.docs.first.data() as Map<String, dynamic>);
-    } catch (e) {
-      throw AuthRepositoryException('Failed to search user: $e');
+      await _firestore.collection(_usersCollection).doc(userUid).update({
+        Constants.unlockedDramas: FieldValue.arrayUnion([dramaId]),
+      });
+    } on FirebaseException catch (e) {
+      throw AuthRepositoryException('Failed to unlock drama: ${e.message}');
     }
   }
 

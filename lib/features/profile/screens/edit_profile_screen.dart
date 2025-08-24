@@ -20,47 +20,78 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   File? _profileImage;
   bool _isLoading = false;
   late TextEditingController _nameController;
-  late TextEditingController _aboutController;
+  late TextEditingController _bioController;
   
   @override
   void initState() {
     super.initState();
     final user = ref.read(currentUserProvider);
     _nameController = TextEditingController(text: user?.name ?? '');
-    _aboutController = TextEditingController(text: user?.aboutMe ?? '');
+    _bioController = TextEditingController(text: user?.bio ?? '');
   }
   
   @override
   void dispose() {
     _nameController.dispose();
-    _aboutController.dispose();
+    _bioController.dispose();
     super.dispose();
   }
 
   Future<void> _selectImage() async {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take a photo'),
-              onTap: () {
-                Navigator.pop(context);
-                _getImage(true);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                _getImage(false);
-              },
-            ),
-          ],
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFE2C55).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.camera_alt, color: Color(0xFFFE2C55)),
+                ),
+                title: const Text('Take a photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _getImage(true);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFE2C55).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.photo_library, color: Color(0xFFFE2C55)),
+                ),
+                title: const Text('Choose from gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _getImage(false);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -87,7 +118,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     // Validate fields
     final name = _nameController.text.trim();
-    final about = _aboutController.text.trim();
+    final bio = _bioController.text.trim();
     
     if (name.isEmpty) {
       showSnackBar(context, 'Please enter your name');
@@ -100,7 +131,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     try {
       // Upload new image if selected
-      String imageUrl = user.image;
+      String imageUrl = user.profileImage;
       if (_profileImage != null) {
         imageUrl = await storeFileToStorage(
           file: _profileImage!,
@@ -111,8 +142,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       // Create updated user model
       final updatedUser = user.copyWith(
         name: name,
-        aboutMe: about,
-        image: imageUrl,
+        bio: bio,
+        profileImage: imageUrl,
       );
 
       // Save to Firebase
@@ -189,8 +220,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       backgroundColor: modernTheme.backgroundColor,
                       backgroundImage: _profileImage != null 
                         ? FileImage(_profileImage!) as ImageProvider
-                        : user.image.isNotEmpty 
-                          ? NetworkImage(user.image) as ImageProvider
+                        : user.profileImage.isNotEmpty 
+                          ? NetworkImage(user.profileImage) as ImageProvider
                           : const AssetImage('assets/images/user_icon.png') as ImageProvider,
                     ),
                   ),
@@ -202,7 +233,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: modernTheme.primaryColor,
+                          color: const Color(0xFFFE2C55),
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: modernTheme.backgroundColor!,
@@ -277,7 +308,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             
             const SizedBox(height: 16),
             
-            // About Field
+            // Bio Field
             Container(
               decoration: BoxDecoration(
                 color: modernTheme.surfaceColor,
@@ -295,7 +326,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'About Me',
+                    'Bio',
                     style: TextStyle(
                       color: modernTheme.textSecondaryColor,
                       fontSize: 14,
@@ -303,7 +334,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   ),
                   const SizedBox(height: 8),
                   TextField(
-                    controller: _aboutController,
+                    controller: _bioController,
                     style: TextStyle(
                       color: modernTheme.textColor,
                       fontSize: 16,
@@ -331,6 +362,99 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               ),
             ),
             
+            const SizedBox(height: 16),
+            
+            // User Type Display (if admin)
+            if (user.isAdmin)
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFE2C55).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFFE2C55).withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.admin_panel_settings,
+                      color: const Color(0xFFFE2C55),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Administrator Account',
+                      style: TextStyle(
+                        color: const Color(0xFFFE2C55),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+            if (user.isAdmin) const SizedBox(height: 16),
+            
+            // Wallet Balance Display
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: modernTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet,
+                        color: modernTheme.primaryColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Coin Balance',
+                        style: TextStyle(
+                          color: modernTheme.textSecondaryColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${user.coinsBalance} coins',
+                    style: TextStyle(
+                      color: modernTheme.textColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Use coins to unlock premium dramas',
+                    style: TextStyle(
+                      color: modernTheme.textSecondaryColor,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
             const SizedBox(height: 32),
             
             // Save Button
@@ -339,6 +463,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _updateProfile,
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFE2C55),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   textStyle: const TextStyle(
                     fontSize: 16,
