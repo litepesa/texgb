@@ -7,7 +7,7 @@ part of 'moments_provider.dart';
 // **************************************************************************
 
 String _$userGroupedMomentsStreamHash() =>
-    r'8a3b2f1c9d7e5a4b6c8d9e0f1a2b3c4d5e6f7a8b';
+    r'e43fb22fca0bad1c19fecf48a248ff1016cf1702';
 
 /// See also [userGroupedMomentsStream].
 @ProviderFor(userGroupedMomentsStream)
@@ -26,7 +26,7 @@ final userGroupedMomentsStreamProvider =
 // ignore: unused_element
 typedef UserGroupedMomentsStreamRef
     = AutoDisposeStreamProviderRef<List<UserMomentGroup>>;
-String _$momentsFeedStreamHash() => r'701d73e3a8db93044bfa17879bc4e0393bd86f54';
+String _$momentsFeedStreamHash() => r'034e2793ee1fc7681fa71b2709f9be0136b760bb';
 
 /// See also [momentsFeedStream].
 @ProviderFor(momentsFeedStream)
@@ -44,7 +44,7 @@ final momentsFeedStreamProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef MomentsFeedStreamRef = AutoDisposeStreamProviderRef<List<MomentModel>>;
-String _$userMomentsStreamHash() => r'7932fde95299508073c9c3ce9f56c838bc846182';
+String _$userMomentsStreamHash() => r'eb3563149bdda2498b191988d96070d8ab5546b6';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -333,7 +333,7 @@ class _MomentCommentsStreamProviderElement
   String get momentId => (origin as MomentCommentsStreamProvider).momentId;
 }
 
-String _$momentsHash() => r'b35c1c70ac62cd533876b7d0b3c4e58d88576ae4';
+String _$momentsHash() => r'20fc8d027b683a5e1a2a2806460b4ee6ad02765e';
 
 /// See also [Moments].
 @ProviderFor(Moments)
