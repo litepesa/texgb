@@ -165,7 +165,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: context.modernTheme.backgroundColor,
+          color: context.modernTheme.surfaceColor,
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(24),
           ),
@@ -375,7 +375,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       ),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(32),
           // Subtle inner highlight for glass effect
@@ -392,8 +392,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               children: [
                 // Outer glow ring
                 Container(
-                  width: 130,
-                  height: 130,
+                  width: 160,
+                  height: 160,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
@@ -408,8 +408,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 ),
                 // Profile image container
                 Container(
-                  width: 115,
-                  height: 115,
+                  width: 145,
+                  height: 145,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -459,14 +459,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                               ),
                               child: const Icon(
                                 Icons.person,
-                                size: 55,
+                                size: 70,
                                 color: Colors.white,
                               ),
                             ),
-                            memCacheWidth: 115,
-                            memCacheHeight: 115,
-                            maxWidthDiskCache: 230,
-                            maxHeightDiskCache: 230,
+                            memCacheWidth: 145,
+                            memCacheHeight: 145,
+                            maxWidthDiskCache: 290,
+                            maxHeightDiskCache: 290,
                           )
                         : Container(
                             decoration: BoxDecoration(
@@ -526,16 +526,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
             
             // Name with enhanced typography
             Text(
               user.name,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 32,
+                fontSize: 40,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 0.8,
+                letterSpacing: 1.2,
                 height: 1.1,
                 shadows: [
                   Shadow(
@@ -547,18 +547,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             
             // Subtle divider line
             Container(
-              width: 60,
-              height: 3,
+              width: 100,
+              height: 5,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
             
             // Enhanced Edit Profile button
             Material(
@@ -569,7 +569,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 },
                 borderRadius: BorderRadius.circular(30),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -617,9 +617,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                         'Edit Profile',
                         style: TextStyle(
                           color: modernTheme.primaryColor,
-                          fontSize: 17,
+                          fontSize: 19,
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 0.3,
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ],
