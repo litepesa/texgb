@@ -8,13 +8,10 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
-import 'package:textgb/features/channels/models/channel_model.dart';
-import 'package:textgb/features/channels/providers/channels_provider.dart';
 import 'package:textgb/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-import 'package:textgb/widgets/profile_verification_widget.dart';
 
 // Custom cache manager for profile images with longer cache duration
 class ProfileImageCacheManager {
@@ -92,8 +89,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   late TextEditingController _aboutController;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  ChannelModel? _userChannel;
-  bool _isLoadingChannelData = true;
+  late Animation<Offset> _slideAnimation;
   
   @override
   void initState() {
@@ -103,20 +99,24 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     
     // Initialize animations
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
     _fadeAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
     );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutBack,
+    ));
     _animationController.forward();
     
     // Preload user's profile image and related images in background
     _preloadCriticalImages();
-    
-    // Load channel data for stats
-    _loadChannelData();
   }
   
   @override
@@ -124,27 +124,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     _aboutController.dispose();
     _animationController.dispose();
     super.dispose();
-  }
-
-  // Load channel data to get real stats
-  Future<void> _loadChannelData() async {
-    try {
-      final userChannel = ref.read(channelsProvider).userChannel;
-      
-      if (mounted) {
-        setState(() {
-          _userChannel = userChannel;
-          _isLoadingChannelData = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoadingChannelData = false;
-        });
-      }
-      debugPrint('Error loading channel data: $e');
-    }
   }
 
   // Preload critical images for better UX - runs in background
@@ -186,7 +165,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: context.modernTheme.surfaceColor,
+          color: context.modernTheme.backgroundColor,
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(24),
           ),
@@ -317,16 +296,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     }
   }
 
-  // Helper method to format numbers
-  String _formatCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}K';
-    }
-    return count.toString();
-  }
-
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
@@ -344,17 +313,22 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     final bottomPadding = MediaQuery.of(context).padding.bottom + 64;
 
     return Scaffold(
-      backgroundColor: modernTheme.backgroundColor,
+      backgroundColor: modernTheme.surfaceColor,
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SingleChildScrollView(
           child: Column(
             children: [
-              // Enhanced Profile Header
-              _buildEnhancedProfileHeader(user, modernTheme),
+              // Add top padding for status bar and extra space
+              SizedBox(height: MediaQuery.of(context).padding.top + 20),
               
-              // My Posts - Prominent Feature
-              _buildMyPostsFeature(modernTheme),
+              // Floating Profile Header Card
+              SlideTransition(
+                position: _slideAnimation,
+                child: _buildFloatingProfileCard(user, modernTheme),
+              ),
+              
+              const SizedBox(height: 24),
               
               // Theme Settings Tile
               _buildThemeSettingsTile(modernTheme),
@@ -368,472 +342,303 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
   
-  // Enhanced profile header with theme switcher removed
-Widget _buildEnhancedProfileHeader(UserModel user, ModernThemeExtension modernTheme) {
-  return Container(
-    width: double.infinity,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          modernTheme.primaryColor!,
-          modernTheme.primaryColor!.withOpacity(0.8),
-          modernTheme.primaryColor!.withOpacity(0.6),
-        ],
-      ),
-      borderRadius: const BorderRadius.only(
-        bottomLeft: Radius.circular(32),
-        bottomRight: Radius.circular(32),
-      ),
-    ),
-    child: Column(
-      children: [
-        // Add safe area padding at the top
-        SizedBox(height: MediaQuery.of(context).padding.top),
-        
-        // App bar with back button only
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Left side - Back button
-              GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-              
-              // Center - Profile title
-              const Text(
-                'Profile',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              
-              // Right side - Empty space to center the title
-              const SizedBox(width: 40),
-            ],
-          ),
-        ),
-        
-        // Profile Content
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          child: Column(
-            children: [
-              // Profile Image with enhanced caching
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Outer glow effect
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          Colors.white.withOpacity(0.3),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 4,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ClipOval(
-                      child: _profileImage != null 
-                        ? Image.file(
-                            _profileImage!,
-                            fit: BoxFit.cover,
-                          )
-                        : user.image.isNotEmpty 
-                          ? CachedNetworkImage(
-                              imageUrl: user.image,
-                              cacheManager: ProfileImageCacheManager.instance,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => Container(
-                                color: Colors.grey[300],
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              ),
-                              errorWidget: (context, error, stackTrace) => Container(
-                                color: Colors.grey[300],
-                                child: const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              // Enhanced cache options for better performance
-                              memCacheWidth: 110,
-                              memCacheHeight: 110,
-                              maxWidthDiskCache: 220,
-                              maxHeightDiskCache: 220,
-                            )
-                          : Container(
-                              color: Colors.grey[300],
-                              child: const Icon(
-                                Icons.person,
-                                size: 50,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: _selectImage,
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              modernTheme.primaryColor!,
-                              modernTheme.primaryColor!.withOpacity(0.8),
-                            ],
-                          ),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 3,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              
-              // Name
-              Text(
-                user.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black26,
-                      offset: Offset(0, 2),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Phone number with icon
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.phone,
-                    color: Colors.white70,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    user.phoneNumber,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              
-              // Action button: Edit Profile only
-              GestureDetector(
-                onTap: () {
-                  Navigator.pushNamed(context, Constants.editProfileScreen);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.edit,
-                        color: modernTheme.primaryColor,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Edit Profile',
-                        style: TextStyle(
-                          color: modernTheme.primaryColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-  
-  // My Posts feature
-  Widget _buildMyPostsFeature(ModernThemeExtension modernTheme) {
+  // Floating profile card with modern design
+  Widget _buildFloatingProfileCard(UserModel user, ModernThemeExtension modernTheme) {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
             modernTheme.primaryColor!,
-            modernTheme.primaryColor!.withOpacity(0.8),
+            modernTheme.primaryColor!.withOpacity(0.9),
+            modernTheme.primaryColor!.withOpacity(0.7),
           ],
+          stops: const [0.0, 0.6, 1.0],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: modernTheme.primaryColor!.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: modernTheme.primaryColor!.withOpacity(0.4),
+            blurRadius: 25,
+            offset: const Offset(0, 15),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            Navigator.pushNamed(context, Constants.myChannelScreen);
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(32),
+          // Subtle inner highlight for glass effect
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            // Profile Image with enhanced styling
+            Stack(
+              alignment: Alignment.center,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(
-                        Icons.video_library,
-                        color: Colors.white,
-                        size: 32,
-                      ),
+                // Outer glow ring
+                Container(
+                  width: 130,
+                  height: 130,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withOpacity(0.4),
+                        Colors.white.withOpacity(0.2),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.7, 1.0],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'MY POSTS',
-                            style: TextStyle(
+                  ),
+                ),
+                // Profile image container
+                Container(
+                  width: 115,
+                  height: 115,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 4,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                      BoxShadow(
+                        color: Colors.white.withOpacity(0.1),
+                        blurRadius: 5,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: _profileImage != null 
+                      ? Image.file(
+                          _profileImage!,
+                          fit: BoxFit.cover,
+                        )
+                      : user.image.isNotEmpty 
+                        ? CachedNetworkImage(
+                            imageUrl: user.image,
+                            cacheManager: ProfileImageCacheManager.instance,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.white.withOpacity(0.8),
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, error, stackTrace) => Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.person,
+                                size: 55,
+                                color: Colors.white,
+                              ),
+                            ),
+                            memCacheWidth: 115,
+                            memCacheHeight: 115,
+                            maxWidthDiskCache: 230,
+                            maxHeightDiskCache: 230,
+                          )
+                        : Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.person,
+                              size: 55,
                               color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'View and manage your content',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 14,
-                            ),
+                  ),
+                ),
+                // Enhanced camera button
+                Positioned(
+                  bottom: -2,
+                  right: -2,
+                  child: GestureDetector(
+                    onTap: _selectImage,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white,
+                            Colors.white.withOpacity(0.95),
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: modernTheme.primaryColor!.withOpacity(0.3),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                          BoxShadow(
+                            color: modernTheme.primaryColor!.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white.withOpacity(0.8),
-                      size: 20,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // Quick action buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.pushNamed(context, Constants.createChannelPostScreen);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            children: [
-                              const Icon(
-                                Icons.add_circle,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Create Post',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      child: Icon(
+                        Icons.camera_alt_rounded,
+                        color: modernTheme.primaryColor,
+                        size: 22,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.analytics,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Analytics',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.rocket_launch,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Boost',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 24),
+            
+            // Name with enhanced typography
+            Text(
+              user.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.8,
+                height: 1.1,
+                shadows: [
+                  Shadow(
+                    color: Colors.black38,
+                    offset: Offset(0, 3),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            
+            // Subtle divider line
+            Container(
+              width: 60,
+              height: 3,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Enhanced Edit Profile button
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Navigator.pushNamed(context, Constants.editProfileScreen);
+                },
+                borderRadius: BorderRadius.circular(30),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white,
+                        Colors.white.withOpacity(0.98),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: Colors.white.withOpacity(0.1),
+                        blurRadius: 5,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: modernTheme.primaryColor!.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: modernTheme.primaryColor!.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.edit_rounded,
+                          color: modernTheme.primaryColor,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Edit Profile',
+                        style: TextStyle(
+                          color: modernTheme.primaryColor,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // New theme settings tile
+  // Theme settings tile
   Widget _buildThemeSettingsTile(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
+        color: modernTheme.backgroundColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

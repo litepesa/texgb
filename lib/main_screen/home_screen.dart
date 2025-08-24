@@ -4,15 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/channels/screens/my_channel_screen.dart';
-//import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
-import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
-import 'package:textgb/features/chat/screens/chats_tab.dart';
-import 'package:textgb/features/channels/screens/create_post_screen.dart';
-import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
-import 'package:textgb/features/moments/screens/my_moments_screen.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -33,14 +24,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   
   final List<String> _tabNames = [
     'Home',
-    'Discover',
-    'Wallet'
+    'Wallet',
+    'Profile'
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.video_library_outlined,
-    CupertinoIcons.compass,
-    Icons.account_balance_rounded
+    Icons.home_rounded,
+    Icons.account_balance_rounded,
+    CupertinoIcons.person
   ];
 
   @override
@@ -79,27 +70,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _updateSystemUI() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
-    // For index 0 (Home/Channels Feed), use black system UI for TikTok-style experience
-    if (_currentIndex == 0) {
-      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-        statusBarColor: Colors.black,
-        statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.black,
-        systemNavigationBarIconBrightness: Brightness.light,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-      ));
-    } else {
-      // For other tabs, use standard system UI
-      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-        systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-      ));
-    }
+    // Use standard system UI for all tabs
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+      systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+    ));
   }
   
   void _onPageChanged(int index) {
@@ -115,6 +94,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
 
+  // Dummy widget for index 0 and 1
+  Widget _buildDummyScreen(String tabName) {
+    final modernTheme = context.modernTheme;
+    
+    return Container(
+      color: modernTheme.backgroundColor,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _tabIcons[_currentIndex],
+              size: 64,
+              color: modernTheme.textColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '$tabName Screen\n(Coming Soon)',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: modernTheme.textColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This is a placeholder for the $tabName tab',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: modernTheme.textSecondaryColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
@@ -122,57 +141,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: _currentIndex == 0, // Only extend for Home tab
-      backgroundColor: _currentIndex == 0 
-          ? Colors.black // Black background for Home tab (TikTok-style)
-          : _currentIndex == 1 
-              ? modernTheme.backgroundColor // Standard background for Discover
-              : modernTheme.backgroundColor, // Standard background for Profile
+      extendBodyBehindAppBar: false, // Don't extend for any tab
+      backgroundColor: modernTheme.backgroundColor, // Standard background for all tabs
       
-      // Only show app bar for index 1 (Discover tab) and index 2 (Wallet tab)
-      appBar: (_currentIndex == 1 || _currentIndex == 2) ? _buildAppBar(modernTheme, isDarkMode) : null,
+      // Show app bar for all tabs (index 0, 1, and 2)
+      appBar: _buildAppBar(modernTheme, isDarkMode),
       
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Home tab (index 0) - Channels Feed Screen without app bar
-          const ChannelsFeedScreen(),
+          // Home tab (index 0) - Dummy screen
+          _buildDummyScreen('Home'),
           
-          // Discover tab (index 1) - Channels List Screen with app bar (no dropdown)
-          Container(
-            color: modernTheme.backgroundColor,
-            child: const RecommendedPostsScreen(),
-          ),
-          
-          // Wallet tab (index 2) - Wallet Screen with app bar (no dropdown)
+          // Wallet tab (index 1) - Wallet Screen
           Container(
             color: modernTheme.backgroundColor,
             child: const WalletScreen(),
+          ),
+          
+          // Profile tab (index 2) - Profile Screen
+          Container(
+            color: modernTheme.backgroundColor,
+            child: const MyProfileScreen(),
           ),
         ],
       ),
       
       bottomNavigationBar: _buildCustomBottomNav(modernTheme),
       
-      floatingActionButton: _shouldShowFab() ? _buildFab(modernTheme) : null,
+      // Remove FAB since profile is now in the tab
+      floatingActionButton: null,
     );
   }
 
   Widget _buildCustomBottomNav(ModernThemeExtension modernTheme) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
-    // Use black background for index 0 (Home), standard surface color for others
-    final bottomNavColor = _currentIndex == 0 
-        ? Colors.black
-        : isDarkMode 
-            ? modernTheme.surfaceColor 
-            : Colors.white;
+    // Use standard surface color for all tabs
+    final bottomNavColor = isDarkMode 
+        ? modernTheme.surfaceColor 
+        : Colors.white;
             
-    final dividerColor = _currentIndex == 0 
-        ? Colors.grey.withOpacity(0.3) // Subtle divider for black background
-        : modernTheme.dividerColor;
+    final dividerColor = modernTheme.dividerColor;
     
     return Container(
       decoration: BoxDecoration(
@@ -216,14 +228,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isSelected, 
     ModernThemeExtension modernTheme
   ) {
-    // For index 0 (Home tab with black background), use white colors for better contrast
-    final iconColor = _currentIndex == 0 
-        ? (isSelected ? Colors.white : Colors.grey) // White/grey for black background
-        : (isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!);
-        
-    final textColor = _currentIndex == 0 
-        ? (isSelected ? Colors.white : Colors.grey) // White/grey for black background
-        : (isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!);
+    // Use standard theming for all tabs
+    final iconColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
+    final textColor = isSelected ? modernTheme.primaryColor! : modernTheme.textSecondaryColor!;
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
@@ -238,9 +245,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: isSelected 
-                  ? (_currentIndex == 0 
-                      ? Colors.white.withOpacity(0.2) // Semi-transparent white for black background
-                      : modernTheme.primaryColor!.withOpacity(0.2))
+                  ? modernTheme.primaryColor!.withOpacity(0.2)
                   : Colors.transparent,
                 shape: BoxShape.circle,
               ),
@@ -268,54 +273,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Show FAB only on Wallet tab (index 2)
-  bool _shouldShowFab() {
-    return _currentIndex == 2;
-  }
-  
-  // Only build app bar for index 1 (Discover tab) and index 2 (Wallet tab) - simplified without dropdown menu
+  // Build app bar for all tabs (index 0, 1, and 2) - simplified without dropdown menu
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    // Different titles for different tabs
-    String title = '';
-    if (_currentIndex == 1) {
-      // Discover tab - show brand name
-      return AppBar(
-        backgroundColor: modernTheme.surfaceColor,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        title: _buildAppBarTitle(modernTheme),
-        // No actions - removed the three-dot menu completely
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(
-            height: 0.5,
-            width: double.infinity,
-            color: modernTheme.dividerColor,
-          ),
+    // Show app bar for all tabs
+    return AppBar(
+      backgroundColor: modernTheme.surfaceColor,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: true,
+      title: _buildAppBarTitle(modernTheme),
+      // No actions - removed the three-dot menu completely
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(0.5),
+        child: Container(
+          height: 0.5,
+          width: double.infinity,
+          color: modernTheme.dividerColor,
         ),
-      );
-    } else if (_currentIndex == 2) {
-      // Wallet tab - show brand name title
-      return AppBar(
-        backgroundColor: modernTheme.surfaceColor,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        title: _buildAppBarTitle(modernTheme),
-        // No actions - removed the three-dot menu completely
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(
-            height: 0.5,
-            width: double.infinity,
-            color: modernTheme.dividerColor,
-          ),
-        ),
-      );
-    }
-    
-    return null;
+      ),
+    );
   }
 
   Widget _buildAppBarTitle(ModernThemeExtension modernTheme) {
@@ -355,38 +331,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
   
   Widget _buildFab(ModernThemeExtension modernTheme) {
-    if (_currentIndex == 2) {
-      // Wallet tab - Navigate to Profile FAB
-      return FloatingActionButton(
-        heroTag: "profile_fab",
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () => _navigateToProfile(),
-        child: const Icon(CupertinoIcons.person),
-      );
-    }
-    
     return const SizedBox.shrink();
   }
 
-  // Channel post creation method
-  void _createChannelPost() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreatePostScreen(),
-      ),
-    );
-  }
-
-  // Navigate to profile method
-  void _navigateToProfile() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const MyProfileScreen(),
-      ),
-    );
-  }
 }

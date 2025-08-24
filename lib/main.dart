@@ -11,48 +11,16 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 
-// Chat screens
-import 'package:textgb/features/chat/screens/chat_screen.dart';
-
-
-// Moments screens
-import 'package:textgb/features/moments/models/moment_model.dart';
-import 'package:textgb/features/moments/screens/create_moment_screen.dart';
-import 'package:textgb/features/moments/screens/moment_comments_screen.dart';
-import 'package:textgb/features/moments/screens/moments_feed_screen.dart';
-import 'package:textgb/features/moments/screens/moments_recommendations_screen.dart';
-import 'package:textgb/features/moments/screens/my_moments_screen.dart';
-
-// Contact screens
-import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
-import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
-import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
-
 // Profile screens
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 
-// Settings screens
-import 'package:textgb/features/settings/screens/privacy_settings_screen.dart';
-
 // Wallet screens
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 
-// Channel screens
-import 'package:textgb/features/channels/screens/edit_channel_screen.dart';
-import 'package:textgb/features/channels/screens/my_channel_screen.dart';
-import 'package:textgb/features/channels/screens/my_post_screen.dart';
-import 'package:textgb/features/channels/screens/recommended_posts_screen.dart';
-import 'package:textgb/features/channels/screens/channels_list_screen.dart';
-import 'package:textgb/features/channels/screens/channel_profile_screen.dart';
-import 'package:textgb/features/channels/screens/channel_feed_screen.dart';
-import 'package:textgb/features/channels/screens/channels_feed_screen.dart';
-import 'package:textgb/features/channels/screens/create_post_screen.dart';
-
 
 // Models
-import 'package:textgb/features/channels/models/channel_model.dart';
+
 import 'package:textgb/models/user_model.dart';
 
 // Constants and utilities
@@ -160,87 +128,11 @@ class AppRoot extends ConsumerWidget {
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
           
-          // Chat routes
-          Constants.chatScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-            return ChatScreen(
-              chatId: args['chatId'] as String,
-              contact: args['contact'] as UserModel,
-            );
-          },
           
           // Profile routes
           Constants.myProfileScreen: (context) => const MyProfileScreen(),
           Constants.editProfileScreen: (context) => const EditProfileScreen(),
-          Constants.privacySettingsScreen: (context) => const PrivacySettingsScreen(),
-
-          // Contact routes
-          Constants.contactsScreen: (context) => const ContactsScreen(),
-          Constants.addContactScreen: (context) => const AddContactScreen(),
-          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
-          Constants.contactProfileScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
-            return ContactProfileScreen(contact: args);
-          },
-
-          // Moments routes
-          Constants.momentsRecommendationsScreen: (context) => const MomentsRecommendationsScreen(),
-
-          Constants.momentsFeedScreen: (context) {
-            final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-            return MomentsFeedScreen(
-              startMomentId: args?['startMomentId'] as String?,
-            );
-          },
-
-          Constants.createMomentScreen: (context) => const CreateMomentScreen(),
-
-          Constants.momentCommentsScreen: (context) {
-            final moment = ModalRoute.of(context)!.settings.arguments as MomentModel;
-            return MomentCommentsScreen(moment: moment);
-          },
-
-          Constants.myMomentsScreen: (context) => const MyMomentsScreen(),
-
-                           
-          // Channel routes with enhanced navigation support
-          Constants.channelsFeedScreen: (context) {
-            final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-            return ChannelsFeedScreen(
-              startVideoId: args?['startVideoId'] as String?,
-              channelId: args?['channelId'] as String?,
-            );
-          },
-          Constants.recommendedPostsScreen: (context) => const RecommendedPostsScreen(),
-          Constants.myChannelScreen: (context) => const MyChannelScreen(),
-          Constants.createChannelPostScreen: (context) => const CreatePostScreen(),
-          Constants.channelFeedScreen: (context) {
-            final videoId = ModalRoute.of(context)!.settings.arguments as String;
-            return ChannelFeedScreen(videoId: videoId);
-          },
           
-          Constants.channelProfileScreen: (context) {
-            final channelId = ModalRoute.of(context)!.settings.arguments as String;
-            return ChannelProfileScreen(channelId: channelId);
-          },
-          Constants.editChannelScreen: (context) {
-            final channel = ModalRoute.of(context)!.settings.arguments as ChannelModel;
-            return EditChannelScreen(channel: channel);
-          },
-          
-          // Channels List Screen
-          Constants.channelsListScreen: (context) => const ChannelsListScreen(),
-          
-          Constants.exploreChannelsScreen: (context) => const Scaffold(
-              body: Center(
-                child: Text('Explore Channels Screen - To be implemented'),
-              ),
-            ), // Placeholder for ExploreChannelsScreen
-          // My Post Screen route
-          Constants.myPostScreen: (context) {
-            final videoId = ModalRoute.of(context)!.settings.arguments as String;
-            return MyPostScreen(videoId: videoId);
-          },
           
           // Wallet routes
           Constants.walletScreen: (context) => const WalletScreen(),
@@ -264,74 +156,7 @@ class AppRoot extends ConsumerWidget {
         onGenerateRoute: (settings) {
           // Handle dynamic routes that need custom logic
           switch (settings.name) {
-            // Chat routes
-            case '/chat':
-              final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null && args.containsKey('chatId') && args.containsKey('contact')) {
-                return MaterialPageRoute(
-                  builder: (context) => ChatScreen(
-                    chatId: args['chatId'] as String,
-                    contact: args['contact'] as UserModel,
-                  ),
-                  settings: settings,
-                );
-              }
-              break;
-              
-            case '/contact-profile':
-              final contact = settings.arguments as UserModel?;
-              if (contact != null) {
-                return MaterialPageRoute(
-                  builder: (context) => ContactProfileScreen(contact: contact),
-                  settings: settings,
-                );
-              }
-              break;
-
-
-            // Channel routes
-            case '/channel-feed':
-              final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null) {
-                return MaterialPageRoute(
-                  builder: (context) => ChannelsFeedScreen(
-                    startVideoId: args['startVideoId'] as String?,
-                    channelId: args['channelId'] as String?,
-                  ),
-                  settings: settings,
-                );
-              }
-              break;
-
-            case '/channel-profile':
-              final channelId = settings.arguments as String?;
-              if (channelId != null) {
-                return MaterialPageRoute(
-                  builder: (context) => ChannelProfileScreen(channelId: channelId),
-                  settings: settings,
-                );
-              }
-              break;
-
-            case '/edit-channel':
-              final channel = settings.arguments as ChannelModel?;
-              if (channel != null) {
-                return MaterialPageRoute(
-                  builder: (context) => EditChannelScreen(channel: channel),
-                  settings: settings,
-                );
-              }
-              break;
-
-            case '/my-post':
-              final videoId = settings.arguments as String?;
-              if (videoId != null) {
-                return MaterialPageRoute(
-                  builder: (context) => MyPostScreen(videoId: videoId),
-                  settings: settings,
-                );
-              }
-              break;
+ 
           }
           
           // Return null to let the default route handling take over
@@ -517,95 +342,5 @@ class _SafeStartScreenState extends State<SafeStartScreen> {
         ),
       ),
     );
-  }
-}
-
-// Helper class for navigation utilities
-class NavigationHelper {
-  // Navigate to chat screen
-  static void navigateToChat(
-    BuildContext context, {
-    required String chatId,
-    required UserModel contact,
-  }) {
-    Navigator.pushNamed(
-      context,
-      Constants.chatScreen,
-      arguments: {
-        'chatId': chatId,
-        'contact': contact,
-      },
-    );
-  }
-
-  // Navigate to contact profile
-  static void navigateToContactProfile(
-    BuildContext context, {
-    required UserModel contact,
-  }) {
-    Navigator.pushNamed(
-      context,
-      Constants.contactProfileScreen,
-      arguments: contact,
-    );
-  }
-
-
-  // Navigate to channel feed
-  static void navigateToChannelFeed(
-    BuildContext context, {
-    String? startVideoId,
-    String? channelId,
-  }) {
-    Navigator.pushNamed(
-      context,
-      '/channel-feed',
-      arguments: {
-        'startVideoId': startVideoId,
-        'channelId': channelId,
-      },
-    );
-  }
-
-  // Navigate to channel profile
-  static void navigateToChannelProfile(
-    BuildContext context, {
-    required String channelId,
-  }) {
-    Navigator.pushNamed(
-      context,
-      '/channel-profile',
-      arguments: channelId,
-    );
-  }
-
-  // Navigate to edit channel
-  static void navigateToEditChannel(
-    BuildContext context, {
-    required ChannelModel channel,
-  }) {
-    Navigator.pushNamed(
-      context,
-      '/edit-channel',
-      arguments: channel,
-    );
-  }
-
-  // Navigate to my post
-  static void navigateToMyPost(
-    BuildContext context, {
-    required String videoId,
-  }) {
-    Navigator.pushNamed(
-      context,
-      '/my-post',
-      arguments: videoId,
-    );
-  }
-
-  // Create chat ID for two users
-  static String createChatId(String userId1, String userId2) {
-    final sortedIds = [userId1, userId2]..sort();
-    return '${sortedIds[0]}_${sortedIds[1]}';
   }
 }

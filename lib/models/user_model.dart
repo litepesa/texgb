@@ -319,7 +319,6 @@ class UserModel {
       blockedUIDs: List<String>.from(map[Constants.blockedUIDs] ?? []),
       followedChannels: List<String>.from(map['followedChannels'] ?? []),
       followingCount: map['followingCount']?.toInt() ?? 0,
-      isVerified: map[Constants.isVerified] ?? false, 
       privacySettings: UserPrivacySettings.fromMap(
         map['privacySettings'] ?? <String, dynamic>{},
       ),
@@ -340,7 +339,6 @@ class UserModel {
       Constants.blockedUIDs: blockedUIDs,
       'followedChannels': followedChannels,
       'followingCount': followingCount,
-      Constants.isVerified: isVerified,
       'privacySettings': privacySettings.toMap(),
     };
   }
