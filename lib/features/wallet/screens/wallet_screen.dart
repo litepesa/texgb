@@ -126,7 +126,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Earnings Overview',
+                      'Bonus Overview',
                       style: TextStyle(
                         color: modernTheme.textColor,
                         fontSize: 18,
@@ -139,7 +139,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                         Expanded(
                           child: _buildEarningsItem(
                             title: 'This Month',
-                            amount: 'KES 0.00',
+                            amount: 'Coins 0.00',
                             icon: CupertinoIcons.calendar,
                             color: Colors.blue,
                             modernTheme: modernTheme,
@@ -152,8 +152,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                         ),
                         Expanded(
                           child: _buildEarningsItem(
-                            title: 'Total Earned',
-                            amount: 'KES 0.00',
+                            title: 'Total Bomus',
+                            amount: 'Coins 0.00',
                             icon: CupertinoIcons.money_dollar_circle,
                             color: Colors.green,
                             modernTheme: modernTheme,
@@ -244,82 +244,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               ),
 
               const SizedBox(height: 24),
-
-              // Start Earning Button
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20.0),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.amber.shade600,
-                      Colors.orange.shade600,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.orange.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Become A Creator',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Start Earning Money Today',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Earning features coming soon!')),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.orange.shade600,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                      ),
-                      child: const Text(
-                        'Start',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),

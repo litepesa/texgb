@@ -2,11 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
-import 'dart:typed_data';
-import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/features/channels/providers/channels_provider.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
+import 'package:textgb/features/channels/providers/channel_videos_provider.dart';
+import 'package:textgb/features/channels/models/channel_model.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -22,8 +21,8 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     viewportFraction: 0.85, // Shows part of adjacent pages
   );
   
-  // Cache for recommended videos to avoid reloading
-  List<ChannelVideoModel> _recommendedVideos = [];
+  // Cache for recommended channels to avoid reloading
+  List<ChannelModel> _recommendedChannels = [];
   bool _isLoadingRecommendations = false;
   String? _error;
   int _currentIndex = 0;
@@ -31,9 +30,9 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
   @override
   void initState() {
     super.initState();
-    // Load recommended videos when screen initializes
+    // Load recommended channels when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRecommendedVideos();
+      _loadRecommendedChannels();
     });
   }
 
@@ -43,19 +42,19 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     super.dispose();
   }
 
-  /// Load recommended videos efficiently
-  /// This method selects videos from channels with recent activity
-  Future<void> _loadRecommendedVideos({bool forceRefresh = false}) async {
+  /// Load all channels as recommendations
+  /// This method gets all available channels and sorts them by activity and followers
+  Future<void> _loadRecommendedChannels({bool forceRefresh = false}) async {
     if (_isLoadingRecommendations && !forceRefresh) return;
 
     setState(() {
       _isLoadingRecommendations = true;
       _error = null;
-      if (forceRefresh) _recommendedVideos.clear();
+      if (forceRefresh) _recommendedChannels.clear();
     });
 
     try {
-      // Step 1: Get channels ordered by recent activity (lastPostAt)
+      // Load all channels
       await ref.read(channelsProvider.notifier).loadChannels(forceRefresh: forceRefresh);
       final channelsState = ref.read(channelsProvider);
       
@@ -63,57 +62,50 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
         throw Exception(channelsState.error);
       }
 
-      // Step 2: Filter and sort channels by activity
-      final activeChannels = channelsState.channels
-          .where((channel) => channel.lastPostAt != null && channel.videosCount > 0)
+      // Get all active channels
+      final allChannels = channelsState.channels
+          .where((channel) => channel.isActive)
           .toList();
 
-      // Sort by most recent activity first
-      activeChannels.sort((a, b) {
-        if (a.lastPostAt == null && b.lastPostAt == null) return 0;
-        if (a.lastPostAt == null) return 1;
-        if (b.lastPostAt == null) return -1;
-        return b.lastPostAt!.compareTo(a.lastPostAt!);
+      // Sort channels by multiple criteria:
+      // 1. Featured channels first
+      // 2. Then by recent activity (lastPostAt)
+      // 3. Then by follower count
+      // 4. Finally by verification status
+      allChannels.sort((a, b) {
+        // Featured channels first
+        if (a.isFeatured && !b.isFeatured) return -1;
+        if (!a.isFeatured && b.isFeatured) return 1;
+        
+        // Then by recent activity
+        if (a.lastPostAt != null && b.lastPostAt != null) {
+          final activityComparison = b.lastPostAt!.compareTo(a.lastPostAt!);
+          if (activityComparison != 0) return activityComparison;
+        } else if (a.lastPostAt != null && b.lastPostAt == null) {
+          return -1;
+        } else if (a.lastPostAt == null && b.lastPostAt != null) {
+          return 1;
+        }
+        
+        // Then by follower count
+        final followerComparison = b.followers.compareTo(a.followers);
+        if (followerComparison != 0) return followerComparison;
+        
+        // Finally by verification status
+        if (a.isVerified && !b.isVerified) return -1;
+        if (!a.isVerified && b.isVerified) return 1;
+        
+        // Default to creation date
+        return b.createdAt.compareTo(a.createdAt);
       });
 
-      // Step 3: Load videos from top active channels (limit to first 10-15 channels)
-      final List<ChannelVideoModel> recommendedVideos = [];
-      final int maxChannelsToCheck = 15; // Limit for performance
-      final int maxVideosPerChannel = 3; // Get recent videos per channel
-      
-      for (int i = 0; i < activeChannels.length && i < maxChannelsToCheck; i++) {
-        final channel = activeChannels[i];
-        
-        try {
-          // Load recent videos from this channel
-          final channelVideos = await ref
-              .read(channelVideosProvider.notifier)
-              .loadChannelVideos(channel.id);
-
-          // Take only the most recent videos from this channel
-          final recentVideos = channelVideos.take(maxVideosPerChannel).toList();
-          recommendedVideos.addAll(recentVideos);
-          
-        } catch (e) {
-          debugPrint('Error loading videos for channel ${channel.id}: $e');
-          // Continue with other channels
-        }
-      }
-
-      // Step 4: Sort all collected videos by creation time (most recent first)
-      recommendedVideos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-      // Step 5: Limit total recommendations for performance
-      final maxTotalVideos = 50; // Reasonable limit for UI performance
-      final finalRecommendations = recommendedVideos.take(maxTotalVideos).toList();
-
       setState(() {
-        _recommendedVideos = finalRecommendations;
+        _recommendedChannels = allChannels;
         _isLoadingRecommendations = false;
       });
 
     } catch (e) {
-      debugPrint('Error loading recommendations: $e');
+      debugPrint('Error loading channel recommendations: $e');
       setState(() {
         _error = e.toString();
         _isLoadingRecommendations = false;
@@ -135,26 +127,26 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
   }
 
   Widget _buildBody() {
-    if (_isLoadingRecommendations && _recommendedVideos.isEmpty) {
+    if (_isLoadingRecommendations && _recommendedChannels.isEmpty) {
       return _buildLoadingState();
     }
 
-    if (_error != null && _recommendedVideos.isEmpty) {
+    if (_error != null && _recommendedChannels.isEmpty) {
       return _buildErrorState(_error!);
     }
 
-    if (_recommendedVideos.isEmpty && !_isLoadingRecommendations) {
+    if (_recommendedChannels.isEmpty && !_isLoadingRecommendations) {
       return _buildEmptyState();
     }
 
     return RefreshIndicator(
-      onRefresh: () => _loadRecommendedVideos(forceRefresh: true),
+      onRefresh: () => _loadRecommendedChannels(forceRefresh: true),
       backgroundColor: context.modernTheme.surfaceColor,
       color: context.modernTheme.textColor,
       child: Column(
         children: [
           // Page indicator dots
-          if (_recommendedVideos.isNotEmpty) _buildPageIndicator(),
+          if (_recommendedChannels.isNotEmpty) _buildPageIndicator(),
           
           // Main carousel
           Expanded(
@@ -165,11 +157,11 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                   _currentIndex = index;
                 });
               },
-              itemCount: _recommendedVideos.length,
+              itemCount: _recommendedChannels.length,
               itemBuilder: (context, index) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
-                  child: _buildVideoThumbnail(_recommendedVideos[index], index),
+                  child: _buildChannelCard(_recommendedChannels[index], index),
                 );
               },
             ),
@@ -185,11 +177,11 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(
-          _recommendedVideos.length > 10 ? 10 : _recommendedVideos.length, // Limit dots to 10
+          _recommendedChannels.length > 10 ? 10 : _recommendedChannels.length, // Limit dots to 10
           (index) {
             // For more than 10 items, show relative position
-            int displayIndex = _recommendedVideos.length > 10 
-                ? (_currentIndex < 5 ? index : (_currentIndex > _recommendedVideos.length - 6 ? index + _recommendedVideos.length - 10 : index + _currentIndex - 4))
+            int displayIndex = _recommendedChannels.length > 10 
+                ? (_currentIndex < 5 ? index : (_currentIndex > _recommendedChannels.length - 6 ? index + _recommendedChannels.length - 10 : index + _currentIndex - 4))
                 : index;
             
             bool isActive = displayIndex == _currentIndex;
@@ -202,7 +194,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
               decoration: BoxDecoration(
                 color: isActive 
                     ? context.modernTheme.textColor 
-                    : context.modernTheme.textSecondaryColor,//.withOpacity(0.4),
+                    : context.modernTheme.textSecondaryColor?.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(3.0),
               ),
             );
@@ -212,7 +204,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     );
   }
 
-  Widget _buildVideoThumbnail(ChannelVideoModel video, int index) {
+  Widget _buildChannelCard(ChannelModel channel, int index) {
     // Calculate scale based on current page position
     double scale = 1.0;
     if (_pageController.hasClients && _pageController.page != null) {
@@ -222,7 +214,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     return Transform.scale(
       scale: scale,
       child: GestureDetector(
-        onTap: () => _navigateToVideoFeed(video),
+        onTap: () => _navigateToChannelProfile(channel),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -243,61 +235,10 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Stack(
-                    children: [
-                      // Main thumbnail content
-                      Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: _buildThumbnailContent(video),
-                      ),
-                      
-                      // Gradient overlay for caption and views
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withOpacity(0.7),
-                              ],
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                video.caption.isNotEmpty ? video.caption : 'No caption',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.3,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${_formatCount(video.views)} views',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: _buildChannelImage(channel),
                   ),
                 ),
               ),
@@ -312,15 +253,15 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                 children: [
                   CircleAvatar(
                     radius: 16,
-                    backgroundImage: video.channelImage.isNotEmpty
-                        ? NetworkImage(video.channelImage)
+                    backgroundImage: channel.profileImage.isNotEmpty
+                        ? CachedNetworkImageProvider(channel.profileImage)
                         : null,
                     backgroundColor: context.modernTheme.surfaceVariantColor,
-                    child: video.channelImage.isEmpty
+                    child: channel.profileImage.isEmpty
                         ? Text(
-                            video.channelName.isNotEmpty 
-                                ? video.channelName[0].toUpperCase()
-                                : "U",
+                            channel.name.isNotEmpty 
+                                ? channel.name[0].toUpperCase()
+                                : "C",
                             style: TextStyle(
                               color: context.modernTheme.textColor,
                               fontSize: 12,
@@ -335,7 +276,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          video.channelName,
+                          channel.name,
                           style: TextStyle(
                             color: context.modernTheme.textColor,
                             fontSize: 14,
@@ -344,16 +285,12 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              '${_formatCount(_getChannelFollowers(video.channelId))} followers',
-                              style: TextStyle(
-                                color: context.modernTheme.textSecondaryColor,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          '${_formatCount(channel.videosCount)} episodes',
+                          style: TextStyle(
+                            color: context.modernTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -367,107 +304,46 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     );
   }
 
-  int _getChannelFollowers(String channelId) {
-    final channelsState = ref.read(channelsProvider);
-    final channel = channelsState.channels.firstWhere(
-      (channel) => channel.id == channelId,
-      orElse: () => throw StateError('Channel not found'),
-    );
-    return channel.followers;
-  }
-
-  Widget _buildThumbnailContent(ChannelVideoModel video) {
-    if (video.isMultipleImages && video.imageUrls.isNotEmpty) {
-      return Image.network(
-        video.imageUrls.first,
+  Widget _buildChannelImage(ChannelModel channel) {
+    // Use cover image if available, otherwise use profile image
+    final imageUrl = channel.coverImage.isNotEmpty ? channel.coverImage : channel.profileImage;
+    
+    if (imageUrl.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: imageUrl,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return _buildLoadingThumbnail();
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return _buildErrorThumbnail();
-        },
-      );
-    } else if (video.videoUrl.isNotEmpty) {
-      return FutureBuilder<Uint8List?>(
-        future: _generateVideoThumbnail(video.videoUrl),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingThumbnail();
-          }
-          
-          if (snapshot.hasData && snapshot.data != null) {
-            return Image.memory(
-              snapshot.data!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            );
-          }
-          
-          if (video.thumbnailUrl.isNotEmpty) {
-            return Image.network(
-              video.thumbnailUrl,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (context, error, stackTrace) {
-                return _buildErrorThumbnail();
-              },
-            );
-          }
-          
-          return _buildErrorThumbnail();
-        },
+        placeholder: (context, url) => _buildImagePlaceholder(channel),
+        errorWidget: (context, url, error) => _buildImagePlaceholder(channel),
       );
     } else {
-      return _buildErrorThumbnail();
+      return _buildImagePlaceholder(channel);
     }
   }
 
-  Future<Uint8List?> _generateVideoThumbnail(String videoUrl) async {
-    try {
-      final thumbnail = await VideoThumbnail.thumbnailData(
-        video: videoUrl,
-        imageFormat: ImageFormat.JPEG,
-        maxWidth: 300,
-        quality: 75,
-        timeMs: 1000,
-      );
-      return thumbnail;
-    } catch (e) {
-      debugPrint('Error generating video thumbnail: $e');
-      return null;
-    }
-  }
-
-  Widget _buildLoadingThumbnail() {
+  Widget _buildImagePlaceholder(ChannelModel channel) {
     return Container(
-      color: context.modernTheme.surfaceVariantColor,
+      color: context.modernTheme.primaryColor?.withOpacity(0.3) ?? Colors.grey[300],
       child: Center(
-        child: SizedBox(
-          width: 32,
-          height: 32,
-          child: CircularProgressIndicator(
-            color: context.modernTheme.textColor,
-            strokeWidth: 3,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorThumbnail() {
-    return Container(
-      color: context.modernTheme.surfaceVariantColor,
-      child: Center(
-        child: Icon(
-          Icons.video_library,
-          color: context.modernTheme.textSecondaryColor,
-          size: 48,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              channel.name.isNotEmpty ? channel.name[0].toUpperCase() : "C",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 48,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Icon(
+              Icons.video_library,
+              color: Colors.white.withOpacity(0.7),
+              size: 32,
+            ),
+          ],
         ),
       ),
     );
@@ -481,7 +357,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           CircularProgressIndicator(color: context.modernTheme.textColor),
           const SizedBox(height: 16),
           Text(
-            'Loading recommendations...',
+            'Discovering channels...',
             style: TextStyle(color: context.modernTheme.textColor),
           ),
         ],
@@ -510,13 +386,13 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            error,
+            'Could not load channels',
             style: TextStyle(color: context.modernTheme.textSecondaryColor),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => _loadRecommendedVideos(forceRefresh: true),
+            onPressed: () => _loadRecommendedChannels(forceRefresh: true),
             child: const Text('Retry'),
           ),
         ],
@@ -536,7 +412,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            'No recommendations available',
+            'No channels available',
             style: TextStyle(
               color: context.modernTheme.textColor,
               fontSize: 18,
@@ -545,7 +421,7 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Follow some channels to see recommendations',
+            'Check back later for new channels',
             style: TextStyle(color: context.modernTheme.textSecondaryColor),
           ),
         ],
@@ -553,15 +429,40 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
     );
   }
 
-  void _navigateToVideoFeed(ChannelVideoModel video) {
-    Navigator.pushNamed(
-      context,
-      Constants.channelsFeedScreen,
-      arguments: {
-        'startVideoId': video.id,
-        'channelId': video.channelId,
-      },
-    );
+  void _navigateToChannelProfile(ChannelModel channel) async {
+    try {
+      // Load videos from this channel to get the latest one
+      final channelVideos = await ref
+          .read(channelVideosProvider.notifier)
+          .loadChannelVideos(channel.id);
+      
+      if (channelVideos.isNotEmpty) {
+        // Get the latest video (first video in the list)
+        final latestVideo = channelVideos.first; // Assuming videos are sorted newest first
+        
+        Navigator.pushNamed(
+          context,
+          Constants.channelFeedScreen,
+          arguments: latestVideo.id, // Pass the latest video ID
+        );
+      } else {
+        // No videos available, show a message or navigate to profile instead
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No episodes available in this channel'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Error loading videos, show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading channel content'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   String _formatCount(int count) {
@@ -571,24 +472,6 @@ class _RecommendedPostsScreenState extends ConsumerState<RecommendedPostsScreen>
       return '${(count / 1000).toStringAsFixed(1)}K';
     } else {
       return '${(count / 1000000).toStringAsFixed(1)}M';
-    }
-  }
-
-  String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 30) {
-      final months = (difference.inDays / 30).floor();
-      return '$months month${months == 1 ? '' : 's'} ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
-    } else {
-      return 'Just now';
     }
   }
 }
