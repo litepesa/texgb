@@ -1,5 +1,7 @@
 // lib/features/dramas/providers/video_player_provider.dart
 import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
@@ -24,6 +26,8 @@ class VideoPlayerState {
   final bool isMuted;
   final bool isFullscreen;
   final String? error;
+  final VideoPlayerController? controller;
+  final bool isInitialized;
 
   const VideoPlayerState({
     this.currentEpisode,
@@ -40,6 +44,8 @@ class VideoPlayerState {
     this.isMuted = false,
     this.isFullscreen = false,
     this.error,
+    this.controller,
+    this.isInitialized = false,
   });
 
   VideoPlayerState copyWith({
@@ -57,6 +63,8 @@ class VideoPlayerState {
     bool? isMuted,
     bool? isFullscreen,
     String? error,
+    VideoPlayerController? controller,
+    bool? isInitialized,
   }) {
     return VideoPlayerState(
       currentEpisode: currentEpisode ?? this.currentEpisode,
@@ -73,6 +81,8 @@ class VideoPlayerState {
       isMuted: isMuted ?? this.isMuted,
       isFullscreen: isFullscreen ?? this.isFullscreen,
       error: error,
+      controller: controller ?? this.controller,
+      isInitialized: isInitialized ?? this.isInitialized,
     );
   }
 
@@ -136,7 +146,7 @@ class VideoPlayerState {
 }
 
 @riverpod
-class VideoPlayer extends _$VideoPlayer {
+class VideoPlayerNotifier extends _$VideoPlayerNotifier {
   Timer? _progressTimer;
 
   @override
@@ -144,9 +154,9 @@ class VideoPlayer extends _$VideoPlayer {
     // Load episode list when provider is initialized
     _loadEpisodeList();
     
-    // Clean up timer on dispose
+    // Clean up resources on dispose
     ref.onDispose(() {
-      _progressTimer?.cancel();
+      _disposeController();
     });
 
     return VideoPlayerState(dramaId: dramaId);
@@ -154,8 +164,12 @@ class VideoPlayer extends _$VideoPlayer {
 
   // Load the episode list for this drama
   Future<void> _loadEpisodeList() async {
-    final episodes = await ref.read(dramaEpisodesProvider(dramaId).future);
-    state = state.copyWith(episodeList: episodes);
+    try {
+      final episodes = await ref.read(dramaEpisodesProvider(dramaId).future);
+      state = state.copyWith(episodeList: episodes);
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to load episodes: $e');
+    }
   }
 
   // Initialize player with specific episode
@@ -169,18 +183,32 @@ class VideoPlayer extends _$VideoPlayer {
       isLoading: true,
       error: null,
       currentEpisode: episode,
+      isCompleted: false,
     );
 
     try {
-      // In real app, initialize video player controller here
-      // For now, simulate loading
-      await Future.delayed(const Duration(seconds: 1));
-      
+      // Dispose previous controller if exists
+      await _disposeController();
+
+      // Create new video controller with the episode video URL
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(episode.videoUrl),
+      );
+
+      // Initialize the controller
+      await controller.initialize();
+
+      // Set up listeners
+      controller.addListener(_onVideoPlayerUpdate);
+
       state = state.copyWith(
+        controller: controller,
+        isInitialized: true,
         isLoading: false,
-        totalDuration: Duration(seconds: episode.videoDuration),
+        totalDuration: controller.value.duration,
         currentPosition: Duration.zero,
-        isCompleted: false,
+        volume: controller.value.volume,
+        playbackSpeed: controller.value.playbackSpeed,
       );
 
       // Mark episode as watched
@@ -193,45 +221,94 @@ class VideoPlayer extends _$VideoPlayer {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        isInitialized: false,
         error: 'Failed to load episode: $e',
       );
     }
   }
 
+  // Video player update listener
+  void _onVideoPlayerUpdate() {
+    final controller = state.controller;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    final value = controller.value;
+    
+    state = state.copyWith(
+      isPlaying: value.isPlaying,
+      isBuffering: value.isBuffering,
+      currentPosition: value.position,
+      totalDuration: value.duration,
+      volume: value.volume,
+      playbackSpeed: value.playbackSpeed,
+    );
+
+    // Check if video completed
+    if (value.position >= value.duration && value.duration > Duration.zero) {
+      _onEpisodeCompleted();
+    }
+
+    // Handle errors
+    if (value.hasError && value.errorDescription != null) {
+      state = state.copyWith(error: value.errorDescription);
+    }
+  }
+
   // Play/Pause controls
-  void play() {
-    state = state.copyWith(isPlaying: true);
-    _startProgressTimer();
+  Future<void> play() async {
+    final controller = state.controller;
+    if (controller == null || !state.isInitialized) return;
+
+    try {
+      await controller.play();
+      state = state.copyWith(isPlaying: true);
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to play: $e');
+    }
   }
 
-  void pause() {
-    state = state.copyWith(isPlaying: false);
-    _stopProgressTimer();
+  Future<void> pause() async {
+    final controller = state.controller;
+    if (controller == null || !state.isInitialized) return;
+
+    try {
+      await controller.pause();
+      state = state.copyWith(isPlaying: false);
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to pause: $e');
+    }
   }
 
-  void togglePlayPause() {
+  Future<void> togglePlayPause() async {
     if (state.isPlaying) {
-      pause();
+      await pause();
     } else {
-      play();
+      await play();
     }
   }
 
   // Seek controls
-  void seekTo(Duration position) {
-    state = state.copyWith(currentPosition: position);
-    // In real app, seek the actual video player here
+  Future<void> seekTo(Duration position) async {
+    final controller = state.controller;
+    if (controller == null || !state.isInitialized) return;
+
+    try {
+      await controller.seekTo(position);
+      state = state.copyWith(currentPosition: position);
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to seek: $e');
+    }
   }
 
-  void seekForward([Duration duration = const Duration(seconds: 10)]) {
+  Future<void> seekForward([Duration duration = const Duration(seconds: 10)]) async {
     final newPosition = state.currentPosition + duration;
     final maxPosition = state.totalDuration;
-    seekTo(newPosition > maxPosition ? maxPosition : newPosition);
+    await seekTo(newPosition > maxPosition ? maxPosition : newPosition);
   }
 
-  void seekBackward([Duration duration = const Duration(seconds: 10)]) {
+  Future<void> seekBackward([Duration duration = const Duration(seconds: 10)]) async {
     final newPosition = state.currentPosition - duration;
-    seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
+    await seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
   }
 
   // Episode navigation
@@ -239,7 +316,7 @@ class VideoPlayer extends _$VideoPlayer {
     final nextEp = state.nextEpisode;
     if (nextEp != null) {
       await loadEpisode(nextEp);
-      play();
+      await play();
     }
   }
 
@@ -247,14 +324,13 @@ class VideoPlayer extends _$VideoPlayer {
     final prevEp = state.previousEpisode;
     if (prevEp != null) {
       await loadEpisode(prevEp);
-      play();
+      await play();
     }
   }
 
   // Auto-play next episode when current ends
   Future<void> _onEpisodeCompleted() async {
     state = state.copyWith(isCompleted: true, isPlaying: false);
-    _stopProgressTimer();
 
     // Check user preferences for auto-play
     final user = ref.read(currentUserProvider);
@@ -262,7 +338,7 @@ class VideoPlayer extends _$VideoPlayer {
       // Wait a moment then play next episode
       await Future.delayed(const Duration(seconds: 3));
       
-      if (state.hasNextEpisode && !state.isCompleted) return; // User manually changed episode
+      if (!state.isCompleted) return; // User manually changed episode
       
       final nextEp = state.nextEpisode;
       if (nextEp != null) {
@@ -270,24 +346,50 @@ class VideoPlayer extends _$VideoPlayer {
         final canWatch = ref.read(canWatchEpisodeProvider(dramaId, nextEp.episodeNumber));
         if (canWatch) {
           await loadEpisode(nextEp);
-          play();
+          await play();
         }
       }
     }
   }
 
   // Volume and playback controls
-  void setVolume(double volume) {
-    state = state.copyWith(volume: volume.clamp(0.0, 1.0));
+  Future<void> setVolume(double volume) async {
+    final controller = state.controller;
+    if (controller == null || !state.isInitialized) return;
+
+    final clampedVolume = volume.clamp(0.0, 1.0);
+    
+    try {
+      await controller.setVolume(clampedVolume);
+      state = state.copyWith(volume: clampedVolume);
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to set volume: $e');
+    }
   }
 
-  void toggleMute() {
-    state = state.copyWith(isMuted: !state.isMuted);
+  Future<void> toggleMute() async {
+    final controller = state.controller;
+    if (controller == null || !state.isInitialized) return;
+
+    try {
+      final newMutedState = !state.isMuted;
+      await controller.setVolume(newMutedState ? 0.0 : state.volume);
+      state = state.copyWith(isMuted: newMutedState);
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to toggle mute: $e');
+    }
   }
 
-  void setPlaybackSpeed(double speed) {
-    state = state.copyWith(playbackSpeed: speed);
-    // In real app, update actual player speed here
+  Future<void> setPlaybackSpeed(double speed) async {
+    final controller = state.controller;
+    if (controller == null || !state.isInitialized) return;
+
+    try {
+      await controller.setPlaybackSpeed(speed);
+      state = state.copyWith(playbackSpeed: speed);
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to set playback speed: $e');
+    }
   }
 
   // Fullscreen controls
@@ -299,28 +401,7 @@ class VideoPlayer extends _$VideoPlayer {
     state = state.copyWith(isFullscreen: false);
   }
 
-  // Progress timer for tracking playback
-  void _startProgressTimer() {
-    _progressTimer?.cancel();
-    _progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (state.isPlaying && !state.isBuffering) {
-        final newPosition = state.currentPosition + const Duration(seconds: 1);
-        
-        if (newPosition >= state.totalDuration) {
-          // Episode completed
-          _onEpisodeCompleted();
-        } else {
-          state = state.copyWith(currentPosition: newPosition);
-        }
-      }
-    });
-  }
-
-  void _stopProgressTimer() {
-    _progressTimer?.cancel();
-  }
-
-  // Buffering controls (called by actual video player)
+  // Buffering controls (called by video player)
   void setBuffering(bool isBuffering) {
     state = state.copyWith(isBuffering: isBuffering);
   }
@@ -328,43 +409,61 @@ class VideoPlayer extends _$VideoPlayer {
   // Error handling
   void setError(String error) {
     state = state.copyWith(error: error, isLoading: false, isPlaying: false);
-    _stopProgressTimer();
   }
 
   void clearError() {
     state = state.copyWith(error: null);
   }
 
-  // Dispose and cleanup
-  void dispose() {
-    _stopProgressTimer();
+  // Dispose controller and cleanup
+  Future<void> _disposeController() async {
+    final controller = state.controller;
+    if (controller != null) {
+      controller.removeListener(_onVideoPlayerUpdate);
+      await controller.dispose();
+    }
+    
+    _progressTimer?.cancel();
+    _progressTimer = null;
+    
+    state = state.copyWith(
+      controller: null,
+      isInitialized: false,
+      isPlaying: false,
+      currentPosition: Duration.zero,
+      totalDuration: Duration.zero,
+    );
+  }
+
+  // Public dispose method
+  Future<void> dispose() async {
+    await _disposeController();
     state = VideoPlayerState(dramaId: dramaId);
   }
 }
 
 // Convenience providers for video player UI
-
 @riverpod
 bool isVideoPlaying(IsVideoPlayingRef ref, String dramaId) {
-  final player = ref.watch(videoPlayerProvider(dramaId));
+  final player = ref.watch(videoPlayerNotifierProvider(dramaId));
   return player.isPlaying;
 }
 
 @riverpod
 double videoProgress(VideoProgressRef ref, String dramaId) {
-  final player = ref.watch(videoPlayerProvider(dramaId));
+  final player = ref.watch(videoPlayerNotifierProvider(dramaId));
   return player.progressPercentage;
 }
 
 @riverpod
 String currentEpisodeTitle(CurrentEpisodeTitleRef ref, String dramaId) {
-  final player = ref.watch(videoPlayerProvider(dramaId));
+  final player = ref.watch(videoPlayerNotifierProvider(dramaId));
   return player.currentEpisode?.displayTitle ?? '';
 }
 
 @riverpod
 bool canPlayNext(CanPlayNextRef ref, String dramaId) {
-  final player = ref.watch(videoPlayerProvider(dramaId));
+  final player = ref.watch(videoPlayerNotifierProvider(dramaId));
   if (!player.hasNextEpisode) return false;
   
   final nextEp = player.nextEpisode;
@@ -375,6 +474,12 @@ bool canPlayNext(CanPlayNextRef ref, String dramaId) {
 
 @riverpod
 bool canPlayPrevious(CanPlayPreviousRef ref, String dramaId) {
-  final player = ref.watch(videoPlayerProvider(dramaId));
+  final player = ref.watch(videoPlayerNotifierProvider(dramaId));
   return player.hasPreviousEpisode;
+}
+
+@riverpod
+VideoPlayerController? videoController(VideoControllerRef ref, String dramaId) {
+  final player = ref.watch(videoPlayerNotifierProvider(dramaId));
+  return player.controller;
 }

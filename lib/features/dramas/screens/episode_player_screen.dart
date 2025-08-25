@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:video_player/video_player.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/dramas/providers/drama_providers.dart';
@@ -63,13 +64,18 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
   @override
   void dispose() {
     _controlsAnimationController.dispose();
+    // Reset system UI when leaving
+    if (_isFullscreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    }
     super.dispose();
   }
 
   void _loadInitialEpisode() async {
     final episode = await ref.read(episodeProvider(widget.episodeId).future);
     if (episode != null && mounted) {
-      ref.read(videoPlayerProvider(widget.dramaId).notifier).loadEpisode(episode);
+      ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).loadEpisode(episode);
     }
   }
 
@@ -89,7 +95,7 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
   void _startControlsTimer() {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted && _isControlsVisible) {
-        final playerState = ref.read(videoPlayerProvider(widget.dramaId));
+        final playerState = ref.read(videoPlayerNotifierProvider(widget.dramaId));
         if (playerState.isPlaying && !_isFullscreen) {
           setState(() {
             _isControlsVisible = false;
@@ -116,7 +122,7 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     }
     
-    ref.read(videoPlayerProvider(widget.dramaId).notifier).toggleFullscreen();
+    ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).toggleFullscreen();
   }
 
   @override
@@ -124,7 +130,7 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
     final modernTheme = context.modernTheme;
     final dramaAsync = ref.watch(dramaProvider(widget.dramaId));
     final episodeAsync = ref.watch(episodeProvider(widget.episodeId));
-    final playerState = ref.watch(videoPlayerProvider(widget.dramaId));
+    final playerState = ref.watch(videoPlayerNotifierProvider(widget.dramaId));
 
     return WillPopScope(
       onWillPop: () async {
@@ -232,7 +238,7 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => ref.read(videoPlayerProvider(widget.dramaId).notifier).clearError(),
+                onPressed: () => ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).clearError(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFE2C55),
                 ),
@@ -268,7 +274,54 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
       );
     }
 
-    // Video player placeholder (replace with actual video player widget)
+    // Real video player widget
+    if (playerState.controller != null && playerState.isInitialized) {
+      return Stack(
+        children: [
+          // Video player
+          Positioned.fill(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: playerState.controller!.value.size.width,
+                height: playerState.controller!.value.size.height,
+                child: VideoPlayer(playerState.controller!),
+              ),
+            ),
+          ),
+          
+          // Play/Pause button overlay (only when paused)
+          if (!playerState.isPlaying && !playerState.isBuffering)
+            Center(
+              child: GestureDetector(
+                onTap: () => ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).togglePlayPause(),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow,
+                    color: Colors.white,
+                    size: 48,
+                  ),
+                ),
+              ),
+            ),
+          
+          // Buffering indicator
+          if (playerState.isBuffering)
+            const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFFFE2C55),
+              ),
+            ),
+        ],
+      );
+    }
+
+    // Fallback to thumbnail while video loads or if no controller
     return Container(
       color: Colors.black,
       child: Stack(
@@ -298,32 +351,24 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
               ),
             ),
           
-          // Play/Pause button overlay
+          // Play button overlay
           Center(
             child: GestureDetector(
-              onTap: () => ref.read(videoPlayerProvider(widget.dramaId).notifier).togglePlayPause(),
+              onTap: () => ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).togglePlayPause(),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.7),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  playerState.isPlaying ? Icons.pause : Icons.play_arrow,
+                child: const Icon(
+                  Icons.play_arrow,
                   color: Colors.white,
                   size: 48,
                 ),
               ),
             ),
           ),
-          
-          // Buffering indicator
-          if (playerState.isBuffering)
-            const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFFFE2C55),
-              ),
-            ),
         ],
       ),
     );
@@ -436,7 +481,7 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
                     // Previous episode
                     IconButton(
                       onPressed: playerState.hasPreviousEpisode
-                          ? () => ref.read(videoPlayerProvider(widget.dramaId).notifier).playPreviousEpisode()
+                          ? () => ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).playPreviousEpisode()
                           : null,
                       icon: Icon(
                         Icons.skip_previous,
@@ -449,10 +494,12 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
                     
                     // Rewind 10s
                     IconButton(
-                      onPressed: () => ref.read(videoPlayerProvider(widget.dramaId).notifier).seekBackward(),
-                      icon: const Icon(
+                      onPressed: playerState.isInitialized
+                          ? () => ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).seekBackward()
+                          : null,
+                      icon: Icon(
                         Icons.replay_10,
-                        color: Colors.white,
+                        color: playerState.isInitialized ? Colors.white : Colors.white38,
                         size: 32,
                       ),
                     ),
@@ -461,7 +508,7 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
                     
                     // Play/Pause
                     GestureDetector(
-                      onTap: () => ref.read(videoPlayerProvider(widget.dramaId).notifier).togglePlayPause(),
+                      onTap: () => ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).togglePlayPause(),
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -480,10 +527,12 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
                     
                     // Forward 10s
                     IconButton(
-                      onPressed: () => ref.read(videoPlayerProvider(widget.dramaId).notifier).seekForward(),
-                      icon: const Icon(
+                      onPressed: playerState.isInitialized
+                          ? () => ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).seekForward()
+                          : null,
+                      icon: Icon(
                         Icons.forward_10,
-                        color: Colors.white,
+                        color: playerState.isInitialized ? Colors.white : Colors.white38,
                         size: 32,
                       ),
                     ),
@@ -529,7 +578,7 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
                             color: Colors.white,
                             size: 20,
                           ),
-                          onSelected: (speed) => ref.read(videoPlayerProvider(widget.dramaId).notifier).setPlaybackSpeed(speed),
+                          onSelected: (speed) => ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).setPlaybackSpeed(speed),
                           itemBuilder: (context) => [
                             PopupMenuItem(value: 0.5, child: Text('0.5x')),
                             PopupMenuItem(value: 0.75, child: Text('0.75x')),
@@ -542,10 +591,12 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
                         
                         // Volume
                         IconButton(
-                          onPressed: () => ref.read(videoPlayerProvider(widget.dramaId).notifier).toggleMute(),
+                          onPressed: playerState.isInitialized
+                              ? () => ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).toggleMute()
+                              : null,
                           icon: Icon(
                             playerState.isMuted ? Icons.volume_off : Icons.volume_up,
-                            color: Colors.white,
+                            color: playerState.isInitialized ? Colors.white : Colors.white38,
                             size: 20,
                           ),
                         ),
@@ -573,13 +624,13 @@ class _EpisodePlayerScreenState extends ConsumerState<EpisodePlayerScreen>
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
           ),
           child: Slider(
-            value: playerState.progressPercentage.clamp(0.0, 1.0),
-            onChanged: (value) {
+            value: playerState.isInitialized ? playerState.progressPercentage.clamp(0.0, 1.0) : 0.0,
+            onChanged: playerState.isInitialized ? (value) {
               final newPosition = Duration(
                 milliseconds: (value * playerState.totalDuration.inMilliseconds).round(),
               );
-              ref.read(videoPlayerProvider(widget.dramaId).notifier).seekTo(newPosition);
-            },
+              ref.read(videoPlayerNotifierProvider(widget.dramaId).notifier).seekTo(newPosition);
+            } : null,
           ),
         ),
       ],

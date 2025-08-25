@@ -6,7 +6,7 @@ part of 'video_player_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$isVideoPlayingHash() => r'6b681863d2b6f3bc53d8fe179e49a60eb33f7758';
+String _$isVideoPlayingHash() => r'85bf85c483aadf570b99cd7501d4c57a8f12e850';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -157,7 +157,7 @@ class _IsVideoPlayingProviderElement extends AutoDisposeProviderElement<bool>
   String get dramaId => (origin as IsVideoPlayingProvider).dramaId;
 }
 
-String _$videoProgressHash() => r'02f774f3fa340b927b3fc5d5b3386c2a3d025584';
+String _$videoProgressHash() => r'fb115da2f7b5e6f2806306dcc78fa397fd8658c5';
 
 /// See also [videoProgress].
 @ProviderFor(videoProgress)
@@ -288,7 +288,7 @@ class _VideoProgressProviderElement extends AutoDisposeProviderElement<double>
 }
 
 String _$currentEpisodeTitleHash() =>
-    r'fbed5a479bd25ac126efb4e416aabbb01b55cdea';
+    r'298e88cd8d60bae1d8cfae2ef0a15ff87d3f0429';
 
 /// See also [currentEpisodeTitle].
 @ProviderFor(currentEpisodeTitle)
@@ -418,7 +418,7 @@ class _CurrentEpisodeTitleProviderElement
   String get dramaId => (origin as CurrentEpisodeTitleProvider).dramaId;
 }
 
-String _$canPlayNextHash() => r'2dbceb7b198501e39d6977636afe67a4ba3236e0';
+String _$canPlayNextHash() => r'fc05b4ad358cff2b774de70b000ef239a9f54ae4';
 
 /// See also [canPlayNext].
 @ProviderFor(canPlayNext)
@@ -548,7 +548,7 @@ class _CanPlayNextProviderElement extends AutoDisposeProviderElement<bool>
   String get dramaId => (origin as CanPlayNextProvider).dramaId;
 }
 
-String _$canPlayPreviousHash() => r'5428ff7f55253d88cf1a8b9bb3f81f022ebe4784';
+String _$canPlayPreviousHash() => r'7618abf55dec9bbde400905cccd84e2cd925e13b';
 
 /// See also [canPlayPrevious].
 @ProviderFor(canPlayPrevious)
@@ -678,38 +678,29 @@ class _CanPlayPreviousProviderElement extends AutoDisposeProviderElement<bool>
   String get dramaId => (origin as CanPlayPreviousProvider).dramaId;
 }
 
-String _$videoPlayerHash() => r'ef6469f3ed31d61dc5ab95070da5a6621f02bef9';
+String _$videoControllerHash() => r'73fdc0ffc553817061ba124505cff73e691210a1';
 
-abstract class _$VideoPlayer
-    extends BuildlessAutoDisposeNotifier<VideoPlayerState> {
-  late final String dramaId;
+/// See also [videoController].
+@ProviderFor(videoController)
+const videoControllerProvider = VideoControllerFamily();
 
-  VideoPlayerState build(
-    String dramaId,
-  );
-}
+/// See also [videoController].
+class VideoControllerFamily extends Family<VideoPlayerController?> {
+  /// See also [videoController].
+  const VideoControllerFamily();
 
-/// See also [VideoPlayer].
-@ProviderFor(VideoPlayer)
-const videoPlayerProvider = VideoPlayerFamily();
-
-/// See also [VideoPlayer].
-class VideoPlayerFamily extends Family<VideoPlayerState> {
-  /// See also [VideoPlayer].
-  const VideoPlayerFamily();
-
-  /// See also [VideoPlayer].
-  VideoPlayerProvider call(
+  /// See also [videoController].
+  VideoControllerProvider call(
     String dramaId,
   ) {
-    return VideoPlayerProvider(
+    return VideoControllerProvider(
       dramaId,
     );
   }
 
   @override
-  VideoPlayerProvider getProviderOverride(
-    covariant VideoPlayerProvider provider,
+  VideoControllerProvider getProviderOverride(
+    covariant VideoControllerProvider provider,
   ) {
     return call(
       provider.dramaId,
@@ -728,30 +719,33 @@ class VideoPlayerFamily extends Family<VideoPlayerState> {
       _allTransitiveDependencies;
 
   @override
-  String? get name => r'videoPlayerProvider';
+  String? get name => r'videoControllerProvider';
 }
 
-/// See also [VideoPlayer].
-class VideoPlayerProvider
-    extends AutoDisposeNotifierProviderImpl<VideoPlayer, VideoPlayerState> {
-  /// See also [VideoPlayer].
-  VideoPlayerProvider(
+/// See also [videoController].
+class VideoControllerProvider
+    extends AutoDisposeProvider<VideoPlayerController?> {
+  /// See also [videoController].
+  VideoControllerProvider(
     String dramaId,
   ) : this._internal(
-          () => VideoPlayer()..dramaId = dramaId,
-          from: videoPlayerProvider,
-          name: r'videoPlayerProvider',
+          (ref) => videoController(
+            ref as VideoControllerRef,
+            dramaId,
+          ),
+          from: videoControllerProvider,
+          name: r'videoControllerProvider',
           debugGetCreateSourceHash:
               const bool.fromEnvironment('dart.vm.product')
                   ? null
-                  : _$videoPlayerHash,
-          dependencies: VideoPlayerFamily._dependencies,
+                  : _$videoControllerHash,
+          dependencies: VideoControllerFamily._dependencies,
           allTransitiveDependencies:
-              VideoPlayerFamily._allTransitiveDependencies,
+              VideoControllerFamily._allTransitiveDependencies,
           dramaId: dramaId,
         );
 
-  VideoPlayerProvider._internal(
+  VideoControllerProvider._internal(
     super._createNotifier, {
     required super.name,
     required super.dependencies,
@@ -764,20 +758,13 @@ class VideoPlayerProvider
   final String dramaId;
 
   @override
-  VideoPlayerState runNotifierBuild(
-    covariant VideoPlayer notifier,
+  Override overrideWith(
+    VideoPlayerController? Function(VideoControllerRef provider) create,
   ) {
-    return notifier.build(
-      dramaId,
-    );
-  }
-
-  @override
-  Override overrideWith(VideoPlayer Function() create) {
     return ProviderOverride(
       origin: this,
-      override: VideoPlayerProvider._internal(
-        () => create()..dramaId = dramaId,
+      override: VideoControllerProvider._internal(
+        (ref) => create(ref as VideoControllerRef),
         from: from,
         name: null,
         dependencies: null,
@@ -789,14 +776,13 @@ class VideoPlayerProvider
   }
 
   @override
-  AutoDisposeNotifierProviderElement<VideoPlayer, VideoPlayerState>
-      createElement() {
-    return _VideoPlayerProviderElement(this);
+  AutoDisposeProviderElement<VideoPlayerController?> createElement() {
+    return _VideoControllerProviderElement(this);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is VideoPlayerProvider && other.dramaId == dramaId;
+    return other is VideoControllerProvider && other.dramaId == dramaId;
   }
 
   @override
@@ -810,18 +796,166 @@ class VideoPlayerProvider
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin VideoPlayerRef on AutoDisposeNotifierProviderRef<VideoPlayerState> {
+mixin VideoControllerRef on AutoDisposeProviderRef<VideoPlayerController?> {
   /// The parameter `dramaId` of this provider.
   String get dramaId;
 }
 
-class _VideoPlayerProviderElement
-    extends AutoDisposeNotifierProviderElement<VideoPlayer, VideoPlayerState>
-    with VideoPlayerRef {
-  _VideoPlayerProviderElement(super.provider);
+class _VideoControllerProviderElement
+    extends AutoDisposeProviderElement<VideoPlayerController?>
+    with VideoControllerRef {
+  _VideoControllerProviderElement(super.provider);
 
   @override
-  String get dramaId => (origin as VideoPlayerProvider).dramaId;
+  String get dramaId => (origin as VideoControllerProvider).dramaId;
+}
+
+String _$videoPlayerNotifierHash() =>
+    r'c07a9d25e506b504c3b92651a932932a42c6f265';
+
+abstract class _$VideoPlayerNotifier
+    extends BuildlessAutoDisposeNotifier<VideoPlayerState> {
+  late final String dramaId;
+
+  VideoPlayerState build(
+    String dramaId,
+  );
+}
+
+/// See also [VideoPlayerNotifier].
+@ProviderFor(VideoPlayerNotifier)
+const videoPlayerNotifierProvider = VideoPlayerNotifierFamily();
+
+/// See also [VideoPlayerNotifier].
+class VideoPlayerNotifierFamily extends Family<VideoPlayerState> {
+  /// See also [VideoPlayerNotifier].
+  const VideoPlayerNotifierFamily();
+
+  /// See also [VideoPlayerNotifier].
+  VideoPlayerNotifierProvider call(
+    String dramaId,
+  ) {
+    return VideoPlayerNotifierProvider(
+      dramaId,
+    );
+  }
+
+  @override
+  VideoPlayerNotifierProvider getProviderOverride(
+    covariant VideoPlayerNotifierProvider provider,
+  ) {
+    return call(
+      provider.dramaId,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'videoPlayerNotifierProvider';
+}
+
+/// See also [VideoPlayerNotifier].
+class VideoPlayerNotifierProvider extends AutoDisposeNotifierProviderImpl<
+    VideoPlayerNotifier, VideoPlayerState> {
+  /// See also [VideoPlayerNotifier].
+  VideoPlayerNotifierProvider(
+    String dramaId,
+  ) : this._internal(
+          () => VideoPlayerNotifier()..dramaId = dramaId,
+          from: videoPlayerNotifierProvider,
+          name: r'videoPlayerNotifierProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$videoPlayerNotifierHash,
+          dependencies: VideoPlayerNotifierFamily._dependencies,
+          allTransitiveDependencies:
+              VideoPlayerNotifierFamily._allTransitiveDependencies,
+          dramaId: dramaId,
+        );
+
+  VideoPlayerNotifierProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.dramaId,
+  }) : super.internal();
+
+  final String dramaId;
+
+  @override
+  VideoPlayerState runNotifierBuild(
+    covariant VideoPlayerNotifier notifier,
+  ) {
+    return notifier.build(
+      dramaId,
+    );
+  }
+
+  @override
+  Override overrideWith(VideoPlayerNotifier Function() create) {
+    return ProviderOverride(
+      origin: this,
+      override: VideoPlayerNotifierProvider._internal(
+        () => create()..dramaId = dramaId,
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        dramaId: dramaId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeNotifierProviderElement<VideoPlayerNotifier, VideoPlayerState>
+      createElement() {
+    return _VideoPlayerNotifierProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is VideoPlayerNotifierProvider && other.dramaId == dramaId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, dramaId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin VideoPlayerNotifierRef
+    on AutoDisposeNotifierProviderRef<VideoPlayerState> {
+  /// The parameter `dramaId` of this provider.
+  String get dramaId;
+}
+
+class _VideoPlayerNotifierProviderElement
+    extends AutoDisposeNotifierProviderElement<VideoPlayerNotifier,
+        VideoPlayerState> with VideoPlayerNotifierRef {
+  _VideoPlayerNotifierProviderElement(super.provider);
+
+  @override
+  String get dramaId => (origin as VideoPlayerNotifierProvider).dramaId;
 }
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

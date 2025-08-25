@@ -2,7 +2,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/dramas/providers/drama_providers.dart';
@@ -465,59 +465,67 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
                   ),
                 )
               : _buildDashedBorder(
-                  child: GestureDetector(
-                    onTap: _pickVideoFile,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFE2C55).withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.video_call,
-                              size: 32,
-                              color: Color(0xFFFE2C55),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Select Video File',
-                            style: TextStyle(
-                              color: modernTheme.textColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Tap to choose video file from your device',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                              fontSize: 12,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: modernTheme.textSecondaryColor?.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Supported: ${Constants.supportedVideoFormats.join(', ')}',
-                              style: TextStyle(
-                                color: modernTheme.textSecondaryColor,
-                                fontSize: 10,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _pickVideoFile,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFE2C55).withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.video_call,
+                                size: 40,
+                                color: Color(0xFFFE2C55),
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Text(
+                              'Select Video File',
+                              style: TextStyle(
+                                color: modernTheme.textColor,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tap here to choose video from gallery',
+                              style: TextStyle(
+                                color: modernTheme.textSecondaryColor,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFE2C55).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFFE2C55).withOpacity(0.3),
+                                ),
+                              ),
+                              child: const Text(
+                                'MP4, MOV, AVI videos supported',
+                                style: TextStyle(
+                                  color: Color(0xFFFE2C55),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -741,26 +749,58 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
   }
 
   Future<void> _pickVideoFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-      allowedExtensions: Constants.supportedVideoFormats,
-    );
-
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
+    try {
+      final picker = ImagePicker();
       
-      // Check file size (500MB limit)
-      final fileSizeInMB = await file.length() / (1024 * 1024);
-      if (fileSizeInMB > 500) {
-        if (mounted) {
-          showSnackBar(context, 'Video file is too large (max 500MB)');
-        }
-        return;
+      // Show loading message
+      if (mounted) {
+        showSnackBar(context, 'Opening video gallery...');
       }
 
-      setState(() {
-        _videoFile = file;
-      });
+      final pickedFile = await picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 60), // 1 hour max
+      );
+
+      if (pickedFile != null) {
+        final file = File(pickedFile.path);
+        
+        // Check if file exists
+        if (!await file.exists()) {
+          if (mounted) {
+            showSnackBar(context, 'Selected video file does not exist');
+          }
+          return;
+        }
+
+        // Check file size (500MB limit)
+        final fileSizeInMB = await file.length() / (1024 * 1024);
+        
+        if (fileSizeInMB > 500) {
+          if (mounted) {
+            showSnackBar(context, 'Video file is too large (max 500MB)');
+          }
+          return;
+        }
+
+        // Get file name from path
+        final fileName = pickedFile.path.split('/').last;
+
+        if (mounted) {
+          setState(() {
+            _videoFile = file;
+          });
+          showSnackBar(context, 'Video selected: ${fileName}');
+        }
+      } else {
+        if (mounted) {
+          showSnackBar(context, 'No video selected');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error selecting video: $e');
+      }
     }
   }
 
