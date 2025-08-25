@@ -11,7 +11,7 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/features/dramas/screens/episode_feed_screen.dart';
-import 'package:textgb/features/dramas/screens/episode_player_screen.dart';
+//import 'package:textgb/features/dramas/screens/episode_player_screen.dart';
 
 // Profile screens
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
@@ -219,7 +219,7 @@ class AppRoot extends ConsumerWidget {
               }
               break;
               
-            case Constants.episodePlayerScreen:
+            /*case Constants.episodePlayerScreen:
               final args = settings.arguments as Map<String, dynamic>?;
               if (args != null && args.containsKey('dramaId') && args.containsKey('episodeId')) {
                 return MaterialPageRoute(
@@ -230,7 +230,7 @@ class AppRoot extends ConsumerWidget {
                   settings: settings,
                 );
              }
-              break;
+              break;*/
 
             // Add the new episode feed route
     case Constants.episodeFeedScreen:

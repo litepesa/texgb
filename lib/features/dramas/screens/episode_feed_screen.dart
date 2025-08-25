@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/dramas/providers/drama_providers.dart';
@@ -34,11 +35,16 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   int _currentIndex = 0;
   Map<int, VideoPlayerController?> _videoControllers = {};
   Map<int, bool> _videoInitialized = {};
+  Map<int, bool> _episodeCompleted = {}; // Track completion status
+  bool _isAutoPlaying = false; // Prevent multiple auto-play triggers
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    
+    // Enable wakelock to prevent screen from sleeping during video playback
+    WakelockPlus.enable();
     
     // Find initial episode index if provided
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -48,6 +54,8 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
 
   @override
   void dispose() {
+    // Disable wakelock when leaving the screen
+    WakelockPlus.disable();
     _disposeAllVideoControllers();
     _pageController.dispose();
     super.dispose();
@@ -71,10 +79,12 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
 
   void _disposeAllVideoControllers() {
     for (final controller in _videoControllers.values) {
+      controller?.removeListener(_videoProgressListener);
       controller?.dispose();
     }
     _videoControllers.clear();
     _videoInitialized.clear();
+    _episodeCompleted.clear();
   }
 
   void _initializeVideoController(int index, EpisodeModel episode) {
@@ -93,12 +103,15 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
       if (mounted) {
         setState(() {
           _videoInitialized[index] = true;
+          _episodeCompleted[index] = false; // Reset completion status
         });
         
         // Auto play if this is the current page
         if (index == _currentIndex) {
           controller.play();
-          controller.setLooping(true);
+          // Don't set looping here - we'll handle completion manually
+          // Add progress listener for real-time updates
+          controller.addListener(_videoProgressListener);
         }
       }
     }).catchError((error) {
@@ -115,16 +128,108 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     final oldIndex = _currentIndex;
     setState(() {
       _currentIndex = index;
+      _isAutoPlaying = false; // Reset auto-play flag when manually changing
     });
 
-    // Pause old video
-    _videoControllers[oldIndex]?.pause();
+    // Pause old video and remove listeners
+    final oldController = _videoControllers[oldIndex];
+    if (oldController != null) {
+      oldController.pause();
+      oldController.removeListener(_videoProgressListener);
+    }
 
-    // Play new video
+    // Play new video and add listeners
     final newController = _videoControllers[index];
     if (newController != null && _videoInitialized[index] == true) {
       newController.play();
-      newController.setLooping(true);
+      // Reset completion status for new episode
+      _episodeCompleted[index] = false;
+      newController.addListener(_videoProgressListener);
+    }
+  }
+
+  void _videoProgressListener() {
+    final controller = _videoControllers[_currentIndex];
+    if (controller == null || !mounted) return;
+
+    final position = controller.value.position;
+    final duration = controller.value.duration;
+    
+    // Check if video completed (at the very end)
+    if (duration.inMilliseconds > 0) {
+      // Use a very small buffer (50ms) to account for timing precision
+      final remainingTime = duration.inMilliseconds - position.inMilliseconds;
+      final isCompleted = remainingTime <= 50; // Less than 50ms remaining
+      
+      if (isCompleted && 
+          !(_episodeCompleted[_currentIndex] ?? false) && 
+          !_isAutoPlaying) {
+        
+        // Mark this episode as completed
+        _episodeCompleted[_currentIndex] = true;
+        _handleVideoCompleted();
+      }
+    }
+
+    // Trigger rebuild to update progress bar
+    setState(() {});
+  }
+
+  void _handleVideoCompleted() async {
+    if (_isAutoPlaying) return; // Prevent multiple triggers
+    _isAutoPlaying = true;
+
+    try {
+      final episodes = await ref.read(dramaEpisodesProvider(widget.dramaId).future);
+      final isDramaUnlocked = ref.read(isDramaUnlockedProvider(widget.dramaId));
+      
+      // Check if there's a next episode
+      if (_currentIndex + 1 < episodes.length) {
+        final nextEpisode = episodes[_currentIndex + 1];
+        final drama = await ref.read(dramaProvider(widget.dramaId).future);
+        
+        if (drama != null) {
+          final canWatchNext = drama.canWatchEpisode(nextEpisode.episodeNumber, isDramaUnlocked);
+          
+          if (canWatchNext) {
+            // Show a brief "Next Episode" indicator
+            if (mounted) {
+              // Pause current video to prevent looping
+              final currentController = _videoControllers[_currentIndex];
+              currentController?.pause();
+              
+              // Auto-advance to next episode after a brief delay
+              await Future.delayed(const Duration(milliseconds: 1500));
+              
+              if (mounted && _isAutoPlaying) {
+                _pageController.nextPage(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOut,
+                );
+              }
+            }
+          } else {
+            // Can't watch next episode - restart current video or show unlock option
+            final currentController = _videoControllers[_currentIndex];
+            if (currentController != null) {
+              await currentController.seekTo(Duration.zero);
+              currentController.play();
+            }
+            _isAutoPlaying = false;
+          }
+        }
+      } else {
+        // No more episodes - restart current video
+        final currentController = _videoControllers[_currentIndex];
+        if (currentController != null) {
+          await currentController.seekTo(Duration.zero);
+          currentController.play();
+        }
+        _isAutoPlaying = false;
+      }
+    } catch (e) {
+      print('Error in auto-play: $e');
+      _isAutoPlaying = false;
     }
   }
 
@@ -288,7 +393,7 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Unlock ${episode.displayTitle}',
+              'Unlock Episode ${episode.episodeNumber}',
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 16,
@@ -316,143 +421,46 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   }
 
   Widget _buildUIOverlays(DramaModel drama, EpisodeModel episode, VideoPlayerController? controller, bool canWatch) {
-    final coinsBalance = ref.watch(userCoinBalanceProvider);
-    final isFavorited = ref.watch(isDramaFavoritedProvider(drama.dramaId));
-
     return SafeArea(
       child: Column(
         children: [
-          // Top bar
+          // Simple top bar with only back button
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.arrow_back, color: Colors.white),
-                  ),
+            padding: const EdgeInsets.only(left: 16, top: 8),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 28,
                 ),
-                Expanded(
-                  child: Text(
-                    drama.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.account_balance_wallet, color: Colors.white, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$coinsBalance',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
 
           const Spacer(),
 
-          // Bottom info and actions
+          // Bottom episode info
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Episode info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        episode.displayTitle,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        episode.formattedDuration,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${_formatCount(episode.episodeViewCount)} views',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Episode ${episode.episodeNumber}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-
-                const SizedBox(width: 16),
-
-                // Action buttons
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Favorite button
-                    _buildActionButton(
-                      icon: isFavorited ? Icons.favorite : Icons.favorite_border,
-                      label: _formatCount(drama.favoriteCount),
-                      color: isFavorited ? Colors.red.shade400 : Colors.white,
-                      onTap: () => _toggleFavorite(),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Share button
-                    _buildActionButton(
-                      icon: Icons.share,
-                      label: 'Share',
-                      color: Colors.white,
-                      onTap: () => _shareEpisode(drama, episode),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // More options
-                    _buildActionButton(
-                      icon: Icons.more_vert,
-                      label: 'More',
-                      color: Colors.white,
-                      onTap: () => _showMoreOptions(drama, episode),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -464,46 +472,22 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.5),
-          shape: BoxShape.circle,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildVideoControls(VideoPlayerController controller) {
+    // Get current position and duration safely
+    final currentPosition = controller.value.position;
+    final totalDuration = controller.value.duration;
+    
+    // Calculate progress as a value between 0.0 and 1.0
+    final progress = totalDuration.inMilliseconds > 0 
+        ? currentPosition.inMilliseconds / totalDuration.inMilliseconds 
+        : 0.0;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
           Text(
-            _formatDuration(controller.value.position),
+            _formatDuration(currentPosition),
             style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
           Expanded(
@@ -514,19 +498,33 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
                 thumbColor: const Color(0xFFFE2C55),
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                trackHeight: 1,
               ),
               child: Slider(
-                value: controller.value.position.inMilliseconds.toDouble(),
-                min: 0,
-                max: controller.value.duration.inMilliseconds.toDouble(),
+                value: progress.clamp(0.0, 1.0),
+                min: 0.0,
+                max: 1.0,
                 onChanged: (value) {
-                  controller.seekTo(Duration(milliseconds: value.toInt()));
+                  final newPosition = Duration(
+                    milliseconds: (value * totalDuration.inMilliseconds).round(),
+                  );
+                  controller.seekTo(newPosition);
+                },
+                onChangeStart: (value) {
+                  // Pause video while seeking
+                  controller.pause();
+                },
+                onChangeEnd: (value) {
+                  // Resume playing after seeking (if it was playing before)
+                  if (controller.value.isBuffering == false) {
+                    controller.play();
+                  }
                 },
               ),
             ),
           ),
           Text(
-            _formatDuration(controller.value.duration),
+            _formatDuration(totalDuration),
             style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
         ],
@@ -594,65 +592,11 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     );
   }
 
-  void _toggleFavorite() {
-    ref.read(dramaActionsProvider.notifier).toggleFavorite(widget.dramaId);
-  }
-
-  void _shareEpisode(DramaModel drama, EpisodeModel episode) {
-    // Implement share functionality
-    showSnackBar(context, 'Share functionality coming soon!');
-  }
-
-  void _showMoreOptions(DramaModel drama, EpisodeModel episode) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.black87,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.report, color: Colors.white),
-              title: const Text('Report', style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-                showSnackBar(context, 'Report functionality coming soon!');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info, color: Colors.white),
-              title: const Text('Episode Details', style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(
-                  context,
-                  Constants.dramaDetailsScreen,
-                  arguments: {'dramaId': drama.dramaId},
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showUnlockDialog(DramaModel drama) {
     showDialog(
       context: context,
       builder: (context) => DramaUnlockDialog(drama: drama),
     );
-  }
-
-  String _formatCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}K';
-    } else {
-      return count.toString();
-    }
   }
 
   String _formatDuration(Duration duration) {
