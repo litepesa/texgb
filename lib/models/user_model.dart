@@ -69,6 +69,7 @@ class UserModel {
   final String phoneNumber;
   final String profileImage;
   final String fcmToken;
+  final String bio;  // Added bio field
   final String lastSeen;
   final String createdAt;
   final String updatedAt;
@@ -95,6 +96,7 @@ class UserModel {
     required this.phoneNumber,
     this.profileImage = '',
     this.fcmToken = '',
+    this.bio = '',  // Added bio parameter with default empty string
     required this.lastSeen,
     required this.createdAt,
     required this.updatedAt,
@@ -115,6 +117,7 @@ class UserModel {
       phoneNumber: map[Constants.phoneNumber]?.toString() ?? '',
       profileImage: map[Constants.profileImage]?.toString() ?? '',
       fcmToken: map[Constants.fcmToken]?.toString() ?? '',
+      bio: map[Constants.bio]?.toString() ?? '',  // Added bio parsing
       lastSeen: map[Constants.lastSeen]?.toString() ?? '',
       createdAt: map[Constants.createdAt]?.toString() ?? '',
       updatedAt: map[Constants.updatedAt]?.toString() ?? '',
@@ -138,6 +141,7 @@ class UserModel {
       Constants.phoneNumber: phoneNumber,
       Constants.profileImage: profileImage,
       Constants.fcmToken: fcmToken,
+      Constants.bio: bio,  // Added bio to map
       Constants.lastSeen: lastSeen,
       Constants.createdAt: createdAt,
       Constants.updatedAt: updatedAt,
@@ -158,6 +162,7 @@ class UserModel {
     String? phoneNumber,
     String? profileImage,
     String? fcmToken,
+    String? bio,  // Added bio parameter
     String? lastSeen,
     String? createdAt,
     String? updatedAt,
@@ -176,6 +181,7 @@ class UserModel {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       profileImage: profileImage ?? this.profileImage,
       fcmToken: fcmToken ?? this.fcmToken,
+      bio: bio ?? this.bio,  // Added bio assignment
       lastSeen: lastSeen ?? this.lastSeen,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

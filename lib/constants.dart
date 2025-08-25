@@ -78,6 +78,7 @@ class Constants {
   static const String phoneNumber = 'phoneNumber';
   static const String profileImage = 'profileImage';
   static const String fcmToken = 'fcmToken';
+  static const String bio = 'bio';  // Added bio field
   static const String lastSeen = 'lastSeen';
   static const String createdAt = 'createdAt';
   static const String updatedAt = 'updatedAt';
@@ -106,6 +107,7 @@ class Constants {
   static const String isFeatured = 'isFeatured';
   static const String publishedAt = 'publishedAt';
   static const String isActive = 'isActive'; // Admin can activate/deactivate
+  static const String createdBy = 'createdBy'; // Admin UID who created
   
   // ===== EPISODE MODEL FIELD NAMES =====
   
@@ -117,6 +119,7 @@ class Constants {
   static const String videoDuration = 'videoDuration'; // in seconds
   static const String episodeViewCount = 'episodeViewCount';
   static const String releasedAt = 'releasedAt';
+  static const String uploadedBy = 'uploadedBy'; // Admin UID who uploaded
 
   // ===== SHARED CONSTANTS =====
   
