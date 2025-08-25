@@ -261,7 +261,7 @@ final availableCoinPackagesProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AvailableCoinPackagesRef = AutoDisposeProviderRef<List<CoinPackage>>;
-String _$walletHash() => r'1a3b8b1df601f971f780c50622b5d0d7dd655f31';
+String _$walletHash() => r'53c8c5b71eaf0de7ef3fbb78a512d1d20bdb9ae0';
 
 /// See also [Wallet].
 @ProviderFor(Wallet)

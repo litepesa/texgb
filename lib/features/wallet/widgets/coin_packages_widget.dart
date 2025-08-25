@@ -527,7 +527,7 @@ class CoinPackagesWidget extends ConsumerWidget {
                   _buildStep('5', 'Enter amount: ${package.formattedPrice}'),
                   _buildStep('6', 'Enter your M-Pesa PIN and confirm'),
                   _buildStep('7', 'Save the confirmation SMS'),
-                  _buildStep('8', 'Coins will be added within 30 minutes'),
+                  _buildStep('8', 'Coins will be added within 10 minutes'),
                   
                   const SizedBox(height: 16),
                   

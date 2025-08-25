@@ -8,6 +8,45 @@ import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 
 part 'drama_actions_provider.g.dart';
 
+// Custom exceptions for better error handling
+class DramaUnlockException implements Exception {
+  final String message;
+  final String code;
+  
+  const DramaUnlockException(this.message, this.code);
+  
+  @override
+  String toString() => message;
+}
+
+class InsufficientFundsException extends DramaUnlockException {
+  const InsufficientFundsException() : super(
+    'Insufficient coins to unlock this drama',
+    'INSUFFICIENT_FUNDS'
+  );
+}
+
+class DramaAlreadyUnlockedException extends DramaUnlockException {
+  const DramaAlreadyUnlockedException() : super(
+    'This drama is already unlocked',
+    'ALREADY_UNLOCKED'
+  );
+}
+
+class DramaNotFoundException extends DramaUnlockException {
+  const DramaNotFoundException() : super(
+    'Drama not found or unavailable',
+    'DRAMA_NOT_FOUND'
+  );
+}
+
+class UserNotAuthenticatedException extends DramaUnlockException {
+  const UserNotAuthenticatedException() : super(
+    'User not authenticated',
+    'USER_NOT_AUTHENTICATED'
+  );
+}
+
 // Drama actions state
 class DramaActionState {
   final bool isLoading;
@@ -82,63 +121,73 @@ class DramaActions extends _$DramaActions {
     }
   }
 
-  // Request drama unlock (backend handles the actual deduction)
+  // SIMPLIFIED ATOMIC DRAMA UNLOCK
   Future<bool> unlockDrama(String dramaId) async {
     final user = ref.read(currentUserProvider);
-    if (user == null) return false;
-
-    // Check if user has enough coins (read-only check)
-    final coinsBalance = ref.read(coinsBalanceProvider);
-    final unlockCost = Constants.dramaUnlockCost;
-    
-    if (coinsBalance == null || coinsBalance < unlockCost) {
-      state = state.copyWith(
-        error: 'Insufficient coins. You need $unlockCost coins to unlock this drama.',
-      );
+    if (user == null) {
+      state = state.copyWith(error: 'Please log in to unlock dramas');
       return false;
     }
 
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final walletNotifier = ref.read(walletProvider.notifier);
-      
-      // Get drama info for transaction description
+      // Get drama info for display
       final drama = await ref.read(dramaProvider(dramaId).future);
       final dramaTitle = drama?.title ?? 'Premium Drama';
       
-      // Send unlock request to backend - backend will handle the actual deduction
-      final success = await walletNotifier.requestEpisodeUnlock(
-        coinAmount: unlockCost,
-        episodeId: dramaId, // Using dramaId as reference for drama unlock
-        episodeTitle: 'Drama: $dramaTitle',
+      // Call the atomic unlock method in repository
+      final repository = ref.read(dramaRepositoryProvider);
+      final success = await repository.unlockDramaAtomic(
+        userId: user.uid,
+        dramaId: dramaId,
+        unlockCost: Constants.dramaUnlockCost,
+        dramaTitle: dramaTitle,
       );
 
       if (success) {
-        // Drama unlock is processed automatically by backend!
-        // User gets immediate access to all premium episodes
         state = state.copyWith(
           isLoading: false,
-          successMessage: 'Drama unlocked! All premium episodes are now available.',
+          successMessage: 'Drama unlocked! All episodes are now available.',
         );
 
-        // Add drama to user's unlocked dramas (backend would normally handle this too)
-        final authNotifier = ref.read(authenticationProvider.notifier);
-        await authNotifier.unlockDrama(dramaId: dramaId);
-
-        // Refresh wallet to get updated balance from backend
-        await ref.read(walletProvider.notifier).refresh();
-        
-        // Refresh relevant providers
+        // Refresh all relevant providers
+        ref.invalidate(walletProvider);
+        ref.invalidate(currentUserProvider);
         ref.invalidate(continueWatchingDramasProvider);
+
+        return true;
       } else {
         state = state.copyWith(
           isLoading: false,
-          error: 'Failed to submit unlock request. Please try again.',
+          error: 'Failed to unlock drama. Please try again.',
         );
+        return false;
       }
-
-      return success;
+    } on InsufficientFundsException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message,
+      );
+      return false;
+    } on DramaAlreadyUnlockedException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        successMessage: 'Drama is already unlocked!',
+      );
+      return true; // Technically success
+    } on DramaNotFoundException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message,
+      );
+      return false;
+    } on UserNotAuthenticatedException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message,
+      );
+      return false;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -148,71 +197,8 @@ class DramaActions extends _$DramaActions {
     }
   }
 
-  // Request episode unlock (backend handles the actual deduction)
-  Future<bool> unlockEpisode({
-    required String episodeId,
-    required String dramaId,
-    required int episodeNumber,
-    required String episodeTitle,
-    int? customCost,
-  }) async {
-    final user = ref.read(currentUserProvider);
-    if (user == null) return false;
-
-    // Default episode unlock cost (can be customized per drama/episode)
-    final unlockCost = customCost ?? Constants.episodeUnlockCost;
-    
-    // Check if user has enough coins (read-only check)
-    final coinsBalance = ref.read(coinsBalanceProvider);
-    if (coinsBalance == null || coinsBalance < unlockCost) {
-      state = state.copyWith(
-        error: 'Insufficient coins. You need $unlockCost coins to unlock this episode.',
-      );
-      return false;
-    }
-
-    state = state.copyWith(isLoading: true, error: null);
-
-    try {
-      final walletNotifier = ref.read(walletProvider.notifier);
-      
-      // Send unlock request to backend - backend will handle the actual deduction
-      final success = await walletNotifier.requestEpisodeUnlock(
-        coinAmount: unlockCost,
-        episodeId: episodeId,
-        episodeTitle: 'Episode $episodeNumber: $episodeTitle',
-      );
-
-      if (success) {
-        // Episode unlock is processed automatically by backend!
-        // No waiting - user can watch immediately
-        state = state.copyWith(
-          isLoading: false,
-          successMessage: 'Episode unlocked successfully! Enjoy watching.',
-        );
-
-        // Mark episode as watched since unlocking grants immediate access
-        await markEpisodeWatched(episodeId, dramaId, episodeNumber);
-        
-        // Refresh wallet to get updated balance from backend
-        await ref.read(walletProvider.notifier).refresh();
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Failed to submit unlock request. Please try again.',
-        );
-      }
-
-      return success;
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to unlock episode: $e',
-      );
-      return false;
-    }
-  }
-
+  // REMOVED: Complex episode unlock method (only drama unlock needed)
+  
   // Mark episode as watched
   Future<void> markEpisodeWatched(String episodeId, String dramaId, int episodeNumber) async {
     final user = ref.read(currentUserProvider);
@@ -243,7 +229,7 @@ class DramaActions extends _$DramaActions {
     }
   }
 
-  // Check if user can afford to unlock drama/episode
+  // Check if user can afford to unlock drama
   bool canAffordUnlock({int? customCost}) {
     final coinsBalance = ref.read(coinsBalanceProvider);
     final cost = customCost ?? Constants.dramaUnlockCost;
@@ -261,8 +247,7 @@ class DramaActions extends _$DramaActions {
   }
 }
 
-// ADMIN ACTION PROVIDERS (only for admin users)
-
+// ADMIN ACTION PROVIDERS (unchanged)
 @riverpod
 class AdminDramaActions extends _$AdminDramaActions {
   @override
@@ -371,7 +356,7 @@ class AdminDramaActions extends _$AdminDramaActions {
   }
 }
 
-// CONVENIENCE ACTION PROVIDERS
+// CONVENIENCE ACTION PROVIDERS (simplified)
 
 // Check if user can watch a specific drama episode
 @riverpod
@@ -389,14 +374,6 @@ bool canWatchDramaEpisode(CanWatchDramaEpisodeRef ref, String dramaId, int episo
   );
 }
 
-// Check if user can afford to unlock an episode
-@riverpod
-bool canAffordEpisodeUnlock(CanAffordEpisodeUnlockRef ref, {int? customCost}) {
-  final coinsBalance = ref.watch(coinsBalanceProvider);
-  final cost = customCost ?? Constants.episodeUnlockCost;
-  return coinsBalance != null && coinsBalance >= cost;
-}
-
 // Check if user can afford to unlock a drama
 @riverpod
 bool canAffordDramaUnlock(CanAffordDramaUnlockRef ref, {int? customCost}) {
@@ -406,11 +383,6 @@ bool canAffordDramaUnlock(CanAffordDramaUnlockRef ref, {int? customCost}) {
 }
 
 // Get unlock cost for display in UI
-@riverpod
-int episodeUnlockCost(EpisodeUnlockCostRef ref, {int? customCost}) {
-  return customCost ?? Constants.episodeUnlockCost;
-}
-
 @riverpod
 int dramaUnlockCost(DramaUnlockCostRef ref, {int? customCost}) {
   return customCost ?? Constants.dramaUnlockCost;

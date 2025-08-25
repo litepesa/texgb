@@ -3,14 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
 
-// Abstract wallet repository interface - READ-ONLY for frontend
+// Abstract wallet repository interface - READ-ONLY for frontend + coin purchase requests
 abstract class WalletRepository {
   // Wallet operations (READ-ONLY)
   Future<WalletModel?> getUserWallet(String userId);
   Future<void> createWallet(String userId, String userPhoneNumber, String userName);
   
   // Request operations (backend processes these)
-  Future<bool> requestEpisodeUnlock(String userId, String episodeId, int coinAmount, String description);
   Future<bool> submitCoinPurchaseRequest(String userId, CoinPackage package, String paymentReference);
   
   // Transaction operations (READ-ONLY)
@@ -22,6 +21,8 @@ abstract class WalletRepository {
   // Streams (READ-ONLY)
   Stream<WalletModel?> walletStream(String userId);
   Stream<List<WalletTransaction>> transactionsStream(String userId);
+  
+  // REMOVED: requestEpisodeUnlock (drama unlocking is atomic in drama repository now)
 }
 
 // Firebase implementation
@@ -101,43 +102,10 @@ class FirebaseWalletRepository implements WalletRepository {
     }
   }
 
-  // Request episode unlock - backend AUTOMATICALLY processes this
-  Future<bool> requestEpisodeUnlock(String userId, String episodeId, int coinAmount, String description) async {
-    try {
-      // This calls a backend Cloud Function or API that:
-      // 1. Verifies user has enough coins
-      // 2. Deducts coins atomically  
-      // 3. Grants episode access immediately
-      // 4. Logs transaction
-      // NO ADMIN INTERVENTION REQUIRED!
-      
-      // In Firebase, this would be a Cloud Function call
-      // For now, simulating with a direct request that backend processes automatically
-      final unlockRequest = {
-        'userId': userId,
-        'episodeId': episodeId,
-        'coinAmount': coinAmount,
-        'description': description,
-        'status': 'processing', // Backend will process this automatically
-        'requestedAt': DateTime.now().microsecondsSinceEpoch.toString(),
-        'type': 'episode_unlock', // Automatic processing
-      };
-      
-      await _firestore
-          .collection('episode_unlock_requests')
-          .add(unlockRequest);
-      
-      // In production, this would be a Cloud Function HTTP call like:
-      // final response = await http.post('/unlockEpisode', body: unlockRequest);
-      // return response.statusCode == 200;
-      
-      return true;
-    } catch (e) {
-      throw WalletRepositoryException('Failed to request episode unlock: $e');
-    }
-  }
+  // REMOVED: requestEpisodeUnlock method - drama unlocking is now atomic in drama repository
 
   // Submit coin purchase request - admin MANUALLY verifies payment
+  @override
   Future<bool> submitCoinPurchaseRequest(String userId, CoinPackage package, String paymentReference) async {
     try {
       // This creates a purchase request that admin manually verifies
@@ -236,7 +204,7 @@ class FirebaseWalletRepository implements WalletRepository {
       QuerySnapshot querySnapshot = await _firestore
           .collection(_transactionsCollection)
           .where('walletId', isEqualTo: userId)
-          .where('type', isEqualTo: 'episode_unlock')
+          .where('type', whereIn: ['episode_unlock', 'drama_unlock']) // Updated to include drama_unlock
           .get();
       
       int totalSpent = 0;
@@ -313,12 +281,12 @@ class FirebaseWalletRepository implements WalletRepository {
     }
   }
 
-  /// Get user's episode unlock history
-  Future<List<WalletTransaction>> getEpisodeUnlockHistory(String userId) async {
+  /// Get user's drama unlock history (updated from episode unlock history)
+  Future<List<WalletTransaction>> getDramaUnlockHistory(String userId) async {
     try {
-      return await getTransactionsByType(userId, 'episode_unlock');
+      return await getTransactionsByType(userId, 'drama_unlock');
     } catch (e) {
-      throw WalletRepositoryException('Failed to get episode unlock history: $e');
+      throw WalletRepositoryException('Failed to get drama unlock history: $e');
     }
   }
 
@@ -329,7 +297,7 @@ class FirebaseWalletRepository implements WalletRepository {
       final totalSpent = await getTotalCoinsSpent(userId);
       final totalPurchased = await getTotalCoinsPurchased(userId);
       final purchaseHistory = await getCoinPurchaseHistory(userId);
-      final unlockHistory = await getEpisodeUnlockHistory(userId);
+      final unlockHistory = await getDramaUnlockHistory(userId);
       
       // Calculate total KES spent
       double totalKESSpent = 0;
@@ -354,13 +322,10 @@ class FirebaseWalletRepository implements WalletRepository {
   /// Admin method: Get all pending coin purchases (for manual processing)
   Future<List<Map<String, dynamic>>> getPendingCoinPurchases() async {
     try {
-      // This would be used if we track payment requests separately
-      // For now, admin manually adds coins after M-Pesa verification
       QuerySnapshot querySnapshot = await _firestore
-          .collection(_transactionsCollection)
-          .where('type', isEqualTo: 'coin_purchase')
-          .where('paymentMethod', isEqualTo: 'mpesa')
-          .orderBy('createdAt', descending: true)
+          .collection('coin_purchase_requests')
+          .where('status', isEqualTo: 'pending_admin_verification')
+          .orderBy('requestedAt', descending: true)
           .limit(50)
           .get();
       

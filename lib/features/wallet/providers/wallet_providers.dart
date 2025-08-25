@@ -42,7 +42,7 @@ class WalletState {
   }
 }
 
-// Main wallet provider
+// Main wallet provider (simplified - no episode unlock method)
 @riverpod
 class Wallet extends _$Wallet {
   WalletRepository get _repository => ref.read(walletRepositoryProvider);
@@ -118,42 +118,7 @@ class Wallet extends _$Wallet {
     }
   }
 
-  // Request episode unlock (backend will handle the actual deduction)
-  Future<bool> requestEpisodeUnlock({
-    required int coinAmount,
-    required String episodeId,
-    required String episodeTitle,
-  }) async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return false;
-
-    try {
-      // Check if user has sufficient coins (read-only check)
-      final currentBalance = ref.read(coinsBalanceProvider);
-      if (currentBalance == null || currentBalance < coinAmount) {
-        state = AsyncValue.error('Insufficient coins', StackTrace.current);
-        return false;
-      }
-
-      // Send unlock request to backend - backend will handle the actual deduction
-      final success = await _repository.requestEpisodeUnlock(
-        currentUser.uid,
-        episodeId,
-        coinAmount,
-        'Unlocked: $episodeTitle',
-      );
-
-      if (success) {
-        // Only refresh to get updated balance from backend
-        await refresh();
-      }
-
-      return success;
-    } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
-      return false;
-    }
-  }
+  // REMOVED: requestEpisodeUnlock method (drama unlocking is handled in drama repository now)
 }
 
 // Stream providers for real-time updates

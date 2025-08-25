@@ -7,6 +7,7 @@ import 'package:textgb/features/dramas/providers/drama_providers.dart';
 import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
 import 'package:textgb/features/dramas/widgets/drama_unlock_dialog.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/models/episode_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -67,7 +68,7 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     final isFavorited = ref.watch(isDramaFavoritedProvider(drama.dramaId));
     final isUnlocked = ref.watch(isDramaUnlockedProvider(drama.dramaId));
     final userProgress = ref.watch(dramaUserProgressProvider(drama.dramaId));
-    final coinsBalance = ref.watch(userCoinBalanceProvider);
+    final coinsBalance = ref.watch(coinsBalanceProvider) ?? 0; // Fixed provider name
 
     return CustomScrollView(
       slivers: [
@@ -228,6 +229,32 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                             ],
                           ),
                         ),
+                      
+                      const SizedBox(width: 8),
+                      
+                      // Unlocked badge
+                      if (isUnlocked)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade600,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.lock_open, size: 16, color: Colors.white),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'Unlocked',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -303,16 +330,16 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(
-                              Icons.info_outline,
-                              color: Color(0xFFFE2C55),
+                            Icon(
+                              isUnlocked ? Icons.lock_open : Icons.info_outline,
+                              color: isUnlocked ? Colors.green.shade600 : const Color(0xFFFE2C55),
                               size: 20,
                             ),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Premium Content',
+                            Text(
+                              isUnlocked ? 'Premium Content - Unlocked' : 'Premium Content',
                               style: TextStyle(
-                                color: Color(0xFFFE2C55),
+                                color: isUnlocked ? Colors.green.shade600 : const Color(0xFFFE2C55),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                               ),
@@ -321,7 +348,9 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          drama.premiumInfo,
+                          isUnlocked 
+                              ? 'You have full access to all episodes in this drama!'
+                              : drama.premiumInfo,
                           style: TextStyle(
                             color: modernTheme.textColor,
                             fontSize: 14,
@@ -486,7 +515,8 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
 
   Widget _buildEpisodeItem(DramaModel drama, EpisodeModel episode, bool isDramaUnlocked) {
     final modernTheme = context.modernTheme;
-    final hasWatched = ref.watch(currentUserProvider)?.hasWatched(episode.episodeId) ?? false;
+    final user = ref.watch(currentUserProvider);
+    final hasWatched = user?.hasWatched(episode.episodeId) ?? false;
     final canWatch = drama.canWatchEpisode(episode.episodeNumber, isDramaUnlocked);
     final isLocked = !canWatch;
 
@@ -797,56 +827,53 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
   }
 
   void _watchNow(DramaModel drama, AsyncValue<List<EpisodeModel>> episodes) {
-  episodes.when(
-    data: (episodeList) {
-      if (episodeList.isEmpty) {
-        showSnackBar(context, 'No episodes available');
-        return;
-      }
+    episodes.when(
+      data: (episodeList) {
+        if (episodeList.isEmpty) {
+          showSnackBar(context, 'No episodes available');
+          return;
+        }
 
-      final userProgress = ref.read(dramaUserProgressProvider(widget.dramaId));
-      final nextEpisode = userProgress > 0 
-          ? episodeList.firstWhere(
-              (ep) => ep.episodeNumber == userProgress + 1,
-              orElse: () => episodeList.first,
-            )
-          : episodeList.first;
+        final userProgress = ref.read(dramaUserProgressProvider(widget.dramaId));
+        final nextEpisode = userProgress > 0 
+            ? episodeList.firstWhere(
+                (ep) => ep.episodeNumber == userProgress + 1,
+                orElse: () => episodeList.first,
+              )
+            : episodeList.first;
 
-      // Navigate to the TikTok-style feed instead of traditional player
-      Navigator.pushNamed(
-        context,
-        Constants.episodeFeedScreen,
-        arguments: {
-          'dramaId': drama.dramaId,
-          'initialEpisodeId': nextEpisode.episodeId,
-        },
-      );
-    },
-    loading: () => showSnackBar(context, 'Loading episodes...'),
-    error: (error, stack) => showSnackBar(context, 'Failed to load episodes'),
-  );
-}
-
-void _playEpisode(DramaModel drama, EpisodeModel episode, bool canWatch) {
-  if (!canWatch) {
-    // Show unlock dialog
-    showDialog(
-      context: context,
-      builder: (context) => DramaUnlockDialog(drama: drama),
+        // Navigate to the TikTok-style feed
+        Navigator.pushNamed(
+          context,
+          Constants.episodeFeedScreen,
+          arguments: {
+            'dramaId': drama.dramaId,
+            'initialEpisodeId': nextEpisode.episodeId,
+          },
+        );
+      },
+      loading: () => showSnackBar(context, 'Loading episodes...'),
+      error: (error, stack) => showSnackBar(context, 'Failed to load episodes'),
     );
-    return;
   }
 
-  // Navigate to the TikTok-style feed instead of traditional player
-  Navigator.pushNamed(
-    context,
-    Constants.episodeFeedScreen,
-    arguments: {
-      'dramaId': drama.dramaId,
-      'initialEpisodeId': episode.episodeId,
-    },
-  );
-}
+  void _playEpisode(DramaModel drama, EpisodeModel episode, bool canWatch) {
+    if (!canWatch) {
+      // Show unlock dialog
+      showDramaUnlockDialog(context, drama);
+      return;
+    }
+
+    // Navigate to the TikTok-style feed
+    Navigator.pushNamed(
+      context,
+      Constants.episodeFeedScreen,
+      arguments: {
+        'dramaId': drama.dramaId,
+        'initialEpisodeId': episode.episodeId,
+      },
+    );
+  }
 
   String _formatCount(int count) {
     if (count >= 1000000) {

@@ -6,6 +6,9 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/models/episode_model.dart';
 
+// Import custom exceptions
+import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
+
 // Abstract repository interface
 abstract class DramaRepository {
   // Drama CRUD operations
@@ -16,6 +19,14 @@ abstract class DramaRepository {
   Future<List<DramaModel>> getPremiumDramas({int limit = 20});
   Future<List<DramaModel>> searchDramas(String query, {int limit = 20});
   Future<DramaModel?> getDramaById(String dramaId);
+  
+  // ATOMIC DRAMA UNLOCK - Main method
+  Future<bool> unlockDramaAtomic({
+    required String userId,
+    required String dramaId,
+    required int unlockCost,
+    required String dramaTitle,
+  });
   
   // Admin drama operations
   Future<String> createDrama(DramaModel drama, {File? bannerImage});
@@ -60,7 +71,151 @@ class FirebaseDramaRepository implements DramaRepository {
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _storage = storage ?? FirebaseStorage.instance;
 
-  // DRAMA OPERATIONS
+  // ATOMIC DRAMA UNLOCK IMPLEMENTATION
+  @override
+  Future<bool> unlockDramaAtomic({
+    required String userId,
+    required String dramaId,
+    required int unlockCost,
+    required String dramaTitle,
+  }) async {
+    try {
+      // Run as a single atomic transaction
+      return await _firestore.runTransaction<bool>((transaction) async {
+        
+        // 1. READ PHASE - Get all required documents
+        final userRef = _firestore.collection(Constants.users).doc(userId);
+        final walletRef = _firestore.collection('wallets').doc(userId);
+        final dramaRef = _firestore.collection(Constants.dramas).doc(dramaId);
+        
+        final userDoc = await transaction.get(userRef);
+        final walletDoc = await transaction.get(walletRef);
+        final dramaDoc = await transaction.get(dramaRef);
+        
+        // 2. VALIDATION PHASE - Check all conditions
+        
+        // Check if user exists
+        if (!userDoc.exists) {
+          throw const UserNotAuthenticatedException();
+        }
+        
+        final userData = userDoc.data() as Map<String, dynamic>;
+        final userUnlockedDramas = List<String>.from(userData['unlockedDramas'] ?? []);
+        
+        // Check if drama already unlocked
+        if (userUnlockedDramas.contains(dramaId)) {
+          throw const DramaAlreadyUnlockedException();
+        }
+        
+        // Check if drama exists and is active
+        if (!dramaDoc.exists) {
+          throw const DramaNotFoundException();
+        }
+        
+        final dramaData = dramaDoc.data() as Map<String, dynamic>;
+        final isActive = dramaData['isActive'] ?? false;
+        final isPremium = dramaData['isPremium'] ?? false;
+        
+        if (!isActive) {
+          throw const DramaNotFoundException();
+        }
+        
+        // Check if drama is actually premium (free dramas don't need unlocking)
+        if (!isPremium) {
+          throw const DramaUnlockException('This drama is free to watch', 'DRAMA_FREE');
+        }
+        
+        // Check wallet and balance
+        if (!walletDoc.exists) {
+          // Create wallet if it doesn't exist (with 0 balance)
+          final now = DateTime.now().microsecondsSinceEpoch.toString();
+          transaction.set(walletRef, {
+            'walletId': userId,
+            'userId': userId,
+            'userPhoneNumber': userData['phoneNumber'] ?? '',
+            'userName': userData['name'] ?? '',
+            'coinsBalance': 0,
+            'lastUpdated': now,
+            'createdAt': now,
+          });
+          throw const InsufficientFundsException();
+        }
+        
+        final walletData = walletDoc.data() as Map<String, dynamic>;
+        final currentBalance = (walletData['coinsBalance'] ?? 0) as int;
+        
+        // Check if user has enough coins
+        if (currentBalance < unlockCost) {
+          throw const InsufficientFundsException();
+        }
+        
+        // 3. WRITE PHASE - Update all documents atomically
+        
+        final now = DateTime.now().microsecondsSinceEpoch.toString();
+        final transactionId = _firestore.collection('wallet_transactions').doc().id;
+        
+        // Update wallet balance
+        transaction.update(walletRef, {
+          'coinsBalance': currentBalance - unlockCost,
+          'lastUpdated': now,
+        });
+        
+        // Add drama to user's unlocked dramas
+        transaction.update(userRef, {
+          'unlockedDramas': [...userUnlockedDramas, dramaId],
+          'updatedAt': now,
+        });
+        
+        // Create transaction record
+        final transactionRef = _firestore.collection('wallet_transactions').doc(transactionId);
+        transaction.set(transactionRef, {
+          'transactionId': transactionId,
+          'walletId': userId,
+          'userId': userId,
+          'userPhoneNumber': walletData['userPhoneNumber'] ?? '',
+          'userName': walletData['userName'] ?? '',
+          'type': 'drama_unlock',
+          'coinAmount': unlockCost,
+          'balanceBefore': currentBalance,
+          'balanceAfter': currentBalance - unlockCost,
+          'description': 'Unlocked: $dramaTitle',
+          'referenceId': dramaId,
+          'paymentMethod': null,
+          'paymentReference': null,
+          'packageId': null,
+          'paidAmount': null,
+          'createdAt': now,
+          'metadata': {
+            'dramaId': dramaId,
+            'dramaTitle': dramaTitle,
+            'unlockType': 'full_drama',
+          },
+        });
+        
+        // Optional: Update drama statistics (non-critical)
+        try {
+          transaction.update(dramaRef, {
+            'unlockCount': FieldValue.increment(1),
+            'revenue': FieldValue.increment(unlockCost),
+            'updatedAt': now,
+          });
+        } catch (e) {
+          // Don't fail the transaction if stats update fails
+          print('Failed to update drama stats: $e');
+        }
+        
+        return true;
+      });
+    } on DramaUnlockException {
+      // Re-throw our custom exceptions
+      rethrow;
+    } catch (e) {
+      // Wrap any other errors
+      throw DramaUnlockException('Transaction failed: $e', 'TRANSACTION_FAILED');
+    }
+  }
+
+  // EXISTING DRAMA OPERATIONS (unchanged)
 
   @override
   Future<List<DramaModel>> getAllDramas({int limit = 20, DocumentSnapshot? lastDocument}) async {
@@ -191,7 +346,7 @@ class FirebaseDramaRepository implements DramaRepository {
     }
   }
 
-  // ADMIN DRAMA OPERATIONS
+  // ADMIN DRAMA OPERATIONS (unchanged)
 
   @override
   Future<String> createDrama(DramaModel drama, {File? bannerImage}) async {
@@ -305,7 +460,7 @@ class FirebaseDramaRepository implements DramaRepository {
     }
   }
 
-  // EPISODE OPERATIONS
+  // EPISODE OPERATIONS (unchanged)
 
   @override
   Future<List<EpisodeModel>> getDramaEpisodes(String dramaId) async {
@@ -412,7 +567,7 @@ class FirebaseDramaRepository implements DramaRepository {
     }
   }
 
-  // USER INTERACTION OPERATIONS
+  // USER INTERACTION OPERATIONS (unchanged)
 
   @override
   Future<void> incrementDramaViews(String dramaId) async {
@@ -450,7 +605,7 @@ class FirebaseDramaRepository implements DramaRepository {
     }
   }
 
-  // STREAMS
+  // STREAMS (unchanged)
 
   @override
   Stream<List<DramaModel>> featuredDramasStream() {
@@ -500,7 +655,7 @@ class FirebaseDramaRepository implements DramaRepository {
             .toList());
   }
 
-  // FILE UPLOAD OPERATIONS
+  // FILE UPLOAD OPERATIONS (unchanged)
 
   @override
   Future<String> uploadBannerImage(File imageFile, String dramaId) async {
