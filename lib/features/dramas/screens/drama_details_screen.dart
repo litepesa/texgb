@@ -797,47 +797,56 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
   }
 
   void _watchNow(DramaModel drama, AsyncValue<List<EpisodeModel>> episodes) {
-    episodes.when(
-      data: (episodeList) {
-        if (episodeList.isEmpty) {
-          showSnackBar(context, 'No episodes available');
-          return;
-        }
+  episodes.when(
+    data: (episodeList) {
+      if (episodeList.isEmpty) {
+        showSnackBar(context, 'No episodes available');
+        return;
+      }
 
-        final userProgress = ref.read(dramaUserProgressProvider(widget.dramaId));
-        final nextEpisode = userProgress > 0 
-            ? episodeList.firstWhere(
-                (ep) => ep.episodeNumber == userProgress + 1,
-                orElse: () => episodeList.first,
-              )
-            : episodeList.first;
+      final userProgress = ref.read(dramaUserProgressProvider(widget.dramaId));
+      final nextEpisode = userProgress > 0 
+          ? episodeList.firstWhere(
+              (ep) => ep.episodeNumber == userProgress + 1,
+              orElse: () => episodeList.first,
+            )
+          : episodeList.first;
 
-        _playEpisode(drama, nextEpisode, true);
-      },
-      loading: () => showSnackBar(context, 'Loading episodes...'),
-      error: (error, stack) => showSnackBar(context, 'Failed to load episodes'),
-    );
-  }
-
-  void _playEpisode(DramaModel drama, EpisodeModel episode, bool canWatch) {
-    if (!canWatch) {
-      // Show unlock dialog
-      showDialog(
-        context: context,
-        builder: (context) => DramaUnlockDialog(drama: drama),
+      // Navigate to the TikTok-style feed instead of traditional player
+      Navigator.pushNamed(
+        context,
+        Constants.episodeFeedScreen,
+        arguments: {
+          'dramaId': drama.dramaId,
+          'initialEpisodeId': nextEpisode.episodeId,
+        },
       );
-      return;
-    }
+    },
+    loading: () => showSnackBar(context, 'Loading episodes...'),
+    error: (error, stack) => showSnackBar(context, 'Failed to load episodes'),
+  );
+}
 
-    Navigator.pushNamed(
-      context,
-      Constants.episodePlayerScreen,
-      arguments: {
-        'dramaId': drama.dramaId,
-        'episodeId': episode.episodeId,
-      },
+void _playEpisode(DramaModel drama, EpisodeModel episode, bool canWatch) {
+  if (!canWatch) {
+    // Show unlock dialog
+    showDialog(
+      context: context,
+      builder: (context) => DramaUnlockDialog(drama: drama),
     );
+    return;
   }
+
+  // Navigate to the TikTok-style feed instead of traditional player
+  Navigator.pushNamed(
+    context,
+    Constants.episodeFeedScreen,
+    arguments: {
+      'dramaId': drama.dramaId,
+      'initialEpisodeId': episode.episodeId,
+    },
+  );
+}
 
   String _formatCount(int count) {
     if (count >= 1000000) {

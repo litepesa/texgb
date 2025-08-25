@@ -27,6 +27,7 @@ class Constants {
   static const String manageDramasScreen = '/manageDramasScreen';
   static const String editDramaScreen = '/editDramaScreen';
   static const String addEpisodeScreen = '/addEpisodeScreen';
+  static const String episodeFeedScreen = '/episode-feed';
   
   // Premium routes
   static const String premiumScreen = '/premiumScreen';
