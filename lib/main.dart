@@ -10,6 +10,7 @@ import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
+import 'package:textgb/features/dramas/screens/episode_player_screen.dart';
 
 // Profile screens
 import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
@@ -18,9 +19,16 @@ import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 // Wallet screens
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 
+// Drama screens
+import 'package:textgb/features/dramas/screens/discover_screen.dart';
+import 'package:textgb/features/dramas/screens/drama_details_screen.dart';
+import 'package:textgb/features/dramas/screens/admin_dashboard_screen.dart';
+import 'package:textgb/features/dramas/screens/create_drama_screen.dart';
+import 'package:textgb/features/dramas/screens/manage_dramas_screen.dart';
+import 'package:textgb/features/dramas/screens/edit_drama_screen.dart';
+import 'package:textgb/features/dramas/screens/add_episode_screen.dart';
 
 // Models
-
 import 'package:textgb/models/user_model.dart';
 
 // Constants and utilities
@@ -127,15 +135,33 @@ class AppRoot extends ConsumerWidget {
           
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
+          Constants.discoverScreen: (context) => const DiscoverScreen(),
+          Constants.searchScreen: (context) => const DiscoverScreen(), // Using DiscoverScreen for search functionality
+          Constants.profileScreen: (context) => const MyProfileScreen(),
+          Constants.settingsScreen: (context) => const MyProfileScreen(), // Placeholder - create settings screen if needed
           
+          // Drama routes
+          Constants.favoritesScreen: (context) => const DiscoverScreen(), // You can create a specific favorites screen later
+          Constants.continueWatchingScreen: (context) => const DiscoverScreen(), // You can create a specific continue watching screen later
+          
+          // Admin routes (hidden for normal users, shown only when userType == admin)
+          Constants.adminDashboardScreen: (context) => const AdminDashboardScreen(),
+          Constants.createDramaScreen: (context) => const CreateDramaScreen(),
+          Constants.manageDramasScreen: (context) => const ManageDramasScreen(),
+          
+          // Premium routes
+          Constants.premiumScreen: (context) => const WalletScreen(), // Using wallet screen for premium features
+          Constants.walletScreen: (context) => const WalletScreen(),
+          Constants.topUpScreen: (context) => const WalletScreen(), // You can create specific top-up screen later
           
           // Profile routes
           Constants.myProfileScreen: (context) => const MyProfileScreen(),
           Constants.editProfileScreen: (context) => const EditProfileScreen(),
           
-          
-          // Wallet routes
-          Constants.walletScreen: (context) => const WalletScreen(),
+          // Support routes (placeholders - create these screens as needed)
+          Constants.aboutScreen: (context) => const _PlaceholderScreen(title: 'About'),
+          Constants.privacyPolicyScreen: (context) => const _PlaceholderScreen(title: 'Privacy Policy'),
+          Constants.termsAndConditionsScreen: (context) => const _PlaceholderScreen(title: 'Terms and Conditions'),
         },
         navigatorObservers: [routeObserver],
         onUnknownRoute: (settings) {
@@ -154,14 +180,122 @@ class AppRoot extends ConsumerWidget {
           );
         },
         onGenerateRoute: (settings) {
-          // Handle dynamic routes that need custom logic
+          // Handle dynamic routes that need custom logic and parameters
           switch (settings.name) {
- 
+            case Constants.dramaDetailsScreen:
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('dramaId')) {
+                return MaterialPageRoute(
+                  builder: (context) => DramaDetailsScreen(
+                    dramaId: args['dramaId'] as String,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+              
+            case Constants.editDramaScreen:
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('dramaId')) {
+                return MaterialPageRoute(
+                  builder: (context) => EditDramaScreen(
+                    dramaId: args['dramaId'] as String,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+              
+            case Constants.addEpisodeScreen:
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('dramaId')) {
+                return MaterialPageRoute(
+                  builder: (context) => AddEpisodeScreen(
+                    dramaId: args['dramaId'] as String,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+              
+            case Constants.episodePlayerScreen:
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('dramaId') && args.containsKey('episodeId')) {
+                return MaterialPageRoute(
+                 builder: (context) => EpisodePlayerScreen(
+                    dramaId: args['dramaId'] as String,
+                    episodeId: args['episodeId'] as String,
+                  ),
+                  settings: settings,
+                );
+             }
+              break;
           }
           
           // Return null to let the default route handling take over
           return null;
         },
+      ),
+    );
+  }
+}
+
+// Placeholder screen for routes that don't have dedicated screens yet
+class _PlaceholderScreen extends StatelessWidget {
+  final String title;
+  
+  const _PlaceholderScreen({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        title: Text(title),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Padding(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + kToolbarHeight,
+          bottom: MediaQuery.of(context).padding.bottom,
+          left: 24.0,
+          right: 24.0,
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.construction,
+                size: 64,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '$title Screen',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This screen is under construction and will be available in a future update.',
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Go Back'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

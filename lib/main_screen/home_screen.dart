@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/dramas/screens/discover_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
@@ -23,13 +25,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isPageAnimating = false;
   
   final List<String> _tabNames = [
-    'Home',
+    'Discover',
     'Wallet',
     'Profile'
   ];
   
   final List<IconData> _tabIcons = [
-    Icons.home_rounded,
+    Icons.explore_rounded,
     Icons.account_balance_rounded,
     CupertinoIcons.person
   ];
@@ -94,50 +96,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
 
-  // Dummy widget for index 0 and 1
-  Widget _buildDummyScreen(String tabName) {
-    final modernTheme = context.modernTheme;
-    
-    return Container(
-      color: modernTheme.backgroundColor,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _tabIcons[_currentIndex],
-              size: 64,
-              color: modernTheme.textColor,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '$tabName Screen\n(Coming Soon)',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: modernTheme.textColor,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'This is a placeholder for the $tabName tab',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: modernTheme.textSecondaryColor,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final isAdmin = ref.watch(isAdminProvider);
 
     return Scaffold(
       extendBody: true,
@@ -152,8 +115,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: _onPageChanged,
         children: [
-          // Home tab (index 0) - Dummy screen
-          _buildDummyScreen('Home'),
+          // Discover tab (index 0) - Drama Discovery Screen
+          Container(
+            color: modernTheme.backgroundColor,
+            child: const DiscoverScreen(),
+          ),
           
           // Wallet tab (index 1) - Wallet Screen
           Container(
@@ -171,8 +137,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       
       bottomNavigationBar: _buildCustomBottomNav(modernTheme),
       
-      // Remove FAB since profile is now in the tab
-      floatingActionButton: null,
+      // Admin FAB - only show on Discover tab for admin users
+      floatingActionButton: (_currentIndex == 0 && isAdmin) ? _buildAdminFab(modernTheme) : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  Widget _buildAdminFab(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 80), // Above bottom nav
+      child: FloatingActionButton.extended(
+        onPressed: () => Navigator.pushNamed(context, Constants.adminDashboardScreen),
+        backgroundColor: const Color(0xFFFE2C55),
+        foregroundColor: Colors.white,
+        elevation: 4,
+        icon: const Icon(Icons.admin_panel_settings, size: 20),
+        label: const Text(
+          'Admin',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+        heroTag: "admin_fab",
+      ),
     );
   }
 
@@ -219,7 +207,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     final isSelected = _currentIndex == index;
     
-    // No badge functionality needed - just show default bottom nav items
     return _buildDefaultBottomNavItem(index, isSelected, modernTheme);
   }
 
@@ -273,16 +260,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Build app bar for all tabs (index 0, 1, and 2) - simplified without dropdown menu
+  // Build app bar for all tabs (index 0, 1, and 2) - with contextual actions
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
-    // Show app bar for all tabs
     return AppBar(
       backgroundColor: modernTheme.surfaceColor,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
       title: _buildAppBarTitle(modernTheme),
-      // No actions - removed the three-dot menu completely
+      actions: _buildAppBarActions(modernTheme),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
@@ -294,44 +280,223 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildAppBarTitle(ModernThemeExtension modernTheme) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: "Wei",
-            style: TextStyle(
-              color: modernTheme.textColor,          
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-              letterSpacing: -0.3,
+  List<Widget>? _buildAppBarActions(ModernThemeExtension modernTheme) {
+    final isAdmin = ref.watch(isAdminProvider);
+    final coinsBalance = ref.watch(userCoinBalanceProvider);
+
+    switch (_currentIndex) {
+      case 0: // Discover tab
+        return [
+          // Coin balance indicator
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFD700).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFFFFD700).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.monetization_on,
+                  color: Color(0xFFFFD700),
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$coinsBalance',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
-          TextSpan(
-            text: "Bao",
-            style: TextStyle(
-              color: modernTheme.primaryColor,
-              fontWeight: FontWeight.w700,
-              fontSize: 24,
-              letterSpacing: -0.3,
+          
+          // Search icon
+          IconButton(
+            onPressed: () => Navigator.pushNamed(context, Constants.searchScreen),
+            icon: Icon(
+              Icons.search,
+              color: modernTheme.textColor,
             ),
+            tooltip: 'Search dramas',
           ),
-          TextSpan(
-            text: "微宝",
-            style: TextStyle(
+          
+          // Admin menu (only for admin users)
+          if (isAdmin)
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.admin_panel_settings,
+                color: const Color(0xFFFE2C55),
+              ),
+              tooltip: 'Admin Panel',
+              onSelected: (value) {
+                switch (value) {
+                  case 'dashboard':
+                    Navigator.pushNamed(context, Constants.adminDashboardScreen);
+                    break;
+                  case 'create_drama':
+                    Navigator.pushNamed(context, Constants.createDramaScreen);
+                    break;
+                  case 'manage_dramas':
+                    Navigator.pushNamed(context, Constants.manageDramasScreen);
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'dashboard',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.dashboard, color: Color(0xFFFE2C55)),
+                      const SizedBox(width: 8),
+                      const Text('Dashboard'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'create_drama',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.add_circle, color: Color(0xFFFE2C55)),
+                      const SizedBox(width: 8),
+                      const Text('Create Drama'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'manage_dramas',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.manage_search, color: Color(0xFFFE2C55)),
+                      const SizedBox(width: 8),
+                      const Text('Manage Dramas'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ];
+
+      case 1: // Wallet tab
+        return [
+          IconButton(
+            onPressed: () => Navigator.pushNamed(context, Constants.topUpScreen),
+            icon: Icon(
+              Icons.add_circle,
               color: const Color(0xFFFE2C55),
-              fontWeight: FontWeight.w700,
-              fontSize: 22,
-              letterSpacing: -0.3,
             ),
+            tooltip: 'Add coins',
           ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildFab(ModernThemeExtension modernTheme) {
-    return const SizedBox.shrink();
+        ];
+
+      case 2: // Profile tab
+        return [
+          IconButton(
+            onPressed: () => Navigator.pushNamed(context, Constants.editProfileScreen),
+            icon: Icon(
+              Icons.edit,
+              color: modernTheme.textColor,
+            ),
+            tooltip: 'Edit profile',
+          ),
+        ];
+
+      default:
+        return null;
+    }
   }
 
+  Widget _buildAppBarTitle(ModernThemeExtension modernTheme) {
+    // Show different titles based on current tab
+    switch (_currentIndex) {
+      case 0:
+        return RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: "Wei",
+                style: TextStyle(
+                  color: modernTheme.textColor,          
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              TextSpan(
+                text: "Bao",
+                style: TextStyle(
+                  color: modernTheme.primaryColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 24,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              TextSpan(
+                text: "微宝",
+                style: TextStyle(
+                  color: const Color(0xFFFE2C55),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ],
+          ),
+        );
+      
+      case 1:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.account_balance_wallet,
+              color: modernTheme.textColor,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Wallet',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      
+      case 2:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.person,
+              color: modernTheme.textColor,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Profile',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      
+      default:
+        return const SizedBox.shrink();
+    }
+  }
 }
