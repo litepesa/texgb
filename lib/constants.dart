@@ -181,7 +181,7 @@ class Constants {
   // ===== COINS SYSTEM PRICING =====
   
   // Drama/Episode unlock costs (in coins)
-  static const int dramaUnlockCost = 50; // 50 coins to unlock entire premium drama
+  static const int dramaUnlockCost = 99; // 99 coins to unlock entire premium drama
   static const int episodeUnlockCost = 5; // 5 coins to unlock single premium episode
   
   // Coin package definitions (coins : KES price)
@@ -215,10 +215,10 @@ class Constants {
   
   // Note: Admin screens/features are hidden in UI based on userType
   // Only users with userType == 'admin' (set in backend) will see admin functionality
-  static const int maxEpisodesPerUpload = 50; // Max episodes admin can add at once
+  static const int maxEpisodesPerUpload = 100; // Max episodes admin can add at once
   static const int maxDramaDescriptionLength = 500;
   static const int maxEpisodeTitleLength = 100;
-  static const int maxFreeEpisodes = 10; // Max free episodes admin can set for premium drama
+  static const int maxFreeEpisodes = 30; // Max free episodes admin can set for premium drama
   static const List<String> supportedVideoFormats = ['mp4', 'mov', 'avi'];
   static const List<String> supportedImageFormats = ['jpg', 'jpeg', 'png', 'webp'];
   

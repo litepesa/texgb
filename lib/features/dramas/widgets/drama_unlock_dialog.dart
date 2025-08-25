@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
+import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -82,8 +82,8 @@ class _DramaUnlockDialogState extends ConsumerState<DramaUnlockDialog>
   @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    final coinsBalance = ref.watch(userCoinBalanceProvider);
-    final canAfford = ref.watch(canUnlockDramaProvider);
+    final coinsBalance = ref.watch(coinsBalanceProvider) ?? 0;
+    final canAfford = ref.watch(canAffordDramaUnlockProvider());
 
     return ScaleTransition(
       scale: _scaleAnimation,
