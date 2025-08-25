@@ -28,7 +28,7 @@ class DramaCard extends ConsumerWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: modernTheme.surfaceColor,
+          color: modernTheme.backgroundColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(

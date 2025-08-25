@@ -118,25 +118,33 @@ class Wallet extends _$Wallet {
     }
   }
 
-  // Make a purchase (deduct from wallet)
-  Future<bool> makePurchase({
-    required double amount,
-    required String description,
-    String? referenceId,
+  // Request episode unlock (backend will handle the actual deduction)
+  Future<bool> requestEpisodeUnlock({
+    required int coinAmount,
+    required String episodeId,
+    required String episodeTitle,
   }) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return false;
 
     try {
-      final success = await _repository.deductFromWallet(
+      // Check if user has sufficient coins (read-only check)
+      final currentBalance = ref.read(coinsBalanceProvider);
+      if (currentBalance == null || currentBalance < coinAmount) {
+        state = AsyncValue.error('Insufficient coins', StackTrace.current);
+        return false;
+      }
+
+      // Send unlock request to backend - backend will handle the actual deduction
+      final success = await _repository.requestEpisodeUnlock(
         currentUser.uid,
-        amount,
-        description: description,
-        referenceId: referenceId,
+        episodeId,
+        coinAmount,
+        'Unlocked: $episodeTitle',
       );
 
       if (success) {
-        // Refresh the wallet state
+        // Only refresh to get updated balance from backend
         await refresh();
       }
 
@@ -173,19 +181,25 @@ Stream<List<WalletTransaction>> transactionsStream(TransactionsStreamRef ref) {
 
 // Convenience providers
 @riverpod
-double? walletBalance(WalletBalanceRef ref) {
+int? coinsBalance(CoinsBalanceRef ref) {
   final walletState = ref.watch(walletProvider);
-  return walletState.value?.wallet?.balance;
+  return walletState.value?.wallet?.coinsBalance;
 }
 
 @riverpod
-bool hasWalletBalance(HasWalletBalanceRef ref) {
-  final balance = ref.watch(walletBalanceProvider);
+bool hasCoins(HasCoinsRef ref) {
+  final balance = ref.watch(coinsBalanceProvider);
   return balance != null && balance > 0;
 }
 
 @riverpod
-bool canAfford(CanAffordRef ref, double amount) {
-  final balance = ref.watch(walletBalanceProvider);
-  return balance != null && balance >= amount;
+bool canAffordCoins(CanAffordCoinsRef ref, int coinAmount) {
+  final balance = ref.watch(coinsBalanceProvider);
+  return balance != null && balance >= coinAmount;
+}
+
+// Coin packages provider
+@riverpod
+List<CoinPackage> availableCoinPackages(AvailableCoinPackagesRef ref) {
+  return CoinPackages.available;
 }

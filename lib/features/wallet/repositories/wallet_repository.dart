@@ -3,24 +3,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
 
-
-// Abstract wallet repository interface
+// Abstract wallet repository interface - READ-ONLY for frontend
 abstract class WalletRepository {
-  // Wallet operations
+  // Wallet operations (READ-ONLY)
   Future<WalletModel?> getUserWallet(String userId);
   Future<void> createWallet(String userId, String userPhoneNumber, String userName);
-  Future<bool> deductFromWallet(String userId, double amount, {
-    required String description,
-    String? referenceId,
-  });
   
-  // Transaction operations
+  // Request operations (backend processes these)
+  Future<bool> requestEpisodeUnlock(String userId, String episodeId, int coinAmount, String description);
+  Future<bool> submitCoinPurchaseRequest(String userId, CoinPackage package, String paymentReference);
+  
+  // Transaction operations (READ-ONLY)
   Future<List<WalletTransaction>> getWalletTransactions(String userId, {
     int limit = 50,
     String? lastTransactionId,
   });
   
-  // Streams
+  // Streams (READ-ONLY)
   Stream<WalletModel?> walletStream(String userId);
   Stream<List<WalletTransaction>> transactionsStream(String userId);
 }
@@ -34,7 +33,7 @@ class FirebaseWalletRepository implements WalletRepository {
   FirebaseWalletRepository({
     FirebaseFirestore? firestore,
     String walletsCollection = 'wallets',
-    String transactionsCollection = 'transactions',
+    String transactionsCollection = 'wallet_transactions',
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _walletsCollection = walletsCollection,
        _transactionsCollection = transactionsCollection;
@@ -88,8 +87,7 @@ class FirebaseWalletRepository implements WalletRepository {
         userId: userId,
         userPhoneNumber: userPhoneNumber,
         userName: userName,
-        balance: 0.0,
-        currency: 'KES',
+        coinsBalance: 0, // Start with 0 coins
         lastUpdated: now,
         createdAt: now,
       );
@@ -103,68 +101,71 @@ class FirebaseWalletRepository implements WalletRepository {
     }
   }
 
-  @override
-  Future<bool> deductFromWallet(String userId, double amount, {
-    required String description,
-    String? referenceId,
-  }) async {
+  // Request episode unlock - backend AUTOMATICALLY processes this
+  Future<bool> requestEpisodeUnlock(String userId, String episodeId, int coinAmount, String description) async {
     try {
-      return await _firestore.runTransaction<bool>((transaction) async {
-        // Get wallet document
-        DocumentReference walletRef = _firestore
-            .collection(_walletsCollection)
-            .doc(userId);
-        
-        DocumentSnapshot walletSnapshot = await transaction.get(walletRef);
-        
-        if (!walletSnapshot.exists) {
-          throw WalletRepositoryException('Wallet not found');
-        }
-
-        final wallet = WalletModel.fromMap(
-          walletSnapshot.data() as Map<String, dynamic>
-        );
-
-        // Check if user has sufficient balance
-        if (wallet.balance < amount) {
-          return false; // Insufficient funds
-        }
-
-        final newBalance = wallet.balance - amount;
-        final now = DateTime.now().microsecondsSinceEpoch.toString();
-
-        // Update wallet balance
-        transaction.update(walletRef, {
-          'balance': newBalance,
-          'lastUpdated': now,
-        });
-
-        // Create transaction record
-        final transactionDoc = _firestore
-            .collection(_transactionsCollection)
-            .doc();
-
-        final walletTransaction = WalletTransaction(
-          transactionId: transactionDoc.id,
-          walletId: wallet.walletId,
-          userId: wallet.userId,
-          userPhoneNumber: wallet.userPhoneNumber,
-          userName: wallet.userName,
-          type: 'debit',
-          amount: amount,
-          balanceBefore: wallet.balance,
-          balanceAfter: newBalance,
-          description: description,
-          referenceId: referenceId,
-          createdAt: now,
-        );
-
-        transaction.set(transactionDoc, walletTransaction.toMap());
-
-        return true; // Success
-      });
+      // This calls a backend Cloud Function or API that:
+      // 1. Verifies user has enough coins
+      // 2. Deducts coins atomically  
+      // 3. Grants episode access immediately
+      // 4. Logs transaction
+      // NO ADMIN INTERVENTION REQUIRED!
+      
+      // In Firebase, this would be a Cloud Function call
+      // For now, simulating with a direct request that backend processes automatically
+      final unlockRequest = {
+        'userId': userId,
+        'episodeId': episodeId,
+        'coinAmount': coinAmount,
+        'description': description,
+        'status': 'processing', // Backend will process this automatically
+        'requestedAt': DateTime.now().microsecondsSinceEpoch.toString(),
+        'type': 'episode_unlock', // Automatic processing
+      };
+      
+      await _firestore
+          .collection('episode_unlock_requests')
+          .add(unlockRequest);
+      
+      // In production, this would be a Cloud Function HTTP call like:
+      // final response = await http.post('/unlockEpisode', body: unlockRequest);
+      // return response.statusCode == 200;
+      
+      return true;
     } catch (e) {
-      throw WalletRepositoryException('Failed to deduct from wallet: $e');
+      throw WalletRepositoryException('Failed to request episode unlock: $e');
+    }
+  }
+
+  // Submit coin purchase request - admin MANUALLY verifies payment
+  Future<bool> submitCoinPurchaseRequest(String userId, CoinPackage package, String paymentReference) async {
+    try {
+      // This creates a purchase request that admin manually verifies
+      // because M-Pesa payments need human verification for security
+      final purchaseRequest = {
+        'userId': userId,
+        'packageId': package.packageId,
+        'coinAmount': package.coins,
+        'paidAmount': package.priceKES,
+        'paymentReference': paymentReference,
+        'paymentMethod': 'mpesa',
+        'status': 'pending_admin_verification', // Needs admin verification
+        'requestedAt': DateTime.now().microsecondsSinceEpoch.toString(),
+        'type': 'coin_purchase', // Manual admin processing
+        'packageDetails': {
+          'name': package.displayName,
+          'coins': package.coins,
+          'price': package.priceKES,
+        }
+      };
+      
+      await _firestore
+          .collection('coin_purchase_requests')
+          .add(purchaseRequest);
+      
+      return true;
+    } catch (e) {
+      throw WalletRepositoryException('Failed to submit coin purchase request: $e');
     }
   }
 
@@ -225,6 +226,180 @@ class FirebaseWalletRepository implements WalletRepository {
             .map((doc) => WalletTransaction.fromMap(
                 doc.data() as Map<String, dynamic>))
             .toList());
+  }
+
+  // Additional utility methods
+
+  /// Get total coins spent by user
+  Future<int> getTotalCoinsSpent(String userId) async {
+    try {
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_transactionsCollection)
+          .where('walletId', isEqualTo: userId)
+          .where('type', isEqualTo: 'episode_unlock')
+          .get();
+      
+      int totalSpent = 0;
+      for (var doc in querySnapshot.docs) {
+        final transaction = WalletTransaction.fromMap(doc.data() as Map<String, dynamic>);
+        totalSpent += transaction.coinAmount;
+      }
+      
+      return totalSpent;
+    } catch (e) {
+      throw WalletRepositoryException('Failed to get total coins spent: $e');
+    }
+  }
+
+  /// Get total coins purchased by user
+  Future<int> getTotalCoinsPurchased(String userId) async {
+    try {
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_transactionsCollection)
+          .where('walletId', isEqualTo: userId)
+          .where('type', whereIn: ['coin_purchase', 'admin_credit'])
+          .get();
+      
+      int totalPurchased = 0;
+      for (var doc in querySnapshot.docs) {
+        final transaction = WalletTransaction.fromMap(doc.data() as Map<String, dynamic>);
+        totalPurchased += transaction.coinAmount;
+      }
+      
+      return totalPurchased;
+    } catch (e) {
+      throw WalletRepositoryException('Failed to get total coins purchased: $e');
+    }
+  }
+
+  /// Get transactions by type
+  Future<List<WalletTransaction>> getTransactionsByType(String userId, String type, {
+    int limit = 50,
+  }) async {
+    try {
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_transactionsCollection)
+          .where('walletId', isEqualTo: userId)
+          .where('type', isEqualTo: type)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+      
+      return querySnapshot.docs
+          .map((doc) => WalletTransaction.fromMap(
+              doc.data() as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw WalletRepositoryException('Failed to get transactions by type: $e');
+    }
+  }
+
+  /// Check if user has enough coins for a purchase
+  Future<bool> hasEnoughCoins(String userId, int requiredCoins) async {
+    try {
+      final wallet = await getUserWallet(userId);
+      return wallet?.canAfford(requiredCoins) ?? false;
+    } catch (e) {
+      throw WalletRepositoryException('Failed to check coin balance: $e');
+    }
+  }
+
+  /// Get user's coin purchase history with KES amounts
+  Future<List<WalletTransaction>> getCoinPurchaseHistory(String userId) async {
+    try {
+      return await getTransactionsByType(userId, 'coin_purchase');
+    } catch (e) {
+      throw WalletRepositoryException('Failed to get coin purchase history: $e');
+    }
+  }
+
+  /// Get user's episode unlock history
+  Future<List<WalletTransaction>> getEpisodeUnlockHistory(String userId) async {
+    try {
+      return await getTransactionsByType(userId, 'episode_unlock');
+    } catch (e) {
+      throw WalletRepositoryException('Failed to get episode unlock history: $e');
+    }
+  }
+
+  /// Get wallet statistics for a user
+  Future<Map<String, dynamic>> getWalletStats(String userId) async {
+    try {
+      final wallet = await getUserWallet(userId);
+      final totalSpent = await getTotalCoinsSpent(userId);
+      final totalPurchased = await getTotalCoinsPurchased(userId);
+      final purchaseHistory = await getCoinPurchaseHistory(userId);
+      final unlockHistory = await getEpisodeUnlockHistory(userId);
+      
+      // Calculate total KES spent
+      double totalKESSpent = 0;
+      for (var transaction in purchaseHistory) {
+        totalKESSpent += transaction.paidAmount ?? 0;
+      }
+
+      return {
+        'currentBalance': wallet?.coinsBalance ?? 0,
+        'totalCoinsSpent': totalSpent,
+        'totalCoinsPurchased': totalPurchased,
+        'totalKESSpent': totalKESSpent,
+        'totalPurchases': purchaseHistory.length,
+        'totalUnlocks': unlockHistory.length,
+        'equivalentKESValue': wallet?.equivalentKESValue ?? 0,
+      };
+    } catch (e) {
+      throw WalletRepositoryException('Failed to get wallet stats: $e');
+    }
+  }
+
+  /// Admin method: Get all pending coin purchases (for manual processing)
+  Future<List<Map<String, dynamic>>> getPendingCoinPurchases() async {
+    try {
+      // This would be used if we track payment requests separately
+      // For now, admin manually adds coins after M-Pesa verification
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_transactionsCollection)
+          .where('type', isEqualTo: 'coin_purchase')
+          .where('paymentMethod', isEqualTo: 'mpesa')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
+      
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (e) {
+      throw WalletRepositoryException('Failed to get pending purchases: $e');
+    }
+  }
+
+  /// Batch update wallet balances (admin utility)
+  Future<void> batchUpdateWallets(List<Map<String, dynamic>> updates) async {
+    try {
+      WriteBatch batch = _firestore.batch();
+      
+      for (var update in updates) {
+        final userId = update['userId'] as String;
+        final coinAmount = update['coinAmount'] as int;
+        final description = update['description'] as String;
+        
+        DocumentReference walletRef = _firestore
+            .collection(_walletsCollection)
+            .doc(userId);
+        
+        // Note: This is a simplified batch update
+        // In production, you'd want to read current balances first
+        batch.update(walletRef, {
+          'coinsBalance': FieldValue.increment(coinAmount),
+          'lastUpdated': DateTime.now().microsecondsSinceEpoch.toString(),
+        });
+      }
+      
+      await batch.commit();
+    } catch (e) {
+      throw WalletRepositoryException('Failed to batch update wallets: $e');
+    }
   }
 }
 

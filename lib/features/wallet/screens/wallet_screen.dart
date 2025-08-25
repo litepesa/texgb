@@ -1,9 +1,9 @@
-// lib/features/wallet/screens/wallet_screen.dart (Updated)
+// lib/features/wallet/screens/wallet_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/wallet/providers/wallet_providers.dart';
-import 'package:textgb/features/wallet/widgets/top_up_info_widget.dart';
+import 'package:textgb/features/wallet/widgets/coin_packages_widget.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
@@ -96,15 +96,15 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Wallet Balance Card
+          // Coins Balance Card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  modernTheme.primaryColor!,
-                  modernTheme.primaryColor!.withOpacity(0.8),
+                  Colors.amber.shade600,
+                  Colors.orange.shade500,
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -112,7 +112,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: modernTheme.primaryColor!.withOpacity(0.3),
+                  color: Colors.amber.withOpacity(0.3),
                   blurRadius: 15,
                   offset: const Offset(0, 8),
                 ),
@@ -124,13 +124,23 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Wallet Balance',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.monetization_on,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Coins Balance',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                     GestureDetector(
                       onTap: () {
@@ -147,16 +157,49 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  _balanceVisible 
-                    ? (wallet?.formattedBalance ?? 'KES 0.00') 
-                    : '••••••',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Icon(
+                      Icons.stars,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _balanceVisible 
+                        ? (wallet?.coinsBalance.toString() ?? '0') 
+                        : '••••••',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'coins',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 8),
+                if (_balanceVisible && wallet != null) ...[
+                  Text(
+                    '≈ ${wallet.formattedKESEquivalent}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -164,14 +207,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       wallet?.hasBalance == true 
                         ? CupertinoIcons.checkmark_circle
                         : CupertinoIcons.minus_circle,
-                      color: Colors.grey[300],
+                      color: Colors.white.withOpacity(0.7),
                       size: 16,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       wallet?.hasBalance == true 
-                        ? 'Ready for purchases'
-                        : 'No balance available',
+                        ? 'Ready to unlock episodes'
+                        : 'Buy coins to unlock premium episodes',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.7),
                         fontSize: 14,
@@ -190,11 +233,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             children: [
               Expanded(
                 child: _buildQuickActionCard(
-                  icon: Icons.add,
-                  title: 'Add Money',
-                  subtitle: 'Top up wallet',
+                  icon: Icons.add_shopping_cart,
+                  title: 'Buy Coins',
+                  subtitle: 'Get coins for episodes',
                   color: Colors.green,
-                  onTap: () => TopUpInfoWidget.show(context),
+                  onTap: () => CoinPackagesWidget.show(context),
                   modernTheme: modernTheme,
                 ),
               ),
@@ -275,7 +318,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               child: Column(
                 children: [
                   Icon(
-                    Icons.receipt_long_outlined,
+                    Icons.stars_outlined,
                     size: 48,
                     color: modernTheme.textSecondaryColor,
                   ),
@@ -290,7 +333,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Add money to your wallet to start making purchases',
+                    'Buy coins to unlock premium episodes',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -332,7 +375,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Wallet Information',
+                      'About Coins',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -343,10 +386,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '• Use your wallet balance to unlock premium episodes\n'
-                  '• Some payments are processed manually by our admin team\n'
-                  '• Balance updates may take upto 30 minutes after top-up\n'
-                  '• Minimum top-up amount is KES 100',
+                  '• Use coins to unlock premium drama episodes\n'
+                  '• 1 coin = 1 episode unlock (cost varies by drama)\n'
+                  '• Some coin purchases are processed manually by admin\n'
+                  '• Balance updates within 10 minutes after payment\n'
+                  '• Choose from 3 coin packages: 99, 495, or 990 coins',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.blue[700],
@@ -420,18 +464,28 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   Widget _buildTransactionItem(WalletTransaction transaction, ModernThemeExtension modernTheme) {
-    final isCredit = transaction.isCredit || transaction.isRefund;
-    final icon = transaction.isCredit 
-        ? Icons.add_circle_outline 
-        : transaction.isPurchase 
-            ? Icons.shopping_cart_outlined
-            : Icons.remove_circle_outline;
+    final isCredit = transaction.isCredit;
     
-    final iconColor = transaction.isCredit 
-        ? Colors.green 
-        : transaction.isPurchase 
-            ? Colors.blue
-            : Colors.red;
+    IconData icon;
+    Color iconColor;
+    
+    switch (transaction.type) {
+      case 'coin_purchase':
+        icon = Icons.add_shopping_cart;
+        iconColor = Colors.green;
+        break;
+      case 'episode_unlock':
+        icon = Icons.play_circle_outline;
+        iconColor = Colors.blue;
+        break;
+      case 'admin_credit':
+        icon = Icons.admin_panel_settings;
+        iconColor = Colors.purple;
+        break;
+      default:
+        icon = Icons.account_balance_wallet;
+        iconColor = Colors.grey;
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -462,7 +516,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transaction.description,
+                  transaction.displayTitle,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -471,22 +525,45 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _formatTransactionDate(transaction.createdAt),
+                  transaction.description,
                   style: TextStyle(
                     fontSize: 12,
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _formatTransactionDate(transaction.createdAt),
+                  style: TextStyle(
+                    fontSize: 11,
                     color: modernTheme.textSecondaryColor,
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            transaction.formattedAmount,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: isCredit ? Colors.green : Colors.red,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                transaction.formattedAmount,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isCredit ? Colors.green : Colors.red,
+                ),
+              ),
+              if (transaction.paidAmount != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'KES ${transaction.paidAmount!.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: modernTheme.textSecondaryColor,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -545,7 +622,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.receipt_long_outlined,
+                            Icons.stars_outlined,
                             size: 64,
                             color: modernTheme.textSecondaryColor,
                           ),
@@ -593,6 +670,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       ),
     );
   }
+
+
 
   String _formatTransactionDate(String timestamp) {
     try {

@@ -82,15 +82,18 @@ class DramaActions extends _$DramaActions {
     }
   }
 
-  // Unlock a premium drama
+  // Request drama unlock (backend handles the actual deduction)
   Future<bool> unlockDrama(String dramaId) async {
     final user = ref.read(currentUserProvider);
     if (user == null) return false;
 
-    // Check if user has enough coins
-    if (!user.canAfford(Constants.dramaUnlockCost)) {
+    // Check if user has enough coins (read-only check)
+    final coinsBalance = ref.read(coinsBalanceProvider);
+    final unlockCost = Constants.dramaUnlockCost;
+    
+    if (coinsBalance == null || coinsBalance < unlockCost) {
       state = state.copyWith(
-        error: Constants.insufficientCoins,
+        error: 'Insufficient coins. You need $unlockCost coins to unlock this drama.',
       );
       return false;
     }
@@ -98,37 +101,113 @@ class DramaActions extends _$DramaActions {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final authNotifier = ref.read(authenticationProvider.notifier);
       final walletNotifier = ref.read(walletProvider.notifier);
       
-      // Deduct coins from wallet
-      final purchaseSuccess = await walletNotifier.makePurchase(
-        amount: Constants.dramaUnlockCost.toDouble(),
-        description: 'Unlock Drama',
-        referenceId: dramaId,
+      // Get drama info for transaction description
+      final drama = await ref.read(dramaProvider(dramaId).future);
+      final dramaTitle = drama?.title ?? 'Premium Drama';
+      
+      // Send unlock request to backend - backend will handle the actual deduction
+      final success = await walletNotifier.requestEpisodeUnlock(
+        coinAmount: unlockCost,
+        episodeId: dramaId, // Using dramaId as reference for drama unlock
+        episodeTitle: 'Drama: $dramaTitle',
       );
 
-      if (!purchaseSuccess) {
+      if (success) {
+        // Drama unlock is processed automatically by backend!
+        // User gets immediate access to all premium episodes
         state = state.copyWith(
           isLoading: false,
-          error: 'Payment failed. Please try again.',
+          successMessage: 'Drama unlocked! All premium episodes are now available.',
         );
-        return false;
+
+        // Add drama to user's unlocked dramas (backend would normally handle this too)
+        final authNotifier = ref.read(authenticationProvider.notifier);
+        await authNotifier.unlockDrama(dramaId: dramaId);
+
+        // Refresh wallet to get updated balance from backend
+        await ref.read(walletProvider.notifier).refresh();
+        
+        // Refresh relevant providers
+        ref.invalidate(continueWatchingDramasProvider);
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Failed to submit unlock request. Please try again.',
+        );
       }
 
-      // Add drama to user's unlocked dramas
-      await authNotifier.unlockDrama(dramaId: dramaId);
-
-      state = state.copyWith(
-        isLoading: false,
-        successMessage: Constants.dramaUnlocked,
-      );
-
-      return true;
+      return success;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to unlock drama: $e',
+      );
+      return false;
+    }
+  }
+
+  // Request episode unlock (backend handles the actual deduction)
+  Future<bool> unlockEpisode({
+    required String episodeId,
+    required String dramaId,
+    required int episodeNumber,
+    required String episodeTitle,
+    int? customCost,
+  }) async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return false;
+
+    // Default episode unlock cost (can be customized per drama/episode)
+    final unlockCost = customCost ?? Constants.episodeUnlockCost;
+    
+    // Check if user has enough coins (read-only check)
+    final coinsBalance = ref.read(coinsBalanceProvider);
+    if (coinsBalance == null || coinsBalance < unlockCost) {
+      state = state.copyWith(
+        error: 'Insufficient coins. You need $unlockCost coins to unlock this episode.',
+      );
+      return false;
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final walletNotifier = ref.read(walletProvider.notifier);
+      
+      // Send unlock request to backend - backend will handle the actual deduction
+      final success = await walletNotifier.requestEpisodeUnlock(
+        coinAmount: unlockCost,
+        episodeId: episodeId,
+        episodeTitle: 'Episode $episodeNumber: $episodeTitle',
+      );
+
+      if (success) {
+        // Episode unlock is processed automatically by backend!
+        // No waiting - user can watch immediately
+        state = state.copyWith(
+          isLoading: false,
+          successMessage: 'Episode unlocked successfully! Enjoy watching.',
+        );
+
+        // Mark episode as watched since unlocking grants immediate access
+        await markEpisodeWatched(episodeId, dramaId, episodeNumber);
+        
+        // Refresh wallet to get updated balance from backend
+        await ref.read(walletProvider.notifier).refresh();
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Failed to submit unlock request. Please try again.',
+        );
+      }
+
+      return success;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to unlock episode: $e',
       );
       return false;
     }
@@ -162,6 +241,18 @@ class DramaActions extends _$DramaActions {
     } catch (e) {
       state = state.copyWith(error: 'Failed to update watch history: $e');
     }
+  }
+
+  // Check if user can afford to unlock drama/episode
+  bool canAffordUnlock({int? customCost}) {
+    final coinsBalance = ref.read(coinsBalanceProvider);
+    final cost = customCost ?? Constants.dramaUnlockCost;
+    return coinsBalance != null && coinsBalance >= cost;
+  }
+
+  // Get user's coin balance for display
+  int? getUserCoinsBalance() {
+    return ref.read(coinsBalanceProvider);
   }
 
   // Clear any messages
@@ -282,7 +373,7 @@ class AdminDramaActions extends _$AdminDramaActions {
 
 // CONVENIENCE ACTION PROVIDERS
 
-// Quick action to check if drama can be watched
+// Check if user can watch a specific drama episode
 @riverpod
 bool canWatchDramaEpisode(CanWatchDramaEpisodeRef ref, String dramaId, int episodeNumber) {
   final user = ref.watch(currentUserProvider);
@@ -298,6 +389,33 @@ bool canWatchDramaEpisode(CanWatchDramaEpisodeRef ref, String dramaId, int episo
   );
 }
 
+// Check if user can afford to unlock an episode
+@riverpod
+bool canAffordEpisodeUnlock(CanAffordEpisodeUnlockRef ref, {int? customCost}) {
+  final coinsBalance = ref.watch(coinsBalanceProvider);
+  final cost = customCost ?? Constants.episodeUnlockCost;
+  return coinsBalance != null && coinsBalance >= cost;
+}
+
+// Check if user can afford to unlock a drama
+@riverpod
+bool canAffordDramaUnlock(CanAffordDramaUnlockRef ref, {int? customCost}) {
+  final coinsBalance = ref.watch(coinsBalanceProvider);
+  final cost = customCost ?? Constants.dramaUnlockCost;
+  return coinsBalance != null && coinsBalance >= cost;
+}
+
+// Get unlock cost for display in UI
+@riverpod
+int episodeUnlockCost(EpisodeUnlockCostRef ref, {int? customCost}) {
+  return customCost ?? Constants.episodeUnlockCost;
+}
+
+@riverpod
+int dramaUnlockCost(DramaUnlockCostRef ref, {int? customCost}) {
+  return customCost ?? Constants.dramaUnlockCost;
+}
+
 // Quick action to get next episode to watch for a drama
 @riverpod
 int nextEpisodeToWatch(NextEpisodeToWatchRef ref, String dramaId) {
@@ -306,4 +424,41 @@ int nextEpisodeToWatch(NextEpisodeToWatchRef ref, String dramaId) {
   
   final progress = user.getDramaProgress(dramaId);
   return progress + 1; // Next episode after last watched
+}
+
+// Check if episode requires unlock (premium episode that user hasn't unlocked)
+@riverpod
+bool episodeRequiresUnlock(EpisodeRequiresUnlockRef ref, String dramaId, int episodeNumber) {
+  final user = ref.watch(currentUserProvider);
+  final drama = ref.watch(dramaProvider(dramaId));
+  
+  return drama.when(
+    data: (dramaModel) {
+      if (dramaModel == null || user == null) return false;
+      
+      // If drama is not premium, no unlock needed
+      if (!dramaModel.isPremium) return false;
+      
+      // If user has unlocked the entire drama, no unlock needed
+      if (user.hasUnlocked(dramaId)) return false;
+      
+      // If episode is within free episodes count, no unlock needed
+      if (episodeNumber <= dramaModel.freeEpisodesCount) return false;
+      
+      // Episode requires unlock
+      return true;
+    },
+    loading: () => false,
+    error: (_, __) => false,
+  );
+}
+
+// Get remaining coins after potential unlock
+@riverpod
+int? coinsAfterUnlock(CoinsAfterUnlockRef ref, int unlockCost) {
+  final currentBalance = ref.watch(coinsBalanceProvider);
+  if (currentBalance == null) return null;
+  
+  final remaining = currentBalance - unlockCost;
+  return remaining >= 0 ? remaining : null; // Return null if insufficient
 }

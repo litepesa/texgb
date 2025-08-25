@@ -260,15 +260,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
   
-  // Build app bar for all tabs (index 0, 1, and 2) - with contextual actions
+  // Build consistent app bar with only main logo branding
   PreferredSizeWidget? _buildAppBar(ModernThemeExtension modernTheme, bool isDarkMode) {
     return AppBar(
       backgroundColor: modernTheme.surfaceColor,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
-      title: _buildAppBarTitle(modernTheme),
-      actions: _buildAppBarActions(modernTheme),
+      title: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: "Wei",
+              style: TextStyle(
+                color: modernTheme.textColor,          
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                letterSpacing: -0.3,
+              ),
+            ),
+            TextSpan(
+              text: "Bao",
+              style: TextStyle(
+                color: modernTheme.primaryColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 24,
+                letterSpacing: -0.3,
+              ),
+            ),
+            TextSpan(
+              text: "微宝",
+              style: TextStyle(
+                color: const Color(0xFFFE2C55),
+                fontWeight: FontWeight.w700,
+                fontSize: 22,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
+        ),
+      ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
         child: Container(
@@ -278,225 +309,5 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
-  }
-
-  List<Widget>? _buildAppBarActions(ModernThemeExtension modernTheme) {
-    final isAdmin = ref.watch(isAdminProvider);
-    final coinsBalance = ref.watch(userCoinBalanceProvider);
-
-    switch (_currentIndex) {
-      case 0: // Discover tab
-        return [
-          // Coin balance indicator
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFD700).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFFFFD700).withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.monetization_on,
-                  color: Color(0xFFFFD700),
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '$coinsBalance',
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Search icon
-          IconButton(
-            onPressed: () => Navigator.pushNamed(context, Constants.searchScreen),
-            icon: Icon(
-              Icons.search,
-              color: modernTheme.textColor,
-            ),
-            tooltip: 'Search dramas',
-          ),
-          
-          // Admin menu (only for admin users)
-          if (isAdmin)
-            PopupMenuButton<String>(
-              icon: Icon(
-                Icons.admin_panel_settings,
-                color: const Color(0xFFFE2C55),
-              ),
-              tooltip: 'Admin Panel',
-              onSelected: (value) {
-                switch (value) {
-                  case 'dashboard':
-                    Navigator.pushNamed(context, Constants.adminDashboardScreen);
-                    break;
-                  case 'create_drama':
-                    Navigator.pushNamed(context, Constants.createDramaScreen);
-                    break;
-                  case 'manage_dramas':
-                    Navigator.pushNamed(context, Constants.manageDramasScreen);
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'dashboard',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.dashboard, color: Color(0xFFFE2C55)),
-                      const SizedBox(width: 8),
-                      const Text('Dashboard'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'create_drama',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.add_circle, color: Color(0xFFFE2C55)),
-                      const SizedBox(width: 8),
-                      const Text('Create Drama'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'manage_dramas',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.manage_search, color: Color(0xFFFE2C55)),
-                      const SizedBox(width: 8),
-                      const Text('Manage Dramas'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-        ];
-
-      case 1: // Wallet tab
-        return [
-          IconButton(
-            onPressed: () => Navigator.pushNamed(context, Constants.topUpScreen),
-            icon: Icon(
-              Icons.add_circle,
-              color: const Color(0xFFFE2C55),
-            ),
-            tooltip: 'Add coins',
-          ),
-        ];
-
-      case 2: // Profile tab
-        return [
-          IconButton(
-            onPressed: () => Navigator.pushNamed(context, Constants.editProfileScreen),
-            icon: Icon(
-              Icons.edit,
-              color: modernTheme.textColor,
-            ),
-            tooltip: 'Edit profile',
-          ),
-        ];
-
-      default:
-        return null;
-    }
-  }
-
-  Widget _buildAppBarTitle(ModernThemeExtension modernTheme) {
-    // Show different titles based on current tab
-    switch (_currentIndex) {
-      case 0:
-        return RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: "Wei",
-                style: TextStyle(
-                  color: modernTheme.textColor,          
-                  fontWeight: FontWeight.bold,
-                  fontSize: 22,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              TextSpan(
-                text: "Bao",
-                style: TextStyle(
-                  color: modernTheme.primaryColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 24,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              TextSpan(
-                text: "微宝",
-                style: TextStyle(
-                  color: const Color(0xFFFE2C55),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 22,
-                  letterSpacing: -0.3,
-                ),
-              ),
-            ],
-          ),
-        );
-      
-      case 1:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.account_balance_wallet,
-              color: modernTheme.textColor,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Wallet',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        );
-      
-      case 2:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.person,
-              color: modernTheme.textColor,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Profile',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        );
-      
-      default:
-        return const SizedBox.shrink();
-    }
   }
 }

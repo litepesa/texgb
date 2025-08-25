@@ -59,41 +59,39 @@ final transactionsStreamProvider =
 // ignore: unused_element
 typedef TransactionsStreamRef
     = AutoDisposeStreamProviderRef<List<WalletTransaction>>;
-String _$walletBalanceHash() => r'ff418fbaabb93acf308e7a78daecb99c17751098';
+String _$coinsBalanceHash() => r'5e8f7bc690c5a583ba8eb3540bbcfcae714b85fc';
 
-/// See also [walletBalance].
-@ProviderFor(walletBalance)
-final walletBalanceProvider = AutoDisposeProvider<double?>.internal(
-  walletBalance,
-  name: r'walletBalanceProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$walletBalanceHash,
+/// See also [coinsBalance].
+@ProviderFor(coinsBalance)
+final coinsBalanceProvider = AutoDisposeProvider<int?>.internal(
+  coinsBalance,
+  name: r'coinsBalanceProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$coinsBalanceHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef WalletBalanceRef = AutoDisposeProviderRef<double?>;
-String _$hasWalletBalanceHash() => r'5a2a23548bf17026475467cb670f754cb06d0d85';
+typedef CoinsBalanceRef = AutoDisposeProviderRef<int?>;
+String _$hasCoinsHash() => r'd2c88f8f7d1e354c933b84fe6848d13ef0e34777';
 
-/// See also [hasWalletBalance].
-@ProviderFor(hasWalletBalance)
-final hasWalletBalanceProvider = AutoDisposeProvider<bool>.internal(
-  hasWalletBalance,
-  name: r'hasWalletBalanceProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$hasWalletBalanceHash,
+/// See also [hasCoins].
+@ProviderFor(hasCoins)
+final hasCoinsProvider = AutoDisposeProvider<bool>.internal(
+  hasCoins,
+  name: r'hasCoinsProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$hasCoinsHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef HasWalletBalanceRef = AutoDisposeProviderRef<bool>;
-String _$canAffordHash() => r'a9ba7f06ef735c71199eed4a154cb4cf60ddb418';
+typedef HasCoinsRef = AutoDisposeProviderRef<bool>;
+String _$canAffordCoinsHash() => r'b2e2a36e3a33083da5b6a8cbd82272b7710bcd53';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -116,30 +114,30 @@ class _SystemHash {
   }
 }
 
-/// See also [canAfford].
-@ProviderFor(canAfford)
-const canAffordProvider = CanAffordFamily();
+/// See also [canAffordCoins].
+@ProviderFor(canAffordCoins)
+const canAffordCoinsProvider = CanAffordCoinsFamily();
 
-/// See also [canAfford].
-class CanAffordFamily extends Family<bool> {
-  /// See also [canAfford].
-  const CanAffordFamily();
+/// See also [canAffordCoins].
+class CanAffordCoinsFamily extends Family<bool> {
+  /// See also [canAffordCoins].
+  const CanAffordCoinsFamily();
 
-  /// See also [canAfford].
-  CanAffordProvider call(
-    double amount,
+  /// See also [canAffordCoins].
+  CanAffordCoinsProvider call(
+    int coinAmount,
   ) {
-    return CanAffordProvider(
-      amount,
+    return CanAffordCoinsProvider(
+      coinAmount,
     );
   }
 
   @override
-  CanAffordProvider getProviderOverride(
-    covariant CanAffordProvider provider,
+  CanAffordCoinsProvider getProviderOverride(
+    covariant CanAffordCoinsProvider provider,
   ) {
     return call(
-      provider.amount,
+      provider.coinAmount,
     );
   }
 
@@ -155,74 +153,75 @@ class CanAffordFamily extends Family<bool> {
       _allTransitiveDependencies;
 
   @override
-  String? get name => r'canAffordProvider';
+  String? get name => r'canAffordCoinsProvider';
 }
 
-/// See also [canAfford].
-class CanAffordProvider extends AutoDisposeProvider<bool> {
-  /// See also [canAfford].
-  CanAffordProvider(
-    double amount,
+/// See also [canAffordCoins].
+class CanAffordCoinsProvider extends AutoDisposeProvider<bool> {
+  /// See also [canAffordCoins].
+  CanAffordCoinsProvider(
+    int coinAmount,
   ) : this._internal(
-          (ref) => canAfford(
-            ref as CanAffordRef,
-            amount,
+          (ref) => canAffordCoins(
+            ref as CanAffordCoinsRef,
+            coinAmount,
           ),
-          from: canAffordProvider,
-          name: r'canAffordProvider',
+          from: canAffordCoinsProvider,
+          name: r'canAffordCoinsProvider',
           debugGetCreateSourceHash:
               const bool.fromEnvironment('dart.vm.product')
                   ? null
-                  : _$canAffordHash,
-          dependencies: CanAffordFamily._dependencies,
-          allTransitiveDependencies: CanAffordFamily._allTransitiveDependencies,
-          amount: amount,
+                  : _$canAffordCoinsHash,
+          dependencies: CanAffordCoinsFamily._dependencies,
+          allTransitiveDependencies:
+              CanAffordCoinsFamily._allTransitiveDependencies,
+          coinAmount: coinAmount,
         );
 
-  CanAffordProvider._internal(
+  CanAffordCoinsProvider._internal(
     super._createNotifier, {
     required super.name,
     required super.dependencies,
     required super.allTransitiveDependencies,
     required super.debugGetCreateSourceHash,
     required super.from,
-    required this.amount,
+    required this.coinAmount,
   }) : super.internal();
 
-  final double amount;
+  final int coinAmount;
 
   @override
   Override overrideWith(
-    bool Function(CanAffordRef provider) create,
+    bool Function(CanAffordCoinsRef provider) create,
   ) {
     return ProviderOverride(
       origin: this,
-      override: CanAffordProvider._internal(
-        (ref) => create(ref as CanAffordRef),
+      override: CanAffordCoinsProvider._internal(
+        (ref) => create(ref as CanAffordCoinsRef),
         from: from,
         name: null,
         dependencies: null,
         allTransitiveDependencies: null,
         debugGetCreateSourceHash: null,
-        amount: amount,
+        coinAmount: coinAmount,
       ),
     );
   }
 
   @override
   AutoDisposeProviderElement<bool> createElement() {
-    return _CanAffordProviderElement(this);
+    return _CanAffordCoinsProviderElement(this);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is CanAffordProvider && other.amount == amount;
+    return other is CanAffordCoinsProvider && other.coinAmount == coinAmount;
   }
 
   @override
   int get hashCode {
     var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, amount.hashCode);
+    hash = _SystemHash.combine(hash, coinAmount.hashCode);
 
     return _SystemHash.finish(hash);
   }
@@ -230,20 +229,39 @@ class CanAffordProvider extends AutoDisposeProvider<bool> {
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin CanAffordRef on AutoDisposeProviderRef<bool> {
-  /// The parameter `amount` of this provider.
-  double get amount;
+mixin CanAffordCoinsRef on AutoDisposeProviderRef<bool> {
+  /// The parameter `coinAmount` of this provider.
+  int get coinAmount;
 }
 
-class _CanAffordProviderElement extends AutoDisposeProviderElement<bool>
-    with CanAffordRef {
-  _CanAffordProviderElement(super.provider);
+class _CanAffordCoinsProviderElement extends AutoDisposeProviderElement<bool>
+    with CanAffordCoinsRef {
+  _CanAffordCoinsProviderElement(super.provider);
 
   @override
-  double get amount => (origin as CanAffordProvider).amount;
+  int get coinAmount => (origin as CanAffordCoinsProvider).coinAmount;
 }
 
-String _$walletHash() => r'0fdcc7d4d4334044e8f925218099872a3aa4dc96';
+String _$availableCoinPackagesHash() =>
+    r'a974b09c1db4f590beaa77185f76a4046c00c9ea';
+
+/// See also [availableCoinPackages].
+@ProviderFor(availableCoinPackages)
+final availableCoinPackagesProvider =
+    AutoDisposeProvider<List<CoinPackage>>.internal(
+  availableCoinPackages,
+  name: r'availableCoinPackagesProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$availableCoinPackagesHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef AvailableCoinPackagesRef = AutoDisposeProviderRef<List<CoinPackage>>;
+String _$walletHash() => r'1a3b8b1df601f971f780c50622b5d0d7dd655f31';
 
 /// See also [Wallet].
 @ProviderFor(Wallet)

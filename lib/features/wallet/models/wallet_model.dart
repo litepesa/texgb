@@ -1,13 +1,75 @@
-// lib/models/wallet_model.dart
+// lib/features/wallet/models/wallet_model.dart
 import 'package:textgb/constants.dart';
+
+// Predefined coin packages
+class CoinPackage {
+  final int coins;
+  final double priceKES;
+  final String packageId;
+  final String displayName;
+  final bool isPopular;
+
+  const CoinPackage({
+    required this.coins,
+    required this.priceKES,
+    required this.packageId,
+    required this.displayName,
+    this.isPopular = false,
+  });
+
+  String get formattedPrice => 'KES ${priceKES.toStringAsFixed(0)}';
+  
+  // Get value per coin
+  double get valuePerCoin => priceKES / coins;
+  
+  // Check if this is a better deal than another package
+  bool isBetterDealThan(CoinPackage other) {
+    return valuePerCoin < other.valuePerCoin;
+  }
+}
+
+class CoinPackages {
+  static const List<CoinPackage> available = [
+    CoinPackage(
+      coins: 99,
+      priceKES: 100,
+      packageId: 'coins_99',
+      displayName: 'Starter Pack',
+    ),
+    CoinPackage(
+      coins: 495,
+      priceKES: 500,
+      packageId: 'coins_495',
+      displayName: 'Popular Pack',
+      isPopular: true,
+    ),
+    CoinPackage(
+      coins: 990,
+      priceKES: 1000,
+      packageId: 'coins_990',
+      displayName: 'Value Pack',
+    ),
+  ];
+  
+  static CoinPackage? getByPackageId(String packageId) {
+    try {
+      return available.firstWhere((package) => package.packageId == packageId);
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  static CoinPackage get starter => available[0];
+  static CoinPackage get popular => available[1];
+  static CoinPackage get value => available[2];
+}
 
 class WalletModel {
   final String walletId;
   final String userId;
   final String userPhoneNumber;
   final String userName;
-  final double balance;
-  final String currency;
+  final int coinsBalance; // Changed from double balance to int coinsBalance
   final String lastUpdated;
   final String createdAt;
   final List<WalletTransaction> transactions;
@@ -17,8 +79,7 @@ class WalletModel {
     required this.userId,
     required this.userPhoneNumber,
     required this.userName,
-    required this.balance,
-    this.currency = 'KES',
+    required this.coinsBalance,
     required this.lastUpdated,
     required this.createdAt,
     this.transactions = const [],
@@ -30,8 +91,7 @@ class WalletModel {
       userId: map['userId']?.toString() ?? '',
       userPhoneNumber: map['userPhoneNumber']?.toString() ?? '',
       userName: map['userName']?.toString() ?? '',
-      balance: (map['balance'] ?? 0.0).toDouble(),
-      currency: map['currency']?.toString() ?? 'KES',
+      coinsBalance: (map['coinsBalance'] ?? 0).toInt(), // Changed from balance to coinsBalance
       lastUpdated: map['lastUpdated']?.toString() ?? '',
       createdAt: map['createdAt']?.toString() ?? '',
       transactions: (map['transactions'] as List?)
@@ -46,8 +106,7 @@ class WalletModel {
       'userId': userId,
       'userPhoneNumber': userPhoneNumber,
       'userName': userName,
-      'balance': balance,
-      'currency': currency,
+      'coinsBalance': coinsBalance, // Changed from balance to coinsBalance
       'lastUpdated': lastUpdated,
       'createdAt': createdAt,
       'transactions': transactions.map((t) => t.toMap()).toList(),
@@ -59,8 +118,7 @@ class WalletModel {
     String? userId,
     String? userPhoneNumber,
     String? userName,
-    double? balance,
-    String? currency,
+    int? coinsBalance, // Changed from double? balance
     String? lastUpdated,
     String? createdAt,
     List<WalletTransaction>? transactions,
@@ -70,8 +128,7 @@ class WalletModel {
       userId: userId ?? this.userId,
       userPhoneNumber: userPhoneNumber ?? this.userPhoneNumber,
       userName: userName ?? this.userName,
-      balance: balance ?? this.balance,
-      currency: currency ?? this.currency,
+      coinsBalance: coinsBalance ?? this.coinsBalance,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       createdAt: createdAt ?? this.createdAt,
       transactions: transactions ?? this.transactions,
@@ -79,15 +136,19 @@ class WalletModel {
   }
 
   // Helper methods
-  String get formattedBalance => '$currency ${balance.toStringAsFixed(2)}';
+  String get formattedBalance => '$coinsBalance Coins'; // Updated formatting
   
-  bool get hasBalance => balance > 0;
+  bool get hasBalance => coinsBalance > 0;
   
-  bool canAfford(double amount) => balance >= amount;
+  bool canAfford(int coinAmount) => coinsBalance >= coinAmount; // Changed from double to int
+
+  // Get equivalent KES value (approximate, based on starter pack rate)
+  double get equivalentKESValue => coinsBalance * (100.0 / 99.0);
+  String get formattedKESEquivalent => 'KES ${equivalentKESValue.toStringAsFixed(0)}';
 
   @override
   String toString() {
-    return 'WalletModel(walletId: $walletId, userId: $userId, phoneNumber: $userPhoneNumber, balance: $balance)';
+    return 'WalletModel(walletId: $walletId, userId: $userId, phoneNumber: $userPhoneNumber, coinsBalance: $coinsBalance)';
   }
 
   @override
@@ -106,15 +167,17 @@ class WalletTransaction {
   final String userId;
   final String userPhoneNumber;
   final String userName;
-  final String type; // 'credit', 'debit', 'purchase', 'refund'
-  final double amount;
-  final double balanceBefore;
-  final double balanceAfter;
+  final String type; // 'coin_purchase', 'episode_unlock', 'admin_credit'
+  final int coinAmount; // Changed from double amount to int coinAmount
+  final int balanceBefore; // Changed to int
+  final int balanceAfter; // Changed to int
   final String description;
-  final String? referenceId; // For purchases, subscriptions, etc.
-  final String? adminNote; // For admin-added funds
-  final String? paymentMethod; // 'mpesa', 'bank_transfer', 'card', etc.
-  final String? paymentReference; // M-Pesa confirmation code, bank reference, etc.
+  final String? referenceId; // For episode unlocks, coin package purchases, etc.
+  final String? adminNote; // For admin-added coins
+  final String? paymentMethod; // 'mpesa', 'admin_credit'
+  final String? paymentReference; // M-Pesa confirmation code, etc.
+  final String? packageId; // For coin purchases (links to CoinPackage)
+  final double? paidAmount; // KES amount paid (for purchases)
   final String createdAt;
   final Map<String, dynamic> metadata;
 
@@ -125,7 +188,7 @@ class WalletTransaction {
     required this.userPhoneNumber,
     required this.userName,
     required this.type,
-    required this.amount,
+    required this.coinAmount,
     required this.balanceBefore,
     required this.balanceAfter,
     required this.description,
@@ -133,6 +196,8 @@ class WalletTransaction {
     this.adminNote,
     this.paymentMethod,
     this.paymentReference,
+    this.packageId,
+    this.paidAmount,
     required this.createdAt,
     this.metadata = const {},
   });
@@ -145,14 +210,16 @@ class WalletTransaction {
       userPhoneNumber: map['userPhoneNumber']?.toString() ?? '',
       userName: map['userName']?.toString() ?? '',
       type: map['type']?.toString() ?? '',
-      amount: (map['amount'] ?? 0.0).toDouble(),
-      balanceBefore: (map['balanceBefore'] ?? 0.0).toDouble(),
-      balanceAfter: (map['balanceAfter'] ?? 0.0).toDouble(),
+      coinAmount: (map['coinAmount'] ?? 0).toInt(), // Changed from amount
+      balanceBefore: (map['balanceBefore'] ?? 0).toInt(),
+      balanceAfter: (map['balanceAfter'] ?? 0).toInt(),
       description: map['description']?.toString() ?? '',
       referenceId: map['referenceId']?.toString(),
       adminNote: map['adminNote']?.toString(),
       paymentMethod: map['paymentMethod']?.toString(),
       paymentReference: map['paymentReference']?.toString(),
+      packageId: map['packageId']?.toString(),
+      paidAmount: (map['paidAmount'] ?? 0.0).toDouble(),
       createdAt: map['createdAt']?.toString() ?? '',
       metadata: Map<String, dynamic>.from(map['metadata'] ?? {}),
     );
@@ -166,7 +233,7 @@ class WalletTransaction {
       'userPhoneNumber': userPhoneNumber,
       'userName': userName,
       'type': type,
-      'amount': amount,
+      'coinAmount': coinAmount, // Changed from amount
       'balanceBefore': balanceBefore,
       'balanceAfter': balanceAfter,
       'description': description,
@@ -174,6 +241,8 @@ class WalletTransaction {
       'adminNote': adminNote,
       'paymentMethod': paymentMethod,
       'paymentReference': paymentReference,
+      'packageId': packageId,
+      'paidAmount': paidAmount,
       'createdAt': createdAt,
       'metadata': metadata,
     };
@@ -186,14 +255,16 @@ class WalletTransaction {
     String? userPhoneNumber,
     String? userName,
     String? type,
-    double? amount,
-    double? balanceBefore,
-    double? balanceAfter,
+    int? coinAmount, // Changed from double? amount
+    int? balanceBefore,
+    int? balanceAfter,
     String? description,
     String? referenceId,
     String? adminNote,
     String? paymentMethod,
     String? paymentReference,
+    String? packageId,
+    double? paidAmount,
     String? createdAt,
     Map<String, dynamic>? metadata,
   }) {
@@ -204,7 +275,7 @@ class WalletTransaction {
       userPhoneNumber: userPhoneNumber ?? this.userPhoneNumber,
       userName: userName ?? this.userName,
       type: type ?? this.type,
-      amount: amount ?? this.amount,
+      coinAmount: coinAmount ?? this.coinAmount,
       balanceBefore: balanceBefore ?? this.balanceBefore,
       balanceAfter: balanceAfter ?? this.balanceAfter,
       description: description ?? this.description,
@@ -212,25 +283,65 @@ class WalletTransaction {
       adminNote: adminNote ?? this.adminNote,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentReference: paymentReference ?? this.paymentReference,
+      packageId: packageId ?? this.packageId,
+      paidAmount: paidAmount ?? this.paidAmount,
       createdAt: createdAt ?? this.createdAt,
       metadata: metadata ?? this.metadata,
     );
   }
 
   // Helper methods
-  bool get isCredit => type == 'credit';
-  bool get isDebit => type == 'debit';
-  bool get isPurchase => type == 'purchase';
-  bool get isRefund => type == 'refund';
+  bool get isCoinPurchase => type == 'coin_purchase';
+  bool get isEpisodeUnlock => type == 'episode_unlock';
+  bool get isAdminCredit => type == 'admin_credit';
+  bool get isCredit => isCoinPurchase || isAdminCredit;
+  bool get isDebit => isEpisodeUnlock;
   
   String get formattedAmount {
-    final sign = isCredit || isRefund ? '+' : '-';
-    return '$sign KES ${amount.toStringAsFixed(2)}';
+    final sign = isCredit ? '+' : '-';
+    return '$sign$coinAmount Coins';
+  }
+
+  // Get the coin package if this is a purchase
+  CoinPackage? get coinPackage {
+    if (packageId != null) {
+      return CoinPackages.getByPackageId(packageId!);
+    }
+    return null;
+  }
+
+  // Get display title for transaction
+  String get displayTitle {
+    switch (type) {
+      case 'coin_purchase':
+        final package = coinPackage;
+        return package != null ? '${package.displayName} Purchase' : 'Coin Purchase';
+      case 'episode_unlock':
+        return 'Episode Unlock';
+      case 'admin_credit':
+        return 'Admin Credit';
+      default:
+        return 'Transaction';
+    }
+  }
+
+  // Get transaction icon
+  String get iconName {
+    switch (type) {
+      case 'coin_purchase':
+        return 'add_circle_outline';
+      case 'episode_unlock':
+        return 'play_circle_outline';
+      case 'admin_credit':
+        return 'admin_panel_settings';
+      default:
+        return 'account_balance_wallet';
+    }
   }
 
   @override
   String toString() {
-    return 'WalletTransaction(transactionId: $transactionId, type: $type, amount: $amount, user: $userPhoneNumber)';
+    return 'WalletTransaction(transactionId: $transactionId, type: $type, coinAmount: $coinAmount, user: $userPhoneNumber)';
   }
 
   @override

@@ -176,6 +176,530 @@ class _CanWatchDramaEpisodeProviderElement
       (origin as CanWatchDramaEpisodeProvider).episodeNumber;
 }
 
+String _$canAffordEpisodeUnlockHash() =>
+    r'c81fa72bd33d4b173b832c6b6bf83e449b2f4694';
+
+/// See also [canAffordEpisodeUnlock].
+@ProviderFor(canAffordEpisodeUnlock)
+const canAffordEpisodeUnlockProvider = CanAffordEpisodeUnlockFamily();
+
+/// See also [canAffordEpisodeUnlock].
+class CanAffordEpisodeUnlockFamily extends Family<bool> {
+  /// See also [canAffordEpisodeUnlock].
+  const CanAffordEpisodeUnlockFamily();
+
+  /// See also [canAffordEpisodeUnlock].
+  CanAffordEpisodeUnlockProvider call({
+    int? customCost,
+  }) {
+    return CanAffordEpisodeUnlockProvider(
+      customCost: customCost,
+    );
+  }
+
+  @override
+  CanAffordEpisodeUnlockProvider getProviderOverride(
+    covariant CanAffordEpisodeUnlockProvider provider,
+  ) {
+    return call(
+      customCost: provider.customCost,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'canAffordEpisodeUnlockProvider';
+}
+
+/// See also [canAffordEpisodeUnlock].
+class CanAffordEpisodeUnlockProvider extends AutoDisposeProvider<bool> {
+  /// See also [canAffordEpisodeUnlock].
+  CanAffordEpisodeUnlockProvider({
+    int? customCost,
+  }) : this._internal(
+          (ref) => canAffordEpisodeUnlock(
+            ref as CanAffordEpisodeUnlockRef,
+            customCost: customCost,
+          ),
+          from: canAffordEpisodeUnlockProvider,
+          name: r'canAffordEpisodeUnlockProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$canAffordEpisodeUnlockHash,
+          dependencies: CanAffordEpisodeUnlockFamily._dependencies,
+          allTransitiveDependencies:
+              CanAffordEpisodeUnlockFamily._allTransitiveDependencies,
+          customCost: customCost,
+        );
+
+  CanAffordEpisodeUnlockProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.customCost,
+  }) : super.internal();
+
+  final int? customCost;
+
+  @override
+  Override overrideWith(
+    bool Function(CanAffordEpisodeUnlockRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: CanAffordEpisodeUnlockProvider._internal(
+        (ref) => create(ref as CanAffordEpisodeUnlockRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        customCost: customCost,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<bool> createElement() {
+    return _CanAffordEpisodeUnlockProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CanAffordEpisodeUnlockProvider &&
+        other.customCost == customCost;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, customCost.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin CanAffordEpisodeUnlockRef on AutoDisposeProviderRef<bool> {
+  /// The parameter `customCost` of this provider.
+  int? get customCost;
+}
+
+class _CanAffordEpisodeUnlockProviderElement
+    extends AutoDisposeProviderElement<bool> with CanAffordEpisodeUnlockRef {
+  _CanAffordEpisodeUnlockProviderElement(super.provider);
+
+  @override
+  int? get customCost => (origin as CanAffordEpisodeUnlockProvider).customCost;
+}
+
+String _$canAffordDramaUnlockHash() =>
+    r'9e86b152ee5b53c11240c02a34118669cc703d09';
+
+/// See also [canAffordDramaUnlock].
+@ProviderFor(canAffordDramaUnlock)
+const canAffordDramaUnlockProvider = CanAffordDramaUnlockFamily();
+
+/// See also [canAffordDramaUnlock].
+class CanAffordDramaUnlockFamily extends Family<bool> {
+  /// See also [canAffordDramaUnlock].
+  const CanAffordDramaUnlockFamily();
+
+  /// See also [canAffordDramaUnlock].
+  CanAffordDramaUnlockProvider call({
+    int? customCost,
+  }) {
+    return CanAffordDramaUnlockProvider(
+      customCost: customCost,
+    );
+  }
+
+  @override
+  CanAffordDramaUnlockProvider getProviderOverride(
+    covariant CanAffordDramaUnlockProvider provider,
+  ) {
+    return call(
+      customCost: provider.customCost,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'canAffordDramaUnlockProvider';
+}
+
+/// See also [canAffordDramaUnlock].
+class CanAffordDramaUnlockProvider extends AutoDisposeProvider<bool> {
+  /// See also [canAffordDramaUnlock].
+  CanAffordDramaUnlockProvider({
+    int? customCost,
+  }) : this._internal(
+          (ref) => canAffordDramaUnlock(
+            ref as CanAffordDramaUnlockRef,
+            customCost: customCost,
+          ),
+          from: canAffordDramaUnlockProvider,
+          name: r'canAffordDramaUnlockProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$canAffordDramaUnlockHash,
+          dependencies: CanAffordDramaUnlockFamily._dependencies,
+          allTransitiveDependencies:
+              CanAffordDramaUnlockFamily._allTransitiveDependencies,
+          customCost: customCost,
+        );
+
+  CanAffordDramaUnlockProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.customCost,
+  }) : super.internal();
+
+  final int? customCost;
+
+  @override
+  Override overrideWith(
+    bool Function(CanAffordDramaUnlockRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: CanAffordDramaUnlockProvider._internal(
+        (ref) => create(ref as CanAffordDramaUnlockRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        customCost: customCost,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<bool> createElement() {
+    return _CanAffordDramaUnlockProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CanAffordDramaUnlockProvider &&
+        other.customCost == customCost;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, customCost.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin CanAffordDramaUnlockRef on AutoDisposeProviderRef<bool> {
+  /// The parameter `customCost` of this provider.
+  int? get customCost;
+}
+
+class _CanAffordDramaUnlockProviderElement
+    extends AutoDisposeProviderElement<bool> with CanAffordDramaUnlockRef {
+  _CanAffordDramaUnlockProviderElement(super.provider);
+
+  @override
+  int? get customCost => (origin as CanAffordDramaUnlockProvider).customCost;
+}
+
+String _$episodeUnlockCostHash() => r'd60ef6e6360e3e7bdf3264cd32574d034baa9f75';
+
+/// See also [episodeUnlockCost].
+@ProviderFor(episodeUnlockCost)
+const episodeUnlockCostProvider = EpisodeUnlockCostFamily();
+
+/// See also [episodeUnlockCost].
+class EpisodeUnlockCostFamily extends Family<int> {
+  /// See also [episodeUnlockCost].
+  const EpisodeUnlockCostFamily();
+
+  /// See also [episodeUnlockCost].
+  EpisodeUnlockCostProvider call({
+    int? customCost,
+  }) {
+    return EpisodeUnlockCostProvider(
+      customCost: customCost,
+    );
+  }
+
+  @override
+  EpisodeUnlockCostProvider getProviderOverride(
+    covariant EpisodeUnlockCostProvider provider,
+  ) {
+    return call(
+      customCost: provider.customCost,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'episodeUnlockCostProvider';
+}
+
+/// See also [episodeUnlockCost].
+class EpisodeUnlockCostProvider extends AutoDisposeProvider<int> {
+  /// See also [episodeUnlockCost].
+  EpisodeUnlockCostProvider({
+    int? customCost,
+  }) : this._internal(
+          (ref) => episodeUnlockCost(
+            ref as EpisodeUnlockCostRef,
+            customCost: customCost,
+          ),
+          from: episodeUnlockCostProvider,
+          name: r'episodeUnlockCostProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$episodeUnlockCostHash,
+          dependencies: EpisodeUnlockCostFamily._dependencies,
+          allTransitiveDependencies:
+              EpisodeUnlockCostFamily._allTransitiveDependencies,
+          customCost: customCost,
+        );
+
+  EpisodeUnlockCostProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.customCost,
+  }) : super.internal();
+
+  final int? customCost;
+
+  @override
+  Override overrideWith(
+    int Function(EpisodeUnlockCostRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: EpisodeUnlockCostProvider._internal(
+        (ref) => create(ref as EpisodeUnlockCostRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        customCost: customCost,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<int> createElement() {
+    return _EpisodeUnlockCostProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is EpisodeUnlockCostProvider && other.customCost == customCost;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, customCost.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin EpisodeUnlockCostRef on AutoDisposeProviderRef<int> {
+  /// The parameter `customCost` of this provider.
+  int? get customCost;
+}
+
+class _EpisodeUnlockCostProviderElement extends AutoDisposeProviderElement<int>
+    with EpisodeUnlockCostRef {
+  _EpisodeUnlockCostProviderElement(super.provider);
+
+  @override
+  int? get customCost => (origin as EpisodeUnlockCostProvider).customCost;
+}
+
+String _$dramaUnlockCostHash() => r'6c6ca0ac2988b276bbeedbc03ac315b37c80ad26';
+
+/// See also [dramaUnlockCost].
+@ProviderFor(dramaUnlockCost)
+const dramaUnlockCostProvider = DramaUnlockCostFamily();
+
+/// See also [dramaUnlockCost].
+class DramaUnlockCostFamily extends Family<int> {
+  /// See also [dramaUnlockCost].
+  const DramaUnlockCostFamily();
+
+  /// See also [dramaUnlockCost].
+  DramaUnlockCostProvider call({
+    int? customCost,
+  }) {
+    return DramaUnlockCostProvider(
+      customCost: customCost,
+    );
+  }
+
+  @override
+  DramaUnlockCostProvider getProviderOverride(
+    covariant DramaUnlockCostProvider provider,
+  ) {
+    return call(
+      customCost: provider.customCost,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'dramaUnlockCostProvider';
+}
+
+/// See also [dramaUnlockCost].
+class DramaUnlockCostProvider extends AutoDisposeProvider<int> {
+  /// See also [dramaUnlockCost].
+  DramaUnlockCostProvider({
+    int? customCost,
+  }) : this._internal(
+          (ref) => dramaUnlockCost(
+            ref as DramaUnlockCostRef,
+            customCost: customCost,
+          ),
+          from: dramaUnlockCostProvider,
+          name: r'dramaUnlockCostProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$dramaUnlockCostHash,
+          dependencies: DramaUnlockCostFamily._dependencies,
+          allTransitiveDependencies:
+              DramaUnlockCostFamily._allTransitiveDependencies,
+          customCost: customCost,
+        );
+
+  DramaUnlockCostProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.customCost,
+  }) : super.internal();
+
+  final int? customCost;
+
+  @override
+  Override overrideWith(
+    int Function(DramaUnlockCostRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: DramaUnlockCostProvider._internal(
+        (ref) => create(ref as DramaUnlockCostRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        customCost: customCost,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<int> createElement() {
+    return _DramaUnlockCostProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is DramaUnlockCostProvider && other.customCost == customCost;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, customCost.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin DramaUnlockCostRef on AutoDisposeProviderRef<int> {
+  /// The parameter `customCost` of this provider.
+  int? get customCost;
+}
+
+class _DramaUnlockCostProviderElement extends AutoDisposeProviderElement<int>
+    with DramaUnlockCostRef {
+  _DramaUnlockCostProviderElement(super.provider);
+
+  @override
+  int? get customCost => (origin as DramaUnlockCostProvider).customCost;
+}
+
 String _$nextEpisodeToWatchHash() =>
     r'2f779ea7a1eb9deff99a0687b76379ef305f8133';
 
@@ -307,7 +831,286 @@ class _NextEpisodeToWatchProviderElement extends AutoDisposeProviderElement<int>
   String get dramaId => (origin as NextEpisodeToWatchProvider).dramaId;
 }
 
-String _$dramaActionsHash() => r'7d2ced59f14c5580f424224680554d68bfc91f4e';
+String _$episodeRequiresUnlockHash() =>
+    r'de447b78519ccf75830e1456aacbaf08babdc890';
+
+/// See also [episodeRequiresUnlock].
+@ProviderFor(episodeRequiresUnlock)
+const episodeRequiresUnlockProvider = EpisodeRequiresUnlockFamily();
+
+/// See also [episodeRequiresUnlock].
+class EpisodeRequiresUnlockFamily extends Family<bool> {
+  /// See also [episodeRequiresUnlock].
+  const EpisodeRequiresUnlockFamily();
+
+  /// See also [episodeRequiresUnlock].
+  EpisodeRequiresUnlockProvider call(
+    String dramaId,
+    int episodeNumber,
+  ) {
+    return EpisodeRequiresUnlockProvider(
+      dramaId,
+      episodeNumber,
+    );
+  }
+
+  @override
+  EpisodeRequiresUnlockProvider getProviderOverride(
+    covariant EpisodeRequiresUnlockProvider provider,
+  ) {
+    return call(
+      provider.dramaId,
+      provider.episodeNumber,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'episodeRequiresUnlockProvider';
+}
+
+/// See also [episodeRequiresUnlock].
+class EpisodeRequiresUnlockProvider extends AutoDisposeProvider<bool> {
+  /// See also [episodeRequiresUnlock].
+  EpisodeRequiresUnlockProvider(
+    String dramaId,
+    int episodeNumber,
+  ) : this._internal(
+          (ref) => episodeRequiresUnlock(
+            ref as EpisodeRequiresUnlockRef,
+            dramaId,
+            episodeNumber,
+          ),
+          from: episodeRequiresUnlockProvider,
+          name: r'episodeRequiresUnlockProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$episodeRequiresUnlockHash,
+          dependencies: EpisodeRequiresUnlockFamily._dependencies,
+          allTransitiveDependencies:
+              EpisodeRequiresUnlockFamily._allTransitiveDependencies,
+          dramaId: dramaId,
+          episodeNumber: episodeNumber,
+        );
+
+  EpisodeRequiresUnlockProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.dramaId,
+    required this.episodeNumber,
+  }) : super.internal();
+
+  final String dramaId;
+  final int episodeNumber;
+
+  @override
+  Override overrideWith(
+    bool Function(EpisodeRequiresUnlockRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: EpisodeRequiresUnlockProvider._internal(
+        (ref) => create(ref as EpisodeRequiresUnlockRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        dramaId: dramaId,
+        episodeNumber: episodeNumber,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<bool> createElement() {
+    return _EpisodeRequiresUnlockProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is EpisodeRequiresUnlockProvider &&
+        other.dramaId == dramaId &&
+        other.episodeNumber == episodeNumber;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, dramaId.hashCode);
+    hash = _SystemHash.combine(hash, episodeNumber.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin EpisodeRequiresUnlockRef on AutoDisposeProviderRef<bool> {
+  /// The parameter `dramaId` of this provider.
+  String get dramaId;
+
+  /// The parameter `episodeNumber` of this provider.
+  int get episodeNumber;
+}
+
+class _EpisodeRequiresUnlockProviderElement
+    extends AutoDisposeProviderElement<bool> with EpisodeRequiresUnlockRef {
+  _EpisodeRequiresUnlockProviderElement(super.provider);
+
+  @override
+  String get dramaId => (origin as EpisodeRequiresUnlockProvider).dramaId;
+  @override
+  int get episodeNumber =>
+      (origin as EpisodeRequiresUnlockProvider).episodeNumber;
+}
+
+String _$coinsAfterUnlockHash() => r'f5567cfe2cca23658c1319d6b56a6a5851a48202';
+
+/// See also [coinsAfterUnlock].
+@ProviderFor(coinsAfterUnlock)
+const coinsAfterUnlockProvider = CoinsAfterUnlockFamily();
+
+/// See also [coinsAfterUnlock].
+class CoinsAfterUnlockFamily extends Family<int?> {
+  /// See also [coinsAfterUnlock].
+  const CoinsAfterUnlockFamily();
+
+  /// See also [coinsAfterUnlock].
+  CoinsAfterUnlockProvider call(
+    int unlockCost,
+  ) {
+    return CoinsAfterUnlockProvider(
+      unlockCost,
+    );
+  }
+
+  @override
+  CoinsAfterUnlockProvider getProviderOverride(
+    covariant CoinsAfterUnlockProvider provider,
+  ) {
+    return call(
+      provider.unlockCost,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'coinsAfterUnlockProvider';
+}
+
+/// See also [coinsAfterUnlock].
+class CoinsAfterUnlockProvider extends AutoDisposeProvider<int?> {
+  /// See also [coinsAfterUnlock].
+  CoinsAfterUnlockProvider(
+    int unlockCost,
+  ) : this._internal(
+          (ref) => coinsAfterUnlock(
+            ref as CoinsAfterUnlockRef,
+            unlockCost,
+          ),
+          from: coinsAfterUnlockProvider,
+          name: r'coinsAfterUnlockProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$coinsAfterUnlockHash,
+          dependencies: CoinsAfterUnlockFamily._dependencies,
+          allTransitiveDependencies:
+              CoinsAfterUnlockFamily._allTransitiveDependencies,
+          unlockCost: unlockCost,
+        );
+
+  CoinsAfterUnlockProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.unlockCost,
+  }) : super.internal();
+
+  final int unlockCost;
+
+  @override
+  Override overrideWith(
+    int? Function(CoinsAfterUnlockRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: CoinsAfterUnlockProvider._internal(
+        (ref) => create(ref as CoinsAfterUnlockRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        unlockCost: unlockCost,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<int?> createElement() {
+    return _CoinsAfterUnlockProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CoinsAfterUnlockProvider && other.unlockCost == unlockCost;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, unlockCost.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin CoinsAfterUnlockRef on AutoDisposeProviderRef<int?> {
+  /// The parameter `unlockCost` of this provider.
+  int get unlockCost;
+}
+
+class _CoinsAfterUnlockProviderElement extends AutoDisposeProviderElement<int?>
+    with CoinsAfterUnlockRef {
+  _CoinsAfterUnlockProviderElement(super.provider);
+
+  @override
+  int get unlockCost => (origin as CoinsAfterUnlockProvider).unlockCost;
+}
+
+String _$dramaActionsHash() => r'09659e9ff8f495fd7244c0a250b38c340877dfa1';
 
 /// See also [DramaActions].
 @ProviderFor(DramaActions)
