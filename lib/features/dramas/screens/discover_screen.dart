@@ -91,64 +91,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title
-          Text(
-            'Discover Dramas',
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Search bar
-          Container(
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceVariantColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _isSearching 
-                    ? const Color(0xFFFE2C55) 
-                    : Colors.transparent,
-                width: 1,
-              ),
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 16,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Search dramas...',
-                hintStyle: TextStyle(
-                  color: modernTheme.textSecondaryColor,
-                ),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: _isSearching 
-                      ? const Color(0xFFFE2C55)
-                      : modernTheme.textSecondaryColor,
-                ),
-                suffixIcon: _isSearching
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        color: modernTheme.textSecondaryColor,
-                        onPressed: _clearSearch,
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-            ),
-          ),
-          
+        children: [                    
           // Filter tabs (hidden when searching)
           if (!_isSearching) ...[
             const SizedBox(height: 16),
