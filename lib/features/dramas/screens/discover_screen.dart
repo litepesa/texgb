@@ -20,6 +20,20 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
   String _searchQuery = '';
   bool _isSearching = false;
 
+  // Page controllers for each tab
+  final PageController _allPageController = PageController(viewportFraction: 0.85);
+  final PageController _freePageController = PageController(viewportFraction: 0.85);
+  final PageController _premiumPageController = PageController(viewportFraction: 0.85);
+  final PageController _featuredPageController = PageController(viewportFraction: 0.85);
+  final PageController _searchPageController = PageController(viewportFraction: 0.85);
+
+  // Current indices for page indicators
+  int _allCurrentIndex = 0;
+  int _freeCurrentIndex = 0;
+  int _premiumCurrentIndex = 0;
+  int _featuredCurrentIndex = 0;
+  int _searchCurrentIndex = 0;
+
   final List<String> _filterTabs = ['All', 'Free', 'Premium', 'Featured'];
 
   @override
@@ -32,6 +46,11 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
   void dispose() {
     _searchController.dispose();
     _tabController.dispose();
+    _allPageController.dispose();
+    _freePageController.dispose();
+    _premiumPageController.dispose();
+    _featuredPageController.dispose();
+    _searchPageController.dispose();
     super.dispose();
   }
 
@@ -52,6 +71,19 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
       _searchQuery = '';
       _isSearching = false;
     });
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Free':
+        return Icons.money_off;
+      case 'Premium':
+        return Icons.lock;
+      case 'Featured':
+        return Icons.star;
+      default:
+        return Icons.grid_view;
+    }
   }
 
   @override
@@ -140,24 +172,102 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
           
           // Filter tabs (hidden when searching)
           if (!_isSearching) ...[
-            const SizedBox(height: 16),
-            TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              labelColor: const Color(0xFFFE2C55),
-              unselectedLabelColor: modernTheme.textSecondaryColor,
-              indicatorColor: const Color(0xFFFE2C55),
-              indicatorWeight: 3,
-              labelStyle: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
+            const SizedBox(height: 8),
+            Container(
+              margin: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              decoration: BoxDecoration(
+                color: modernTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: modernTheme.dividerColor!.withOpacity(0.15),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: modernTheme.primaryColor!.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                    spreadRadius: -2,
+                  ),
+                ],
               ),
-              unselectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
+              child: Row(
+                children: _filterTabs.map((category) {
+                  final isSelected = _tabController.index == _filterTabs.indexOf(category);
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _tabController.index = _filterTabs.indexOf(category);
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: isSelected ? Border(
+                            bottom: BorderSide(
+                              color: modernTheme.primaryColor!,
+                              width: 3,
+                            ),
+                          ) : null,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: isSelected 
+                                  ? modernTheme.primaryColor!.withOpacity(0.15)
+                                  : modernTheme.primaryColor!.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(
+                                _getCategoryIcon(category),
+                                color: isSelected 
+                                  ? modernTheme.primaryColor 
+                                  : modernTheme.textSecondaryColor,
+                                size: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 200),
+                                style: TextStyle(
+                                  color: isSelected 
+                                    ? modernTheme.primaryColor 
+                                    : modernTheme.textSecondaryColor,
+                                  fontWeight: isSelected 
+                                    ? FontWeight.w700 
+                                    : FontWeight.w500,
+                                  fontSize: 12,
+                                  letterSpacing: 0.1,
+                                ),
+                                child: Text(
+                                  category,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
-              tabs: _filterTabs.map((filter) => Tab(text: filter)).toList(),
             ),
           ],
         ],
@@ -174,7 +284,42 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
           return _buildEmptyState('No dramas found for "$_searchQuery"', Icons.search_off);
         }
         
-        return _buildDramaGrid(dramas);
+        return Column(
+          children: [
+            // Page indicator
+            if (dramas.isNotEmpty) _buildPageIndicator(dramas.length, _searchCurrentIndex),
+            
+            // Carousel
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => ref.read(searchDramasProvider(_searchQuery).notifier).search(_searchQuery),
+                backgroundColor: context.modernTheme.surfaceColor,
+                color: context.modernTheme.textColor,
+                child: PageView.builder(
+                  controller: _searchPageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _searchCurrentIndex = index;
+                    });
+                  },
+                  itemCount: dramas.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+                      child: DramaCard(
+                        drama: dramas[index],
+                        onTap: () => _navigateToDramaDetails(dramas[index].dramaId),
+                        showProgress: true,
+                        index: index,
+                        pageController: _searchPageController,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFFE2C55))),
       error: (error, stack) => _buildErrorState('Search failed', error.toString()),
@@ -202,10 +347,41 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
           return _buildEmptyState('No dramas available yet', Icons.tv_off);
         }
         
-        return RefreshIndicator(
-          onRefresh: () => ref.read(allDramasProvider.notifier).refresh(),
-          color: const Color(0xFFFE2C55),
-          child: _buildDramaGrid(dramaState.dramas, hasMore: dramaState.hasMore),
+        return Column(
+          children: [
+            // Page indicator
+            _buildPageIndicator(dramaState.dramas.length, _allCurrentIndex),
+            
+            // Main carousel
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => ref.read(allDramasProvider.notifier).refresh(),
+                backgroundColor: context.modernTheme.surfaceColor,
+                color: context.modernTheme.textColor,
+                child: PageView.builder(
+                  controller: _allPageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _allCurrentIndex = index;
+                    });
+                  },
+                  itemCount: dramaState.dramas.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+                      child: DramaCard(
+                        drama: dramaState.dramas[index],
+                        onTap: () => _navigateToDramaDetails(dramaState.dramas[index].dramaId),
+                        showProgress: true,
+                        index: index,
+                        pageController: _allPageController,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFFE2C55))),
@@ -222,10 +398,41 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
           return _buildEmptyState('No free dramas available', Icons.money_off);
         }
         
-        return RefreshIndicator(
-          onRefresh: () => ref.read(freeDramasProvider.notifier).refresh(),
-          color: const Color(0xFFFE2C55),
-          child: _buildDramaGrid(dramas),
+        return Column(
+          children: [
+            // Page indicator
+            _buildPageIndicator(dramas.length, _freeCurrentIndex),
+            
+            // Main carousel
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => ref.read(freeDramasProvider.notifier).refresh(),
+                backgroundColor: context.modernTheme.surfaceColor,
+                color: context.modernTheme.textColor,
+                child: PageView.builder(
+                  controller: _freePageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _freeCurrentIndex = index;
+                    });
+                  },
+                  itemCount: dramas.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+                      child: DramaCard(
+                        drama: dramas[index],
+                        onTap: () => _navigateToDramaDetails(dramas[index].dramaId),
+                        showProgress: true,
+                        index: index,
+                        pageController: _freePageController,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFFE2C55))),
@@ -242,10 +449,41 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
           return _buildEmptyState('No premium dramas available', Icons.lock);
         }
         
-        return RefreshIndicator(
-          onRefresh: () => ref.read(premiumDramasProvider.notifier).refresh(),
-          color: const Color(0xFFFE2C55),
-          child: _buildDramaGrid(dramas),
+        return Column(
+          children: [
+            // Page indicator
+            _buildPageIndicator(dramas.length, _premiumCurrentIndex),
+            
+            // Main carousel
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => ref.read(premiumDramasProvider.notifier).refresh(),
+                backgroundColor: context.modernTheme.surfaceColor,
+                color: context.modernTheme.textColor,
+                child: PageView.builder(
+                  controller: _premiumPageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _premiumCurrentIndex = index;
+                    });
+                  },
+                  itemCount: dramas.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+                      child: DramaCard(
+                        drama: dramas[index],
+                        onTap: () => _navigateToDramaDetails(dramas[index].dramaId),
+                        showProgress: true,
+                        index: index,
+                        pageController: _premiumPageController,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFFE2C55))),
@@ -262,10 +500,41 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
           return _buildEmptyState('No featured dramas available', Icons.star_border);
         }
         
-        return RefreshIndicator(
-          onRefresh: () => ref.read(featuredDramasProvider.notifier).refresh(),
-          color: const Color(0xFFFE2C55),
-          child: _buildDramaGrid(dramas),
+        return Column(
+          children: [
+            // Page indicator
+            _buildPageIndicator(dramas.length, _featuredCurrentIndex),
+            
+            // Main carousel
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => ref.read(featuredDramasProvider.notifier).refresh(),
+                backgroundColor: context.modernTheme.surfaceColor,
+                color: context.modernTheme.textColor,
+                child: PageView.builder(
+                  controller: _featuredPageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _featuredCurrentIndex = index;
+                    });
+                  },
+                  itemCount: dramas.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+                      child: DramaCard(
+                        drama: dramas[index],
+                        onTap: () => _navigateToDramaDetails(dramas[index].dramaId),
+                        showProgress: true,
+                        index: index,
+                        pageController: _featuredPageController,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFFE2C55))),
@@ -273,50 +542,34 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
     );
   }
 
-  Widget _buildDramaGrid(List<DramaModel> dramas, {bool hasMore = false}) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.7,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: dramas.length + (hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (hasMore && index == dramas.length) {
-          // Load more button
-          return _buildLoadMoreButton();
-        }
-        
-        return DramaCard(
-          drama: dramas[index],
-          onTap: () => _navigateToDramaDetails(dramas[index].dramaId),
-        );
-      },
-    );
-  }
-
-  Widget _buildLoadMoreButton() {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      child: ElevatedButton(
-        onPressed: () => ref.read(allDramasProvider.notifier).loadMore(),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFE2C55).withOpacity(0.1),
-          foregroundColor: const Color(0xFFFE2C55),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add),
-            SizedBox(height: 4),
-            Text('Load More'),
-          ],
+  Widget _buildPageIndicator(int totalItems, int currentIndex) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(
+          totalItems > 10 ? 10 : totalItems, // Limit dots to 10
+          (index) {
+            // For more than 10 items, show relative position
+            int displayIndex = totalItems > 10 
+                ? (currentIndex < 5 ? index : (currentIndex > totalItems - 6 ? index + totalItems - 10 : index + currentIndex - 4))
+                : index;
+            
+            bool isActive = displayIndex == currentIndex;
+            
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 3.0),
+              height: 6.0,
+              width: isActive ? 20.0 : 6.0,
+              decoration: BoxDecoration(
+                color: isActive 
+                    ? context.modernTheme.textColor 
+                    : context.modernTheme.textSecondaryColor,
+                borderRadius: BorderRadius.circular(3.0),
+              ),
+            );
+          },
         ),
       ),
     );
