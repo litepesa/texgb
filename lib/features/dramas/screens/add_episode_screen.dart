@@ -2,7 +2,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
@@ -26,11 +25,8 @@ class AddEpisodeScreen extends ConsumerStatefulWidget {
 
 class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _episodeTitleController = TextEditingController();
   final _episodeNumberController = TextEditingController();
-  final _videoDurationController = TextEditingController();
 
-  File? _thumbnailImage;
   File? _videoFile;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
@@ -50,9 +46,7 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
 
   @override
   void dispose() {
-    _episodeTitleController.dispose();
     _episodeNumberController.dispose();
-    _videoDurationController.dispose();
     super.dispose();
   }
 
@@ -107,7 +101,7 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
         return episodesAsync.when(
           data: (episodes) {
             // Auto-set next episode number
-            if (_episodeNumberController.text.isEmpty && episodes.isNotEmpty) {
+            if (_episodeNumberController.text.isEmpty) {
               final nextEpisodeNumber = episodes.length + 1;
               _episodeNumberController.text = nextEpisodeNumber.toString();
             }
@@ -175,7 +169,7 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
             TextButton(
               onPressed: _addEpisode,
               child: const Text(
-                'Add',
+                'Upload',
                 style: TextStyle(
                   color: Color(0xFFFE2C55),
                   fontWeight: FontWeight.bold,
@@ -193,13 +187,9 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
             children: [
               if (episodes.isNotEmpty) _buildExistingEpisodes(modernTheme, episodes),
               const SizedBox(height: 24),
-              _buildEpisodeInfoSection(modernTheme),
-              const SizedBox(height: 24),
-              _buildThumbnailSection(modernTheme),
-              const SizedBox(height: 24),
-              _buildVideoSection(modernTheme),
+              _buildSimpleUploadSection(modernTheme),
               const SizedBox(height: 32),
-              _buildAddButton(),
+              _buildUploadButton(),
               if (_isUploading) ...[
                 const SizedBox(height: 16),
                 _buildUploadProgress(),
@@ -243,369 +233,327 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 60,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: episodes.length,
-              itemBuilder: (context, index) {
-                final episode = episodes[index];
-                return Container(
-                  width: 80,
-                  margin: const EdgeInsets.only(right: 8),
+          if (episodes.length <= 5)
+            // Show list for few episodes
+            Column(
+              children: episodes.map((episode) => 
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: modernTheme.surfaceVariantColor,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: modernTheme.textSecondaryColor?.withOpacity(0.2) ?? Colors.grey,
-                      width: 1,
-                    ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Row(
                     children: [
-                      Text(
-                        'Ep ${episode.episodeNumber}',
-                        style: TextStyle(
-                          color: modernTheme.textColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFE2C55),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Ep ${episode.episodeNumber}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                      Text(
-                        episode.formattedDuration,
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor,
-                          fontSize: 10,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          episode.formattedDuration,
+                          style: TextStyle(
+                            color: modernTheme.textColor,
+                            fontSize: 14,
+                          ),
                         ),
+                      ),
+                      Icon(
+                        Icons.check_circle,
+                        color: Colors.green.shade400,
+                        size: 16,
                       ),
                     ],
                   ),
-                );
-              },
+                ),
+              ).toList(),
+            )
+          else
+            // Show horizontal scroll for many episodes
+            SizedBox(
+              height: 60,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: episodes.length,
+                itemBuilder: (context, index) {
+                  final episode = episodes[index];
+                  return Container(
+                    width: 80,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: modernTheme.surfaceVariantColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Ep ${episode.episodeNumber}',
+                          style: TextStyle(
+                            color: modernTheme.textColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Icon(
+                          Icons.check_circle,
+                          color: Colors.green.shade400,
+                          size: 16,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildEpisodeInfoSection(ModernThemeExtension modernTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Episode Information',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+  Widget _buildSimpleUploadSection(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _videoFile != null 
+              ? const Color(0xFFFE2C55).withOpacity(0.3)
+              : modernTheme.textSecondaryColor?.withOpacity(0.2) ?? Colors.grey,
+          width: 2,
         ),
-        const SizedBox(height: 16),
-        
-        // Episode number and title row
-        Row(
-          children: [
-            Expanded(
-              flex: 1,
-              child: TextFormField(
-                controller: _episodeNumberController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Episode #',
-                  hintText: 'e.g. 1',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: modernTheme.surfaceColor,
-                ),
-                style: TextStyle(color: modernTheme.textColor),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Required';
-                  }
-                  final number = int.tryParse(value.trim());
-                  if (number == null || number <= 0) {
-                    return 'Invalid';
-                  }
-                  return null;
-                },
+      ),
+      child: Column(
+        children: [
+          // Episode Number Input
+          Row(
+            children: [
+              Icon(
+                Icons.numbers,
+                color: modernTheme.textSecondaryColor,
+                size: 24,
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 3,
-              child: TextFormField(
-                controller: _episodeTitleController,
-                decoration: InputDecoration(
-                  labelText: 'Episode Title (Optional)',
-                  hintText: 'Enter episode title',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: modernTheme.surfaceColor,
-                ),
-                style: TextStyle(color: modernTheme.textColor),
-                validator: (value) {
-                  if (value != null && value.trim().isNotEmpty) {
-                    if (value.trim().length > Constants.maxEpisodeTitleLength) {
-                      return 'Too long (max ${Constants.maxEpisodeTitleLength})';
-                    }
-                  }
-                  return null;
-                },
-              ),
-            ),
-          ],
-        ),
-        
-        const SizedBox(height: 16),
-        
-        // Video duration
-        TextFormField(
-          controller: _videoDurationController,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: 'Video Duration (seconds)',
-            hintText: 'e.g. 300 for 5 minutes',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            filled: true,
-            fillColor: modernTheme.surfaceColor,
-            suffixIcon: Icon(
-              Icons.timer,
-              color: modernTheme.textSecondaryColor,
-            ),
-          ),
-          style: TextStyle(color: modernTheme.textColor),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Please enter video duration in seconds';
-            }
-            final duration = int.tryParse(value.trim());
-            if (duration == null || duration <= 0) {
-              return 'Please enter a valid duration';
-            }
-            return null;
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildThumbnailSection(ModernThemeExtension modernTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Episode Thumbnail',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _pickThumbnailImage,
-          child: Container(
-            width: double.infinity,
-            height: 150,
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceVariantColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: modernTheme.textSecondaryColor?.withOpacity(0.3) ?? Colors.grey,
-                width: 2,
-                style: BorderStyle.solid,
-              ),
-            ),
-            child: _thumbnailImage != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.file(
-                      _thumbnailImage!,
-                      fit: BoxFit.cover,
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _episodeNumberController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Episode Number',
+                    hintText: 'Enter episode number',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_a_photo,
-                        size: 40,
-                        color: modernTheme.textSecondaryColor,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap to add thumbnail',
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        'Recommended: 16:9 aspect ratio',
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                    filled: true,
+                    fillColor: modernTheme.surfaceVariantColor,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
-          ),
-        ),
-        if (_thumbnailImage != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                TextButton.icon(
-                  onPressed: _pickThumbnailImage,
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Change'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFFE2C55),
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter episode number';
+                    }
+                    final number = int.tryParse(value.trim());
+                    if (number == null || number <= 0) {
+                      return 'Please enter a valid episode number';
+                    }
+                    return null;
+                  },
                 ),
-                TextButton.icon(
-                  onPressed: () => setState(() => _thumbnailImage = null),
-                  icon: const Icon(Icons.delete, size: 16),
-                  label: const Text('Remove'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red.shade400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildVideoSection(ModernThemeExtension modernTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Episode Video',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _pickVideoFile,
-          child: Container(
-            width: double.infinity,
-            height: 120,
-            decoration: BoxDecoration(
-              color: modernTheme.surfaceVariantColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _videoFile != null 
-                    ? Colors.green.shade400 
-                    : modernTheme.textSecondaryColor?.withOpacity(0.3) ?? Colors.grey,
-                width: 2,
-                style: BorderStyle.solid,
               ),
-            ),
-            child: _videoFile != null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.video_file,
-                        size: 40,
-                        color: Colors.green.shade400,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Video Selected',
-                        style: TextStyle(
-                          color: modernTheme.textColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        _getFileName(_videoFile!.path),
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor,
-                          fontSize: 12,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.video_call,
-                        size: 40,
-                        color: modernTheme.textSecondaryColor,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap to select video',
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        'Supported: ${Constants.supportedVideoFormats.join(', ')}',
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor?.withOpacity(0.7),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+            ],
           ),
-        ),
-        if (_videoFile != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                TextButton.icon(
-                  onPressed: _pickVideoFile,
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Change Video'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFFE2C55),
+
+          const SizedBox(height: 24),
+
+          // Video Upload Section
+          _videoFile != null 
+              ? GestureDetector(
+                  onTap: _pickVideoFile,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.green.shade300,
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.video_file,
+                            size: 32,
+                            color: Colors.green.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Video Selected',
+                          style: TextStyle(
+                            color: modernTheme.textColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _getFileName(_videoFile!.path),
+                          style: TextStyle(
+                            color: modernTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            TextButton.icon(
+                              onPressed: _pickVideoFile,
+                              icon: const Icon(Icons.swap_horiz, size: 16),
+                              label: const Text('Change'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFFFE2C55),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              onPressed: () => setState(() => _videoFile = null),
+                              icon: const Icon(Icons.delete, size: 16),
+                              label: const Text('Remove'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red.shade400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _buildDashedBorder(
+                  child: GestureDetector(
+                    onTap: _pickVideoFile,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFE2C55).withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.video_call,
+                              size: 32,
+                              color: Color(0xFFFE2C55),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Select Video File',
+                            style: TextStyle(
+                              color: modernTheme.textColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tap to choose video file from your device',
+                            style: TextStyle(
+                              color: modernTheme.textSecondaryColor,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: modernTheme.textSecondaryColor?.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Supported: ${Constants.supportedVideoFormats.join(', ')}',
+                              style: TextStyle(
+                                color: modernTheme.textSecondaryColor,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: () => setState(() => _videoFile = null),
-                  icon: const Icon(Icons.delete, size: 16),
-                  label: const Text('Remove'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red.shade400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildAddButton() {
+  Widget _buildUploadButton() {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
+      child: ElevatedButton.icon(
         onPressed: (_isUploading || _videoFile == null) ? null : _addEpisode,
+        icon: _isUploading
+            ? SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  value: _uploadProgress,
+                  strokeWidth: 2,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Icon(Icons.upload),
+        label: Text(
+          _isUploading
+              ? 'Uploading ${(_uploadProgress * 100).toInt()}%'
+              : _videoFile != null 
+                  ? 'Upload Episode' 
+                  : 'Select Video First',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFE2C55),
           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -613,30 +561,6 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child: _isUploading
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      value: _uploadProgress,
-                      strokeWidth: 2,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('Uploading ${(_uploadProgress * 100).toInt()}%'),
-                ],
-              )
-            : Text(
-                _videoFile != null ? 'Add Episode' : 'Select Video First',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
       ),
     );
   }
@@ -688,7 +612,7 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Please do not close this screen while uploading.',
+            'Please keep this screen open while uploading.',
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey,
@@ -816,20 +740,6 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
     );
   }
 
-  Future<void> _pickThumbnailImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
-
-    if (pickedFile != null) {
-      setState(() {
-        _thumbnailImage = File(pickedFile.path);
-      });
-    }
-  }
-
   Future<void> _pickVideoFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.video,
@@ -839,9 +749,9 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
       
-      // Check file size (optional - you might want to set a limit)
+      // Check file size (500MB limit)
       final fileSizeInMB = await file.length() / (1024 * 1024);
-      if (fileSizeInMB > 500) { // 500MB limit
+      if (fileSizeInMB > 500) {
         if (mounted) {
           showSnackBar(context, 'Video file is too large (max 500MB)');
         }
@@ -877,26 +787,40 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
 
     try {
       final now = DateTime.now().microsecondsSinceEpoch.toString();
+      final episodeNumber = int.parse(_episodeNumberController.text.trim());
+      
+      // Get video duration (you'll need to implement this)
+      final videoDurationSeconds = await _getVideoDuration(_videoFile!);
       
       final episode = EpisodeModel(
         episodeId: '', // Will be set by repository
         dramaId: widget.dramaId,
-        episodeNumber: int.parse(_episodeNumberController.text.trim()),
-        episodeTitle: _episodeTitleController.text.trim(),
-        videoDuration: int.parse(_videoDurationController.text.trim()),
+        episodeNumber: episodeNumber,
+        episodeTitle: '', // Auto-generated or empty
+        videoDuration: videoDurationSeconds,
         releasedAt: now,
         uploadedBy: currentUser.uid,
         createdAt: now,
         updatedAt: now,
       );
 
+      // Simulate upload progress
+      for (double progress = 0.1; progress <= 1.0; progress += 0.1) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          setState(() {
+            _uploadProgress = progress;
+          });
+        }
+      }
+
       final repository = ref.read(dramaRepositoryProvider);
       
-      // Upload with progress tracking
+      // Upload episode (simplified - only video file, no thumbnail)
       final episodeId = await repository.addEpisode(
         episode,
-        thumbnailImage: _thumbnailImage,
         videoFile: _videoFile,
+        // No thumbnail parameter
       );
 
       if (mounted) {
@@ -904,12 +828,17 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
         ref.invalidate(dramaEpisodesProvider(widget.dramaId));
         ref.invalidate(dramaProvider(widget.dramaId));
         
-        showSnackBar(context, Constants.episodeAdded);
-        Navigator.of(context).pop();
+        showSnackBar(context, 'Episode uploaded successfully!');
+        
+        // Reset form for next episode
+        _episodeNumberController.text = (episodeNumber + 1).toString();
+        setState(() {
+          _videoFile = null;
+        });
       }
     } catch (e) {
       if (mounted) {
-        showSnackBar(context, 'Failed to add episode: $e');
+        showSnackBar(context, 'Failed to upload episode: $e');
       }
     } finally {
       if (mounted) {
@@ -924,4 +853,63 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
   String _getFileName(String path) {
     return path.split('/').last;
   }
+
+  // Simple duration estimation - replace with actual video duration detection
+  Future<int> _getVideoDuration(File videoFile) async {
+    // For now, return a default duration
+    // In production, you'd use a package like video_player or ffmpeg to get actual duration
+    return 300; // 5 minutes default
+  }
+
+  // Custom dashed border widget
+  Widget _buildDashedBorder({required Widget child}) {
+    return CustomPaint(
+      painter: DashedBorderPainter(),
+      child: Container(
+        decoration: BoxDecoration(
+          color: context.modernTheme.surfaceVariantColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+// Custom painter for dashed border
+class DashedBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.grey.withOpacity(0.5)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    const dashWidth = 8.0;
+    const dashSpace = 4.0;
+    
+    final path = Path();
+    path.addRRect(RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      const Radius.circular(12),
+    ));
+    
+    _drawDashedPath(canvas, path, paint, dashWidth, dashSpace);
+  }
+
+  void _drawDashedPath(Canvas canvas, Path path, Paint paint, double dashWidth, double dashSpace) {
+    final pathMetrics = path.computeMetrics();
+    for (final pathMetric in pathMetrics) {
+      double distance = 0.0;
+      while (distance < pathMetric.length) {
+        final nextDistance = distance + dashWidth;
+        final dashedPath = pathMetric.extractPath(distance, nextDistance.clamp(0.0, pathMetric.length));
+        canvas.drawPath(dashedPath, paint);
+        distance = nextDistance + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

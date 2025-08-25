@@ -86,6 +86,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         child: Column(
           children: [
             _buildHeader(modernTheme, currentUser.name),
+            _buildQuickActions(modernTheme),
             _buildStatsCards(modernTheme),
             Expanded(
               child: _buildDramasList(modernTheme, adminDramas),
@@ -97,7 +98,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         onPressed: () => Navigator.pushNamed(context, Constants.createDramaScreen),
         backgroundColor: const Color(0xFFFE2C55),
         icon: const Icon(Icons.add),
-        label: const Text('Add Drama'),
+        label: const Text('New Drama'),
       ),
     );
   }
@@ -161,38 +162,148 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             ),
             onSelected: (value) {
               switch (value) {
-                case 'manage_dramas':
+                case 'manage_all':
                   Navigator.pushNamed(context, Constants.manageDramasScreen);
                   break;
                 case 'settings':
                   Navigator.pushNamed(context, Constants.settingsScreen);
                   break;
+                case 'refresh':
+                  ref.invalidate(adminDramasProvider);
+                  showSnackBar(context, 'Data refreshed');
+                  break;
               }
             },
             itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'manage_dramas',
+              const PopupMenuItem(
+                value: 'manage_all',
                 child: Row(
                   children: [
-                    const Icon(Icons.manage_search),
-                    const SizedBox(width: 8),
-                    const Text('Manage All Dramas'),
+                    Icon(Icons.manage_search),
+                    SizedBox(width: 8),
+                    Text('Manage All Dramas'),
                   ],
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh),
+                    SizedBox(width: 8),
+                    Text('Refresh'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'settings',
                 child: Row(
                   children: [
-                    const Icon(Icons.settings),
-                    const SizedBox(width: 8),
-                    const Text('Settings'),
+                    Icon(Icons.settings),
+                    SizedBox(width: 8),
+                    Text('Settings'),
                   ],
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildQuickActionCard(
+              modernTheme,
+              icon: Icons.add_circle,
+              title: 'New Drama',
+              subtitle: 'Create a new drama series',
+              color: const Color(0xFFFE2C55),
+              onTap: () => Navigator.pushNamed(context, Constants.createDramaScreen),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildQuickActionCard(
+              modernTheme,
+              icon: Icons.manage_search,
+              title: 'Manage All',
+              subtitle: 'View & manage all dramas',
+              color: Colors.blue.shade400,
+              onTap: () => Navigator.pushNamed(context, Constants.manageDramasScreen),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionCard(
+    ModernThemeExtension modernTheme, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: modernTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color.withOpacity(0.2),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -206,21 +317,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         final activeDramas = dramas.where((d) => d.isActive).length;
         final premiumDramas = dramas.where((d) => d.isPremium).length;
         final totalViews = dramas.fold<int>(0, (sum, drama) => sum + drama.viewCount);
+        final drafts = dramas.where((d) => d.totalEpisodes == 0).length;
 
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
               Expanded(
                 child: _buildStatCard(
                   modernTheme,
                   icon: Icons.tv,
-                  title: 'Total Dramas',
+                  title: 'Total',
                   value: totalDramas.toString(),
                   color: Colors.blue.shade400,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatCard(
                   modernTheme,
@@ -230,22 +342,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   color: Colors.green.shade400,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatCard(
                   modernTheme,
-                  icon: Icons.workspace_premium,
-                  title: 'Premium',
-                  value: premiumDramas.toString(),
+                  icon: Icons.edit_note,
+                  title: 'Drafts',
+                  value: drafts.toString(),
                   color: Colors.orange.shade400,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatCard(
                   modernTheme,
                   icon: Icons.visibility,
-                  title: 'Total Views',
+                  title: 'Views',
                   value: _formatCount(totalViews),
                   color: Colors.purple.shade400,
                 ),
@@ -255,13 +367,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         );
       },
       loading: () => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: List.generate(4, (index) => 
             Expanded(
               child: Container(
-                height: 80,
-                margin: EdgeInsets.only(right: index < 3 ? 12 : 0),
+                height: 70,
+                margin: EdgeInsets.only(right: index < 3 ? 8 : 0),
                 decoration: BoxDecoration(
                   color: modernTheme.surfaceVariantColor,
                   borderRadius: BorderRadius.circular(12),
@@ -289,7 +401,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: modernTheme.surfaceColor,
         borderRadius: BorderRadius.circular(12),
@@ -307,14 +419,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           Icon(
             icon,
             color: color,
-            size: 24,
+            size: 20,
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: TextStyle(
               color: modernTheme.textColor,
-              fontSize: 20,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -322,7 +434,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             title,
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
-              fontSize: 12,
+              fontSize: 10,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -341,6 +453,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -354,15 +467,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
               TextButton.icon(
                 onPressed: () => Navigator.pushNamed(context, Constants.manageDramasScreen),
-                icon: const Icon(Icons.manage_search, size: 16),
-                label: const Text('Manage All'),
+                icon: const Icon(Icons.arrow_forward, size: 16),
+                label: const Text('View All'),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFFFE2C55),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Expanded(
             child: adminDramas.when(
               data: (dramas) {
@@ -384,7 +497,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     itemCount: dramas.length,
                     itemBuilder: (context, index) {
                       final drama = dramas[index];
-                      return _buildAdminDramaCard(drama);
+                      return _buildEnhancedDramaCard(drama);
                     },
                   ),
                 );
@@ -400,11 +513,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildAdminDramaCard(dynamic drama) {
+  Widget _buildEnhancedDramaCard(dynamic drama) {
+    final bool hasDrafts = drama.totalEpisodes == 0;
+    final bool needsEpisodes = drama.totalEpisodes < 3; // Suggest adding more if less than 3 episodes
+    
     return GestureDetector(
       onTap: () => Navigator.pushNamed(
         context,
-        Constants.editDramaScreen,
+        Constants.dramaDetailsScreen,
         arguments: {'dramaId': drama.dramaId},
       ),
       child: Stack(
@@ -418,129 +534,240 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             ),
           ),
           
-          // Admin status overlay
+          // Status indicators
           Positioned(
             top: 8,
             left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: drama.isActive 
-                    ? Colors.green.shade600 
-                    : Colors.red.shade600,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Text(
-                drama.isActive ? 'Active' : 'Inactive',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-
-          // Admin actions menu
-          Positioned(
-            top: 4,
-            right: 4,
-            child: PopupMenuButton<String>(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.more_vert,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    Navigator.pushNamed(
-                      context,
-                      Constants.editDramaScreen,
-                      arguments: {'dramaId': drama.dramaId},
-                    );
-                    break;
-                  case 'episodes':
-                    Navigator.pushNamed(
-                      context,
-                      Constants.addEpisodeScreen,
-                      arguments: {'dramaId': drama.dramaId},
-                    );
-                    break;
-                  case 'toggle_featured':
-                    ref.read(adminDramaActionsProvider.notifier)
-                        .toggleFeatured(drama.dramaId, !drama.isFeatured);
-                    break;
-                  case 'toggle_active':
-                    ref.read(adminDramaActionsProvider.notifier)
-                        .toggleActive(drama.dramaId, !drama.isActive);
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.edit, size: 16),
-                      const SizedBox(width: 8),
-                      const Text('Edit Drama'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'episodes',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.video_library, size: 16),
-                      const SizedBox(width: 8),
-                      const Text('Manage Episodes'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'toggle_featured',
-                  child: Row(
-                    children: [
-                      Icon(
-                        drama.isFeatured ? Icons.star : Icons.star_border,
-                        size: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Draft/Episode status
+                if (hasDrafts)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade600,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.edit_note, size: 12, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text(
+                          'Draft',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (needsEpisodes)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade600,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      '${drama.totalEpisodes} Eps',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(width: 8),
-                      Text(drama.isFeatured ? 'Unfeature' : 'Feature'),
+                    ),
+                  ),
+                
+                const SizedBox(height: 4),
+                
+                // Active/Inactive status
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: drama.isActive 
+                        ? Colors.green.shade600 
+                        : Colors.red.shade600,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'toggle_active',
-                  child: Row(
-                    children: [
-                      Icon(
-                        drama.isActive ? Icons.pause_circle : Icons.play_circle,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(drama.isActive ? 'Deactivate' : 'Activate'),
-                    ],
+                  child: Text(
+                    drama.isActive ? 'Active' : 'Inactive',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+
+          // Quick action button - prominently placed for drafts
+          if (hasDrafts)
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  Constants.addEpisodeScreen,
+                  arguments: {'dramaId': drama.dramaId},
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFE2C55),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFE2C55).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'Add Episodes',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // Standard admin menu for dramas with episodes
+          if (!hasDrafts)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: PopupMenuButton<String>(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.more_vert,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit':
+                      Navigator.pushNamed(
+                        context,
+                        Constants.editDramaScreen,
+                        arguments: {'dramaId': drama.dramaId},
+                      );
+                      break;
+                    case 'episodes':
+                      Navigator.pushNamed(
+                        context,
+                        Constants.addEpisodeScreen,
+                        arguments: {'dramaId': drama.dramaId},
+                      );
+                      break;
+                    case 'toggle_featured':
+                      ref.read(adminDramaActionsProvider.notifier)
+                          .toggleFeatured(drama.dramaId, !drama.isFeatured);
+                      break;
+                    case 'toggle_active':
+                      ref.read(adminDramaActionsProvider.notifier)
+                          .toggleActive(drama.dramaId, !drama.isActive);
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 16),
+                        SizedBox(width: 8),
+                        Text('Edit Drama'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'episodes',
+                    child: Row(
+                      children: [
+                        Icon(Icons.video_library, size: 16),
+                        SizedBox(width: 8),
+                        Text('Add Episodes'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'toggle_featured',
+                    child: Row(
+                      children: [
+                        Icon(
+                          drama.isFeatured ? Icons.star : Icons.star_border,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(drama.isFeatured ? 'Unfeature' : 'Feature'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'toggle_active',
+                    child: Row(
+                      children: [
+                        Icon(
+                          drama.isActive ? Icons.pause_circle : Icons.play_circle,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(drama.isActive ? 'Deactivate' : 'Activate'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -590,6 +817,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               backgroundColor: const Color(0xFFFE2C55),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Tip: After creating a drama, add episodes to make it available to viewers',
+            style: TextStyle(
+              color: modernTheme.textSecondaryColor?.withOpacity(0.8),
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
