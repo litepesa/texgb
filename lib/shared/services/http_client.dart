@@ -6,7 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 class HttpClientService {
-  static const String _baseUrl = 'https://your-backend-domain.com/api'; // Update with your actual backend URL
+  // Update this to your local Go server
+  static const String _baseUrl = kDebugMode 
+    ? 'http://localhost:8080/api/v1'  // Local development
+    : 'https://your-production-domain.com/api/v1';  // Production
+  
   static const Duration _timeout = Duration(seconds: 30);
 
   // Singleton pattern
@@ -42,15 +46,37 @@ class HttpClientService {
     return headers;
   }
 
+  // Test connection to the Go backend
+  Future<bool> testConnection() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${_baseUrl.replaceAll('/api/v1', '')}/health')
+      ).timeout(const Duration(seconds: 5));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        debugPrint('Backend health check: ${data.toString()}');
+        return data['status'] == 'healthy';
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Connection test failed: $e');
+      return false;
+    }
+  }
+
   // GET request
   Future<http.Response> get(String endpoint) async {
     final url = Uri.parse('$_baseUrl$endpoint');
     final headers = await _getHeaders();
 
     try {
+      debugPrint('GET: $url');
       final response = await http.get(url, headers: headers).timeout(_timeout);
+      debugPrint('Response: ${response.statusCode} - ${response.body}');
       return response;
     } catch (e) {
+      debugPrint('GET request failed: $e');
       throw HttpException('GET request failed: $e');
     }
   }
@@ -61,13 +87,19 @@ class HttpClientService {
     final headers = await _getHeaders();
 
     try {
+      debugPrint('POST: $url');
+      if (body != null) debugPrint('Body: ${jsonEncode(body)}');
+      
       final response = await http.post(
         url,
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
       ).timeout(_timeout);
+      
+      debugPrint('Response: ${response.statusCode} - ${response.body}');
       return response;
     } catch (e) {
+      debugPrint('POST request failed: $e');
       throw HttpException('POST request failed: $e');
     }
   }
@@ -78,6 +110,7 @@ class HttpClientService {
     final headers = await _getHeaders();
 
     try {
+      debugPrint('PUT: $url');
       final response = await http.put(
         url,
         headers: headers,
@@ -95,6 +128,7 @@ class HttpClientService {
     final headers = await _getHeaders();
 
     try {
+      debugPrint('DELETE: $url');
       final response = await http.delete(url, headers: headers).timeout(_timeout);
       return response;
     } catch (e) {
@@ -113,6 +147,7 @@ class HttpClientService {
     final token = await _getAuthToken();
 
     try {
+      debugPrint('UPLOAD: $url');
       final request = http.MultipartRequest('POST', url);
       
       if (token != null) {
