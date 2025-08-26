@@ -10,7 +10,7 @@ part 'wallet_providers.g.dart';
 // Repository provider
 @riverpod
 WalletRepository walletRepository(WalletRepositoryRef ref) {
-  return FirebaseWalletRepository();
+  return HttpWalletRepository(); // Changed from FirebaseWalletRepository()
 }
 
 // Wallet state class

@@ -4,6 +4,6 @@ import '../repositories/auth_repository.dart';
 
 // Provider for the auth repository
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return FirebaseAuthRepository();
+  return HttpAuthRepository();
 });
 

@@ -11,7 +11,7 @@ part 'drama_providers.g.dart';
 // Repository provider
 @riverpod
 DramaRepository dramaRepository(DramaRepositoryRef ref) {
-  return FirebaseDramaRepository();
+  return HttpDramaRepository();
 }
 
 // Drama list state for different categories

@@ -3,7 +3,6 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  audioplayers_windows
   cloud_firestore
   connectivity_plus
   emoji_picker_flutter
@@ -13,7 +12,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_storage
   gal
   permission_handler_windows
-  share_plus
   url_launcher_windows
 )
 

@@ -1,15 +1,16 @@
 // lib/features/dramas/repositories/drama_repository.dart
+import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/models/episode_model.dart';
+import 'package:textgb/shared/services/http_client.dart';
 
-// Import custom exceptions
+// Import custom exceptions from drama actions provider
 import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
 
-// Abstract repository interface
+// Abstract repository interface (unchanged)
 abstract class DramaRepository {
   // Drama CRUD operations
   Future<List<DramaModel>> getAllDramas({int limit = 20, DocumentSnapshot? lastDocument});
@@ -48,7 +49,7 @@ abstract class DramaRepository {
   Future<void> incrementEpisodeViews(String episodeId);
   Future<void> incrementDramaFavorites(String dramaId, bool isAdding);
   
-  // Streams for real-time updates
+  // Streams for real-time updates (deprecated for HTTP)
   Stream<List<DramaModel>> featuredDramasStream();
   Stream<List<DramaModel>> trendingDramasStream();
   Stream<DramaModel> dramaStream(String dramaId);
@@ -60,180 +61,25 @@ abstract class DramaRepository {
   Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress});
 }
 
-// Firebase implementation
-class FirebaseDramaRepository implements DramaRepository {
-  final FirebaseFirestore _firestore;
-  final FirebaseStorage _storage;
+// HTTP Backend implementation
+class HttpDramaRepository implements DramaRepository {
+  final HttpClientService _httpClient;
 
-  FirebaseDramaRepository({
-    FirebaseFirestore? firestore,
-    FirebaseStorage? storage,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _storage = storage ?? FirebaseStorage.instance;
+  HttpDramaRepository({
+    HttpClientService? httpClient,
+  }) : _httpClient = httpClient ?? HttpClientService();
 
-  // ATOMIC DRAMA UNLOCK IMPLEMENTATION
-  @override
-  Future<bool> unlockDramaAtomic({
-    required String userId,
-    required String dramaId,
-    required int unlockCost,
-    required String dramaTitle,
-  }) async {
-    try {
-      // Run as a single atomic transaction
-      return await _firestore.runTransaction<bool>((transaction) async {
-        
-        // 1. READ PHASE - Get all required documents
-        final userRef = _firestore.collection(Constants.users).doc(userId);
-        final walletRef = _firestore.collection('wallets').doc(userId);
-        final dramaRef = _firestore.collection(Constants.dramas).doc(dramaId);
-        
-        final userDoc = await transaction.get(userRef);
-        final walletDoc = await transaction.get(walletRef);
-        final dramaDoc = await transaction.get(dramaRef);
-        
-        // 2. VALIDATION PHASE - Check all conditions
-        
-        // Check if user exists
-        if (!userDoc.exists) {
-          throw const UserNotAuthenticatedException();
-        }
-        
-        final userData = userDoc.data() as Map<String, dynamic>;
-        final userUnlockedDramas = List<String>.from(userData['unlockedDramas'] ?? []);
-        
-        // Check if drama already unlocked
-        if (userUnlockedDramas.contains(dramaId)) {
-          throw const DramaAlreadyUnlockedException();
-        }
-        
-        // Check if drama exists and is active
-        if (!dramaDoc.exists) {
-          throw const DramaNotFoundException();
-        }
-        
-        final dramaData = dramaDoc.data() as Map<String, dynamic>;
-        final isActive = dramaData['isActive'] ?? false;
-        final isPremium = dramaData['isPremium'] ?? false;
-        
-        if (!isActive) {
-          throw const DramaNotFoundException();
-        }
-        
-        // Check if drama is actually premium (free dramas don't need unlocking)
-        if (!isPremium) {
-          throw const DramaUnlockException('This drama is free to watch', 'DRAMA_FREE');
-        }
-        
-        // Check wallet and balance
-        if (!walletDoc.exists) {
-          // Create wallet if it doesn't exist (with 0 balance)
-          final now = DateTime.now().microsecondsSinceEpoch.toString();
-          transaction.set(walletRef, {
-            'walletId': userId,
-            'userId': userId,
-            'userPhoneNumber': userData['phoneNumber'] ?? '',
-            'userName': userData['name'] ?? '',
-            'coinsBalance': 0,
-            'lastUpdated': now,
-            'createdAt': now,
-          });
-          throw const InsufficientFundsException();
-        }
-        
-        final walletData = walletDoc.data() as Map<String, dynamic>;
-        final currentBalance = (walletData['coinsBalance'] ?? 0) as int;
-        
-        // Check if user has enough coins
-        if (currentBalance < unlockCost) {
-          throw const InsufficientFundsException();
-        }
-        
-        // 3. WRITE PHASE - Update all documents atomically
-        
-        final now = DateTime.now().microsecondsSinceEpoch.toString();
-        final transactionId = _firestore.collection('wallet_transactions').doc().id;
-        
-        // Update wallet balance
-        transaction.update(walletRef, {
-          'coinsBalance': currentBalance - unlockCost,
-          'lastUpdated': now,
-        });
-        
-        // Add drama to user's unlocked dramas
-        transaction.update(userRef, {
-          'unlockedDramas': [...userUnlockedDramas, dramaId],
-          'updatedAt': now,
-        });
-        
-        // Create transaction record
-        final transactionRef = _firestore.collection('wallet_transactions').doc(transactionId);
-        transaction.set(transactionRef, {
-          'transactionId': transactionId,
-          'walletId': userId,
-          'userId': userId,
-          'userPhoneNumber': walletData['userPhoneNumber'] ?? '',
-          'userName': walletData['userName'] ?? '',
-          'type': 'drama_unlock',
-          'coinAmount': unlockCost,
-          'balanceBefore': currentBalance,
-          'balanceAfter': currentBalance - unlockCost,
-          'description': 'Unlocked: $dramaTitle',
-          'referenceId': dramaId,
-          'paymentMethod': null,
-          'paymentReference': null,
-          'packageId': null,
-          'paidAmount': null,
-          'createdAt': now,
-          'metadata': {
-            'dramaId': dramaId,
-            'dramaTitle': dramaTitle,
-            'unlockType': 'full_drama',
-          },
-        });
-        
-        // Optional: Update drama statistics (non-critical)
-        try {
-          transaction.update(dramaRef, {
-            'unlockCount': FieldValue.increment(1),
-            'revenue': FieldValue.increment(unlockCost),
-            'updatedAt': now,
-          });
-        } catch (e) {
-          // Don't fail the transaction if stats update fails
-          print('Failed to update drama stats: $e');
-        }
-        
-        return true;
-      });
-    } on DramaUnlockException {
-      // Re-throw our custom exceptions
-      rethrow;
-    } catch (e) {
-      // Wrap any other errors
-      throw DramaUnlockException('Transaction failed: $e', 'TRANSACTION_FAILED');
-    }
-  }
-
-  // EXISTING DRAMA OPERATIONS (unchanged)
+  // ===============================
+  // DRAMA CRUD OPERATIONS (HTTP BACKEND)
+  // ===============================
 
   @override
   Future<List<DramaModel>> getAllDramas({int limit = 20, DocumentSnapshot? lastDocument}) async {
     try {
-      Query query = _firestore
-          .collection(Constants.dramas)
-          .where(Constants.isActive, isEqualTo: true)
-          .orderBy(Constants.createdAt, descending: true)
-          .limit(limit);
+      final queryParams = 'limit=$limit';
+      final response = await _httpClient.get('/dramas?$queryParams');
 
-      if (lastDocument != null) {
-        query = query.startAfterDocument(lastDocument);
-      }
-
-      final snapshot = await query.get();
-      return snapshot.docs
-          .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
     } catch (e) {
       throw DramaRepositoryException('Failed to get dramas: $e');
     }
@@ -242,17 +88,8 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<List<DramaModel>> getFeaturedDramas({int limit = 10}) async {
     try {
-      final snapshot = await _firestore
-          .collection(Constants.dramas)
-          .where(Constants.isActive, isEqualTo: true)
-          .where(Constants.isFeatured, isEqualTo: true)
-          .orderBy(Constants.createdAt, descending: true)
-          .limit(limit)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      final response = await _httpClient.get('/dramas/featured?limit=$limit');
+      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
     } catch (e) {
       throw DramaRepositoryException('Failed to get featured dramas: $e');
     }
@@ -261,16 +98,8 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<List<DramaModel>> getTrendingDramas({int limit = 10}) async {
     try {
-      final snapshot = await _firestore
-          .collection(Constants.dramas)
-          .where(Constants.isActive, isEqualTo: true)
-          .orderBy(Constants.viewCount, descending: true)
-          .limit(limit)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      final response = await _httpClient.get('/dramas/trending?limit=$limit');
+      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
     } catch (e) {
       throw DramaRepositoryException('Failed to get trending dramas: $e');
     }
@@ -279,17 +108,8 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<List<DramaModel>> getFreeDramas({int limit = 20}) async {
     try {
-      final snapshot = await _firestore
-          .collection(Constants.dramas)
-          .where(Constants.isActive, isEqualTo: true)
-          .where(Constants.isPremium, isEqualTo: false)
-          .orderBy(Constants.createdAt, descending: true)
-          .limit(limit)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      final response = await _httpClient.get('/dramas/free?limit=$limit');
+      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
     } catch (e) {
       throw DramaRepositoryException('Failed to get free dramas: $e');
     }
@@ -298,17 +118,8 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<List<DramaModel>> getPremiumDramas({int limit = 20}) async {
     try {
-      final snapshot = await _firestore
-          .collection(Constants.dramas)
-          .where(Constants.isActive, isEqualTo: true)
-          .where(Constants.isPremium, isEqualTo: true)
-          .orderBy(Constants.createdAt, descending: true)
-          .limit(limit)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      final response = await _httpClient.get('/dramas/premium?limit=$limit');
+      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
     } catch (e) {
       throw DramaRepositoryException('Failed to get premium dramas: $e');
     }
@@ -317,19 +128,9 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<List<DramaModel>> searchDramas(String query, {int limit = 20}) async {
     try {
-      // Simple title search - for better search, consider using Algolia or similar
-      final snapshot = await _firestore
-          .collection(Constants.dramas)
-          .where(Constants.isActive, isEqualTo: true)
-          .orderBy(Constants.title)
-          .startAt([query])
-          .endAt(['$query\uf8ff'])
-          .limit(limit)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      final encodedQuery = Uri.encodeComponent(query);
+      final response = await _httpClient.get('/dramas/search?q=$encodedQuery&limit=$limit');
+      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
     } catch (e) {
       throw DramaRepositoryException('Failed to search dramas: $e');
     }
@@ -338,38 +139,94 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<DramaModel?> getDramaById(String dramaId) async {
     try {
-      final doc = await _firestore.collection(Constants.dramas).doc(dramaId).get();
-      if (!doc.exists) return null;
-      return DramaModel.fromMap(doc.data() as Map<String, dynamic>);
+      final response = await _httpClient.get('/dramas/$dramaId');
+      
+      if (response.statusCode == 200) {
+        final dramaData = jsonDecode(response.body) as Map<String, dynamic>;
+        return DramaModel.fromMap(dramaData);
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        throw DramaRepositoryException('Failed to get drama: ${response.body}');
+      }
     } catch (e) {
+      if (e is NotFoundException) return null;
       throw DramaRepositoryException('Failed to get drama: $e');
     }
   }
 
-  // ADMIN DRAMA OPERATIONS (unchanged)
+  // ===============================
+  // ATOMIC DRAMA UNLOCK (HTTP BACKEND)
+  // ===============================
+
+  @override
+  Future<bool> unlockDramaAtomic({
+    required String userId,
+    required String dramaId,
+    required int unlockCost,
+    required String dramaTitle,
+  }) async {
+    try {
+      final response = await _httpClient.post('/dramas/$dramaId/unlock', body: {
+        'userId': userId,
+      });
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        final errorMessage = errorData['error'] ?? 'Unknown error';
+        
+        // Map backend errors to drama unlock exceptions
+        switch (errorMessage) {
+          case 'Insufficient coins':
+          case 'insufficient_funds':
+            throw const InsufficientFundsException();
+          case 'Drama already unlocked':
+          case 'already_unlocked':
+            throw const DramaAlreadyUnlockedException();
+          case 'Drama not found':
+          case 'drama_not_found':
+            throw const DramaNotFoundException();
+          case 'User not authenticated':
+          case 'user_not_authenticated':
+            throw const UserNotAuthenticatedException();
+          case 'This drama is free to watch':
+          case 'drama_free':
+            throw const DramaUnlockException('This drama is free to watch', 'DRAMA_FREE');
+          default:
+            throw DramaUnlockException('Transaction failed: $errorMessage', 'TRANSACTION_FAILED');
+        }
+      }
+    } catch (e) {
+      if (e is DramaUnlockException) rethrow;
+      throw DramaUnlockException('Network error: $e', 'NETWORK_ERROR');
+    }
+  }
+
+  // ===============================
+  // ADMIN DRAMA OPERATIONS (HTTP BACKEND)
+  // ===============================
 
   @override
   Future<String> createDrama(DramaModel drama, {File? bannerImage}) async {
     try {
-      final docRef = _firestore.collection(Constants.dramas).doc();
-      final dramaId = docRef.id;
-
+      // First upload banner image if provided
       String bannerUrl = '';
       if (bannerImage != null) {
-        bannerUrl = await uploadBannerImage(bannerImage, dramaId);
+        bannerUrl = await uploadBannerImage(bannerImage, '');
       }
 
-      final now = DateTime.now().microsecondsSinceEpoch.toString();
-      final finalDrama = drama.copyWith(
-        dramaId: dramaId,
-        bannerImage: bannerUrl,
-        createdAt: now,
-        updatedAt: now,
-        publishedAt: now,
-      );
+      // Create drama with banner URL
+      final dramaData = drama.copyWith(bannerImage: bannerUrl).toMap();
+      final response = await _httpClient.post('/admin/dramas', body: dramaData);
 
-      await docRef.set(finalDrama.toMap());
-      return dramaId;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        return responseData['dramaId'] as String;
+      } else {
+        throw DramaRepositoryException('Failed to create drama: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to create drama: $e');
     }
@@ -378,20 +235,19 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<void> updateDrama(DramaModel drama, {File? bannerImage}) async {
     try {
+      // Upload new banner image if provided
       String bannerUrl = drama.bannerImage;
       if (bannerImage != null) {
         bannerUrl = await uploadBannerImage(bannerImage, drama.dramaId);
       }
 
-      final updatedDrama = drama.copyWith(
-        bannerImage: bannerUrl,
-        updatedAt: DateTime.now().microsecondsSinceEpoch.toString(),
-      );
+      // Update drama with new banner URL
+      final dramaData = drama.copyWith(bannerImage: bannerUrl).toMap();
+      final response = await _httpClient.put('/admin/dramas/${drama.dramaId}', body: dramaData);
 
-      await _firestore
-          .collection(Constants.dramas)
-          .doc(drama.dramaId)
-          .update(updatedDrama.toMap());
+      if (response.statusCode != 200) {
+        throw DramaRepositoryException('Failed to update drama: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to update drama: $e');
     }
@@ -400,14 +256,11 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<void> deleteDrama(String dramaId) async {
     try {
-      // Delete all episodes first
-      final episodes = await getDramaEpisodes(dramaId);
-      for (final episode in episodes) {
-        await deleteEpisode(episode.episodeId, dramaId);
-      }
+      final response = await _httpClient.delete('/admin/dramas/$dramaId');
 
-      // Delete drama
-      await _firestore.collection(Constants.dramas).doc(dramaId).delete();
+      if (response.statusCode != 200) {
+        throw DramaRepositoryException('Failed to delete drama: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to delete drama: $e');
     }
@@ -416,15 +269,8 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<List<DramaModel>> getDramasByAdmin(String adminId) async {
     try {
-      final snapshot = await _firestore
-          .collection(Constants.dramas)
-          .where(Constants.createdBy, isEqualTo: adminId)
-          .orderBy(Constants.createdAt, descending: true)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      final response = await _httpClient.get('/admin/dramas');
+      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
     } catch (e) {
       throw DramaRepositoryException('Failed to get admin dramas: $e');
     }
@@ -433,13 +279,13 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<void> toggleDramaFeatured(String dramaId, bool isFeatured) async {
     try {
-      await _firestore
-          .collection(Constants.dramas)
-          .doc(dramaId)
-          .update({
-            Constants.isFeatured: isFeatured,
-            Constants.updatedAt: DateTime.now().microsecondsSinceEpoch.toString(),
-          });
+      final response = await _httpClient.post('/admin/dramas/$dramaId/toggle-featured', body: {
+        'isFeatured': isFeatured,
+      });
+
+      if (response.statusCode != 200) {
+        throw DramaRepositoryException('Failed to toggle featured status: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to toggle featured status: $e');
     }
@@ -448,32 +294,27 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<void> toggleDramaActive(String dramaId, bool isActive) async {
     try {
-      await _firestore
-          .collection(Constants.dramas)
-          .doc(dramaId)
-          .update({
-            Constants.isActive: isActive,
-            Constants.updatedAt: DateTime.now().microsecondsSinceEpoch.toString(),
-          });
+      final response = await _httpClient.post('/admin/dramas/$dramaId/toggle-active', body: {
+        'isActive': isActive,
+      });
+
+      if (response.statusCode != 200) {
+        throw DramaRepositoryException('Failed to toggle active status: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to toggle active status: $e');
     }
   }
 
-  // EPISODE OPERATIONS (unchanged)
+  // ===============================
+  // EPISODE OPERATIONS (HTTP BACKEND)
+  // ===============================
 
   @override
   Future<List<EpisodeModel>> getDramaEpisodes(String dramaId) async {
     try {
-      final snapshot = await _firestore
-          .collection(Constants.episodes)
-          .where(Constants.dramaId, isEqualTo: dramaId)
-          .orderBy(Constants.episodeNumber)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => EpisodeModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      final response = await _httpClient.get('/dramas/$dramaId/episodes');
+      return _httpClient.handleListResponse(response, (data) => EpisodeModel.fromMap(data));
     } catch (e) {
       throw DramaRepositoryException('Failed to get episodes: $e');
     }
@@ -482,10 +323,18 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<EpisodeModel?> getEpisodeById(String episodeId) async {
     try {
-      final doc = await _firestore.collection(Constants.episodes).doc(episodeId).get();
-      if (!doc.exists) return null;
-      return EpisodeModel.fromMap(doc.data() as Map<String, dynamic>);
+      final response = await _httpClient.get('/episodes/$episodeId');
+      
+      if (response.statusCode == 200) {
+        final episodeData = jsonDecode(response.body) as Map<String, dynamic>;
+        return EpisodeModel.fromMap(episodeData);
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        throw DramaRepositoryException('Failed to get episode: ${response.body}');
+      }
     } catch (e) {
+      if (e is NotFoundException) return null;
       throw DramaRepositoryException('Failed to get episode: $e');
     }
   }
@@ -493,36 +342,31 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<String> addEpisode(EpisodeModel episode, {File? thumbnailImage, File? videoFile}) async {
     try {
-      final docRef = _firestore.collection(Constants.episodes).doc();
-      final episodeId = docRef.id;
-
+      // Upload files first if provided
       String thumbnailUrl = '';
       String videoUrl = '';
 
-      // Upload files
       if (thumbnailImage != null) {
-        thumbnailUrl = await uploadThumbnail(thumbnailImage, episodeId);
+        thumbnailUrl = await uploadThumbnail(thumbnailImage, '');
       }
       if (videoFile != null) {
-        videoUrl = await uploadVideo(videoFile, episodeId);
+        videoUrl = await uploadVideo(videoFile, '');
       }
 
-      final now = DateTime.now().microsecondsSinceEpoch.toString();
-      final finalEpisode = episode.copyWith(
-        episodeId: episodeId,
+      // Create episode with file URLs
+      final episodeData = episode.copyWith(
         thumbnailUrl: thumbnailUrl,
         videoUrl: videoUrl,
-        createdAt: now,
-        updatedAt: now,
-        releasedAt: now,
-      );
+      ).toMap();
 
-      await docRef.set(finalEpisode.toMap());
+      final response = await _httpClient.post('/admin/dramas/${episode.dramaId}/episodes', body: episodeData);
 
-      // Update drama's total episodes count
-      await _updateDramaTotalEpisodes(episode.dramaId);
-
-      return episodeId;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        return responseData['episodeId'] as String;
+      } else {
+        throw DramaRepositoryException('Failed to add episode: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to add episode: $e');
     }
@@ -531,10 +375,10 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<void> updateEpisode(EpisodeModel episode, {File? thumbnailImage, File? videoFile}) async {
     try {
+      // Upload new files if provided
       String thumbnailUrl = episode.thumbnailUrl;
       String videoUrl = episode.videoUrl;
 
-      // Upload new files if provided
       if (thumbnailImage != null) {
         thumbnailUrl = await uploadThumbnail(thumbnailImage, episode.episodeId);
       }
@@ -542,16 +386,17 @@ class FirebaseDramaRepository implements DramaRepository {
         videoUrl = await uploadVideo(videoFile, episode.episodeId);
       }
 
-      final updatedEpisode = episode.copyWith(
+      // Update episode with new file URLs
+      final episodeData = episode.copyWith(
         thumbnailUrl: thumbnailUrl,
         videoUrl: videoUrl,
-        updatedAt: DateTime.now().microsecondsSinceEpoch.toString(),
-      );
+      ).toMap();
 
-      await _firestore
-          .collection(Constants.episodes)
-          .doc(episode.episodeId)
-          .update(updatedEpisode.toMap());
+      final response = await _httpClient.put('/admin/episodes/${episode.episodeId}', body: episodeData);
+
+      if (response.statusCode != 200) {
+        throw DramaRepositoryException('Failed to update episode: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to update episode: $e');
     }
@@ -560,23 +405,27 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<void> deleteEpisode(String episodeId, String dramaId) async {
     try {
-      await _firestore.collection(Constants.episodes).doc(episodeId).delete();
-      await _updateDramaTotalEpisodes(dramaId);
+      final response = await _httpClient.delete('/admin/episodes/$episodeId');
+
+      if (response.statusCode != 200) {
+        throw DramaRepositoryException('Failed to delete episode: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to delete episode: $e');
     }
   }
 
-  // USER INTERACTION OPERATIONS (unchanged)
+  // ===============================
+  // USER INTERACTION OPERATIONS (HTTP BACKEND)
+  // ===============================
 
   @override
   Future<void> incrementDramaViews(String dramaId) async {
     try {
-      await _firestore.collection(Constants.dramas).doc(dramaId).update({
-        Constants.viewCount: FieldValue.increment(1),
-      });
+      // Fire and forget - don't throw errors for view counting
+      await _httpClient.post('/dramas/$dramaId/views');
     } catch (e) {
-      // Don't throw error for view counting
+      // Silently fail for view counting
       print('Failed to increment drama views: $e');
     }
   }
@@ -584,11 +433,10 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<void> incrementEpisodeViews(String episodeId) async {
     try {
-      await _firestore.collection(Constants.episodes).doc(episodeId).update({
-        Constants.episodeViewCount: FieldValue.increment(1),
-      });
+      // Fire and forget - don't throw errors for view counting
+      await _httpClient.post('/episodes/$episodeId/views');
     } catch (e) {
-      // Don't throw error for view counting
+      // Silently fail for view counting
       print('Failed to increment episode views: $e');
     }
   }
@@ -596,74 +444,62 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<void> incrementDramaFavorites(String dramaId, bool isAdding) async {
     try {
-      await _firestore.collection(Constants.dramas).doc(dramaId).update({
-        Constants.favoriteCount: FieldValue.increment(isAdding ? 1 : -1),
+      // Fire and forget - don't throw errors for favorite counting
+      await _httpClient.post('/dramas/$dramaId/favorites', body: {
+        'increment': isAdding ? 1 : -1,
       });
     } catch (e) {
-      // Don't throw error for favorite counting
+      // Silently fail for favorite counting
       print('Failed to update drama favorites: $e');
     }
   }
 
-  // STREAMS (unchanged)
+  // ===============================
+  // DEPRECATED STREAM METHODS
+  // ===============================
 
   @override
   Stream<List<DramaModel>> featuredDramasStream() {
-    return _firestore
-        .collection(Constants.dramas)
-        .where(Constants.isActive, isEqualTo: true)
-        .where(Constants.isFeatured, isEqualTo: true)
-        .orderBy(Constants.createdAt, descending: true)
-        .limit(10)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>))
-            .toList());
+    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
   }
 
   @override
   Stream<List<DramaModel>> trendingDramasStream() {
-    return _firestore
-        .collection(Constants.dramas)
-        .where(Constants.isActive, isEqualTo: true)
-        .orderBy(Constants.viewCount, descending: true)
-        .limit(10)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>))
-            .toList());
+    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
   }
 
   @override
   Stream<DramaModel> dramaStream(String dramaId) {
-    return _firestore
-        .collection(Constants.dramas)
-        .doc(dramaId)
-        .snapshots()
-        .map((doc) => DramaModel.fromMap(doc.data() as Map<String, dynamic>));
+    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
   }
 
   @override
   Stream<List<EpisodeModel>> dramaEpisodesStream(String dramaId) {
-    return _firestore
-        .collection(Constants.episodes)
-        .where(Constants.dramaId, isEqualTo: dramaId)
-        .orderBy(Constants.episodeNumber)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => EpisodeModel.fromMap(doc.data() as Map<String, dynamic>))
-            .toList());
+    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
   }
 
-  // FILE UPLOAD OPERATIONS (unchanged)
+  // ===============================
+  // FILE UPLOAD OPERATIONS (HTTP BACKEND)
+  // ===============================
 
   @override
   Future<String> uploadBannerImage(File imageFile, String dramaId) async {
     try {
-      final ref = _storage.ref().child('${Constants.dramaBanners}/$dramaId.jpg');
-      final uploadTask = ref.putFile(imageFile);
-      final snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
+      final response = await _httpClient.uploadFile(
+        '/upload',
+        imageFile,
+        'file',
+        additionalFields: {
+          'type': 'banner',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        return responseData['url'] as String;
+      } else {
+        throw DramaRepositoryException('Failed to upload banner: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to upload banner: $e');
     }
@@ -672,10 +508,21 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<String> uploadThumbnail(File imageFile, String episodeId) async {
     try {
-      final ref = _storage.ref().child('${Constants.episodeThumbnails}/$episodeId.jpg');
-      final uploadTask = ref.putFile(imageFile);
-      final snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
+      final response = await _httpClient.uploadFile(
+        '/upload',
+        imageFile,
+        'file',
+        additionalFields: {
+          'type': 'thumbnail',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        return responseData['url'] as String;
+      } else {
+        throw DramaRepositoryException('Failed to upload thumbnail: ${response.body}');
+      }
     } catch (e) {
       throw DramaRepositoryException('Failed to upload thumbnail: $e');
     }
@@ -684,40 +531,181 @@ class FirebaseDramaRepository implements DramaRepository {
   @override
   Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress}) async {
     try {
-      final ref = _storage.ref().child('${Constants.episodeVideos}/$episodeId.mp4');
-      final uploadTask = ref.putFile(videoFile);
+      final response = await _httpClient.uploadFile(
+        '/upload',
+        videoFile,
+        'file',
+        additionalFields: {
+          'type': 'video',
+        },
+      );
 
-      // Listen to progress if callback provided
-      if (onProgress != null) {
-        uploadTask.snapshotEvents.listen((snapshot) {
-          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          onProgress(progress);
-        });
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        return responseData['url'] as String;
+      } else {
+        throw DramaRepositoryException('Failed to upload video: ${response.body}');
       }
-
-      final snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
     } catch (e) {
       throw DramaRepositoryException('Failed to upload video: $e');
     }
   }
+}
 
-  // HELPER METHODS
+// Firebase implementation (kept for backward compatibility)
+class FirebaseDramaRepository implements DramaRepository {
+  @override
+  Future<bool> unlockDramaAtomic({
+    required String userId,
+    required String dramaId,
+    required int unlockCost,
+    required String dramaTitle,
+  }) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
 
-  Future<void> _updateDramaTotalEpisodes(String dramaId) async {
-    try {
-      final episodes = await getDramaEpisodes(dramaId);
-      await _firestore.collection(Constants.dramas).doc(dramaId).update({
-        Constants.totalEpisodes: episodes.length,
-        Constants.updatedAt: DateTime.now().microsecondsSinceEpoch.toString(),
-      });
-    } catch (e) {
-      print('Failed to update drama total episodes: $e');
-    }
+  @override
+  Future<List<DramaModel>> getAllDramas({int limit = 20, DocumentSnapshot? lastDocument}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<List<DramaModel>> getFeaturedDramas({int limit = 10}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<List<DramaModel>> getTrendingDramas({int limit = 10}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<List<DramaModel>> getFreeDramas({int limit = 20}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<List<DramaModel>> getPremiumDramas({int limit = 20}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<List<DramaModel>> searchDramas(String query, {int limit = 20}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<DramaModel?> getDramaById(String dramaId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<String> createDrama(DramaModel drama, {File? bannerImage}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<void> updateDrama(DramaModel drama, {File? bannerImage}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<void> deleteDrama(String dramaId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<List<DramaModel>> getDramasByAdmin(String adminId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<void> toggleDramaFeatured(String dramaId, bool isFeatured) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<void> toggleDramaActive(String dramaId, bool isActive) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<List<EpisodeModel>> getDramaEpisodes(String dramaId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<EpisodeModel?> getEpisodeById(String episodeId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<String> addEpisode(EpisodeModel episode, {File? thumbnailImage, File? videoFile}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<void> updateEpisode(EpisodeModel episode, {File? thumbnailImage, File? videoFile}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<void> deleteEpisode(String episodeId, String dramaId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<void> incrementDramaViews(String dramaId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<void> incrementEpisodeViews(String episodeId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<void> incrementDramaFavorites(String dramaId, bool isAdding) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Stream<List<DramaModel>> featuredDramasStream() {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Stream<List<DramaModel>> trendingDramasStream() {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Stream<DramaModel> dramaStream(String dramaId) {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Stream<List<EpisodeModel>> dramaEpisodesStream(String dramaId) {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<String> uploadBannerImage(File imageFile, String dramaId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<String> uploadThumbnail(File imageFile, String episodeId) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  }
+
+  @override
+  Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress}) async {
+    throw UnimplementedError('Use HttpDramaRepository for new backend');
   }
 }
 
-// Exception class for drama repository errors
+// Exception class for drama repository errors (unchanged)
 class DramaRepositoryException implements Exception {
   final String message;
   const DramaRepositoryException(this.message);
