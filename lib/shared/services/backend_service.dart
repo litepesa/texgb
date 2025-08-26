@@ -1,9 +1,5 @@
-// ===============================
-// lib/shared/services/backend_service.dart - Service Layer
-// ===============================
-
+// lib/shared/services/backend_service.dart - Updated for Go Backend
 import 'dart:io';
-
 import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/models/episode_model.dart';
 import 'package:textgb/models/user_model.dart';

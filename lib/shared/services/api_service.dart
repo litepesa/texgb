@@ -1,20 +1,17 @@
-// ===============================
-// Flutter Backend Integration Updates
-// ===============================
-
-// lib/shared/services/api_service.dart - New API Service
+// lib/shared/services/api_service.dart - MINIMAL CHANGE
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://your-backend-url.com/api/v1';
-  // For local development: 'http://localhost:8080/api/v1'
+  // ONLY CHANGE THIS LINE - Point to your Go backend
+  static const String baseUrl = 'http://localhost:8080/api/v1';
+  // For production: 'https://your-go-backend-domain.com/api/v1'
   
   static const Duration timeoutDuration = Duration(seconds: 30);
   
-  // Get auth headers with Firebase token
+  // Everything else remains exactly the same
   static Future<Map<String, String>> _getAuthHeaders() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('User not authenticated');
@@ -27,7 +24,7 @@ class ApiService {
     };
   }
   
-  // Generic GET request
+  // All other methods remain unchanged...
   static Future<dynamic> get(String endpoint, {bool requireAuth = true}) async {
     final headers = requireAuth ? await _getAuthHeaders() : {'Content-Type': 'application/json'};
     
@@ -39,7 +36,6 @@ class ApiService {
     return _handleResponse(response);
   }
   
-  // Generic POST request
   static Future<dynamic> post(String endpoint, {dynamic body, bool requireAuth = true}) async {
     final headers = requireAuth ? await _getAuthHeaders() : {'Content-Type': 'application/json'};
     
@@ -52,7 +48,6 @@ class ApiService {
     return _handleResponse(response);
   }
   
-  // Generic PUT request
   static Future<dynamic> put(String endpoint, {dynamic body, bool requireAuth = true}) async {
     final headers = requireAuth ? await _getAuthHeaders() : {'Content-Type': 'application/json'};
     
@@ -65,7 +60,6 @@ class ApiService {
     return _handleResponse(response);
   }
   
-  // Generic DELETE request
   static Future<dynamic> delete(String endpoint, {bool requireAuth = true}) async {
     final headers = requireAuth ? await _getAuthHeaders() : {'Content-Type': 'application/json'};
     
@@ -77,10 +71,9 @@ class ApiService {
     return _handleResponse(response);
   }
   
-  // File upload
   static Future<String> uploadFile(File file, String fileType) async {
     final headers = await _getAuthHeaders();
-    headers.remove('Content-Type'); // Let multipart set its own content type
+    headers.remove('Content-Type');
     
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
     request.headers.addAll(headers);
@@ -97,7 +90,6 @@ class ApiService {
     return data['url'] as String;
   }
   
-  // Handle API responses
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;
