@@ -1,4 +1,4 @@
-// lib/features/authentication/providers/authentication_provider.dart (Updated for Go Backend)
+// lib/features/authentication/providers/authentication_provider.dart
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -12,7 +12,6 @@ import 'auth_repository_provider.dart';
 
 part 'authentication_provider.g.dart';
 
-// State class for authentication (updated for Go backend)
 class AuthenticationState {
   final bool isLoading;
   final bool isSuccessful;
@@ -59,7 +58,6 @@ class Authentication extends _$Authentication {
 
   @override
   FutureOr<AuthenticationState> build() async {
-    // Check authentication state on initialization
     final isAuthenticated = await checkAuthenticationState();
     
     if (isAuthenticated && _repository.currentUserId != null) {
@@ -81,7 +79,6 @@ class Authentication extends _$Authentication {
     return const AuthenticationState();
   }
 
-  // Check authentication state
   Future<bool> checkAuthenticationState() async {
     try {
       return await _repository.checkAuthenticationState();
@@ -91,7 +88,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Check if user exists in backend
   Future<bool> checkUserExists() async {
     final currentState = state.value ?? const AuthenticationState();
     final uid = currentState.uid ?? _repository.currentUserId;
@@ -106,7 +102,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Get user data from Go backend
   Future<UserModel?> getUserDataFromBackend() async {
     final currentState = state.value ?? const AuthenticationState();
     final uid = currentState.uid ?? _repository.currentUserId;
@@ -117,7 +112,6 @@ class Authentication extends _$Authentication {
       final userModel = await _repository.getUserDataFromBackend(uid);
       
       if (userModel != null) {
-        // Update state with user model
         state = AsyncValue.data(currentState.copyWith(userModel: userModel));
       }
       
@@ -128,7 +122,25 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Save user data to shared preferences
+  Future<void> refreshCurrentUser() async {
+    final currentState = state.value;
+    if (currentState?.userModel?.uid == null) return;
+
+    try {
+      final freshUserData = await _repository.getUserDataFromBackend(currentState!.userModel!.uid);
+      
+      if (freshUserData != null) {
+        state = AsyncValue.data(currentState.copyWith(
+          userModel: freshUserData,
+        ));
+        
+        await saveUserDataToSharedPreferences();
+      }
+    } catch (e) {
+      debugPrint('Error refreshing user data: $e');
+    }
+  }
+
   Future<void> saveUserDataToSharedPreferences() async {
     final currentState = state.value ?? const AuthenticationState();
     if (currentState.userModel == null) return;
@@ -137,11 +149,9 @@ class Authentication extends _$Authentication {
     await sharedPreferences.setString(
         Constants.userModel, jsonEncode(currentState.userModel!.toMap()));
     
-    // Save account to saved accounts list
     await addAccountToSavedAccounts(currentState.userModel!);
   }
 
-  // Get data from shared preferences
   Future<void> getUserDataFromSharedPreferences() async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     String userModelString = sharedPreferences.getString(Constants.userModel) ?? '';
@@ -157,7 +167,6 @@ class Authentication extends _$Authentication {
     ));
   }
 
-  // Sign in with phone number (Firebase Auth only)
   Future<void> signInWithPhoneNumber({
     required String phoneNumber,
     required BuildContext context,
@@ -181,7 +190,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Verify OTP code (Firebase Auth only)
   Future<void> verifyOTPCode({
     required String verificationId,
     required String otpCode,
@@ -196,7 +204,6 @@ class Authentication extends _$Authentication {
         otpCode: otpCode,
         context: context,
         onSuccess: () async {
-          // After Firebase auth success, sync with backend
           await syncUserWithBackend();
           onSuccess();
         },
@@ -213,7 +220,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Sync user with backend after Firebase auth
   Future<void> syncUserWithBackend() async {
     final uid = _repository.currentUserId;
     if (uid == null) return;
@@ -233,7 +239,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Save user data to backend
   Future<void> saveUserDataToBackend({
     required UserModel userModel,
     required File? fileImage,
@@ -265,9 +270,51 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // DRAMA-SPECIFIC METHODS (Updated for Go backend)
+  Future<void> uploadProfileImageAndUpdateUser({
+    required File imageFile, 
+    required UserModel currentUser,
+    String? name,
+    String? bio,
+  }) async {
+    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    
+    try {
+      final imageUrl = await _repository.storeFileToStorage(
+        file: imageFile,
+        reference: 'profile/${currentUser.uid}',
+      );
+      
+      final updatedUser = currentUser.copyWith(
+        profileImage: imageUrl,
+        name: name ?? currentUser.name,
+        bio: bio ?? currentUser.bio,
+        updatedAt: DateTime.now().toUtc().toIso8601String(),
+      );
+      
+      await updateUserProfile(updatedUser);
+    } catch (e) {
+      state = AsyncValue.error(e.toString(), StackTrace.current);
+      throw e.toString();
+    }
+  }
 
-  // Add drama to favorites
+  Future<void> updateUserProfile(UserModel updatedUser) async {
+    try {
+      await _repository.updateUserProfile(updatedUser);
+
+      final currentState = state.value ?? const AuthenticationState();
+      state = AsyncValue.data(currentState.copyWith(
+        userModel: updatedUser,
+        isLoading: false,
+      ));
+
+      await saveUserDataToSharedPreferences();
+    } catch (e) {
+      state = AsyncValue.error(e.toString(), StackTrace.current);
+      throw e.toString();
+    }
+  }
+
   Future<void> addToFavorites({required String dramaId}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
@@ -278,7 +325,6 @@ class Authentication extends _$Authentication {
         dramaId: dramaId,
       );
       
-      // Update local model
       final updatedUser = currentState.userModel!.copyWith(
         favoriteDramas: [...currentState.userModel!.favoriteDramas, dramaId],
       );
@@ -290,7 +336,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Remove drama from favorites
   Future<void> removeFromFavorites({required String dramaId}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
@@ -301,7 +346,6 @@ class Authentication extends _$Authentication {
         dramaId: dramaId,
       );
       
-      // Update local model
       final updatedFavorites = List<String>.from(currentState.userModel!.favoriteDramas)
         ..remove(dramaId);
       final updatedUser = currentState.userModel!.copyWith(
@@ -315,7 +359,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Add episode to watch history
   Future<void> addToWatchHistory({required String episodeId}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
@@ -326,7 +369,6 @@ class Authentication extends _$Authentication {
         episodeId: episodeId,
       );
       
-      // Update local model
       final updatedUser = currentState.userModel!.copyWith(
         watchHistory: [...currentState.userModel!.watchHistory, episodeId],
       );
@@ -338,7 +380,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Update drama progress (last watched episode)
   Future<void> updateDramaProgress({required String dramaId, required int episodeNumber}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
@@ -350,7 +391,6 @@ class Authentication extends _$Authentication {
         episodeNumber: episodeNumber,
       );
       
-      // Update local model
       final updatedProgress = Map<String, int>.from(currentState.userModel!.dramaProgress);
       updatedProgress[dramaId] = episodeNumber;
       final updatedUser = currentState.userModel!.copyWith(
@@ -364,7 +404,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Unlock premium drama
   Future<void> unlockDrama({required String dramaId}) async {
     final currentState = state.value;
     if (currentState?.userModel == null) return;
@@ -375,7 +414,6 @@ class Authentication extends _$Authentication {
         dramaId: dramaId,
       );
       
-      // Update local model
       final updatedUser = currentState.userModel!.copyWith(
         unlockedDramas: [...currentState.userModel!.unlockedDramas, dramaId],
       );
@@ -387,7 +425,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Get user data by ID (for admin purposes)
   Future<UserModel?> getUserDataById(String userId) async {
     try {
       return await _repository.getUserDataById(userId);
@@ -397,32 +434,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Update user profile data
-  Future<void> updateUserProfile(UserModel updatedUser) async {
-    state = AsyncValue.data(const AuthenticationState(isLoading: true));
-    
-    try {
-      await _repository.updateUserProfile(updatedUser);
-
-      // Update local user model
-      final currentState = state.value ?? const AuthenticationState();
-      
-      state = AsyncValue.data(currentState.copyWith(
-        userModel: updatedUser,
-        isLoading: false,
-      ));
-
-      // Save updated user data to shared preferences
-      await saveUserDataToSharedPreferences();
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      throw e.message;
-    }
-  }
-
-  // ACCOUNT SWITCHING METHODS (unchanged - uses SharedPreferences)
-  
-  // Get saved accounts from SharedPreferences
   Future<List<UserModel>> getSavedAccounts() async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     final savedAccountsJson = sharedPreferences.getStringList('savedAccounts') ?? [];
@@ -436,19 +447,16 @@ class Authentication extends _$Authentication {
       }
     }
     
-    // Update state with saved accounts
     final currentState = state.value ?? const AuthenticationState();
     state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
     
     return savedAccounts;
   }
   
-  // Add account to saved accounts list
   Future<void> addAccountToSavedAccounts(UserModel userModel) async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     List<String> savedAccountsJson = sharedPreferences.getStringList('savedAccounts') ?? [];
     
-    // Convert accounts to list of UserModels
     List<UserModel> savedAccounts = [];
     for (String accountJson in savedAccountsJson) {
       try {
@@ -458,36 +466,28 @@ class Authentication extends _$Authentication {
       }
     }
     
-    // Check if account already exists
     bool accountExists = savedAccounts.any((account) => account.uid == userModel.uid);
     if (!accountExists) {
-      // Add the account
       savedAccountsJson.add(jsonEncode(userModel.toMap()));
       await sharedPreferences.setStringList('savedAccounts', savedAccountsJson);
       
-      // Add to local list
       savedAccounts.add(userModel);
       
-      // Update state
       final currentState = state.value ?? const AuthenticationState();
       state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
     }
   }
   
-  // Switch to another account
   Future<void> switchAccount(UserModel selectedAccount) async {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
     
     try {
-      // Sign out current user
       await _repository.signOut();
       
-      // Update SharedPreferences with the selected account
       SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
       await sharedPreferences.setString(
           Constants.userModel, jsonEncode(selectedAccount.toMap()));
       
-      // Update state with the new user model
       final savedAccounts = await getSavedAccounts();
       state = AsyncValue.data(AuthenticationState(
         isSuccessful: true,
@@ -502,12 +502,10 @@ class Authentication extends _$Authentication {
     }
   }
   
-  // Remove account from saved accounts
   Future<void> removeAccount(String uid) async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     List<String> savedAccountsJson = sharedPreferences.getStringList('savedAccounts') ?? [];
     
-    // Convert accounts to list of UserModels
     List<UserModel> savedAccounts = [];
     for (String accountJson in savedAccountsJson) {
       try {
@@ -517,27 +515,22 @@ class Authentication extends _$Authentication {
       }
     }
     
-    // Remove the account
     savedAccounts.removeWhere((account) => account.uid == uid);
     
-    // Save updated list
     List<String> updatedAccountsJson = savedAccounts.map((account) => 
         jsonEncode(account.toMap())).toList();
     await sharedPreferences.setStringList('savedAccounts', updatedAccountsJson);
     
-    // Update state
     final currentState = state.value ?? const AuthenticationState();
     state = AsyncValue.data(currentState.copyWith(savedAccounts: savedAccounts));
   }
   
-  // Sign out user
   Future<void> signOut() async {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
     
     try {
       await _repository.signOut();
       
-      // Clear local user data
       SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
       await sharedPreferences.remove(Constants.userModel);
       
@@ -548,7 +541,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Store file to R2 storage via backend
   Future<String> storeFileToStorage({required File file, required String reference}) async {
     try {
       return await _repository.storeFileToStorage(file: file, reference: reference);

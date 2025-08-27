@@ -11,10 +11,9 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/features/dramas/screens/episode_feed_screen.dart';
-//import 'package:textgb/features/dramas/screens/episode_player_screen.dart';
+
 
 // Profile screens
-import 'package:textgb/features/profile/screens/edit_profile_screen.dart';
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 
 // Wallet screens
@@ -157,7 +156,7 @@ class AppRoot extends ConsumerWidget {
           
           // Profile routes
           Constants.myProfileScreen: (context) => const MyProfileScreen(),
-          Constants.editProfileScreen: (context) => const EditProfileScreen(),
+
           
           // Support routes (placeholders - create these screens as needed)
           Constants.aboutScreen: (context) => const _PlaceholderScreen(title: 'About'),
