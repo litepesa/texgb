@@ -1,3 +1,7 @@
+// ===============================
+// lib/models/user_model.dart - Updated (Remove Balance Fields)
+// ===============================
+
 // lib/models/user_model.dart
 import 'package:textgb/constants.dart';
 
@@ -83,8 +87,7 @@ class UserModel {
   final Map<String, int> dramaProgress;
   final List<String> unlockedDramas;
   
-  // Wallet system
-  final int coinsBalance;
+  // REMOVED: final int coinsBalance;
   
   // User preferences
   final UserPreferences preferences;
@@ -105,7 +108,7 @@ class UserModel {
     this.watchHistory = const [],
     this.dramaProgress = const {},
     this.unlockedDramas = const [],
-    this.coinsBalance = 0,
+    // REMOVED: this.coinsBalance = 0,
     this.preferences = const UserPreferences(),
   });
 
@@ -188,7 +191,7 @@ class UserModel {
       watchHistory: List<String>.from(map[Constants.watchHistory] ?? []),
       dramaProgress: Map<String, int>.from(map[Constants.dramaProgress] ?? {}),
       unlockedDramas: List<String>.from(map[Constants.unlockedDramas] ?? []),
-      coinsBalance: map[Constants.coinsBalance]?.toInt() ?? 0,
+      // REMOVED: coinsBalance: map[Constants.coinsBalance]?.toInt() ?? 0,
       preferences: UserPreferences.fromMap(
         map[Constants.preferences] ?? <String, dynamic>{},
       ),
@@ -212,7 +215,7 @@ class UserModel {
       Constants.watchHistory: watchHistory,
       Constants.dramaProgress: dramaProgress,
       Constants.unlockedDramas: unlockedDramas,
-      Constants.coinsBalance: coinsBalance,
+      // REMOVED: Constants.coinsBalance: coinsBalance,
       Constants.preferences: preferences.toMap(),
     };
   }
@@ -238,7 +241,7 @@ class UserModel {
     List<String>? watchHistory,
     Map<String, int>? dramaProgress,
     List<String>? unlockedDramas,
-    int? coinsBalance,
+    // REMOVED: int? coinsBalance,
     UserPreferences? preferences,
   }) {
     return UserModel(
@@ -257,7 +260,7 @@ class UserModel {
       watchHistory: watchHistory ?? List<String>.from(this.watchHistory),
       dramaProgress: dramaProgress ?? Map<String, int>.from(this.dramaProgress),
       unlockedDramas: unlockedDramas ?? List<String>.from(this.unlockedDramas),
-      coinsBalance: coinsBalance ?? this.coinsBalance,
+      // REMOVED: coinsBalance: coinsBalance ?? this.coinsBalance,
       preferences: preferences ?? this.preferences,
     );
   }
@@ -271,8 +274,8 @@ class UserModel {
   bool hasUnlocked(String dramaId) => unlockedDramas.contains(dramaId);
   int getDramaProgress(String dramaId) => dramaProgress[dramaId] ?? 0;
 
-  bool get hasCoins => coinsBalance > 0;
-  bool canAfford(int cost) => coinsBalance >= cost;
+  // REMOVED: bool get hasCoins => coinsBalance > 0;
+  // REMOVED: bool canAfford(int cost) => coinsBalance >= cost;
 
   // Timestamp helper methods
   DateTime get lastSeenDateTime => DateTime.parse(lastSeen);
@@ -290,6 +293,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, name: $name, type: ${userType.name}, coins: $coinsBalance)';
+    return 'UserModel(uid: $uid, name: $name, type: ${userType.name})';
+    // REMOVED: coins: $coinsBalance from toString
   }
 }

@@ -313,40 +313,24 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
 
   Widget _buildImageContent(UserModel user) {
     if (user.profileImage.isNotEmpty) {
-      return Image.network(
-        user.profileImage,
+      return CachedNetworkImage(
+        imageUrl: user.profileImage,
+        cacheManager: ProfileImageCacheManager.instance,
         fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
+        placeholder: (context, url) => Container(
+          color: Colors.white.withOpacity(0.2),
+          child: Center(
+            child: CircularProgressIndicator(
+              color: Colors.white.withOpacity(0.8),
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+        errorWidget: (context, url, error) {
+          debugPrint('Profile image load error for $url: $error');
           return Container(
             color: Colors.white.withOpacity(0.2),
-            child: Center(
-              child: CircularProgressIndicator(
-                color: Colors.white.withOpacity(0.8),
-                strokeWidth: 2,
-                value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / 
-                    loadingProgress.expectedTotalBytes!
-                  : null,
-              ),
-            ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return CachedNetworkImage(
-            imageUrl: user.profileImage,
-            cacheManager: ProfileImageCacheManager.instance,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              color: Colors.white.withOpacity(0.2),
-              child: const Icon(Icons.person, size: 55, color: Colors.white),
-            ),
-            errorWidget: (context, url, error) {
-              return Container(
-                color: Colors.white.withOpacity(0.2),
-                child: const Icon(Icons.person, size: 55, color: Colors.white),
-              );
-            },
+            child: const Icon(Icons.person, size: 55, color: Colors.white),
           );
         },
       );

@@ -40,7 +40,7 @@ class HttpWalletRepository implements WalletRepository {
   @override
   Future<WalletModel?> getUserWallet(String userId) async {
     try {
-      final response = await _httpClient.get('/wallets/$userId');
+      final response = await _httpClient.get('/wallet/$userId');
       
       if (response.statusCode == 200) {
         final walletData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -60,7 +60,7 @@ class HttpWalletRepository implements WalletRepository {
   @override
   Future<void> createWallet(String userId, String userPhoneNumber, String userName) async {
     try {
-      final response = await _httpClient.post('/wallets', body: {
+      final response = await _httpClient.post('/wallet', body: {
         'userId': userId,
         'userPhoneNumber': userPhoneNumber,
         'userName': userName,
@@ -81,7 +81,7 @@ class HttpWalletRepository implements WalletRepository {
   @override
   Future<bool> requestEpisodeUnlock(String userId, String episodeId, int coinAmount, String description) async {
     try {
-      final response = await _httpClient.post('/wallets/$userId/unlock-episode', body: {
+      final response = await _httpClient.post('/wallet/$userId/unlock-episode', body: {
         'episodeId': episodeId,
         'coinAmount': coinAmount,
         'description': description,
@@ -110,7 +110,7 @@ class HttpWalletRepository implements WalletRepository {
   @override
   Future<bool> submitCoinPurchaseRequest(String userId, CoinPackage package, String paymentReference) async {
     try {
-      final response = await _httpClient.post('/wallets/$userId/purchase-request', body: {
+      final response = await _httpClient.post('/wallet/$userId/purchase-request', body: {
         'packageId': package.packageId,
         'paymentReference': paymentReference,
         'paymentMethod': 'mpesa',
@@ -136,7 +136,7 @@ class HttpWalletRepository implements WalletRepository {
     String? lastTransactionId,
   }) async {
     try {
-      String endpoint = '/wallets/$userId/transactions?limit=$limit';
+      String endpoint = '/wallet/$userId/transactions?limit=$limit';
       if (lastTransactionId != null) {
         endpoint += '&after=$lastTransactionId';
       }
@@ -177,7 +177,7 @@ class HttpWalletRepository implements WalletRepository {
   /// Get total coins spent by user
   Future<int> getTotalCoinsSpent(String userId) async {
     try {
-      final response = await _httpClient.get('/wallets/$userId/stats/spent');
+      final response = await _httpClient.get('/wallet/$userId/stats/spent');
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -193,7 +193,7 @@ class HttpWalletRepository implements WalletRepository {
   /// Get total coins purchased by user
   Future<int> getTotalCoinsPurchased(String userId) async {
     try {
-      final response = await _httpClient.get('/wallets/$userId/stats/purchased');
+      final response = await _httpClient.get('/wallet/$userId/stats/purchased');
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -211,7 +211,7 @@ class HttpWalletRepository implements WalletRepository {
     int limit = 50,
   }) async {
     try {
-      final response = await _httpClient.get('/wallets/$userId/transactions?type=$type&limit=$limit');
+      final response = await _httpClient.get('/wallet/$userId/transactions?type=$type&limit=$limit');
       
       if (response.statusCode == 200) {
         final List<dynamic> transactionsData = jsonDecode(response.body);
@@ -266,7 +266,7 @@ class HttpWalletRepository implements WalletRepository {
   /// Get wallet statistics for a user
   Future<Map<String, dynamic>> getWalletStats(String userId) async {
     try {
-      final response = await _httpClient.get('/wallets/$userId/stats');
+      final response = await _httpClient.get('/wallet/$userId/stats');
       
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -281,7 +281,7 @@ class HttpWalletRepository implements WalletRepository {
   /// Admin method: Get all pending coin purchases
   Future<List<Map<String, dynamic>>> getPendingCoinPurchases() async {
     try {
-      final response = await _httpClient.get('/admin/wallets/pending-purchases');
+      final response = await _httpClient.get('/admin/wallet/pending-purchases');
       
       if (response.statusCode == 200) {
         final List<dynamic> purchasesData = jsonDecode(response.body);
@@ -297,7 +297,7 @@ class HttpWalletRepository implements WalletRepository {
   /// Admin method: Approve coin purchase
   Future<void> approveCoinPurchase(String requestId, String adminNote) async {
     try {
-      final response = await _httpClient.post('/admin/wallets/approve-purchase/$requestId', body: {
+      final response = await _httpClient.post('/admin/wallet/approve-purchase/$requestId', body: {
         'adminNote': adminNote,
       });
 
@@ -312,7 +312,7 @@ class HttpWalletRepository implements WalletRepository {
   /// Admin method: Reject coin purchase
   Future<void> rejectCoinPurchase(String requestId, String adminNote) async {
     try {
-      final response = await _httpClient.post('/admin/wallets/reject-purchase/$requestId', body: {
+      final response = await _httpClient.post('/admin/wallet/reject-purchase/$requestId', body: {
         'adminNote': adminNote,
       });
 
@@ -327,7 +327,7 @@ class HttpWalletRepository implements WalletRepository {
   /// Admin method: Add coins manually
   Future<void> addCoinsManually(String userId, int coinAmount, String description, String adminNote) async {
     try {
-      final response = await _httpClient.post('/admin/wallets/$userId/add-coins', body: {
+      final response = await _httpClient.post('/admin/wallet/$userId/add-coins', body: {
         'coinAmount': coinAmount,
         'description': description,
         'adminNote': adminNote,
@@ -342,17 +342,17 @@ class HttpWalletRepository implements WalletRepository {
   }
 
   /// Batch update wallet balances (admin utility)
-  Future<void> batchUpdateWallets(List<Map<String, dynamic>> updates) async {
+  Future<void> batchUpdateWallet(List<Map<String, dynamic>> updates) async {
     try {
-      final response = await _httpClient.post('/admin/wallets/batch-update', body: {
+      final response = await _httpClient.post('/admin/wallet/batch-update', body: {
         'updates': updates,
       });
 
       if (response.statusCode != 200) {
-        throw WalletRepositoryException('Failed to batch update wallets: ${response.body}');
+        throw WalletRepositoryException('Failed to batch update wallet: ${response.body}');
       }
     } catch (e) {
-      throw WalletRepositoryException('Failed to batch update wallets: $e');
+      throw WalletRepositoryException('Failed to batch update wallet: $e');
     }
   }
 }
