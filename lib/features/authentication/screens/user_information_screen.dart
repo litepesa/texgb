@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -221,64 +222,65 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   }
 
   Future<void> saveUserDataToBackend() async {
-    // Validate form and ensure mounted
-    if (!_formKey.currentState!.validate() || !mounted) return;
-    
-    setState(() => isSubmitting = true);
+  // Validate form and ensure mounted
+  if (!_formKey.currentState!.validate() || !mounted) return;
+  
+  setState(() => isSubmitting = true);
 
-    try {
-      final authNotifier = ref.read(authenticationProvider.notifier);
-      final authState = ref.read(authenticationProvider).value;
+  try {
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    final authState = ref.read(authenticationProvider).value;
 
-      if (authState == null || authState.uid == null || authState.phoneNumber == null) {
-        throw Exception('Authentication data is missing');
-      }
+    if (authState == null || authState.uid == null) {
+      throw Exception('Authentication data is missing. Please try signing in again.');
+    }
 
-      // Generate timestamp strings for the user model (using microseconds since epoch)
-      final now = DateTime.now().microsecondsSinceEpoch.toString();
+    // Get the current Firebase user to ensure we have the phone number
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      throw Exception('Firebase user not found. Please sign in again.');
+    }
 
-      // Create user model with drama app fields - using proper field types
-      final userModel = UserModel(
-        uid: authState.uid!,
-        name: _nameController.text.trim(),
-        phoneNumber: authState.phoneNumber!,
-        profileImage: '',
-        fcmToken: '',
-        bio: _bioController.text.trim(),
-        lastSeen: now,
-        createdAt: now,
-        updatedAt: now,
-        userType: UserType.viewer, // Default to viewer
-        favoriteDramas: const [],
-        watchHistory: const [],
-        dramaProgress: const {},
-        unlockedDramas: const [],
-        coinsBalance: 0, // Start with 0 coins
-        preferences: const UserPreferences(),
-      );
+    // Create user model using the proper factory constructor with RFC3339 timestamps
+    final userModel = UserModel.create(
+      uid: authState.uid!,
+      name: _nameController.text.trim(),
+      email: currentUser.email ?? '', // Get from Firebase user
+      phoneNumber: currentUser.phoneNumber ?? '',
+      bio: _bioController.text.trim(),
+      userType: UserType.viewer,
+    );
 
-      // Use the Go backend method instead of Firebase
-      await authNotifier.saveUserDataToBackend(
-        userModel: userModel,
-        fileImage: finalFileImage,
-        onSuccess: () async {
-          await authNotifier.saveUserDataToSharedPreferences();
-          if (mounted) navigateToHomeScreen();
-        },
-        onFail: () {
-          if (mounted) {
-            showSnackBar(context, 'Failed to save user data');
-            setState(() => isSubmitting = false);
-          }
-        },
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() => isSubmitting = false);
-        showSnackBar(context, 'An error occurred: ${e.toString()}');
-      }
+    print('Attempting to save user: ${userModel.toMap()}');
+
+    // Save user data to backend
+    await authNotifier.saveUserDataToBackend(
+      userModel: userModel,
+      fileImage: finalFileImage,
+      onSuccess: () async {
+        print('User data saved successfully');
+        // Save to shared preferences
+        await authNotifier.saveUserDataToSharedPreferences();
+        if (mounted) {
+          navigateToHomeScreen();
+        }
+      },
+      onFail: () {
+        print('Failed to save user data');
+        if (mounted) {
+          showSnackBar(context, 'Failed to create profile. Please check your connection and try again.');
+          setState(() => isSubmitting = false);
+        }
+      },
+    );
+  } catch (e) {
+    print('Error in saveUserDataToBackend: $e');
+    if (mounted) {
+      setState(() => isSubmitting = false);
+      showSnackBar(context, 'Error: ${e.toString()}');
     }
   }
+}
 
   void navigateToHomeScreen() {
     Navigator.of(context).pushNamedAndRemoveUntil(

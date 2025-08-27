@@ -68,6 +68,11 @@ class FirebaseAuthWithGoBackendRepository implements AuthRepository {
   @override
   String? get currentUserPhoneNumber => _auth.currentUser?.phoneNumber;
 
+  // Helper method to create RFC3339 timestamps
+  String _createTimestamp() {
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
   // ===============================
   // FIREBASE AUTH METHODS (UNCHANGED)
   // ===============================
@@ -196,30 +201,19 @@ class FirebaseAuthWithGoBackendRepository implements AuthRepository {
         // Get existing user data
         return await getUserDataFromBackend(uid);
       } else {
-        // Create new user with Firebase info
+        // Create new user with Firebase info using the proper factory constructor
         final firebaseUser = _auth.currentUser;
         if (firebaseUser == null) {
           throw AuthRepositoryException('No Firebase user found');
         }
 
-        final now = DateTime.now().microsecondsSinceEpoch.toString();
-        final newUser = UserModel(
+        final newUser = UserModel.create(
           uid: uid,
           name: firebaseUser.displayName ?? '',
           email: firebaseUser.email ?? '',
           phoneNumber: firebaseUser.phoneNumber ?? '',
           profileImage: firebaseUser.photoURL ?? '',
-          bio: '',
-          userType: UserType.viewer,
-          coinsBalance: 0,
-          favoriteDramas: const [],
-          watchHistory: const [],
-          dramaProgress: const {},
-          unlockedDramas: const [],
-          preferences: const UserPreferences(),
-          createdAt: now,
-          updatedAt: now,
-          lastSeen: now,
+          bio: 'New to WeiBao, excited to watch amazing dramas!',
         );
 
         // Create user in backend
@@ -255,12 +249,13 @@ class FirebaseAuthWithGoBackendRepository implements AuthRepository {
         updatedUserModel = updatedUserModel.copyWith(profileImage: imageUrl);
       }
 
-      // Update timestamps
-      final now = DateTime.now().microsecondsSinceEpoch.toString();
+      // Update timestamps using proper RFC3339 format
+      final timestamp = _createTimestamp();
       final finalUserModel = updatedUserModel.copyWith(
-        lastSeen: now,
-        createdAt: now,
-        updatedAt: now,
+        lastSeen: timestamp,
+        updatedAt: timestamp,
+        // Keep original createdAt if it exists, otherwise use current timestamp
+        createdAt: userModel.createdAt.isEmpty ? timestamp : userModel.createdAt,
       );
 
       // Save to backend
@@ -280,7 +275,7 @@ class FirebaseAuthWithGoBackendRepository implements AuthRepository {
   Future<void> updateUserProfile(UserModel updatedUser) async {
     try {
       final userWithTimestamp = updatedUser.copyWith(
-        updatedAt: DateTime.now().microsecondsSinceEpoch.toString(),
+        updatedAt: _createTimestamp(),
       );
 
       final response = await _httpClient.put('/users/${userWithTimestamp.uid}', 

@@ -69,7 +69,7 @@ class UserModel {
   final String phoneNumber;
   final String profileImage;
   final String fcmToken;
-  final String bio;  // Added bio field
+  final String bio;
   final String lastSeen;
   final String createdAt;
   final String updatedAt;
@@ -78,13 +78,13 @@ class UserModel {
   final UserType userType;
   
   // Simple drama tracking for viewers
-  final List<String> favoriteDramas;           // Drama IDs user has favorited
-  final List<String> watchHistory;             // Episode IDs user has watched
-  final Map<String, int> dramaProgress;        // Drama ID -> last watched episode number
-  final List<String> unlockedDramas;           // Premium drama IDs user has unlocked
+  final List<String> favoriteDramas;
+  final List<String> watchHistory;
+  final Map<String, int> dramaProgress;
+  final List<String> unlockedDramas;
   
   // Wallet system
-  final int coinsBalance;                      // User's coin balance
+  final int coinsBalance;
   
   // User preferences
   final UserPreferences preferences;
@@ -96,7 +96,7 @@ class UserModel {
     required this.phoneNumber,
     this.profileImage = '',
     this.fcmToken = '',
-    this.bio = '',  // Added bio parameter with default empty string
+    this.bio = '',
     required this.lastSeen,
     required this.createdAt,
     required this.updatedAt,
@@ -109,6 +109,68 @@ class UserModel {
     this.preferences = const UserPreferences(),
   });
 
+  // Helper method to create timestamps in RFC3339 format
+  static String _createTimestamp() {
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
+  // Helper method to parse timestamp (handles both milliseconds and ISO strings)
+  static String _parseTimestamp(dynamic value) {
+    if (value == null) return _createTimestamp();
+    
+    final String stringValue = value.toString();
+    
+    // If it's a number (milliseconds), convert it
+    if (RegExp(r'^\d+$').hasMatch(stringValue)) {
+      try {
+        final int milliseconds = int.parse(stringValue);
+        // Handle both seconds and milliseconds timestamps
+        final DateTime dateTime = milliseconds > 9999999999 
+            ? DateTime.fromMillisecondsSinceEpoch(milliseconds)
+            : DateTime.fromMillisecondsSinceEpoch(milliseconds * 1000);
+        return dateTime.toUtc().toIso8601String();
+      } catch (e) {
+        return _createTimestamp();
+      }
+    }
+    
+    // If it's already an ISO string, validate and return
+    try {
+      DateTime.parse(stringValue);
+      return stringValue;
+    } catch (e) {
+      return _createTimestamp();
+    }
+  }
+
+  // Factory constructor for creating new users
+  factory UserModel.create({
+    required String uid,
+    required String name,
+    String email = '',
+    required String phoneNumber,
+    String profileImage = '',
+    String fcmToken = '',
+    String bio = '',
+    UserType userType = UserType.viewer,
+  }) {
+    final timestamp = _createTimestamp();
+    
+    return UserModel(
+      uid: uid,
+      name: name,
+      email: email,
+      phoneNumber: phoneNumber,
+      profileImage: profileImage,
+      fcmToken: fcmToken,
+      bio: bio.isEmpty ? 'New to WeiBao, excited to watch amazing dramas!' : bio,
+      lastSeen: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      userType: userType,
+    );
+  }
+
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       uid: map[Constants.uid]?.toString() ?? '',
@@ -117,10 +179,10 @@ class UserModel {
       phoneNumber: map[Constants.phoneNumber]?.toString() ?? '',
       profileImage: map[Constants.profileImage]?.toString() ?? '',
       fcmToken: map[Constants.fcmToken]?.toString() ?? '',
-      bio: map[Constants.bio]?.toString() ?? '',  // Added bio parsing
-      lastSeen: map[Constants.lastSeen]?.toString() ?? '',
-      createdAt: map[Constants.createdAt]?.toString() ?? '',
-      updatedAt: map[Constants.updatedAt]?.toString() ?? '',
+      bio: map[Constants.bio]?.toString() ?? '',
+      lastSeen: _parseTimestamp(map[Constants.lastSeen]),
+      createdAt: _parseTimestamp(map[Constants.createdAt]),
+      updatedAt: _parseTimestamp(map[Constants.updatedAt]),
       userType: UserType.fromString(map[Constants.userType]?.toString() ?? 'viewer'),
       favoriteDramas: List<String>.from(map[Constants.favoriteDramas] ?? []),
       watchHistory: List<String>.from(map[Constants.watchHistory] ?? []),
@@ -141,7 +203,7 @@ class UserModel {
       Constants.phoneNumber: phoneNumber,
       Constants.profileImage: profileImage,
       Constants.fcmToken: fcmToken,
-      Constants.bio: bio,  // Added bio to map
+      Constants.bio: bio,
       Constants.lastSeen: lastSeen,
       Constants.createdAt: createdAt,
       Constants.updatedAt: updatedAt,
@@ -155,6 +217,11 @@ class UserModel {
     };
   }
 
+  // Method to create a copy with updated timestamp
+  UserModel updateTimestamp() {
+    return copyWith(updatedAt: _createTimestamp());
+  }
+
   UserModel copyWith({
     String? uid,
     String? name,
@@ -162,7 +229,7 @@ class UserModel {
     String? phoneNumber,
     String? profileImage,
     String? fcmToken,
-    String? bio,  // Added bio parameter
+    String? bio,
     String? lastSeen,
     String? createdAt,
     String? updatedAt,
@@ -181,7 +248,7 @@ class UserModel {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       profileImage: profileImage ?? this.profileImage,
       fcmToken: fcmToken ?? this.fcmToken,
-      bio: bio ?? this.bio,  // Added bio assignment
+      bio: bio ?? this.bio,
       lastSeen: lastSeen ?? this.lastSeen,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -206,6 +273,11 @@ class UserModel {
 
   bool get hasCoins => coinsBalance > 0;
   bool canAfford(int cost) => coinsBalance >= cost;
+
+  // Timestamp helper methods
+  DateTime get lastSeenDateTime => DateTime.parse(lastSeen);
+  DateTime get createdAtDateTime => DateTime.parse(createdAt);
+  DateTime get updatedAtDateTime => DateTime.parse(updatedAt);
 
   @override
   bool operator ==(Object other) {

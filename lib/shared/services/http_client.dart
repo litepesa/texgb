@@ -6,10 +6,20 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 class HttpClientService {
-  // Update this to your local Go server
-  static const String _baseUrl = kDebugMode 
-    ? 'http://localhost:8080/api/v1'  // Local development
-    : 'https://your-production-domain.com/api/v1';  // Production
+  // Updated base URL to work with Android emulator
+  static String get _baseUrl {
+    if (kDebugMode) {
+      // For Android emulator, use 10.0.2.2 instead of localhost
+      // For iOS simulator, localhost works fine
+      if (Platform.isAndroid) {
+        return 'http://10.0.2.2:8080/api/v1';
+      } else {
+        return 'http://localhost:8080/api/v1';
+      }
+    } else {
+      return 'https://your-production-domain.com/api/v1';
+    }
+  }
   
   static const Duration _timeout = Duration(seconds: 30);
 
@@ -23,7 +33,11 @@ class HttpClientService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        return await user.getIdToken();
+        final token = await user.getIdToken();
+        debugPrint('Auth token retrieved: ${token?.substring(0, 20)}...');
+        return token;
+      } else {
+        debugPrint('No authenticated user found');
       }
     } catch (e) {
       debugPrint('Failed to get auth token: $e');
@@ -41,6 +55,9 @@ class HttpClientService {
     
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
+      debugPrint('Authorization header added');
+    } else {
+      debugPrint('No auth token available - request will be unauthenticated');
     }
     
     return headers;
@@ -49,8 +66,11 @@ class HttpClientService {
   // Test connection to the Go backend
   Future<bool> testConnection() async {
     try {
+      final baseUrlWithoutApi = _baseUrl.replaceAll('/api/v1', '');
+      debugPrint('Testing connection to: $baseUrlWithoutApi/health');
+      
       final response = await http.get(
-        Uri.parse('${_baseUrl.replaceAll('/api/v1', '')}/health')
+        Uri.parse('$baseUrlWithoutApi/health')
       ).timeout(const Duration(seconds: 5));
       
       if (response.statusCode == 200) {
@@ -58,6 +78,7 @@ class HttpClientService {
         debugPrint('Backend health check: ${data.toString()}');
         return data['status'] == 'healthy';
       }
+      debugPrint('Health check failed with status: ${response.statusCode}');
       return false;
     } catch (e) {
       debugPrint('Connection test failed: $e');
@@ -72,6 +93,7 @@ class HttpClientService {
 
     try {
       debugPrint('GET: $url');
+      debugPrint('Headers: $headers');
       final response = await http.get(url, headers: headers).timeout(_timeout);
       debugPrint('Response: ${response.statusCode} - ${response.body}');
       return response;
@@ -88,6 +110,7 @@ class HttpClientService {
 
     try {
       debugPrint('POST: $url');
+      debugPrint('Headers: $headers');
       if (body != null) debugPrint('Body: ${jsonEncode(body)}');
       
       final response = await http.post(
@@ -111,13 +134,16 @@ class HttpClientService {
 
     try {
       debugPrint('PUT: $url');
+      debugPrint('Headers: $headers');
       final response = await http.put(
         url,
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
       ).timeout(_timeout);
+      debugPrint('Response: ${response.statusCode} - ${response.body}');
       return response;
     } catch (e) {
+      debugPrint('PUT request failed: $e');
       throw HttpException('PUT request failed: $e');
     }
   }
@@ -129,9 +155,12 @@ class HttpClientService {
 
     try {
       debugPrint('DELETE: $url');
+      debugPrint('Headers: $headers');
       final response = await http.delete(url, headers: headers).timeout(_timeout);
+      debugPrint('Response: ${response.statusCode} - ${response.body}');
       return response;
     } catch (e) {
+      debugPrint('DELETE request failed: $e');
       throw HttpException('DELETE request failed: $e');
     }
   }
@@ -152,6 +181,7 @@ class HttpClientService {
       
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
+        debugPrint('Authorization header added to upload request');
       }
 
       // Add file
@@ -164,8 +194,11 @@ class HttpClientService {
       }
 
       final streamedResponse = await request.send().timeout(_timeout);
-      return await http.Response.fromStream(streamedResponse);
+      final response = await http.Response.fromStream(streamedResponse);
+      debugPrint('Upload response: ${response.statusCode} - ${response.body}');
+      return response;
     } catch (e) {
+      debugPrint('File upload failed: $e');
       throw HttpException('File upload failed: $e');
     }
   }
@@ -205,10 +238,12 @@ class HttpClientService {
     
     try {
       final errorData = jsonDecode(response.body) as Map<String, dynamic>;
-      message = errorData['error'] ?? message;
+      message = errorData['error'] ?? errorData['message'] ?? message;
     } catch (e) {
       message = 'HTTP ${response.statusCode}: ${response.reasonPhrase}';
     }
+
+    debugPrint('HTTP Exception: ${response.statusCode} - $message');
 
     switch (response.statusCode) {
       case 400:
@@ -263,8 +298,6 @@ class NotFoundException extends HttpException {
 
 class ConflictException extends HttpException {
   const ConflictException(String message) : super(message);
-  @override
-  String toString() => 'ConflictException: $message';
 }
 
 class InternalServerException extends HttpException {
