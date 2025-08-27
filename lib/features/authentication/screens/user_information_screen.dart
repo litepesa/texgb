@@ -220,7 +220,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
     );
   }
 
-  Future<void> saveUserDataToFireStore() async {
+  Future<void> saveUserDataToBackend() async {
     // Validate form and ensure mounted
     if (!_formKey.currentState!.validate() || !mounted) return;
     
@@ -234,7 +234,10 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
         throw Exception('Authentication data is missing');
       }
 
-      // Create user model with drama app fields
+      // Generate timestamp strings for the user model (using microseconds since epoch)
+      final now = DateTime.now().microsecondsSinceEpoch.toString();
+
+      // Create user model with drama app fields - using proper field types
       final userModel = UserModel(
         uid: authState.uid!,
         name: _nameController.text.trim(),
@@ -242,9 +245,9 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
         profileImage: '',
         fcmToken: '',
         bio: _bioController.text.trim(),
-        lastSeen: '',
-        createdAt: '',
-        updatedAt: '',
+        lastSeen: now,
+        createdAt: now,
+        updatedAt: now,
         userType: UserType.viewer, // Default to viewer
         favoriteDramas: const [],
         watchHistory: const [],
@@ -254,7 +257,8 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
         preferences: const UserPreferences(),
       );
 
-      await authNotifier.saveUserDataToFireStore(
+      // Use the Go backend method instead of Firebase
+      await authNotifier.saveUserDataToBackend(
         userModel: userModel,
         fileImage: finalFileImage,
         onSuccess: () async {
@@ -575,7 +579,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                   ),
                   child: _ActionButton(
                     isLoading: isLoading,
-                    onPressed: isLoading ? null : saveUserDataToFireStore,
+                    onPressed: isLoading ? null : saveUserDataToBackend,
                   ),
                 ),
               ),

@@ -1,8 +1,7 @@
-// lib/features/dramas/repositories/drama_repository.dart
+// lib/features/dramas/repositories/drama_repository.dart (Updated for Go Backend)
 import 'dart:convert';
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:textgb/constants.dart';
+import 'package:http/http.dart' as http;
 import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/models/episode_model.dart';
 import 'package:textgb/shared/services/http_client.dart';
@@ -10,10 +9,10 @@ import 'package:textgb/shared/services/http_client.dart';
 // Import custom exceptions from drama actions provider
 import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
 
-// Abstract repository interface (unchanged)
+// Abstract repository interface (updated for Go backend)
 abstract class DramaRepository {
   // Drama CRUD operations
-  Future<List<DramaModel>> getAllDramas({int limit = 20, DocumentSnapshot? lastDocument});
+  Future<List<DramaModel>> getAllDramas({int limit = 20, int offset = 0});
   Future<List<DramaModel>> getFeaturedDramas({int limit = 10});
   Future<List<DramaModel>> getTrendingDramas({int limit = 10});
   Future<List<DramaModel>> getFreeDramas({int limit = 20});
@@ -49,12 +48,6 @@ abstract class DramaRepository {
   Future<void> incrementEpisodeViews(String episodeId);
   Future<void> incrementDramaFavorites(String dramaId, bool isAdding);
   
-  // Streams for real-time updates (deprecated for HTTP)
-  Stream<List<DramaModel>> featuredDramasStream();
-  Stream<List<DramaModel>> trendingDramasStream();
-  Stream<DramaModel> dramaStream(String dramaId);
-  Stream<List<EpisodeModel>> dramaEpisodesStream(String dramaId);
-  
   // File upload operations
   Future<String> uploadBannerImage(File imageFile, String dramaId);
   Future<String> uploadThumbnail(File imageFile, String episodeId);
@@ -74,12 +67,12 @@ class HttpDramaRepository implements DramaRepository {
   // ===============================
 
   @override
-  Future<List<DramaModel>> getAllDramas({int limit = 20, DocumentSnapshot? lastDocument}) async {
+  Future<List<DramaModel>> getAllDramas({int limit = 20, int offset = 0}) async {
     try {
-      final queryParams = 'limit=$limit';
+      final queryParams = 'limit=$limit&offset=$offset';
       final response = await _httpClient.get('/dramas?$queryParams');
 
-      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
+      return _handleDramaListResponse(response);
     } catch (e) {
       throw DramaRepositoryException('Failed to get dramas: $e');
     }
@@ -89,7 +82,7 @@ class HttpDramaRepository implements DramaRepository {
   Future<List<DramaModel>> getFeaturedDramas({int limit = 10}) async {
     try {
       final response = await _httpClient.get('/dramas/featured?limit=$limit');
-      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
+      return _handleDramaListResponse(response);
     } catch (e) {
       throw DramaRepositoryException('Failed to get featured dramas: $e');
     }
@@ -99,7 +92,7 @@ class HttpDramaRepository implements DramaRepository {
   Future<List<DramaModel>> getTrendingDramas({int limit = 10}) async {
     try {
       final response = await _httpClient.get('/dramas/trending?limit=$limit');
-      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
+      return _handleDramaListResponse(response);
     } catch (e) {
       throw DramaRepositoryException('Failed to get trending dramas: $e');
     }
@@ -108,8 +101,9 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<List<DramaModel>> getFreeDramas({int limit = 20}) async {
     try {
-      final response = await _httpClient.get('/dramas/free?limit=$limit');
-      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
+      // Filter for non-premium dramas
+      final response = await _httpClient.get('/dramas?limit=$limit&premium=false');
+      return _handleDramaListResponse(response);
     } catch (e) {
       throw DramaRepositoryException('Failed to get free dramas: $e');
     }
@@ -118,8 +112,9 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<List<DramaModel>> getPremiumDramas({int limit = 20}) async {
     try {
-      final response = await _httpClient.get('/dramas/premium?limit=$limit');
-      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
+      // Filter for premium dramas
+      final response = await _httpClient.get('/dramas?limit=$limit&premium=true');
+      return _handleDramaListResponse(response);
     } catch (e) {
       throw DramaRepositoryException('Failed to get premium dramas: $e');
     }
@@ -130,7 +125,7 @@ class HttpDramaRepository implements DramaRepository {
     try {
       final encodedQuery = Uri.encodeComponent(query);
       final response = await _httpClient.get('/dramas/search?q=$encodedQuery&limit=$limit');
-      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
+      return _handleDramaListResponse(response);
     } catch (e) {
       throw DramaRepositoryException('Failed to search dramas: $e');
     }
@@ -167,8 +162,8 @@ class HttpDramaRepository implements DramaRepository {
     required String dramaTitle,
   }) async {
     try {
-      final response = await _httpClient.post('/dramas/$dramaId/unlock', body: {
-        'userId': userId,
+      final response = await _httpClient.post('/unlock-drama', body: {
+        'dramaId': dramaId,
       });
 
       if (response.statusCode == 200) {
@@ -270,7 +265,7 @@ class HttpDramaRepository implements DramaRepository {
   Future<List<DramaModel>> getDramasByAdmin(String adminId) async {
     try {
       final response = await _httpClient.get('/admin/dramas');
-      return _httpClient.handleListResponse(response, (data) => DramaModel.fromMap(data));
+      return _handleDramaListResponse(response);
     } catch (e) {
       throw DramaRepositoryException('Failed to get admin dramas: $e');
     }
@@ -279,7 +274,7 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<void> toggleDramaFeatured(String dramaId, bool isFeatured) async {
     try {
-      final response = await _httpClient.post('/admin/dramas/$dramaId/toggle-featured', body: {
+      final response = await _httpClient.post('/admin/dramas/$dramaId/featured', body: {
         'isFeatured': isFeatured,
       });
 
@@ -294,7 +289,7 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<void> toggleDramaActive(String dramaId, bool isActive) async {
     try {
-      final response = await _httpClient.post('/admin/dramas/$dramaId/toggle-active', body: {
+      final response = await _httpClient.post('/admin/dramas/$dramaId/active', body: {
         'isActive': isActive,
       });
 
@@ -314,7 +309,7 @@ class HttpDramaRepository implements DramaRepository {
   Future<List<EpisodeModel>> getDramaEpisodes(String dramaId) async {
     try {
       final response = await _httpClient.get('/dramas/$dramaId/episodes');
-      return _httpClient.handleListResponse(response, (data) => EpisodeModel.fromMap(data));
+      return _handleEpisodeListResponse(response);
     } catch (e) {
       throw DramaRepositoryException('Failed to get episodes: $e');
     }
@@ -343,8 +338,8 @@ class HttpDramaRepository implements DramaRepository {
   Future<String> addEpisode(EpisodeModel episode, {File? thumbnailImage, File? videoFile}) async {
     try {
       // Upload files first if provided
-      String thumbnailUrl = '';
-      String videoUrl = '';
+      String thumbnailUrl = episode.thumbnailUrl;
+      String videoUrl = episode.videoUrl;
 
       if (thumbnailImage != null) {
         thumbnailUrl = await uploadThumbnail(thumbnailImage, '');
@@ -455,30 +450,6 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // DEPRECATED STREAM METHODS
-  // ===============================
-
-  @override
-  Stream<List<DramaModel>> featuredDramasStream() {
-    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
-  }
-
-  @override
-  Stream<List<DramaModel>> trendingDramasStream() {
-    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
-  }
-
-  @override
-  Stream<DramaModel> dramaStream(String dramaId) {
-    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
-  }
-
-  @override
-  Stream<List<EpisodeModel>> dramaEpisodesStream(String dramaId) {
-    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
-  }
-
-  // ===============================
   // FILE UPLOAD OPERATIONS (HTTP BACKEND)
   // ===============================
 
@@ -531,6 +502,8 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress}) async {
     try {
+      // Note: Progress callback not implemented in basic HTTP client
+      // Could be enhanced later if needed
       final response = await _httpClient.uploadFile(
         '/upload',
         videoFile,
@@ -550,158 +523,27 @@ class HttpDramaRepository implements DramaRepository {
       throw DramaRepositoryException('Failed to upload video: $e');
     }
   }
-}
 
-// Firebase implementation (kept for backward compatibility)
-class FirebaseDramaRepository implements DramaRepository {
-  @override
-  Future<bool> unlockDramaAtomic({
-    required String userId,
-    required String dramaId,
-    required int unlockCost,
-    required String dramaTitle,
-  }) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  // ===============================
+  // HELPER METHODS
+  // ===============================
+
+  List<DramaModel> _handleDramaListResponse(http.Response response) {
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((item) => DramaModel.fromMap(item as Map<String, dynamic>)).toList();
+    } else {
+      throw DramaRepositoryException('Failed to fetch dramas: ${response.body}');
+    }
   }
 
-  @override
-  Future<List<DramaModel>> getAllDramas({int limit = 20, DocumentSnapshot? lastDocument}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<List<DramaModel>> getFeaturedDramas({int limit = 10}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<List<DramaModel>> getTrendingDramas({int limit = 10}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<List<DramaModel>> getFreeDramas({int limit = 20}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<List<DramaModel>> getPremiumDramas({int limit = 20}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<List<DramaModel>> searchDramas(String query, {int limit = 20}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<DramaModel?> getDramaById(String dramaId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<String> createDrama(DramaModel drama, {File? bannerImage}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<void> updateDrama(DramaModel drama, {File? bannerImage}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<void> deleteDrama(String dramaId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<List<DramaModel>> getDramasByAdmin(String adminId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<void> toggleDramaFeatured(String dramaId, bool isFeatured) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<void> toggleDramaActive(String dramaId, bool isActive) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<List<EpisodeModel>> getDramaEpisodes(String dramaId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<EpisodeModel?> getEpisodeById(String episodeId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<String> addEpisode(EpisodeModel episode, {File? thumbnailImage, File? videoFile}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<void> updateEpisode(EpisodeModel episode, {File? thumbnailImage, File? videoFile}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<void> deleteEpisode(String episodeId, String dramaId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<void> incrementDramaViews(String dramaId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<void> incrementEpisodeViews(String episodeId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<void> incrementDramaFavorites(String dramaId, bool isAdding) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Stream<List<DramaModel>> featuredDramasStream() {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Stream<List<DramaModel>> trendingDramasStream() {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Stream<DramaModel> dramaStream(String dramaId) {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Stream<List<EpisodeModel>> dramaEpisodesStream(String dramaId) {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<String> uploadBannerImage(File imageFile, String dramaId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<String> uploadThumbnail(File imageFile, String episodeId) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
-  }
-
-  @override
-  Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress}) async {
-    throw UnimplementedError('Use HttpDramaRepository for new backend');
+  List<EpisodeModel> _handleEpisodeListResponse(http.Response response) {
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((item) => EpisodeModel.fromMap(item as Map<String, dynamic>)).toList();
+    } else {
+      throw DramaRepositoryException('Failed to fetch episodes: ${response.body}');
+    }
   }
 }
 

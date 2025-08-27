@@ -1,7 +1,6 @@
-// lib/features/authentication/authentication_provider.dart (Updated for Drama App)
+// lib/features/authentication/providers/authentication_provider.dart (Updated for Go Backend)
 import 'dart:convert';
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,7 +12,7 @@ import 'auth_repository_provider.dart';
 
 part 'authentication_provider.g.dart';
 
-// State class for authentication (simplified for drama app)
+// State class for authentication (updated for Go backend)
 class AuthenticationState {
   final bool isLoading;
   final bool isSuccessful;
@@ -64,17 +63,19 @@ class Authentication extends _$Authentication {
     final isAuthenticated = await checkAuthenticationState();
     
     if (isAuthenticated && _repository.currentUserId != null) {
-      final userModel = await getUserDataFromFireStore();
-      await saveUserDataToSharedPreferences();
-      final savedAccounts = await getSavedAccounts();
-      
-      return AuthenticationState(
-        isSuccessful: true,
-        uid: _repository.currentUserId,
-        phoneNumber: _repository.currentUserPhoneNumber,
-        userModel: userModel,
-        savedAccounts: savedAccounts,
-      );
+      final userModel = await getUserDataFromBackend();
+      if (userModel != null) {
+        await saveUserDataToSharedPreferences();
+        final savedAccounts = await getSavedAccounts();
+        
+        return AuthenticationState(
+          isSuccessful: true,
+          uid: _repository.currentUserId,
+          phoneNumber: _repository.currentUserPhoneNumber,
+          userModel: userModel,
+          savedAccounts: savedAccounts,
+        );
+      }
     }
     
     return const AuthenticationState();
@@ -90,7 +91,7 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Check if user exists
+  // Check if user exists in backend
   Future<bool> checkUserExists() async {
     final currentState = state.value ?? const AuthenticationState();
     final uid = currentState.uid ?? _repository.currentUserId;
@@ -105,15 +106,15 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Get user data from firestore
-  Future<UserModel?> getUserDataFromFireStore() async {
+  // Get user data from Go backend
+  Future<UserModel?> getUserDataFromBackend() async {
     final currentState = state.value ?? const AuthenticationState();
     final uid = currentState.uid ?? _repository.currentUserId;
     
     if (uid == null) return null;
     
     try {
-      final userModel = await _repository.getUserDataFromFireStore(uid);
+      final userModel = await _repository.getUserDataFromBackend(uid);
       
       if (userModel != null) {
         // Update state with user model
@@ -156,7 +157,7 @@ class Authentication extends _$Authentication {
     ));
   }
 
-  // Sign in with phone number
+  // Sign in with phone number (Firebase Auth only)
   Future<void> signInWithPhoneNumber({
     required String phoneNumber,
     required BuildContext context,
@@ -180,7 +181,7 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Verify OTP code
+  // Verify OTP code (Firebase Auth only)
   Future<void> verifyOTPCode({
     required String verificationId,
     required String otpCode,
@@ -194,7 +195,11 @@ class Authentication extends _$Authentication {
         verificationId: verificationId,
         otpCode: otpCode,
         context: context,
-        onSuccess: onSuccess,
+        onSuccess: () async {
+          // After Firebase auth success, sync with backend
+          await syncUserWithBackend();
+          onSuccess();
+        },
       );
       
       state = AsyncValue.data(AuthenticationState(
@@ -208,8 +213,28 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Save user data to firestore
-  Future<void> saveUserDataToFireStore({
+  // Sync user with backend after Firebase auth
+  Future<void> syncUserWithBackend() async {
+    final uid = _repository.currentUserId;
+    if (uid == null) return;
+
+    try {
+      final userModel = await _repository.syncUserWithBackend(uid);
+      if (userModel != null) {
+        final currentState = state.value ?? const AuthenticationState();
+        state = AsyncValue.data(currentState.copyWith(
+          userModel: userModel,
+          uid: uid,
+        ));
+        await saveUserDataToSharedPreferences();
+      }
+    } on AuthRepositoryException catch (e) {
+      debugPrint('Failed to sync user with backend: ${e.message}');
+    }
+  }
+
+  // Save user data to backend
+  Future<void> saveUserDataToBackend({
     required UserModel userModel,
     required File? fileImage,
     required Function onSuccess,
@@ -218,7 +243,7 @@ class Authentication extends _$Authentication {
     state = AsyncValue.data(const AuthenticationState(isLoading: true));
 
     try {
-      await _repository.saveUserDataToFireStore(
+      await _repository.saveUserDataToBackend(
         userModel: userModel,
         fileImage: fileImage,
         onSuccess: () {
@@ -240,17 +265,7 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Get user stream
-  Stream<DocumentSnapshot> userStream({required String userID}) {
-    return _repository.userStream(userID: userID);
-  }
-
-  // Get all users stream (for admin purposes)
-  Stream<QuerySnapshot> getAllUsersStream({required String userID}) {
-    return _repository.getAllUsersStream(userID: userID);
-  }
-
-  // DRAMA-SPECIFIC METHODS
+  // DRAMA-SPECIFIC METHODS (Updated for Go backend)
 
   // Add drama to favorites
   Future<void> addToFavorites({required String dramaId}) async {
@@ -405,7 +420,7 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // ACCOUNT SWITCHING METHODS (simplified for drama app)
+  // ACCOUNT SWITCHING METHODS (unchanged - uses SharedPreferences)
   
   // Get saved accounts from SharedPreferences
   Future<List<UserModel>> getSavedAccounts() async {
@@ -533,7 +548,7 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Store file to storage (for profile images, etc.)
+  // Store file to R2 storage via backend
   Future<String> storeFileToStorage({required File file, required String reference}) async {
     try {
       return await _repository.storeFileToStorage(file: file, reference: reference);

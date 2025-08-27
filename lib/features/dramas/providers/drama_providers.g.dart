@@ -6,7 +6,7 @@ part of 'drama_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$dramaRepositoryHash() => r'a987438ec4f04aad87ddabf29102ed25a3ac686a';
+String _$dramaRepositoryHash() => r'797c6581b95c90edd90bd8af19d001b19d2e7d8e';
 
 /// See also [dramaRepository].
 @ProviderFor(dramaRepository)
@@ -174,7 +174,7 @@ class _EpisodeProviderElement
 }
 
 String _$userFavoriteDramasHash() =>
-    r'929e17bf48df3b00d8d3192f5054f97228ddc15f';
+    r'026077b94af1de7488d5d691f75e5dc63265c128';
 
 /// See also [userFavoriteDramas].
 @ProviderFor(userFavoriteDramas)
@@ -193,7 +193,7 @@ final userFavoriteDramasProvider =
 // ignore: unused_element
 typedef UserFavoriteDramasRef = AutoDisposeFutureProviderRef<List<DramaModel>>;
 String _$continueWatchingDramasHash() =>
-    r'70036f6daff37b6e231728665c7b4b3c57cb8fb2';
+    r'468707cc825ae22384fc6a19c722f1d3b6b797c3';
 
 /// See also [continueWatchingDramas].
 @ProviderFor(continueWatchingDramas)
@@ -212,7 +212,7 @@ final continueWatchingDramasProvider =
 // ignore: unused_element
 typedef ContinueWatchingDramasRef
     = AutoDisposeFutureProviderRef<List<DramaModel>>;
-String _$isDramaFavoritedHash() => r'04047cfb8f5ac801b2bc45ae15f4669cc8de1829';
+String _$isDramaFavoritedHash() => r'4f0a6d138f242368ab07bc1f17db67e07eb1a20a';
 
 /// See also [isDramaFavorited].
 @ProviderFor(isDramaFavorited)
@@ -342,7 +342,7 @@ class _IsDramaFavoritedProviderElement extends AutoDisposeProviderElement<bool>
   String get dramaId => (origin as IsDramaFavoritedProvider).dramaId;
 }
 
-String _$isDramaUnlockedHash() => r'aaee204a53c77d31ed54796944bd04d7e796b1b1';
+String _$isDramaUnlockedHash() => r'ba87a6b558b4cbc7c9038dc5e62fbcad2cfb09d0';
 
 /// See also [isDramaUnlocked].
 @ProviderFor(isDramaUnlocked)
@@ -472,7 +472,7 @@ class _IsDramaUnlockedProviderElement extends AutoDisposeProviderElement<bool>
   String get dramaId => (origin as IsDramaUnlockedProvider).dramaId;
 }
 
-String _$dramaUserProgressHash() => r'e6f273666e092bc2416ed89f0fff8e8b8dd81248';
+String _$dramaUserProgressHash() => r'27397d8d9e59cc04e73cd815a028c554f33658e4';
 
 /// See also [dramaUserProgress].
 @ProviderFor(dramaUserProgress)
@@ -602,7 +602,7 @@ class _DramaUserProgressProviderElement extends AutoDisposeProviderElement<int>
   String get dramaId => (origin as DramaUserProgressProvider).dramaId;
 }
 
-String _$canWatchEpisodeHash() => r'8fc76cac3068998c88f43fd823795b292017d11f';
+String _$canWatchEpisodeHash() => r'093029327ce7e69d2dc355c14c3219609a557181';
 
 /// See also [canWatchEpisode].
 @ProviderFor(canWatchEpisode)
@@ -749,310 +749,6 @@ class _CanWatchEpisodeProviderElement extends AutoDisposeProviderElement<bool>
   int get episodeNumber => (origin as CanWatchEpisodeProvider).episodeNumber;
 }
 
-String _$featuredDramasStreamHash() =>
-    r'3e8705c2acd345e29c265977c5435a607f2423e3';
-
-/// See also [featuredDramasStream].
-@ProviderFor(featuredDramasStream)
-final featuredDramasStreamProvider =
-    AutoDisposeStreamProvider<List<DramaModel>>.internal(
-  featuredDramasStream,
-  name: r'featuredDramasStreamProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$featuredDramasStreamHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef FeaturedDramasStreamRef
-    = AutoDisposeStreamProviderRef<List<DramaModel>>;
-String _$trendingDramasStreamHash() =>
-    r'acd2be7182839f8d9b20dd6b062dbdf6ce74774c';
-
-/// See also [trendingDramasStream].
-@ProviderFor(trendingDramasStream)
-final trendingDramasStreamProvider =
-    AutoDisposeStreamProvider<List<DramaModel>>.internal(
-  trendingDramasStream,
-  name: r'trendingDramasStreamProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$trendingDramasStreamHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef TrendingDramasStreamRef
-    = AutoDisposeStreamProviderRef<List<DramaModel>>;
-String _$dramaStreamHash() => r'8a830241d1c0e9736ebdc093e8252ed66c6243d7';
-
-/// See also [dramaStream].
-@ProviderFor(dramaStream)
-const dramaStreamProvider = DramaStreamFamily();
-
-/// See also [dramaStream].
-class DramaStreamFamily extends Family<AsyncValue<DramaModel>> {
-  /// See also [dramaStream].
-  const DramaStreamFamily();
-
-  /// See also [dramaStream].
-  DramaStreamProvider call(
-    String dramaId,
-  ) {
-    return DramaStreamProvider(
-      dramaId,
-    );
-  }
-
-  @override
-  DramaStreamProvider getProviderOverride(
-    covariant DramaStreamProvider provider,
-  ) {
-    return call(
-      provider.dramaId,
-    );
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'dramaStreamProvider';
-}
-
-/// See also [dramaStream].
-class DramaStreamProvider extends AutoDisposeStreamProvider<DramaModel> {
-  /// See also [dramaStream].
-  DramaStreamProvider(
-    String dramaId,
-  ) : this._internal(
-          (ref) => dramaStream(
-            ref as DramaStreamRef,
-            dramaId,
-          ),
-          from: dramaStreamProvider,
-          name: r'dramaStreamProvider',
-          debugGetCreateSourceHash:
-              const bool.fromEnvironment('dart.vm.product')
-                  ? null
-                  : _$dramaStreamHash,
-          dependencies: DramaStreamFamily._dependencies,
-          allTransitiveDependencies:
-              DramaStreamFamily._allTransitiveDependencies,
-          dramaId: dramaId,
-        );
-
-  DramaStreamProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required this.dramaId,
-  }) : super.internal();
-
-  final String dramaId;
-
-  @override
-  Override overrideWith(
-    Stream<DramaModel> Function(DramaStreamRef provider) create,
-  ) {
-    return ProviderOverride(
-      origin: this,
-      override: DramaStreamProvider._internal(
-        (ref) => create(ref as DramaStreamRef),
-        from: from,
-        name: null,
-        dependencies: null,
-        allTransitiveDependencies: null,
-        debugGetCreateSourceHash: null,
-        dramaId: dramaId,
-      ),
-    );
-  }
-
-  @override
-  AutoDisposeStreamProviderElement<DramaModel> createElement() {
-    return _DramaStreamProviderElement(this);
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return other is DramaStreamProvider && other.dramaId == dramaId;
-  }
-
-  @override
-  int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, dramaId.hashCode);
-
-    return _SystemHash.finish(hash);
-  }
-}
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-mixin DramaStreamRef on AutoDisposeStreamProviderRef<DramaModel> {
-  /// The parameter `dramaId` of this provider.
-  String get dramaId;
-}
-
-class _DramaStreamProviderElement
-    extends AutoDisposeStreamProviderElement<DramaModel> with DramaStreamRef {
-  _DramaStreamProviderElement(super.provider);
-
-  @override
-  String get dramaId => (origin as DramaStreamProvider).dramaId;
-}
-
-String _$dramaEpisodesStreamHash() =>
-    r'1e8e972f7cf5caa5e0c3c4e7e435b59796b6acfe';
-
-/// See also [dramaEpisodesStream].
-@ProviderFor(dramaEpisodesStream)
-const dramaEpisodesStreamProvider = DramaEpisodesStreamFamily();
-
-/// See also [dramaEpisodesStream].
-class DramaEpisodesStreamFamily extends Family<AsyncValue<List<EpisodeModel>>> {
-  /// See also [dramaEpisodesStream].
-  const DramaEpisodesStreamFamily();
-
-  /// See also [dramaEpisodesStream].
-  DramaEpisodesStreamProvider call(
-    String dramaId,
-  ) {
-    return DramaEpisodesStreamProvider(
-      dramaId,
-    );
-  }
-
-  @override
-  DramaEpisodesStreamProvider getProviderOverride(
-    covariant DramaEpisodesStreamProvider provider,
-  ) {
-    return call(
-      provider.dramaId,
-    );
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'dramaEpisodesStreamProvider';
-}
-
-/// See also [dramaEpisodesStream].
-class DramaEpisodesStreamProvider
-    extends AutoDisposeStreamProvider<List<EpisodeModel>> {
-  /// See also [dramaEpisodesStream].
-  DramaEpisodesStreamProvider(
-    String dramaId,
-  ) : this._internal(
-          (ref) => dramaEpisodesStream(
-            ref as DramaEpisodesStreamRef,
-            dramaId,
-          ),
-          from: dramaEpisodesStreamProvider,
-          name: r'dramaEpisodesStreamProvider',
-          debugGetCreateSourceHash:
-              const bool.fromEnvironment('dart.vm.product')
-                  ? null
-                  : _$dramaEpisodesStreamHash,
-          dependencies: DramaEpisodesStreamFamily._dependencies,
-          allTransitiveDependencies:
-              DramaEpisodesStreamFamily._allTransitiveDependencies,
-          dramaId: dramaId,
-        );
-
-  DramaEpisodesStreamProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required this.dramaId,
-  }) : super.internal();
-
-  final String dramaId;
-
-  @override
-  Override overrideWith(
-    Stream<List<EpisodeModel>> Function(DramaEpisodesStreamRef provider) create,
-  ) {
-    return ProviderOverride(
-      origin: this,
-      override: DramaEpisodesStreamProvider._internal(
-        (ref) => create(ref as DramaEpisodesStreamRef),
-        from: from,
-        name: null,
-        dependencies: null,
-        allTransitiveDependencies: null,
-        debugGetCreateSourceHash: null,
-        dramaId: dramaId,
-      ),
-    );
-  }
-
-  @override
-  AutoDisposeStreamProviderElement<List<EpisodeModel>> createElement() {
-    return _DramaEpisodesStreamProviderElement(this);
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return other is DramaEpisodesStreamProvider && other.dramaId == dramaId;
-  }
-
-  @override
-  int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, dramaId.hashCode);
-
-    return _SystemHash.finish(hash);
-  }
-}
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-mixin DramaEpisodesStreamRef
-    on AutoDisposeStreamProviderRef<List<EpisodeModel>> {
-  /// The parameter `dramaId` of this provider.
-  String get dramaId;
-}
-
-class _DramaEpisodesStreamProviderElement
-    extends AutoDisposeStreamProviderElement<List<EpisodeModel>>
-    with DramaEpisodesStreamRef {
-  _DramaEpisodesStreamProviderElement(super.provider);
-
-  @override
-  String get dramaId => (origin as DramaEpisodesStreamProvider).dramaId;
-}
-
 String _$featuredDramasHash() => r'471162570e9f7d0fa8ec6a5488f1e844c8f5ba18';
 
 /// See also [FeaturedDramas].
@@ -1085,7 +781,7 @@ final trendingDramasProvider =
 );
 
 typedef _$TrendingDramas = AutoDisposeAsyncNotifier<List<DramaModel>>;
-String _$allDramasHash() => r'bd9e4caa8f69ee0ffc9ae6ca06d614f3b02b7a8a';
+String _$allDramasHash() => r'e33514c865b8d2b115c9e91f3d3214a8b9903e32';
 
 /// See also [AllDramas].
 @ProviderFor(AllDramas)
@@ -1131,7 +827,7 @@ final premiumDramasProvider =
 );
 
 typedef _$PremiumDramas = AutoDisposeAsyncNotifier<List<DramaModel>>;
-String _$dramaHash() => r'3a063dbd368dccbacc9030f6fc7e652dea304d1d';
+String _$dramaHash() => r'c0f0340e4c09cc5bfe05dc9bcb11ec428966ab8f';
 
 abstract class _$Drama extends BuildlessAutoDisposeAsyncNotifier<DramaModel?> {
   late final String dramaId;
@@ -1274,7 +970,7 @@ class _DramaProviderElement
   String get dramaId => (origin as DramaProvider).dramaId;
 }
 
-String _$dramaEpisodesHash() => r'55baf80e0b1642ecfba170cc1193ee8e157f713c';
+String _$dramaEpisodesHash() => r'679b031a3b30aa56c573fe68165ba42fb568a502';
 
 abstract class _$DramaEpisodes
     extends BuildlessAutoDisposeAsyncNotifier<List<EpisodeModel>> {
@@ -1567,7 +1263,7 @@ class _SearchDramasProviderElement
   String get query => (origin as SearchDramasProvider).query;
 }
 
-String _$adminDramasHash() => r'73490374ef84bed899f834a0aef482c537349c2e';
+String _$adminDramasHash() => r'7b3c2cf913b3510713705ca548541851fec6ffe4';
 
 /// See also [AdminDramas].
 @ProviderFor(AdminDramas)
@@ -1582,5 +1278,330 @@ final adminDramasProvider =
 );
 
 typedef _$AdminDramas = AutoDisposeAsyncNotifier<List<DramaModel>>;
+String _$featuredDramasLiveHash() =>
+    r'8e763b35881bc89f31121e0a4efa589337681241';
+
+/// See also [FeaturedDramasLive].
+@ProviderFor(FeaturedDramasLive)
+final featuredDramasLiveProvider = AutoDisposeAsyncNotifierProvider<
+    FeaturedDramasLive, List<DramaModel>>.internal(
+  FeaturedDramasLive.new,
+  name: r'featuredDramasLiveProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$featuredDramasLiveHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef _$FeaturedDramasLive = AutoDisposeAsyncNotifier<List<DramaModel>>;
+String _$trendingDramasLiveHash() =>
+    r'bc6f463d58f212ac851fba0efad5003d4f8a1138';
+
+/// See also [TrendingDramasLive].
+@ProviderFor(TrendingDramasLive)
+final trendingDramasLiveProvider = AutoDisposeAsyncNotifierProvider<
+    TrendingDramasLive, List<DramaModel>>.internal(
+  TrendingDramasLive.new,
+  name: r'trendingDramasLiveProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$trendingDramasLiveHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef _$TrendingDramasLive = AutoDisposeAsyncNotifier<List<DramaModel>>;
+String _$dramaLiveHash() => r'c452b482d56861ce08bb1e5c62c715c6c479341a';
+
+abstract class _$DramaLive
+    extends BuildlessAutoDisposeAsyncNotifier<DramaModel?> {
+  late final String dramaId;
+
+  FutureOr<DramaModel?> build(
+    String dramaId,
+  );
+}
+
+/// See also [DramaLive].
+@ProviderFor(DramaLive)
+const dramaLiveProvider = DramaLiveFamily();
+
+/// See also [DramaLive].
+class DramaLiveFamily extends Family<AsyncValue<DramaModel?>> {
+  /// See also [DramaLive].
+  const DramaLiveFamily();
+
+  /// See also [DramaLive].
+  DramaLiveProvider call(
+    String dramaId,
+  ) {
+    return DramaLiveProvider(
+      dramaId,
+    );
+  }
+
+  @override
+  DramaLiveProvider getProviderOverride(
+    covariant DramaLiveProvider provider,
+  ) {
+    return call(
+      provider.dramaId,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'dramaLiveProvider';
+}
+
+/// See also [DramaLive].
+class DramaLiveProvider
+    extends AutoDisposeAsyncNotifierProviderImpl<DramaLive, DramaModel?> {
+  /// See also [DramaLive].
+  DramaLiveProvider(
+    String dramaId,
+  ) : this._internal(
+          () => DramaLive()..dramaId = dramaId,
+          from: dramaLiveProvider,
+          name: r'dramaLiveProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$dramaLiveHash,
+          dependencies: DramaLiveFamily._dependencies,
+          allTransitiveDependencies: DramaLiveFamily._allTransitiveDependencies,
+          dramaId: dramaId,
+        );
+
+  DramaLiveProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.dramaId,
+  }) : super.internal();
+
+  final String dramaId;
+
+  @override
+  FutureOr<DramaModel?> runNotifierBuild(
+    covariant DramaLive notifier,
+  ) {
+    return notifier.build(
+      dramaId,
+    );
+  }
+
+  @override
+  Override overrideWith(DramaLive Function() create) {
+    return ProviderOverride(
+      origin: this,
+      override: DramaLiveProvider._internal(
+        () => create()..dramaId = dramaId,
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        dramaId: dramaId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeAsyncNotifierProviderElement<DramaLive, DramaModel?>
+      createElement() {
+    return _DramaLiveProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is DramaLiveProvider && other.dramaId == dramaId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, dramaId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin DramaLiveRef on AutoDisposeAsyncNotifierProviderRef<DramaModel?> {
+  /// The parameter `dramaId` of this provider.
+  String get dramaId;
+}
+
+class _DramaLiveProviderElement
+    extends AutoDisposeAsyncNotifierProviderElement<DramaLive, DramaModel?>
+    with DramaLiveRef {
+  _DramaLiveProviderElement(super.provider);
+
+  @override
+  String get dramaId => (origin as DramaLiveProvider).dramaId;
+}
+
+String _$dramaEpisodesLiveHash() => r'2f05cfb443a547dc0713bc4095c25e724b9fe935';
+
+abstract class _$DramaEpisodesLive
+    extends BuildlessAutoDisposeAsyncNotifier<List<EpisodeModel>> {
+  late final String dramaId;
+
+  FutureOr<List<EpisodeModel>> build(
+    String dramaId,
+  );
+}
+
+/// See also [DramaEpisodesLive].
+@ProviderFor(DramaEpisodesLive)
+const dramaEpisodesLiveProvider = DramaEpisodesLiveFamily();
+
+/// See also [DramaEpisodesLive].
+class DramaEpisodesLiveFamily extends Family<AsyncValue<List<EpisodeModel>>> {
+  /// See also [DramaEpisodesLive].
+  const DramaEpisodesLiveFamily();
+
+  /// See also [DramaEpisodesLive].
+  DramaEpisodesLiveProvider call(
+    String dramaId,
+  ) {
+    return DramaEpisodesLiveProvider(
+      dramaId,
+    );
+  }
+
+  @override
+  DramaEpisodesLiveProvider getProviderOverride(
+    covariant DramaEpisodesLiveProvider provider,
+  ) {
+    return call(
+      provider.dramaId,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'dramaEpisodesLiveProvider';
+}
+
+/// See also [DramaEpisodesLive].
+class DramaEpisodesLiveProvider extends AutoDisposeAsyncNotifierProviderImpl<
+    DramaEpisodesLive, List<EpisodeModel>> {
+  /// See also [DramaEpisodesLive].
+  DramaEpisodesLiveProvider(
+    String dramaId,
+  ) : this._internal(
+          () => DramaEpisodesLive()..dramaId = dramaId,
+          from: dramaEpisodesLiveProvider,
+          name: r'dramaEpisodesLiveProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$dramaEpisodesLiveHash,
+          dependencies: DramaEpisodesLiveFamily._dependencies,
+          allTransitiveDependencies:
+              DramaEpisodesLiveFamily._allTransitiveDependencies,
+          dramaId: dramaId,
+        );
+
+  DramaEpisodesLiveProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.dramaId,
+  }) : super.internal();
+
+  final String dramaId;
+
+  @override
+  FutureOr<List<EpisodeModel>> runNotifierBuild(
+    covariant DramaEpisodesLive notifier,
+  ) {
+    return notifier.build(
+      dramaId,
+    );
+  }
+
+  @override
+  Override overrideWith(DramaEpisodesLive Function() create) {
+    return ProviderOverride(
+      origin: this,
+      override: DramaEpisodesLiveProvider._internal(
+        () => create()..dramaId = dramaId,
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        dramaId: dramaId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeAsyncNotifierProviderElement<DramaEpisodesLive, List<EpisodeModel>>
+      createElement() {
+    return _DramaEpisodesLiveProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is DramaEpisodesLiveProvider && other.dramaId == dramaId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, dramaId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin DramaEpisodesLiveRef
+    on AutoDisposeAsyncNotifierProviderRef<List<EpisodeModel>> {
+  /// The parameter `dramaId` of this provider.
+  String get dramaId;
+}
+
+class _DramaEpisodesLiveProviderElement
+    extends AutoDisposeAsyncNotifierProviderElement<DramaEpisodesLive,
+        List<EpisodeModel>> with DramaEpisodesLiveRef {
+  _DramaEpisodesLiveProviderElement(super.provider);
+
+  @override
+  String get dramaId => (origin as DramaEpisodesLiveProvider).dramaId;
+}
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

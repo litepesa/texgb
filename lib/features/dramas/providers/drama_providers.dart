@@ -1,6 +1,6 @@
-// lib/features/dramas/providers/drama_providers.dart
+// lib/features/dramas/providers/drama_providers.dart (Updated for Go Backend)
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/dramas/repositories/drama_repository.dart';
 import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/models/episode_model.dart';
@@ -19,12 +19,14 @@ class DramaListState {
   final List<DramaModel> dramas;
   final bool isLoading;
   final bool hasMore;
+  final int currentOffset;
   final String? error;
 
   const DramaListState({
     this.dramas = const [],
     this.isLoading = false,
     this.hasMore = true,
+    this.currentOffset = 0,
     this.error,
   });
 
@@ -32,12 +34,14 @@ class DramaListState {
     List<DramaModel>? dramas,
     bool? isLoading,
     bool? hasMore,
+    int? currentOffset,
     String? error,
   }) {
     return DramaListState(
       dramas: dramas ?? this.dramas,
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
+      currentOffset: currentOffset ?? this.currentOffset,
       error: error,
     );
   }
@@ -79,17 +83,18 @@ class TrendingDramas extends _$TrendingDramas {
   }
 }
 
-// All dramas provider with pagination
+// All dramas provider with pagination (updated for HTTP backend)
 @riverpod
 class AllDramas extends _$AllDramas {
   @override
   Future<DramaListState> build() async {
     final repository = ref.read(dramaRepositoryProvider);
     try {
-      final dramas = await repository.getAllDramas(limit: 20);
+      final dramas = await repository.getAllDramas(limit: 20, offset: 0);
       return DramaListState(
         dramas: dramas,
         hasMore: dramas.length >= 20,
+        currentOffset: dramas.length,
       );
     } catch (e) {
       return DramaListState(error: e.toString());
@@ -106,14 +111,14 @@ class AllDramas extends _$AllDramas {
       final repository = ref.read(dramaRepositoryProvider);
       final newDramas = await repository.getAllDramas(
         limit: 20,
-        // Note: For pagination, you'd need to pass the last document
-        // This is simplified - in real implementation, store last document
+        offset: currentState.currentOffset,
       );
 
       state = AsyncValue.data(currentState.copyWith(
         dramas: [...currentState.dramas, ...newDramas],
         isLoading: false,
         hasMore: newDramas.length >= 20,
+        currentOffset: currentState.currentOffset + newDramas.length,
       ));
     } catch (e) {
       state = AsyncValue.data(currentState.copyWith(
@@ -127,10 +132,11 @@ class AllDramas extends _$AllDramas {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repository = ref.read(dramaRepositoryProvider);
-      final dramas = await repository.getAllDramas(limit: 20);
+      final dramas = await repository.getAllDramas(limit: 20, offset: 0);
       return DramaListState(
         dramas: dramas,
         hasMore: dramas.length >= 20,
+        currentOffset: dramas.length,
       );
     });
   }
@@ -180,7 +186,7 @@ class Drama extends _$Drama {
     final repository = ref.read(dramaRepositoryProvider);
     final drama = await repository.getDramaById(dramaId);
     
-    // Increment view count when drama is loaded
+    // Increment view count when drama is loaded (fire and forget)
     if (drama != null) {
       repository.incrementDramaViews(dramaId);
     }
@@ -189,6 +195,7 @@ class Drama extends _$Drama {
   }
 
   Future<void> refresh() async {
+    final dramaId = this.dramaId; // Get the dramaId from the provider
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repository = ref.read(dramaRepositoryProvider);
@@ -207,6 +214,7 @@ class DramaEpisodes extends _$DramaEpisodes {
   }
 
   Future<void> refresh() async {
+    final dramaId = this.dramaId; // Get the dramaId from the provider
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repository = ref.read(dramaRepositoryProvider);
@@ -221,7 +229,7 @@ Future<EpisodeModel?> episode(EpisodeRef ref, String episodeId) async {
   final repository = ref.read(dramaRepositoryProvider);
   final episode = await repository.getEpisodeById(episodeId);
   
-  // Increment view count when episode is loaded
+  // Increment view count when episode is loaded (fire and forget)
   if (episode != null) {
     repository.incrementEpisodeViews(episodeId);
   }
@@ -257,7 +265,9 @@ class SearchDramas extends _$SearchDramas {
 // User's favorite dramas provider
 @riverpod
 Future<List<DramaModel>> userFavoriteDramas(UserFavoriteDramasRef ref) async {
-  final user = ref.watch(currentUserProvider);
+  final authState = ref.watch(authenticationProvider);
+  final user = authState.valueOrNull?.userModel;
+  
   if (user == null || user.favoriteDramas.isEmpty) return [];
 
   final repository = ref.read(dramaRepositoryProvider);
@@ -265,9 +275,14 @@ Future<List<DramaModel>> userFavoriteDramas(UserFavoriteDramasRef ref) async {
 
   // Fetch each favorite drama
   for (final dramaId in user.favoriteDramas) {
-    final drama = await repository.getDramaById(dramaId);
-    if (drama != null) {
-      favoriteDramas.add(drama);
+    try {
+      final drama = await repository.getDramaById(dramaId);
+      if (drama != null) {
+        favoriteDramas.add(drama);
+      }
+    } catch (e) {
+      // Skip dramas that can't be loaded
+      continue;
     }
   }
 
@@ -277,7 +292,9 @@ Future<List<DramaModel>> userFavoriteDramas(UserFavoriteDramasRef ref) async {
 // Continue watching provider (dramas user has progress in)
 @riverpod
 Future<List<DramaModel>> continueWatchingDramas(ContinueWatchingDramasRef ref) async {
-  final user = ref.watch(currentUserProvider);
+  final authState = ref.watch(authenticationProvider);
+  final user = authState.valueOrNull?.userModel;
+  
   if (user == null || user.dramaProgress.isEmpty) return [];
 
   final repository = ref.read(dramaRepositoryProvider);
@@ -285,13 +302,18 @@ Future<List<DramaModel>> continueWatchingDramas(ContinueWatchingDramasRef ref) a
 
   // Fetch dramas that user has progress in
   for (final dramaId in user.dramaProgress.keys) {
-    final drama = await repository.getDramaById(dramaId);
-    if (drama != null) {
-      continueWatchingDramas.add(drama);
+    try {
+      final drama = await repository.getDramaById(dramaId);
+      if (drama != null) {
+        continueWatchingDramas.add(drama);
+      }
+    } catch (e) {
+      // Skip dramas that can't be loaded
+      continue;
     }
   }
 
-  // Sort by most recently watched (this would need timestamp in real app)
+  // Sort by most recently watched (could be enhanced with timestamps)
   return continueWatchingDramas;
 }
 
@@ -302,7 +324,9 @@ Future<List<DramaModel>> continueWatchingDramas(ContinueWatchingDramasRef ref) a
 class AdminDramas extends _$AdminDramas {
   @override
   Future<List<DramaModel>> build() async {
-    final user = ref.watch(currentUserProvider);
+    final authState = ref.watch(authenticationProvider);
+    final user = authState.valueOrNull?.userModel;
+    
     if (user == null || !user.isAdmin) return [];
 
     final repository = ref.read(dramaRepositoryProvider);
@@ -312,7 +336,9 @@ class AdminDramas extends _$AdminDramas {
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final user = ref.read(currentUserProvider);
+      final authState = ref.read(authenticationProvider);
+      final user = authState.valueOrNull?.userModel;
+      
       if (user == null || !user.isAdmin) return <DramaModel>[];
 
       final repository = ref.read(dramaRepositoryProvider);
@@ -326,21 +352,24 @@ class AdminDramas extends _$AdminDramas {
 // Check if user has favorited a drama
 @riverpod
 bool isDramaFavorited(IsDramaFavoritedRef ref, String dramaId) {
-  final user = ref.watch(currentUserProvider);
+  final authState = ref.watch(authenticationProvider);
+  final user = authState.valueOrNull?.userModel;
   return user?.hasFavorited(dramaId) ?? false;
 }
 
 // Check if user has unlocked a drama
 @riverpod
 bool isDramaUnlocked(IsDramaUnlockedRef ref, String dramaId) {
-  final user = ref.watch(currentUserProvider);
+  final authState = ref.watch(authenticationProvider);
+  final user = authState.valueOrNull?.userModel;
   return user?.hasUnlocked(dramaId) ?? false;
 }
 
 // Get user's progress in a drama
 @riverpod
 int dramaUserProgress(DramaUserProgressRef ref, String dramaId) {
-  final user = ref.watch(currentUserProvider);
+  final authState = ref.watch(authenticationProvider);
+  final user = authState.valueOrNull?.userModel;
   return user?.getDramaProgress(dramaId) ?? 0;
 }
 
@@ -348,7 +377,8 @@ int dramaUserProgress(DramaUserProgressRef ref, String dramaId) {
 @riverpod
 bool canWatchEpisode(CanWatchEpisodeRef ref, String dramaId, int episodeNumber) {
   final drama = ref.watch(dramaProvider(dramaId));
-  final user = ref.watch(currentUserProvider);
+  final authState = ref.watch(authenticationProvider);
+  final user = authState.valueOrNull?.userModel;
   
   return drama.when(
     data: (dramaModel) {
@@ -363,28 +393,71 @@ bool canWatchEpisode(CanWatchEpisodeRef ref, String dramaId, int episodeNumber) 
   );
 }
 
-// STREAM PROVIDERS (for real-time updates)
+// PERIODIC REFRESH PROVIDERS (replace real-time streams)
+// These providers can be refreshed periodically to simulate real-time updates
 
+// Featured dramas with periodic refresh
 @riverpod
-Stream<List<DramaModel>> featuredDramasStream(FeaturedDramasStreamRef ref) {
-  final repository = ref.read(dramaRepositoryProvider);
-  return repository.featuredDramasStream();
+class FeaturedDramasLive extends _$FeaturedDramasLive {
+  @override
+  Future<List<DramaModel>> build() async {
+    final repository = ref.read(dramaRepositoryProvider);
+    return await repository.getFeaturedDramas();
+  }
+
+  // Call this method periodically from UI to refresh data
+  Future<void> refreshPeriodically() async {
+    final repository = ref.read(dramaRepositoryProvider);
+    state = AsyncValue.data(await repository.getFeaturedDramas());
+  }
 }
 
+// Trending dramas with periodic refresh
 @riverpod
-Stream<List<DramaModel>> trendingDramasStream(TrendingDramasStreamRef ref) {
-  final repository = ref.read(dramaRepositoryProvider);
-  return repository.trendingDramasStream();
+class TrendingDramasLive extends _$TrendingDramasLive {
+  @override
+  Future<List<DramaModel>> build() async {
+    final repository = ref.read(dramaRepositoryProvider);
+    return await repository.getTrendingDramas();
+  }
+
+  // Call this method periodically from UI to refresh data
+  Future<void> refreshPeriodically() async {
+    final repository = ref.read(dramaRepositoryProvider);
+    state = AsyncValue.data(await repository.getTrendingDramas());
+  }
 }
 
+// Drama with periodic refresh
 @riverpod
-Stream<DramaModel> dramaStream(DramaStreamRef ref, String dramaId) {
-  final repository = ref.read(dramaRepositoryProvider);
-  return repository.dramaStream(dramaId);
+class DramaLive extends _$DramaLive {
+  @override
+  Future<DramaModel?> build(String dramaId) async {
+    final repository = ref.read(dramaRepositoryProvider);
+    return await repository.getDramaById(dramaId);
+  }
+
+  // Call this method periodically from UI to refresh data
+  Future<void> refreshPeriodically() async {
+    final dramaId = this.dramaId;
+    final repository = ref.read(dramaRepositoryProvider);
+    state = AsyncValue.data(await repository.getDramaById(dramaId));
+  }
 }
 
+// Episodes with periodic refresh
 @riverpod
-Stream<List<EpisodeModel>> dramaEpisodesStream(DramaEpisodesStreamRef ref, String dramaId) {
-  final repository = ref.read(dramaRepositoryProvider);
-  return repository.dramaEpisodesStream(dramaId);
+class DramaEpisodesLive extends _$DramaEpisodesLive {
+  @override
+  Future<List<EpisodeModel>> build(String dramaId) async {
+    final repository = ref.read(dramaRepositoryProvider);
+    return await repository.getDramaEpisodes(dramaId);
+  }
+
+  // Call this method periodically from UI to refresh data
+  Future<void> refreshPeriodically() async {
+    final dramaId = this.dramaId;
+    final repository = ref.read(dramaRepositoryProvider);
+    state = AsyncValue.data(await repository.getDramaEpisodes(dramaId));
+  }
 }

@@ -126,9 +126,11 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
         if (!mounted) return;
         
         try {
+          // Check if user exists in Go backend (not Firebase)
           final userExists = await authNotifier.checkUserExists();
           if (userExists) {
-            await authNotifier.getUserDataFromFireStore();
+            // Get user data from Go backend and save to shared preferences
+            await authNotifier.getUserDataFromBackend();
             await authNotifier.saveUserDataToSharedPreferences();
           }
           _navigate(userExists: userExists);
