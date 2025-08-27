@@ -32,6 +32,34 @@ class EpisodeModel {
     required this.updatedAt,
   });
 
+  // ONLY TIME FIX: Helper method to parse DateTime to RFC3339 format
+  static String _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) return DateTime.now().toUtc().toIso8601String();
+    
+    if (dateValue is String) {
+      try {
+        // Try to parse as RFC3339/ISO8601 first
+        final parsedDate = DateTime.parse(dateValue);
+        return parsedDate.toUtc().toIso8601String(); // Ensure UTC RFC3339 format
+      } catch (e) {
+        try {
+          // Try to parse as microseconds since epoch
+          final microseconds = int.parse(dateValue);
+          return DateTime.fromMicrosecondsSinceEpoch(microseconds).toUtc().toIso8601String();
+        } catch (e2) {
+          return DateTime.now().toUtc().toIso8601String();
+        }
+      }
+    }
+    
+    if (dateValue is int) {
+      // Assume microseconds since epoch
+      return DateTime.fromMicrosecondsSinceEpoch(dateValue).toUtc().toIso8601String();
+    }
+    
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
   factory EpisodeModel.fromMap(Map<String, dynamic> map) {
     return EpisodeModel(
       episodeId: map[Constants.episodeId]?.toString() ?? '',
@@ -42,10 +70,11 @@ class EpisodeModel {
       videoUrl: map[Constants.videoUrl]?.toString() ?? '',
       videoDuration: map[Constants.videoDuration]?.toInt() ?? 0,
       episodeViewCount: map[Constants.episodeViewCount]?.toInt() ?? 0,
-      releasedAt: map[Constants.releasedAt]?.toString() ?? '',
+      // ONLY TIME FIX: Use _parseDateTime for timestamp fields
+      releasedAt: _parseDateTime(map[Constants.releasedAt]),
       uploadedBy: map[Constants.uploadedBy]?.toString() ?? '',
-      createdAt: map[Constants.createdAt]?.toString() ?? '',
-      updatedAt: map[Constants.updatedAt]?.toString() ?? '',
+      createdAt: _parseDateTime(map[Constants.createdAt]),
+      updatedAt: _parseDateTime(map[Constants.updatedAt]),
     );
   }
 

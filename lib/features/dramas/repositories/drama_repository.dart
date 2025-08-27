@@ -1,6 +1,7 @@
-// lib/features/dramas/repositories/drama_repository.dart (Updated for Go Backend)
+// lib/features/dramas/repositories/drama_repository.dart (Fixed)
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/models/episode_model.dart';
@@ -200,29 +201,48 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // ADMIN DRAMA OPERATIONS (HTTP BACKEND)
+  // ADMIN DRAMA OPERATIONS (HTTP BACKEND) - FIXED
   // ===============================
 
   @override
   Future<String> createDrama(DramaModel drama, {File? bannerImage}) async {
     try {
+      debugPrint('=== CREATING DRAMA ===');
+      debugPrint('Initial drama: $drama');
+      
       // First upload banner image if provided
       String bannerUrl = '';
       if (bannerImage != null) {
+        debugPrint('Uploading banner image...');
         bannerUrl = await uploadBannerImage(bannerImage, '');
+        debugPrint('Banner uploaded: $bannerUrl');
       }
 
-      // Create drama with banner URL
-      final dramaData = drama.copyWith(bannerImage: bannerUrl).toMap();
+      // FIXED: Use toCreateMap() which excludes dramaId completely
+      final dramaWithBanner = drama.copyWith(bannerImage: bannerUrl);
+      final dramaData = dramaWithBanner.toCreateMap();
+      
+      debugPrint('Drama data being sent: ${jsonEncode(dramaData)}');
+      debugPrint('Endpoint: /admin/dramas');
+      
       final response = await _httpClient.post('/admin/dramas', body: dramaData);
+
+      debugPrint('=== RESPONSE ===');
+      debugPrint('Status Code: ${response.statusCode}');
+      debugPrint('Response Body: ${response.body}');
+      debugPrint('Response Headers: ${response.headers}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        return responseData['dramaId'] as String;
+        final dramaId = responseData['dramaId'] as String;
+        debugPrint('Drama created successfully with ID: $dramaId');
+        return dramaId;
       } else {
+        debugPrint('Drama creation failed: ${response.statusCode} - ${response.body}');
         throw DramaRepositoryException('Failed to create drama: ${response.body}');
       }
     } catch (e) {
+      debugPrint('Exception during drama creation: $e');
       throw DramaRepositoryException('Failed to create drama: $e');
     }
   }
@@ -236,7 +256,7 @@ class HttpDramaRepository implements DramaRepository {
         bannerUrl = await uploadBannerImage(bannerImage, drama.dramaId);
       }
 
-      // Update drama with new banner URL
+      // Update drama with new banner URL - use regular toMap for updates (includes dramaId)
       final dramaData = drama.copyWith(bannerImage: bannerUrl).toMap();
       final response = await _httpClient.put('/admin/dramas/${drama.dramaId}', body: dramaData);
 
@@ -421,7 +441,7 @@ class HttpDramaRepository implements DramaRepository {
       await _httpClient.post('/dramas/$dramaId/views');
     } catch (e) {
       // Silently fail for view counting
-      print('Failed to increment drama views: $e');
+      debugPrint('Failed to increment drama views: $e');
     }
   }
 
@@ -432,7 +452,7 @@ class HttpDramaRepository implements DramaRepository {
       await _httpClient.post('/episodes/$episodeId/views');
     } catch (e) {
       // Silently fail for view counting
-      print('Failed to increment episode views: $e');
+      debugPrint('Failed to increment episode views: $e');
     }
   }
 
@@ -445,7 +465,7 @@ class HttpDramaRepository implements DramaRepository {
       });
     } catch (e) {
       // Silently fail for favorite counting
-      print('Failed to update drama favorites: $e');
+      debugPrint('Failed to update drama favorites: $e');
     }
   }
 

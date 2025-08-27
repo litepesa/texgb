@@ -38,6 +38,39 @@ class DramaModel {
     required this.updatedAt,
   });
 
+  // Helper method to create RFC3339 timestamps
+  static String _createTimestamp() {
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
+  // Factory constructor for creating new drama with current timestamps
+  factory DramaModel.create({
+    required String title,
+    required String description,
+    required String createdBy,
+    String bannerImage = '',
+    bool isPremium = false,
+    int freeEpisodesCount = 0,
+    bool isFeatured = false,
+    bool isActive = true,
+  }) {
+    final now = DramaModel._createTimestamp();
+    return DramaModel(
+      dramaId: '', // Will be set by backend
+      title: title,
+      description: description,
+      bannerImage: bannerImage,
+      isPremium: isPremium,
+      freeEpisodesCount: freeEpisodesCount,
+      isFeatured: isFeatured,
+      isActive: isActive,
+      publishedAt: now,
+      createdBy: createdBy,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
   factory DramaModel.fromMap(Map<String, dynamic> map) {
     return DramaModel(
       dramaId: map[Constants.dramaId]?.toString() ?? '',
@@ -58,9 +91,9 @@ class DramaModel {
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      Constants.dramaId: dramaId,
+  // Updated toMap with conditional dramaId inclusion
+  Map<String, dynamic> toMap({bool includeId = true}) {
+    final map = <String, dynamic>{
       Constants.title: title,
       Constants.description: description,
       Constants.bannerImage: bannerImage,
@@ -75,6 +108,34 @@ class DramaModel {
       Constants.createdBy: createdBy,
       Constants.createdAt: createdAt,
       Constants.updatedAt: updatedAt,
+    };
+
+    // Only include dramaId if it's not empty and includeId is true
+    if (includeId && dramaId.isNotEmpty) {
+      map[Constants.dramaId] = dramaId;
+    }
+
+    return map;
+  }
+
+  // Separate method specifically for creation requests (excludes dramaId completely)
+  Map<String, dynamic> toCreateMap() {
+    return {
+      Constants.title: title,
+      Constants.description: description,
+      Constants.bannerImage: bannerImage,
+      Constants.totalEpisodes: totalEpisodes,
+      Constants.isPremium: isPremium,
+      Constants.freeEpisodesCount: freeEpisodesCount,
+      Constants.viewCount: viewCount,
+      Constants.favoriteCount: favoriteCount,
+      Constants.isFeatured: isFeatured,
+      Constants.publishedAt: publishedAt,
+      Constants.isActive: isActive,
+      Constants.createdBy: createdBy,
+      Constants.createdAt: createdAt,
+      Constants.updatedAt: updatedAt,
+      // Note: dramaId is intentionally excluded for creation
     };
   }
 
@@ -114,6 +175,11 @@ class DramaModel {
     );
   }
 
+  // Helper method to update timestamps when modifying
+  DramaModel withUpdatedTimestamp() {
+    return copyWith(updatedAt: _createTimestamp());
+  }
+
   // Helper methods for drama logic
   bool get isFree => !isPremium;
   bool get hasPremiumContent => isPremium && totalEpisodes > freeEpisodesCount;
@@ -146,6 +212,50 @@ class DramaModel {
     return 'First $freeEpisodesCount episodes free';
   }
 
+  // Parse datetime helpers
+  DateTime? get createdAtDateTime {
+    try {
+      return createdAt.isNotEmpty ? DateTime.parse(createdAt) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  DateTime? get updatedAtDateTime {
+    try {
+      return updatedAt.isNotEmpty ? DateTime.parse(updatedAt) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  DateTime? get publishedAtDateTime {
+    try {
+      return publishedAt.isNotEmpty ? DateTime.parse(publishedAt) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Validation helpers
+  bool get isValidForCreation {
+    return title.trim().isNotEmpty &&
+           description.trim().isNotEmpty &&
+           createdBy.isNotEmpty &&
+           createdAt.isNotEmpty &&
+           updatedAt.isNotEmpty &&
+           publishedAt.isNotEmpty;
+  }
+
+  List<String> get validationErrors {
+    final errors = <String>[];
+    if (title.trim().isEmpty) errors.add('Title is required');
+    if (description.trim().isEmpty) errors.add('Description is required');
+    if (createdBy.isEmpty) errors.add('Created by is required');
+    if (isPremium && freeEpisodesCount < 0) errors.add('Free episodes count cannot be negative');
+    return errors;
+  }
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -157,6 +267,6 @@ class DramaModel {
 
   @override
   String toString() {
-    return 'DramaModel(dramaId: $dramaId, title: $title, isPremium: $isPremium, episodes: $totalEpisodes)';
+    return 'DramaModel(dramaId: $dramaId, title: $title, isPremium: $isPremium, episodes: $totalEpisodes, createdAt: $createdAt)';
   }
 }

@@ -279,6 +279,9 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
             if (value.trim().length < 3) {
               return 'Title must be at least 3 characters';
             }
+            if (value.trim().length > 100) {
+              return 'Title is too long (max 100 characters)';
+            }
             return null;
           },
         ),
@@ -573,23 +576,35 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
     setState(() => _isCreating = true);
 
     try {
-      final now = DateTime.now().microsecondsSinceEpoch.toString();
+      // Validate inputs before creating drama
+      final title = _titleController.text.trim();
+      final description = _descriptionController.text.trim();
       
-      final drama = DramaModel(
-        dramaId: '', // Will be set by repository
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
+      if (title.isEmpty || description.isEmpty) {
+        throw Exception('Title and description are required');
+      }
+
+      // Use the new factory constructor with RFC3339 timestamps
+      final drama = DramaModel.create(
+        title: title,
+        description: description,
+        createdBy: currentUser.uid,
         isPremium: _isPremium,
         freeEpisodesCount: _isPremium 
             ? int.tryParse(_freeEpisodesController.text.trim()) ?? 0 
             : 0,
         isFeatured: _isFeatured,
         isActive: _isActive,
-        publishedAt: now,
-        createdBy: currentUser.uid,
-        createdAt: now,
-        updatedAt: now,
+        bannerImage: '', // Will be set by repository after upload
       );
+
+      // Validate the drama before sending
+      if (!drama.isValidForCreation) {
+        final errors = drama.validationErrors.join(', ');
+        throw Exception('Drama validation failed: $errors');
+      }
+
+      debugPrint('Creating drama with data: $drama');
 
       final repository = ref.read(dramaRepositoryProvider);
       final dramaId = await repository.createDrama(drama, bannerImage: _bannerImage);
@@ -609,8 +624,9 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Drama creation failed: $e');
       if (mounted) {
-        showSnackBar(context, 'Failed to create drama: $e');
+        showSnackBar(context, 'Failed to create drama: ${e.toString()}');
       }
     } finally {
       if (mounted) {
