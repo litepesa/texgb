@@ -1,4 +1,6 @@
 // lib/features/wallet/repositories/wallet_repository.dart
+// FIXED VERSION - Add null safety checks
+
 import 'dart:convert';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
@@ -43,8 +45,18 @@ class HttpWalletRepository implements WalletRepository {
       final response = await _httpClient.get('/wallet/$userId');
       
       if (response.statusCode == 200) {
-        final walletData = jsonDecode(response.body) as Map<String, dynamic>;
-        return WalletModel.fromMap(walletData);
+        final responseBody = response.body.trim();
+        if (responseBody.isEmpty || responseBody == 'null') {
+          return null;
+        }
+        
+        final walletData = jsonDecode(responseBody);
+        // Add null check for wallet data
+        if (walletData == null) {
+          return null;
+        }
+        
+        return WalletModel.fromMap(walletData as Map<String, dynamic>);
       } else if (response.statusCode == 404) {
         // Wallet doesn't exist, backend will create it automatically
         return null;
@@ -90,7 +102,16 @@ class HttpWalletRepository implements WalletRepository {
       if (response.statusCode == 200) {
         return true;
       } else {
-        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        final responseBody = response.body.trim();
+        if (responseBody.isEmpty || responseBody == 'null') {
+          return false;
+        }
+        
+        final errorData = jsonDecode(responseBody);
+        if (errorData == null) {
+          return false;
+        }
+        
         final errorMessage = errorData['error'] ?? 'Unknown error';
         
         // Handle specific errors
@@ -127,7 +148,7 @@ class HttpWalletRepository implements WalletRepository {
   }
 
   // ===============================
-  // TRANSACTION OPERATIONS (HTTP BACKEND)
+  // TRANSACTION OPERATIONS (HTTP BACKEND) - FIXED
   // ===============================
 
   @override
@@ -144,14 +165,58 @@ class HttpWalletRepository implements WalletRepository {
       final response = await _httpClient.get(endpoint);
       
       if (response.statusCode == 200) {
-        final List<dynamic> transactionsData = jsonDecode(response.body);
+        final responseBody = response.body.trim();
+        
+        // Handle empty or null response
+        if (responseBody.isEmpty || responseBody == 'null') {
+          return <WalletTransaction>[];
+        }
+        
+        final decodedData = jsonDecode(responseBody);
+        
+        // Handle null response data
+        if (decodedData == null) {
+          return <WalletTransaction>[];
+        }
+        
+        // Handle case where response is not a list
+        if (decodedData is! List) {
+          // If it's a map with a transactions field
+          if (decodedData is Map<String, dynamic> && decodedData.containsKey('transactions')) {
+            final transactionsData = decodedData['transactions'];
+            if (transactionsData == null) {
+              return <WalletTransaction>[];
+            }
+            if (transactionsData is List) {
+              return transactionsData
+                  .where((item) => item != null)
+                  .map((data) => WalletTransaction.fromMap(data as Map<String, dynamic>))
+                  .toList();
+            }
+          }
+          // If it's some other structure, return empty list
+          return <WalletTransaction>[];
+        }
+        
+        // Handle normal list response
+        final List<dynamic> transactionsData = decodedData;
         return transactionsData
+            .where((item) => item != null) // Filter out null items
             .map((data) => WalletTransaction.fromMap(data as Map<String, dynamic>))
             .toList();
+            
+      } else if (response.statusCode == 404) {
+        // User has no transactions yet
+        return <WalletTransaction>[];
       } else {
         throw WalletRepositoryException('Failed to get wallet transactions: ${response.body}');
       }
     } catch (e) {
+      // If it's a parsing error, return empty list instead of throwing
+      if (e is FormatException || e.toString().contains('subtype')) {
+        print('Warning: Failed to parse transactions data: $e');
+        return <WalletTransaction>[];
+      }
       throw WalletRepositoryException('Failed to get wallet transactions: $e');
     }
   }
@@ -171,7 +236,7 @@ class HttpWalletRepository implements WalletRepository {
   }
 
   // ===============================
-  // ADDITIONAL UTILITY METHODS (HTTP BACKEND)
+  // ADDITIONAL UTILITY METHODS (HTTP BACKEND) - ALSO FIXED
   // ===============================
 
   /// Get total coins spent by user
@@ -180,8 +245,17 @@ class HttpWalletRepository implements WalletRepository {
       final response = await _httpClient.get('/wallet/$userId/stats/spent');
       
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return data['totalSpent'] as int;
+        final responseBody = response.body.trim();
+        if (responseBody.isEmpty || responseBody == 'null') {
+          return 0;
+        }
+        
+        final data = jsonDecode(responseBody);
+        if (data == null || data is! Map<String, dynamic>) {
+          return 0;
+        }
+        
+        return (data['totalSpent'] as int?) ?? 0;
       } else {
         throw WalletRepositoryException('Failed to get total coins spent: ${response.body}');
       }
@@ -196,8 +270,17 @@ class HttpWalletRepository implements WalletRepository {
       final response = await _httpClient.get('/wallet/$userId/stats/purchased');
       
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return data['totalPurchased'] as int;
+        final responseBody = response.body.trim();
+        if (responseBody.isEmpty || responseBody == 'null') {
+          return 0;
+        }
+        
+        final data = jsonDecode(responseBody);
+        if (data == null || data is! Map<String, dynamic>) {
+          return 0;
+        }
+        
+        return (data['totalPurchased'] as int?) ?? 0;
       } else {
         throw WalletRepositoryException('Failed to get total coins purchased: ${response.body}');
       }
@@ -206,7 +289,7 @@ class HttpWalletRepository implements WalletRepository {
     }
   }
 
-  /// Get transactions by type
+  /// Get transactions by type - FIXED
   Future<List<WalletTransaction>> getTransactionsByType(String userId, String type, {
     int limit = 50,
   }) async {
@@ -214,14 +297,31 @@ class HttpWalletRepository implements WalletRepository {
       final response = await _httpClient.get('/wallet/$userId/transactions?type=$type&limit=$limit');
       
       if (response.statusCode == 200) {
-        final List<dynamic> transactionsData = jsonDecode(response.body);
+        final responseBody = response.body.trim();
+        if (responseBody.isEmpty || responseBody == 'null') {
+          return <WalletTransaction>[];
+        }
+        
+        final decodedData = jsonDecode(responseBody);
+        if (decodedData == null || decodedData is! List) {
+          return <WalletTransaction>[];
+        }
+        
+        final List<dynamic> transactionsData = decodedData;
         return transactionsData
+            .where((item) => item != null)
             .map((data) => WalletTransaction.fromMap(data as Map<String, dynamic>))
             .toList();
+      } else if (response.statusCode == 404) {
+        return <WalletTransaction>[];
       } else {
         throw WalletRepositoryException('Failed to get transactions by type: ${response.body}');
       }
     } catch (e) {
+      if (e is FormatException || e.toString().contains('subtype')) {
+        print('Warning: Failed to parse transactions by type: $e');
+        return <WalletTransaction>[];
+      }
       throw WalletRepositoryException('Failed to get transactions by type: $e');
     }
   }
@@ -263,13 +363,23 @@ class HttpWalletRepository implements WalletRepository {
     }
   }
 
-  /// Get wallet statistics for a user
+  /// Get wallet statistics for a user - FIXED
   Future<Map<String, dynamic>> getWalletStats(String userId) async {
     try {
       final response = await _httpClient.get('/wallet/$userId/stats');
       
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        final responseBody = response.body.trim();
+        if (responseBody.isEmpty || responseBody == 'null') {
+          return <String, dynamic>{};
+        }
+        
+        final data = jsonDecode(responseBody);
+        if (data == null) {
+          return <String, dynamic>{};
+        }
+        
+        return data as Map<String, dynamic>;
       } else {
         throw WalletRepositoryException('Failed to get wallet stats: ${response.body}');
       }
@@ -278,18 +388,37 @@ class HttpWalletRepository implements WalletRepository {
     }
   }
 
-  /// Admin method: Get all pending coin purchases
+  // ... rest of the admin methods remain the same with similar null safety checks
+  
+  /// Admin method: Get all pending coin purchases - FIXED
   Future<List<Map<String, dynamic>>> getPendingCoinPurchases() async {
     try {
       final response = await _httpClient.get('/admin/wallet/pending-purchases');
       
       if (response.statusCode == 200) {
-        final List<dynamic> purchasesData = jsonDecode(response.body);
-        return purchasesData.map((data) => data as Map<String, dynamic>).toList();
+        final responseBody = response.body.trim();
+        if (responseBody.isEmpty || responseBody == 'null') {
+          return <Map<String, dynamic>>[];
+        }
+        
+        final decodedData = jsonDecode(responseBody);
+        if (decodedData == null || decodedData is! List) {
+          return <Map<String, dynamic>>[];
+        }
+        
+        final List<dynamic> purchasesData = decodedData;
+        return purchasesData
+            .where((item) => item != null)
+            .map((data) => data as Map<String, dynamic>)
+            .toList();
       } else {
         throw WalletRepositoryException('Failed to get pending purchases: ${response.body}');
       }
     } catch (e) {
+      if (e is FormatException || e.toString().contains('subtype')) {
+        print('Warning: Failed to parse pending purchases: $e');
+        return <Map<String, dynamic>>[];
+      }
       throw WalletRepositoryException('Failed to get pending purchases: $e');
     }
   }
