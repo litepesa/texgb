@@ -114,60 +114,62 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
   }
 
   Future<void> _verifyOTPCode({
-  required String verificationId,
-  required String otpCode,
-}) async {
-  final authNotifier = ref.read(authenticationProvider.notifier);
-  
-  authNotifier.verifyOTPCode(
-    verificationId: verificationId,
-    otpCode: otpCode,
-    context: context,
-    onSuccess: () async {
-      if (!mounted) return;
-      
-      try {
-        // Check if user exists in Go backend
-        final userExists = await authNotifier.checkUserExists();
+    required String verificationId,
+    required String otpCode,
+  }) async {
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    
+    authNotifier.verifyOTPCode(
+      verificationId: verificationId,
+      otpCode: otpCode,
+      context: context,
+      onSuccess: () async {
+        if (!mounted) return;
         
-        bool shouldGoToUserInfo = true;
-        
-        if (userExists) {
-          // Get user data from backend
-          final userData = await authNotifier.getUserDataFromBackend();
+        try {
+          // Check if user exists in Go backend
+          final userExists = await authNotifier.checkUserExists();
           
-          // Check if user has complete profile
-          if (userData != null && 
-              userData.name.isNotEmpty && 
-              userData.name.trim().isNotEmpty) {
-            // User has complete profile, save to shared preferences
-            await authNotifier.saveUserDataToSharedPreferences();
-            shouldGoToUserInfo = false;
+          bool hasCompleteProfile = false;
+          
+          if (userExists) {
+            // Get user data from backend
+            final userData = await authNotifier.getUserDataFromBackend();
+            
+            // Check if user has complete profile
+            if (userData != null && 
+                userData.name.isNotEmpty && 
+                userData.name.trim().isNotEmpty) {
+              // User has complete profile, save to shared preferences
+              await authNotifier.saveUserDataToSharedPreferences();
+              hasCompleteProfile = true;
+            }
+          }
+          
+          // Navigate based on profile completeness
+          // If user has complete profile -> go to home
+          // If user doesn't have complete profile -> go to user info
+          _navigate(hasCompleteProfile: hasCompleteProfile);
+          
+        } catch (e) {
+          debugPrint('Error during OTP verification: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('An error occurred. Please try again.'),
+                duration: Duration(seconds: 2),
+              ),
+            );
           }
         }
-        
-        // Navigate based on profile completeness
-        _navigate(userExists: !shouldGoToUserInfo);
-        
-      } catch (e) {
-        debugPrint('Error during OTP verification: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('An error occurred. Please try again.'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    },
-  );
-}
+      },
+    );
+  }
 
-  void _navigate({required bool userExists}) {
+  void _navigate({required bool hasCompleteProfile}) {
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(
-      userExists ? Constants.homeScreen : Constants.userInformationScreen,
+      hasCompleteProfile ? Constants.homeScreen : Constants.userInformationScreen,
       (route) => false,
     );
   }

@@ -23,6 +23,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final FocusNode _nameFocusNode = FocusNode();
   final FocusNode _bioFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
 
   File? finalFileImage;
   bool isImageProcessing = false;
@@ -38,6 +39,9 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
     // Add listener for focus changes to track user interaction
     _nameFocusNode.addListener(_onNameFocusChange);
     _bioFocusNode.addListener(_onBioFocusChange);
+    
+    // Listen to keyboard changes to handle scrolling
+    _bioFocusNode.addListener(_handleBioFocusChange);
     
     // Auto-focus name field after a brief delay
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -63,14 +67,31 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
     }
   }
 
+  void _handleBioFocusChange() {
+    if (_bioFocusNode.hasFocus) {
+      // Scroll to show the bio field when keyboard appears
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && _bioFocusNode.hasFocus) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
     _bioController.dispose();
     _nameFocusNode.removeListener(_onNameFocusChange);
     _bioFocusNode.removeListener(_onBioFocusChange);
+    _nameFocusNode.removeListener(_handleBioFocusChange);
     _nameFocusNode.dispose();
     _bioFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -96,6 +117,41 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
       } else {
         if (mounted) {
           showSnackBar(context, 'No image selected');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error processing image: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isImageProcessing = false);
+      }
+    }
+  }
+
+  Future<void> selectImageFromCamera() async {
+    if (!mounted) return;
+    
+    // Ensure keyboard is dismissed when selecting an image
+    FocusScope.of(context).unfocus();
+    
+    // Close the dialog first
+    Navigator.pop(context);
+    
+    setState(() => isImageProcessing = true);
+    
+    try {
+      final image = await pickImage(
+        fromCamera: true,
+        onFail: (message) => showSnackBar(context, message),
+      );
+
+      if (image != null) {
+        await cropImage(image.path);
+      } else {
+        if (mounted) {
+          showSnackBar(context, 'No image captured');
         }
       }
     } catch (e) {
@@ -195,15 +251,24 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
               const Divider(),
               const SizedBox(height: 8),
               _PickerOptionTile(
+                icon: Icons.camera_alt_outlined,
+                title: 'Take a Photo',
+                onTap: selectImageFromCamera,
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(),
+              ),
+              _PickerOptionTile(
                 icon: Icons.photo_library_outlined,
                 title: 'Choose from Gallery',
                 onTap: selectImageFromGallery,
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Divider(),
-              ),
-              if (finalFileImage != null)
+              if (finalFileImage != null) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Divider(),
+                ),
                 _PickerOptionTile(
                   icon: Icons.delete_outline,
                   title: 'Remove Photo',
@@ -214,6 +279,7 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                     Navigator.pop(context);
                   },
                 ),
+              ],
             ],
           ),
         ),
@@ -222,65 +288,79 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   }
 
   Future<void> saveUserDataToBackend() async {
-  // Validate form and ensure mounted
-  if (!_formKey.currentState!.validate() || !mounted) return;
-  
-  setState(() => isSubmitting = true);
+    // Validate form and ensure mounted
+    if (!_formKey.currentState!.validate() || !mounted) return;
+    
+    setState(() => isSubmitting = true);
 
-  try {
-    final authNotifier = ref.read(authenticationProvider.notifier);
-    final authState = ref.read(authenticationProvider).value;
+    try {
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final authState = ref.read(authenticationProvider).value;
 
-    if (authState == null || authState.uid == null) {
-      throw Exception('Authentication data is missing. Please try signing in again.');
-    }
+      if (authState == null || authState.uid == null) {
+        throw Exception('Authentication data is missing. Please try signing in again.');
+      }
 
-    // Get the current Firebase user to ensure we have the phone number
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      throw Exception('Firebase user not found. Please sign in again.');
-    }
+      // Get the current Firebase user to ensure we have the phone number
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('Firebase user not found. Please sign in again.');
+      }
 
-    // Create user model using the proper factory constructor with RFC3339 timestamps
-    final userModel = UserModel.create(
-      uid: authState.uid!,
-      name: _nameController.text.trim(),
-      email: currentUser.email ?? '', // Get from Firebase user
-      phoneNumber: currentUser.phoneNumber ?? '',
-      bio: _bioController.text.trim(),
-      userType: UserType.viewer,
-    );
+      // Get existing user from backend if it exists
+      final existingUser = await authNotifier.getUserDataFromBackend();
+      
+      // Create updated user model - either from existing or create new
+      final UserModel userModel;
+      if (existingUser != null) {
+        // Update existing user with complete profile info
+        userModel = existingUser.copyWith(
+          name: _nameController.text.trim(),
+          bio: _bioController.text.trim(),
+          updatedAt: DateTime.now().toUtc().toIso8601String(),
+        );
+      } else {
+        // Create new user with complete profile info
+        userModel = UserModel.create(
+          uid: authState.uid!,
+          name: _nameController.text.trim(),
+          email: currentUser.email ?? '',
+          phoneNumber: currentUser.phoneNumber ?? '',
+          bio: _bioController.text.trim(),
+          userType: UserType.viewer,
+        );
+      }
 
-    print('Attempting to save user: ${userModel.toMap()}');
+      debugPrint('Attempting to save user: ${userModel.toMap()}');
 
-    // Save user data to backend
-    await authNotifier.saveUserDataToBackend(
-      userModel: userModel,
-      fileImage: finalFileImage,
-      onSuccess: () async {
-        print('User data saved successfully');
-        // Save to shared preferences
-        await authNotifier.saveUserDataToSharedPreferences();
-        if (mounted) {
-          navigateToHomeScreen();
-        }
-      },
-      onFail: () {
-        print('Failed to save user data');
-        if (mounted) {
-          showSnackBar(context, 'Failed to create profile. Please check your connection and try again.');
-          setState(() => isSubmitting = false);
-        }
-      },
-    );
-  } catch (e) {
-    print('Error in saveUserDataToBackend: $e');
-    if (mounted) {
-      setState(() => isSubmitting = false);
-      showSnackBar(context, 'Error: ${e.toString()}');
+      // Save user data to backend
+      await authNotifier.saveUserDataToBackend(
+        userModel: userModel,
+        fileImage: finalFileImage,
+        onSuccess: () async {
+          debugPrint('User data saved successfully');
+          // Save to shared preferences and navigate
+          await authNotifier.saveUserDataToSharedPreferences();
+          if (mounted) {
+            navigateToHomeScreen();
+          }
+        },
+        onFail: () {
+          debugPrint('Failed to save user data');
+          if (mounted) {
+            showSnackBar(context, 'Failed to create profile. Please check your connection and try again.');
+            setState(() => isSubmitting = false);
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('Error in saveUserDataToBackend: $e');
+      if (mounted) {
+        setState(() => isSubmitting = false);
+        showSnackBar(context, 'Error: ${e.toString()}');
+      }
     }
   }
-}
 
   void navigateToHomeScreen() {
     Navigator.of(context).pushNamedAndRemoveUntil(
@@ -345,8 +425,8 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
       ),
     ));
 
-    final screenHeight = MediaQuery.of(context).size.height;
-    final topPadding = screenHeight * 0.02; // Responsive padding
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardVisible = keyboardHeight > 0;
 
     return WillPopScope(
       onWillPop: _onWillPop,
@@ -379,196 +459,100 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
         body: SafeArea(
           child: Stack(
             children: [
-              // Main content
+              // Main scrollable content
               SingleChildScrollView(
+                controller: _scrollController,
+                physics: const ClampingScrollPhysics(),
                 padding: EdgeInsets.only(
                   left: 24,
                   right: 24,
-                  top: topPadding,
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 40,
+                  top: 16,
+                  bottom: isKeyboardVisible 
+                    ? keyboardHeight + 80 // Extra space when keyboard is visible
+                    : 100, // Normal bottom padding
                 ),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     children: [
-                      // Profile image
+                      // Profile image with optimized spacing
                       _ProfileImageSelector(
                         finalFileImage: finalFileImage,
                         onTap: showImagePickerSheet,
+                        isProcessing: isImageProcessing,
                       ),
                       
-                      // Name field with modern styling
-                      Padding(
-                        padding: const EdgeInsets.only(top: 40),
-                        child: TextFormField(
-                          controller: _nameController,
-                          focusNode: _nameFocusNode,
-                          keyboardType: TextInputType.name,
-                          textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.next, 
-                          validator: (value) {
-                            if (value == null || value.trim().length < 3) {
-                              return 'Please enter at least 3 characters';
-                            }
-                            return null;
-                          },
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Enter your name',
-                            hintStyle: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 16,
-                            ),
-                            labelText: 'Your Name',
-                            labelStyle: TextStyle(
-                              color: _nameFocusNode.hasFocus
-                                  ? const Color(0xFFFE2C55)
-                                  : Colors.grey.shade700,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            floatingLabelBehavior: FloatingLabelBehavior.auto,
-                            prefixIcon: Icon(
-                              Icons.person_outline,
-                              color: _nameFocusNode.hasFocus || _nameController.text.isNotEmpty
-                                  ? const Color(0xFFFE2C55)
-                                  : Colors.grey.shade600,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFFE2C55),
-                                width: 1.5,
-                              ),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(color: Colors.red.shade300),
-                            ),
-                            errorStyle: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 12,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 16,
-                            ),
-                            suffixIcon: _nameController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      _nameController.clear();
-                                      setState(() {});
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (text) => setState(() {}),
-                          onFieldSubmitted: (_) => _bioFocusNode.requestFocus(),
-                        ),
+                      SizedBox(height: isKeyboardVisible ? 20 : 40),
+                      
+                      // Name field with improved validation
+                      _CustomTextField(
+                        controller: _nameController,
+                        focusNode: _nameFocusNode,
+                        labelText: 'Your Name',
+                        hintText: 'Enter your name',
+                        prefixIcon: Icons.person_outline,
+                        textInputAction: TextInputAction.next,
+                        validator: (value) {
+                          if (value == null || value.trim().length < 3) {
+                            return 'Please enter at least 3 characters';
+                          }
+                          if (value.trim().length > 50) {
+                            return 'Name must be less than 50 characters';
+                          }
+                          return null;
+                        },
+                        onFieldSubmitted: (_) => _bioFocusNode.requestFocus(),
+                        onChanged: (text) => setState(() {}),
                       ),
                       
                       const SizedBox(height: 20),
                       
-                      // Bio field with modern styling
-                      TextFormField(
+                      // Bio field with smart keyboard handling
+                      _CustomTextField(
                         controller: _bioController,
                         focusNode: _bioFocusNode,
-                        keyboardType: TextInputType.multiline,
-                        textCapitalization: TextCapitalization.sentences,
-                        maxLines: 3,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Tell us about yourself',
-                          hintStyle: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 16,
-                          ),
-                          labelText: 'Bio',
-                          labelStyle: TextStyle(
-                            color: _bioFocusNode.hasFocus
-                                ? const Color(0xFFFE2C55)
-                                : Colors.grey.shade700,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          floatingLabelBehavior: FloatingLabelBehavior.auto,
-                          prefixIcon: Padding(
-                            padding: const EdgeInsets.only(bottom: 50),
-                            child: Icon(
-                              Icons.description_outlined,
-                              color: _bioFocusNode.hasFocus ||
-                                     (_bioController.text.isNotEmpty && 
-                                      _bioController.text != "New to WeiBao, excited to watch amazing dramas!")
-                                  ? const Color(0xFFFE2C55)
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                              color: Color(0xFFFE2C55),
-                              width: 1.5,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 16,
-                            horizontal: 16,
-                          ),
-                          suffixIcon: Padding(
-                            padding: const EdgeInsets.only(bottom: 50),
-                            child: _bioController.text.isNotEmpty && 
-                                  _bioController.text != "New to WeiBao, excited to watch amazing dramas!"
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      _bioController.text = "New to WeiBao, excited to watch amazing dramas!";
-                                      setState(() {});
-                                    },
-                                  )
-                                : null,
-                          ),
-                        ),
+                        labelText: 'Bio',
+                        hintText: 'Tell us about yourself',
+                        prefixIcon: Icons.description_outlined,
+                        maxLines: isKeyboardVisible ? 2 : 3, // Reduce lines when keyboard is visible
+                        textInputAction: TextInputAction.done,
+                        validator: (value) {
+                          if (value != null && value.trim().length > 150) {
+                            return 'Bio must be less than 150 characters';
+                          }
+                          return null;
+                        },
                         onChanged: (text) => setState(() {}),
+                        suffixIcon: _bioController.text.isNotEmpty && 
+                              _bioController.text != "New to WeiBao, excited to watch amazing dramas!"
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  _bioController.text = "New to WeiBao, excited to watch amazing dramas!";
+                                  setState(() {});
+                                },
+                              )
+                            : null,
                       ),
                     ],
                   ),
                 ),
               ),
               
-              // Bottom action button
+              // Fixed bottom action button
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                  padding: EdgeInsets.fromLTRB(
+                    24, 
+                    12, 
+                    24, 
+                    isKeyboardVisible 
+                      ? 12 // Reduced padding when keyboard is visible
+                      : MediaQuery.of(context).padding.bottom + 12
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     boxShadow: [
@@ -591,8 +575,21 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
                 Container(
                   color: Colors.black.withOpacity(0.5),
                   child: const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFFFE2C55),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          color: Color(0xFFFE2C55),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Processing image...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -604,14 +601,16 @@ class _UserInformationScreenState extends ConsumerState<UserInformationScreen> {
   }
 }
 
-// Profile image selector component
+// Enhanced profile image selector component
 class _ProfileImageSelector extends StatelessWidget {
   final File? finalFileImage;
   final VoidCallback onTap;
+  final bool isProcessing;
 
   const _ProfileImageSelector({
     required this.finalFileImage, 
     required this.onTap,
+    required this.isProcessing,
   });
 
   @override
@@ -619,12 +618,12 @@ class _ProfileImageSelector extends StatelessWidget {
     return Hero(
       tag: 'profile_image',
       child: GestureDetector(
-        onTap: onTap,
+        onTap: isProcessing ? null : onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          width: 150,
-          height: 150,
+          width: 140,
+          height: 140,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.grey.shade50,
@@ -652,23 +651,23 @@ class _ProfileImageSelector extends StatelessWidget {
                       ? Image.file(
                           finalFileImage!,
                           fit: BoxFit.cover,
-                          width: 150,
-                          height: 150,
+                          width: 140,
+                          height: 140,
                         )
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.person,
-                              size: 50,
+                              size: 45,
                               color: Colors.grey.shade400,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             Text(
                               'Add Photo',
                               style: TextStyle(
                                 color: Colors.black54,
-                                fontSize: 12,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -681,8 +680,8 @@ class _ProfileImageSelector extends StatelessWidget {
                   bottom: 0,
                   right: 0,
                   child: Container(
-                    width: 40,
-                    height: 40,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -698,16 +697,134 @@ class _ProfileImageSelector extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.edit,
-                      color: Color(0xFFFE2C55),
-                      size: 20,
-                    ),
+                    child: isProcessing
+                        ? const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFFE2C55),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.edit,
+                            color: Color(0xFFFE2C55),
+                            size: 18,
+                          ),
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// Custom text field component with enhanced styling
+class _CustomTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String labelText;
+  final String hintText;
+  final IconData prefixIcon;
+  final int maxLines;
+  final TextInputAction textInputAction;
+  final String? Function(String?)? validator;
+  final void Function(String)? onFieldSubmitted;
+  final void Function(String)? onChanged;
+  final Widget? suffixIcon;
+
+  const _CustomTextField({
+    required this.controller,
+    required this.focusNode,
+    required this.labelText,
+    required this.hintText,
+    required this.prefixIcon,
+    this.maxLines = 1,
+    required this.textInputAction,
+    this.validator,
+    this.onFieldSubmitted,
+    this.onChanged,
+    this.suffixIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      focusNode: focusNode,
+      keyboardType: maxLines > 1 ? TextInputType.multiline : TextInputType.text,
+      textCapitalization: maxLines > 1 
+          ? TextCapitalization.sentences 
+          : TextCapitalization.words,
+      maxLines: maxLines,
+      textInputAction: textInputAction,
+      validator: validator,
+      onFieldSubmitted: onFieldSubmitted,
+      onChanged: onChanged,
+      style: const TextStyle(
+        fontSize: 16,
+        color: Colors.black87,
+        fontWeight: FontWeight.w400,
+      ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color: Colors.grey.shade500,
+          fontSize: 16,
+        ),
+        labelText: labelText,
+        labelStyle: TextStyle(
+          color: focusNode.hasFocus
+              ? const Color(0xFFFE2C55)
+              : Colors.grey.shade700,
+          fontWeight: FontWeight.w500,
+        ),
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        prefixIcon: Padding(
+          padding: EdgeInsets.only(bottom: maxLines > 1 ? (maxLines - 1) * 20.0 : 0),
+          child: Icon(
+            prefixIcon,
+            color: focusNode.hasFocus || controller.text.isNotEmpty
+                ? const Color(0xFFFE2C55)
+                : Colors.grey.shade600,
+          ),
+        ),
+        suffixIcon: suffixIcon != null 
+            ? Padding(
+                padding: EdgeInsets.only(bottom: maxLines > 1 ? (maxLines - 1) * 20.0 : 0),
+                child: suffixIcon,
+              )
+            : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(
+            color: Color(0xFFFE2C55),
+            width: 1.5,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.red.shade300),
+        ),
+        errorStyle: const TextStyle(
+          color: Colors.red,
+          fontSize: 12,
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 16,
+          horizontal: 16,
         ),
       ),
     );
@@ -765,7 +882,7 @@ class _PickerOptionTile extends StatelessWidget {
   }
 }
 
-// Action button component
+// Enhanced action button component
 class _ActionButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback? onPressed;
@@ -780,7 +897,7 @@ class _ActionButton extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       width: double.infinity,
-      height: 56,
+      height: 52,
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
@@ -804,45 +921,45 @@ class _ActionButton extends StatelessWidget {
           padding: EdgeInsets.zero,
         ),
         onPressed: onPressed,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: isLoading
-              ? const SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
+                  child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: isLoading
+                ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Get Started',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Get Started',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_forward,
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
+          ),
         ),
-      ),
     );
   }
 }

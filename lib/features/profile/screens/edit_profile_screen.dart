@@ -113,58 +113,61 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _updateProfile() async {
-    final user = ref.read(currentUserProvider);
-    if (user == null) return;
+  final user = ref.read(currentUserProvider);
+  if (user == null) return;
 
-    // Validate fields
-    final name = _nameController.text.trim();
-    final bio = _bioController.text.trim();
+  // Validate fields
+  final name = _nameController.text.trim();
+  final bio = _bioController.text.trim();
+  
+  if (name.isEmpty) {
+    showSnackBar(context, 'Please enter your name');
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    final authNotifier = ref.read(authenticationProvider.notifier);
     
-    if (name.isEmpty) {
-      showSnackBar(context, 'Please enter your name');
-      return;
+    // Upload new image if selected
+    String imageUrl = user.profileImage;
+    if (_profileImage != null) {
+      imageUrl = await authNotifier.storeFileToStorage(
+        file: _profileImage!,
+        reference: '${Constants.userImages}/${user.uid}',
+      );
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    // Create updated user model with current timestamp
+    final updatedUser = user.copyWith(
+      name: name,
+      bio: bio,
+      profileImage: imageUrl,
+      updatedAt: DateTime.now().toUtc().toIso8601String(), // Add updated timestamp
+    );
 
-    try {
-      // Upload new image if selected
-      String imageUrl = user.profileImage;
-      if (_profileImage != null) {
-        imageUrl = await storeFileToStorage(
-          file: _profileImage!,
-          reference: '${Constants.userImages}/${user.uid}',
-        );
-      }
-
-      // Create updated user model
-      final updatedUser = user.copyWith(
-        name: name,
-        bio: bio,
-        profileImage: imageUrl,
-      );
-
-      // Save to Firebase
-      await ref.read(authenticationProvider.notifier).updateUserProfile(updatedUser);
-      
-      if (mounted) {
-        showSnackBar(context, 'Profile updated successfully');
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Error updating profile: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    // Save to backend via the auth provider
+    await authNotifier.updateUserProfile(updatedUser);
+    
+    if (mounted) {
+      showSnackBar(context, 'Profile updated successfully');
+      Navigator.pop(context);
+    }
+  } catch (e) {
+    if (mounted) {
+      showSnackBar(context, 'Error updating profile: $e');
+    }
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

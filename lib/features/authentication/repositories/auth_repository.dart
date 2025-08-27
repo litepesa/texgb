@@ -1,4 +1,4 @@
-// lib/features/authentication/repositories/auth_repository.dart (Updated for Go Backend Only)
+// lib/features/authentication/repositories/auth_repository.dart (Complete Updated Version)
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -201,7 +201,7 @@ class FirebaseAuthWithGoBackendRepository implements AuthRepository {
         // Get existing user data
         return await getUserDataFromBackend(uid);
       } else {
-        // Create new user with Firebase info using the proper factory constructor
+        // Create new user with minimal Firebase info - they'll complete it later
         final firebaseUser = _auth.currentUser;
         if (firebaseUser == null) {
           throw AuthRepositoryException('No Firebase user found');
@@ -209,11 +209,11 @@ class FirebaseAuthWithGoBackendRepository implements AuthRepository {
 
         final newUser = UserModel.create(
           uid: uid,
-          name: firebaseUser.displayName ?? '',
+          name: '', // Empty name - to be filled in user info screen
           email: firebaseUser.email ?? '',
           phoneNumber: firebaseUser.phoneNumber ?? '',
           profileImage: firebaseUser.photoURL ?? '',
-          bio: 'New to WeiBao, excited to watch amazing dramas!',
+          bio: '', // Empty bio - to be filled in user info screen
         );
 
         // Create user in backend
@@ -426,6 +426,63 @@ class FirebaseAuthWithGoBackendRepository implements AuthRepository {
     if (reference.contains('video')) return 'video';
     return 'profile'; // Default to profile
   }
+
+  // ===============================
+  // ADDITIONAL HELPER METHODS
+  // ===============================
+
+  // Test backend connection
+  Future<bool> testBackendConnection() async {
+    try {
+      return await _httpClient.testConnection();
+    } catch (e) {
+      debugPrint('Backend connection test failed: $e');
+      return false;
+    }
+  }
+
+  // Get current user's Firebase token
+  Future<String?> getCurrentUserToken() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        return await user.getIdToken();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Failed to get current user token: $e');
+      return null;
+    }
+  }
+
+  // Refresh user token
+  Future<String?> refreshUserToken() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        return await user.getIdToken(true); // Force refresh
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Failed to refresh user token: $e');
+      return null;
+    }
+  }
+
+  // Check if current user is authenticated
+  bool get isUserAuthenticated => _auth.currentUser != null;
+
+  // Get current user's email
+  String? get currentUserEmail => _auth.currentUser?.email;
+
+  // Get current user's display name
+  String? get currentUserDisplayName => _auth.currentUser?.displayName;
+
+  // Listen to auth state changes
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Listen to user changes
+  Stream<User?> get userChanges => _auth.userChanges();
 }
 
 // Exception class for auth repository errors (unchanged)
