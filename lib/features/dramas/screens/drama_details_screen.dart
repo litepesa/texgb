@@ -1,4 +1,4 @@
-// lib/features/dramas/screens/drama_details_screen.dart
+// lib/features/dramas/screens/drama_details_screen.dart - SIMPLIFIED
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -9,7 +9,6 @@ import 'package:textgb/features/dramas/widgets/drama_unlock_dialog.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 import 'package:textgb/models/drama_model.dart';
-import 'package:textgb/models/episode_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
@@ -45,7 +44,6 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final drama = ref.watch(dramaProvider(widget.dramaId));
-    final episodes = ref.watch(dramaEpisodesProvider(widget.dramaId));
 
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
@@ -55,7 +53,7 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
             return _buildNotFound();
           }
           
-          return _buildDramaDetails(dramaModel, episodes);
+          return _buildDramaDetails(dramaModel);
         },
         loading: () => _buildLoading(),
         error: (error, stack) => _buildError(error.toString()),
@@ -63,12 +61,12 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     );
   }
 
-  Widget _buildDramaDetails(DramaModel drama, AsyncValue<List<EpisodeModel>> episodes) {
+  Widget _buildDramaDetails(DramaModel drama) {
     final modernTheme = context.modernTheme;
     final isFavorited = ref.watch(isDramaFavoritedProvider(drama.dramaId));
     final isUnlocked = ref.watch(isDramaUnlockedProvider(drama.dramaId));
     final userProgress = ref.watch(dramaUserProgressProvider(drama.dramaId));
-    final coinsBalance = ref.watch(coinsBalanceProvider) ?? 0; // Fixed provider name
+    final coinsBalance = ref.watch(coinsBalanceProvider) ?? 0;
 
     return CustomScrollView(
       slivers: [
@@ -398,7 +396,7 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => _watchNow(drama, episodes),
+                        onPressed: () => _watchNow(drama),
                         icon: const Icon(Icons.play_arrow),
                         label: Text(userProgress > 0 ? 'Continue Watching' : 'Watch Now'),
                         style: ElevatedButton.styleFrom(
@@ -429,52 +427,38 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
           ),
         ),
 
-        // Episodes section
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Episodes',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+        // Episodes section - SIMPLIFIED
+        if (drama.hasEpisodes) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Episodes (${drama.totalEpisodes})',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
-        ),
 
-        // Episodes list
-        episodes.when(
-          data: (episodeList) {
-            if (episodeList.isEmpty) {
-              return SliverToBoxAdapter(
-                child: _buildEmptyEpisodes(),
-              );
-            }
-
-            return SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final episode = episodeList[index];
-                  return _buildEpisodeItem(drama, episode, isUnlocked);
-                },
-                childCount: episodeList.length,
-              ),
-            );
-          },
-          loading: () => const SliverToBoxAdapter(
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(color: Color(0xFFFE2C55)),
-              ),
+          // Episodes list - MUCH SIMPLER
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final episodeNumber = index + 1;
+                return _buildSimpleEpisodeItem(drama, episodeNumber, isUnlocked);
+              },
+              childCount: drama.totalEpisodes,
             ),
           ),
-          error: (error, stack) => SliverToBoxAdapter(
-            child: _buildEpisodesError(error.toString()),
+        ] else ...[
+          // No episodes state
+          SliverToBoxAdapter(
+            child: _buildEmptyEpisodes(),
           ),
-        ),
+        ],
 
         // Bottom padding
         const SliverToBoxAdapter(
@@ -513,11 +497,13 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     );
   }
 
-  Widget _buildEpisodeItem(DramaModel drama, EpisodeModel episode, bool isDramaUnlocked) {
+  // SIMPLIFIED episode item - no complex EpisodeModel needed
+  Widget _buildSimpleEpisodeItem(DramaModel drama, int episodeNumber, bool isDramaUnlocked) {
     final modernTheme = context.modernTheme;
     final user = ref.watch(currentUserProvider);
-    final hasWatched = user?.hasWatched(episode.episodeId) ?? false;
-    final canWatch = drama.canWatchEpisode(episode.episodeNumber, isDramaUnlocked);
+    final userProgress = ref.watch(dramaUserProgressProvider(drama.dramaId));
+    final hasWatched = userProgress >= episodeNumber;
+    final canWatch = drama.canWatchEpisode(episodeNumber, isDramaUnlocked);
     final isLocked = !canWatch;
 
     return Container(
@@ -539,25 +525,50 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                 color: modernTheme.surfaceVariantColor,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: episode.thumbnailUrl.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: CachedNetworkImage(
-                        imageUrl: episode.thumbnailUrl,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: drama.bannerImage.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: drama.bannerImage,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
                           color: modernTheme.surfaceVariantColor,
+                          child: Center(
+                            child: Text(
+                              '$episodeNumber',
+                              style: TextStyle(
+                                color: modernTheme.textColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ),
-                        errorWidget: (context, url, error) => Icon(
-                          Icons.play_circle_outline,
-                          color: modernTheme.textSecondaryColor,
+                        errorWidget: (context, url, error) => Container(
+                          color: modernTheme.surfaceVariantColor,
+                          child: Center(
+                            child: Text(
+                              '$episodeNumber',
+                              style: TextStyle(
+                                color: modernTheme.textColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          '$episodeNumber',
+                          style: TextStyle(
+                            color: modernTheme.textColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    )
-                  : Icon(
-                      Icons.play_circle_outline,
-                      color: modernTheme.textSecondaryColor,
-                    ),
+              ),
             ),
             if (hasWatched)
               Positioned(
@@ -579,7 +590,7 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
           ],
         ),
         title: Text(
-          episode.displayTitle,
+          drama.getEpisodeTitle(episodeNumber),
           style: TextStyle(
             color: hasWatched 
                 ? modernTheme.textColor?.withOpacity(0.7)
@@ -588,7 +599,7 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
           ),
         ),
         subtitle: Text(
-          episode.formattedDuration,
+          hasWatched ? 'Watched' : 'Tap to watch',
           style: TextStyle(
             color: modernTheme.textSecondaryColor,
             fontSize: 12,
@@ -631,7 +642,7 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                   color: Colors.white,
                 ),
               ),
-        onTap: () => _playEpisode(drama, episode, canWatch),
+        onTap: () => _playEpisode(drama, episodeNumber, canWatch),
       ),
     );
   }
@@ -655,49 +666,6 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
               color: modernTheme.textSecondaryColor,
               fontSize: 16,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEpisodesError(String error) {
-    final modernTheme = context.modernTheme;
-    
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Failed to load episodes',
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            error,
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => ref.refresh(dramaEpisodesProvider(widget.dramaId)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFE2C55),
-            ),
-            child: const Text('Retry'),
           ),
         ],
       ),
@@ -826,51 +794,45 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     ref.read(dramaActionsProvider.notifier).toggleFavorite(widget.dramaId);
   }
 
-  void _watchNow(DramaModel drama, AsyncValue<List<EpisodeModel>> episodes) {
-    episodes.when(
-      data: (episodeList) {
-        if (episodeList.isEmpty) {
-          showSnackBar(context, 'No episodes available');
-          return;
-        }
+  // SIMPLIFIED - no complex episode logic needed
+  void _watchNow(DramaModel drama) {
+    if (!drama.hasEpisodes) {
+      showSnackBar(context, 'No episodes available');
+      return;
+    }
 
-        final userProgress = ref.read(dramaUserProgressProvider(widget.dramaId));
-        final nextEpisode = userProgress > 0 
-            ? episodeList.firstWhere(
-                (ep) => ep.episodeNumber == userProgress + 1,
-                orElse: () => episodeList.first,
-              )
-            : episodeList.first;
+    final userProgress = ref.read(dramaUserProgressProvider(widget.dramaId));
+    final nextEpisodeNumber = userProgress > 0 ? userProgress + 1 : 1;
+    
+    // Make sure episode exists
+    final episodeToWatch = nextEpisodeNumber <= drama.totalEpisodes ? nextEpisodeNumber : 1;
 
-        // Navigate to the TikTok-style feed
-        Navigator.pushNamed(
-          context,
-          Constants.episodeFeedScreen,
-          arguments: {
-            'dramaId': drama.dramaId,
-            'initialEpisodeId': nextEpisode.episodeId,
-          },
-        );
+    // Navigate to the TikTok-style feed - SIMPLIFIED
+    Navigator.pushNamed(
+      context,
+      Constants.episodeFeedScreen,
+      arguments: {
+        'dramaId': drama.dramaId,
+        'initialEpisodeNumber': episodeToWatch,
       },
-      loading: () => showSnackBar(context, 'Loading episodes...'),
-      error: (error, stack) => showSnackBar(context, 'Failed to load episodes'),
     );
   }
 
-  void _playEpisode(DramaModel drama, EpisodeModel episode, bool canWatch) {
+  // SIMPLIFIED - just pass episode number instead of complex episode object
+  void _playEpisode(DramaModel drama, int episodeNumber, bool canWatch) {
     if (!canWatch) {
       // Show unlock dialog
       showDramaUnlockDialog(context, drama);
       return;
     }
 
-    // Navigate to the TikTok-style feed
+    // Navigate to the TikTok-style feed - SIMPLIFIED
     Navigator.pushNamed(
       context,
       Constants.episodeFeedScreen,
       arguments: {
         'dramaId': drama.dramaId,
-        'initialEpisodeId': episode.episodeId,
+        'initialEpisodeNumber': episodeNumber,
       },
     );
   }
@@ -885,3 +847,11 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     }
   }
 }
+
+// MASSIVE SIMPLIFICATION:
+// - No more complex episode queries or AsyncValue<List<EpisodeModel>>
+// - Episodes are just numbers (1, 2, 3...) from drama.totalEpisodes
+// - Simple episode display using drama banner + episode number
+// - Much cleaner navigation to episode feed
+// - No complex episode state management
+// - Everything works off the unified DramaModel

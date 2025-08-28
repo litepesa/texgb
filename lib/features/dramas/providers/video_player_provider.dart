@@ -1,4 +1,4 @@
-// lib/features/dramas/providers/video_player_provider.dart
+// lib/features/dramas/providers/video_player_provider.dart - SIMPLIFIED FOR UNIFIED MODEL
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -6,15 +6,15 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
 import 'package:textgb/features/dramas/providers/drama_providers.dart';
-import 'package:textgb/models/episode_model.dart';
+import 'package:textgb/models/drama_model.dart';
 
 part 'video_player_provider.g.dart';
 
-// Video player state
+// Simplified video player state - no complex episode objects
 class VideoPlayerState {
-  final EpisodeModel? currentEpisode;
+  final int? currentEpisodeNumber;
   final String dramaId;
-  final List<EpisodeModel> episodeList;
+  final DramaModel? drama;
   final bool isPlaying;
   final bool isLoading;
   final bool isBuffering;
@@ -30,9 +30,9 @@ class VideoPlayerState {
   final bool isInitialized;
 
   const VideoPlayerState({
-    this.currentEpisode,
+    this.currentEpisodeNumber,
     required this.dramaId,
-    this.episodeList = const [],
+    this.drama,
     this.isPlaying = false,
     this.isLoading = false,
     this.isBuffering = false,
@@ -49,9 +49,9 @@ class VideoPlayerState {
   });
 
   VideoPlayerState copyWith({
-    EpisodeModel? currentEpisode,
+    int? currentEpisodeNumber,
     String? dramaId,
-    List<EpisodeModel>? episodeList,
+    DramaModel? drama,
     bool? isPlaying,
     bool? isLoading,
     bool? isBuffering,
@@ -67,9 +67,9 @@ class VideoPlayerState {
     bool? isInitialized,
   }) {
     return VideoPlayerState(
-      currentEpisode: currentEpisode ?? this.currentEpisode,
+      currentEpisodeNumber: currentEpisodeNumber ?? this.currentEpisodeNumber,
       dramaId: dramaId ?? this.dramaId,
-      episodeList: episodeList ?? this.episodeList,
+      drama: drama ?? this.drama,
       isPlaying: isPlaying ?? this.isPlaying,
       isLoading: isLoading ?? this.isLoading,
       isBuffering: isBuffering ?? this.isBuffering,
@@ -86,37 +86,27 @@ class VideoPlayerState {
     );
   }
 
-  // Helper getters
+  // Simplified helper getters
   bool get hasNextEpisode {
-    if (currentEpisode == null) return false;
-    return episodeList.any((ep) => ep.episodeNumber > currentEpisode!.episodeNumber);
+    if (currentEpisodeNumber == null || drama == null) return false;
+    return currentEpisodeNumber! < drama!.totalEpisodes;
   }
 
   bool get hasPreviousEpisode {
-    if (currentEpisode == null) return false;
-    return episodeList.any((ep) => ep.episodeNumber < currentEpisode!.episodeNumber);
+    if (currentEpisodeNumber == null) return false;
+    return currentEpisodeNumber! > 1;
   }
 
-  EpisodeModel? get nextEpisode {
-    if (currentEpisode == null) return null;
-    try {
-      return episodeList.firstWhere(
-        (ep) => ep.episodeNumber == currentEpisode!.episodeNumber + 1
-      );
-    } catch (e) {
-      return null;
-    }
+  int? get nextEpisodeNumber {
+    if (currentEpisodeNumber == null || drama == null) return null;
+    final next = currentEpisodeNumber! + 1;
+    return next <= drama!.totalEpisodes ? next : null;
   }
 
-  EpisodeModel? get previousEpisode {
-    if (currentEpisode == null) return null;
-    try {
-      return episodeList.firstWhere(
-        (ep) => ep.episodeNumber == currentEpisode!.episodeNumber - 1
-      );
-    } catch (e) {
-      return null;
-    }
+  int? get previousEpisodeNumber {
+    if (currentEpisodeNumber == null) return null;
+    final previous = currentEpisodeNumber! - 1;
+    return previous >= 1 ? previous : null;
   }
 
   double get progressPercentage {
@@ -124,12 +114,12 @@ class VideoPlayerState {
     return currentPosition.inMilliseconds / totalDuration.inMilliseconds;
   }
 
-  String get formattedCurrentPosition {
-    return _formatDuration(currentPosition);
-  }
+  String get formattedCurrentPosition => _formatDuration(currentPosition);
+  String get formattedTotalDuration => _formatDuration(totalDuration);
 
-  String get formattedTotalDuration {
-    return _formatDuration(totalDuration);
+  String get currentEpisodeTitle {
+    if (currentEpisodeNumber == null || drama == null) return '';
+    return '${drama!.title} - Episode $currentEpisodeNumber';
   }
 
   static String _formatDuration(Duration duration) {
@@ -151,8 +141,8 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
 
   @override
   VideoPlayerState build(String dramaId) {
-    // Load episode list when provider is initialized
-    _loadEpisodeList();
+    // Load drama data when provider is initialized
+    _loadDrama();
     
     // Clean up resources on dispose
     ref.onDispose(() {
@@ -162,27 +152,34 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
     return VideoPlayerState(dramaId: dramaId);
   }
 
-  // Load the episode list for this drama
-  Future<void> _loadEpisodeList() async {
+  // Load the drama data
+  Future<void> _loadDrama() async {
     try {
-      final episodes = await ref.read(dramaEpisodesProvider(dramaId).future);
-      state = state.copyWith(episodeList: episodes);
+      final drama = await ref.read(dramaProvider(dramaId).future);
+      state = state.copyWith(drama: drama);
     } catch (e) {
-      state = state.copyWith(error: 'Failed to load episodes: $e');
+      state = state.copyWith(error: 'Failed to load drama: $e');
     }
   }
 
-  // Initialize player with specific episode
-  Future<void> loadEpisode(EpisodeModel episode) async {
-    if (!episode.isWatchable) {
-      state = state.copyWith(error: 'Episode video not available');
+  // Initialize player with specific episode number (simplified)
+  Future<void> loadEpisode(int episodeNumber) async {
+    final drama = state.drama;
+    if (drama == null) {
+      state = state.copyWith(error: 'Drama not loaded');
+      return;
+    }
+
+    final videoUrl = drama.getEpisodeVideo(episodeNumber);
+    if (videoUrl == null || videoUrl.isEmpty) {
+      state = state.copyWith(error: 'Episode $episodeNumber not available');
       return;
     }
 
     state = state.copyWith(
       isLoading: true,
       error: null,
-      currentEpisode: episode,
+      currentEpisodeNumber: episodeNumber,
       isCompleted: false,
     );
 
@@ -191,9 +188,7 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
       await _disposeController();
 
       // Create new video controller with the episode video URL
-      final controller = VideoPlayerController.networkUrl(
-        Uri.parse(episode.videoUrl),
-      );
+      final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
 
       // Initialize the controller
       await controller.initialize();
@@ -211,23 +206,23 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
         playbackSpeed: controller.value.playbackSpeed,
       );
 
-      // Mark episode as watched
+      // Mark episode as watched (simplified episode ID)
       await ref.read(dramaActionsProvider.notifier).markEpisodeWatched(
-        episode.episodeId,
+        'episode_${dramaId}_$episodeNumber', // Simple episode ID
         dramaId,
-        episode.episodeNumber,
+        episodeNumber,
       );
 
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         isInitialized: false,
-        error: 'Failed to load episode: $e',
+        error: 'Failed to load episode $episodeNumber: $e',
       );
     }
   }
 
-  // Video player update listener
+  // Video player update listener (unchanged)
   void _onVideoPlayerUpdate() {
     final controller = state.controller;
     if (controller == null || !controller.value.isInitialized) return;
@@ -254,7 +249,7 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
     }
   }
 
-  // Play/Pause controls
+  // Play/Pause controls (unchanged)
   Future<void> play() async {
     final controller = state.controller;
     if (controller == null || !state.isInitialized) return;
@@ -287,7 +282,7 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
     }
   }
 
-  // Seek controls
+  // Seek controls (unchanged)
   Future<void> seekTo(Duration position) async {
     final controller = state.controller;
     if (controller == null || !state.isInitialized) return;
@@ -311,24 +306,24 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
     await seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
   }
 
-  // Episode navigation
+  // Episode navigation (simplified)
   Future<void> playNextEpisode() async {
-    final nextEp = state.nextEpisode;
-    if (nextEp != null) {
-      await loadEpisode(nextEp);
+    final nextEpisodeNum = state.nextEpisodeNumber;
+    if (nextEpisodeNum != null) {
+      await loadEpisode(nextEpisodeNum);
       await play();
     }
   }
 
   Future<void> playPreviousEpisode() async {
-    final prevEp = state.previousEpisode;
-    if (prevEp != null) {
-      await loadEpisode(prevEp);
+    final prevEpisodeNum = state.previousEpisodeNumber;
+    if (prevEpisodeNum != null) {
+      await loadEpisode(prevEpisodeNum);
       await play();
     }
   }
 
-  // Auto-play next episode when current ends
+  // Auto-play next episode when current ends (simplified)
   Future<void> _onEpisodeCompleted() async {
     state = state.copyWith(isCompleted: true, isPlaying: false);
 
@@ -340,19 +335,19 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
       
       if (!state.isCompleted) return; // User manually changed episode
       
-      final nextEp = state.nextEpisode;
-      if (nextEp != null) {
+      final nextEpisodeNum = state.nextEpisodeNumber;
+      if (nextEpisodeNum != null) {
         // Check if user can watch next episode
-        final canWatch = ref.read(canWatchEpisodeProvider(dramaId, nextEp.episodeNumber));
+        final canWatch = ref.read(canWatchEpisodeProvider(dramaId, nextEpisodeNum));
         if (canWatch) {
-          await loadEpisode(nextEp);
+          await loadEpisode(nextEpisodeNum);
           await play();
         }
       }
     }
   }
 
-  // Volume and playback controls
+  // Volume and playback controls (unchanged)
   Future<void> setVolume(double volume) async {
     final controller = state.controller;
     if (controller == null || !state.isInitialized) return;
@@ -392,7 +387,7 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
     }
   }
 
-  // Fullscreen controls
+  // Fullscreen controls (unchanged)
   void toggleFullscreen() {
     state = state.copyWith(isFullscreen: !state.isFullscreen);
   }
@@ -401,12 +396,12 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
     state = state.copyWith(isFullscreen: false);
   }
 
-  // Buffering controls (called by video player)
+  // Buffering controls (unchanged)
   void setBuffering(bool isBuffering) {
     state = state.copyWith(isBuffering: isBuffering);
   }
 
-  // Error handling
+  // Error handling (unchanged)
   void setError(String error) {
     state = state.copyWith(error: error, isLoading: false, isPlaying: false);
   }
@@ -415,7 +410,7 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
     state = state.copyWith(error: null);
   }
 
-  // Dispose controller and cleanup
+  // Dispose controller and cleanup (unchanged)
   Future<void> _disposeController() async {
     final controller = state.controller;
     if (controller != null) {
@@ -435,14 +430,17 @@ class VideoPlayerNotifier extends _$VideoPlayerNotifier {
     );
   }
 
-  // Public dispose method
+  // Public dispose method (unchanged)
   Future<void> dispose() async {
     await _disposeController();
     state = VideoPlayerState(dramaId: dramaId);
   }
 }
 
-// Convenience providers for video player UI
+// ===============================
+// SIMPLIFIED CONVENIENCE PROVIDERS
+// ===============================
+
 @riverpod
 bool isVideoPlaying(IsVideoPlayingRef ref, String dramaId) {
   final player = ref.watch(videoPlayerNotifierProvider(dramaId));
@@ -458,7 +456,7 @@ double videoProgress(VideoProgressRef ref, String dramaId) {
 @riverpod
 String currentEpisodeTitle(CurrentEpisodeTitleRef ref, String dramaId) {
   final player = ref.watch(videoPlayerNotifierProvider(dramaId));
-  return player.currentEpisode?.displayTitle ?? '';
+  return player.currentEpisodeTitle;
 }
 
 @riverpod
@@ -466,10 +464,10 @@ bool canPlayNext(CanPlayNextRef ref, String dramaId) {
   final player = ref.watch(videoPlayerNotifierProvider(dramaId));
   if (!player.hasNextEpisode) return false;
   
-  final nextEp = player.nextEpisode;
-  if (nextEp == null) return false;
+  final nextEpisodeNum = player.nextEpisodeNumber;
+  if (nextEpisodeNum == null) return false;
   
-  return ref.watch(canWatchEpisodeProvider(dramaId, nextEp.episodeNumber));
+  return ref.watch(canWatchEpisodeProvider(dramaId, nextEpisodeNum));
 }
 
 @riverpod
@@ -483,3 +481,36 @@ VideoPlayerController? videoController(VideoControllerRef ref, String dramaId) {
   final player = ref.watch(videoPlayerNotifierProvider(dramaId));
   return player.controller;
 }
+
+@riverpod
+int? currentEpisodeNumber(CurrentEpisodeNumberRef ref, String dramaId) {
+  final player = ref.watch(videoPlayerNotifierProvider(dramaId));
+  return player.currentEpisodeNumber;
+}
+
+// ===============================
+// WHAT CHANGED FROM ORIGINAL:
+// ===============================
+
+/*
+SIMPLIFIED FROM COMPLEX EPISODE MODEL TO SIMPLE EPISODE NUMBERS:
+
+BEFORE:
+- VideoPlayerState had EpisodeModel objects
+- Complex episode list management
+- Episode-specific metadata handling
+- Separate episode loading logic
+
+AFTER:
+- VideoPlayerState has simple episode numbers
+- Episodes are just numbered videos from drama model
+- No complex episode objects or metadata
+- Drama-centric video loading
+
+BENEFITS:
+- Much simpler state management
+- No episode model dependencies
+- Works directly with unified drama model
+- Easier to maintain and debug
+- Less memory usage (no complex episode objects)
+*/

@@ -12,7 +12,6 @@ import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
 import 'package:textgb/features/dramas/screens/episode_feed_screen.dart';
 
-
 // Profile screens
 import 'package:textgb/features/profile/screens/my_profile_screen.dart';
 
@@ -26,7 +25,7 @@ import 'package:textgb/features/dramas/screens/admin_dashboard_screen.dart';
 import 'package:textgb/features/dramas/screens/create_drama_screen.dart';
 import 'package:textgb/features/dramas/screens/manage_dramas_screen.dart';
 import 'package:textgb/features/dramas/screens/edit_drama_screen.dart';
-import 'package:textgb/features/dramas/screens/add_episode_screen.dart';
+// REMOVED: import 'package:textgb/features/dramas/screens/add_episode_screen.dart';
 
 // Models
 import 'package:textgb/models/user_model.dart';
@@ -206,6 +205,8 @@ class AppRoot extends ConsumerWidget {
               }
               break;
               
+            // REMOVED: addEpisodeScreen route - no longer needed with unified creation
+            /*
             case Constants.addEpisodeScreen:
               final args = settings.arguments as Map<String, dynamic>?;
               if (args != null && args.containsKey('dramaId')) {
@@ -217,33 +218,22 @@ class AppRoot extends ConsumerWidget {
                 );
               }
               break;
+            */
               
-            /*case Constants.episodePlayerScreen:
+            // Updated episode feed route to work with episode numbers instead of episode IDs
+            case Constants.episodeFeedScreen:
               final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null && args.containsKey('dramaId') && args.containsKey('episodeId')) {
+              if (args != null && args.containsKey('dramaId')) {
                 return MaterialPageRoute(
-                 builder: (context) => EpisodePlayerScreen(
+                  builder: (context) => EpisodeFeedScreen(
                     dramaId: args['dramaId'] as String,
-                    episodeId: args['episodeId'] as String,
+                    // Changed from initialEpisodeId to initialEpisodeNumber
+                    initialEpisodeNumber: args['initialEpisodeNumber'] as int? ?? 1,
                   ),
                   settings: settings,
                 );
-             }
-              break;*/
-
-            // Add the new episode feed route
-    case Constants.episodeFeedScreen:
-      final args = settings.arguments as Map<String, dynamic>?;
-      if (args != null && args.containsKey('dramaId')) {
-        return MaterialPageRoute(
-          builder: (context) => EpisodeFeedScreen(
-            dramaId: args['dramaId'] as String,
-            initialEpisodeId: args['initialEpisodeId'] as String?,
-          ),
-          settings: settings,
-        );
-      }
-      break;  
+              }
+              break;  
           }
           
           // Return null to let the default route handling take over

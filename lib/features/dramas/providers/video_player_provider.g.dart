@@ -288,7 +288,7 @@ class _VideoProgressProviderElement extends AutoDisposeProviderElement<double>
 }
 
 String _$currentEpisodeTitleHash() =>
-    r'298e88cd8d60bae1d8cfae2ef0a15ff87d3f0429';
+    r'5a249afc78620219308169cfca059e8f35d3db86';
 
 /// See also [currentEpisodeTitle].
 @ProviderFor(currentEpisodeTitle)
@@ -418,7 +418,7 @@ class _CurrentEpisodeTitleProviderElement
   String get dramaId => (origin as CurrentEpisodeTitleProvider).dramaId;
 }
 
-String _$canPlayNextHash() => r'fc05b4ad358cff2b774de70b000ef239a9f54ae4';
+String _$canPlayNextHash() => r'a0a1f22e0ee7535c72dfad2b0736e953b048a5fa';
 
 /// See also [canPlayNext].
 @ProviderFor(canPlayNext)
@@ -810,8 +810,139 @@ class _VideoControllerProviderElement
   String get dramaId => (origin as VideoControllerProvider).dramaId;
 }
 
+String _$currentEpisodeNumberHash() =>
+    r'f52d988342aff315de18d9d8a8dcf6b188156881';
+
+/// See also [currentEpisodeNumber].
+@ProviderFor(currentEpisodeNumber)
+const currentEpisodeNumberProvider = CurrentEpisodeNumberFamily();
+
+/// See also [currentEpisodeNumber].
+class CurrentEpisodeNumberFamily extends Family<int?> {
+  /// See also [currentEpisodeNumber].
+  const CurrentEpisodeNumberFamily();
+
+  /// See also [currentEpisodeNumber].
+  CurrentEpisodeNumberProvider call(
+    String dramaId,
+  ) {
+    return CurrentEpisodeNumberProvider(
+      dramaId,
+    );
+  }
+
+  @override
+  CurrentEpisodeNumberProvider getProviderOverride(
+    covariant CurrentEpisodeNumberProvider provider,
+  ) {
+    return call(
+      provider.dramaId,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'currentEpisodeNumberProvider';
+}
+
+/// See also [currentEpisodeNumber].
+class CurrentEpisodeNumberProvider extends AutoDisposeProvider<int?> {
+  /// See also [currentEpisodeNumber].
+  CurrentEpisodeNumberProvider(
+    String dramaId,
+  ) : this._internal(
+          (ref) => currentEpisodeNumber(
+            ref as CurrentEpisodeNumberRef,
+            dramaId,
+          ),
+          from: currentEpisodeNumberProvider,
+          name: r'currentEpisodeNumberProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$currentEpisodeNumberHash,
+          dependencies: CurrentEpisodeNumberFamily._dependencies,
+          allTransitiveDependencies:
+              CurrentEpisodeNumberFamily._allTransitiveDependencies,
+          dramaId: dramaId,
+        );
+
+  CurrentEpisodeNumberProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.dramaId,
+  }) : super.internal();
+
+  final String dramaId;
+
+  @override
+  Override overrideWith(
+    int? Function(CurrentEpisodeNumberRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: CurrentEpisodeNumberProvider._internal(
+        (ref) => create(ref as CurrentEpisodeNumberRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        dramaId: dramaId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<int?> createElement() {
+    return _CurrentEpisodeNumberProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CurrentEpisodeNumberProvider && other.dramaId == dramaId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, dramaId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin CurrentEpisodeNumberRef on AutoDisposeProviderRef<int?> {
+  /// The parameter `dramaId` of this provider.
+  String get dramaId;
+}
+
+class _CurrentEpisodeNumberProviderElement
+    extends AutoDisposeProviderElement<int?> with CurrentEpisodeNumberRef {
+  _CurrentEpisodeNumberProviderElement(super.provider);
+
+  @override
+  String get dramaId => (origin as CurrentEpisodeNumberProvider).dramaId;
+}
+
 String _$videoPlayerNotifierHash() =>
-    r'c07a9d25e506b504c3b92651a932932a42c6f265';
+    r'6d543d3fd145ea1838255e2a348151ff6f0ce7bb';
 
 abstract class _$VideoPlayerNotifier
     extends BuildlessAutoDisposeNotifier<VideoPlayerState> {

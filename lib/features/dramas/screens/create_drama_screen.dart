@@ -1,4 +1,4 @@
-// lib/features/dramas/screens/create_drama_screen.dart
+// lib/features/dramas/screens/create_drama_screen.dart - COMPLETE UNIFIED VERSION
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,7 +27,10 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
   bool _isFeatured = false;
   bool _isActive = true;
   bool _isCreating = false;
+  double _uploadProgress = 0.0;
+  
   File? _bannerImage;
+  List<File> _episodeVideos = []; // Up to 100 episodes
 
   @override
   void initState() {
@@ -56,82 +59,12 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
     final currentUser = ref.watch(currentUserProvider);
 
     if (currentUser == null || !currentUser.isAdmin) {
-      return Scaffold(
-        backgroundColor: modernTheme.backgroundColor,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.admin_panel_settings_outlined,
-                size: 64,
-                color: modernTheme.textSecondaryColor,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Admin Access Required',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFE2C55),
-                ),
-                child: const Text('Go Back'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildAccessDenied(modernTheme);
     }
 
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: modernTheme.surfaceColor,
-        elevation: 0,
-        title: Text(
-          'Create Drama',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: modernTheme.textColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          if (_isCreating)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  color: Color(0xFFFE2C55),
-                  strokeWidth: 2,
-                ),
-              ),
-            )
-          else
-            TextButton(
-              onPressed: _createDrama,
-              child: const Text(
-                'Create',
-                style: TextStyle(
-                  color: Color(0xFFFE2C55),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
-      ),
+      appBar: _buildAppBar(modernTheme),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -139,15 +72,19 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBannerImageSection(modernTheme),
+              _buildDramaInfoSection(modernTheme),
               const SizedBox(height: 24),
-              _buildBasicInfoSection(modernTheme),
+              _buildEpisodesSection(modernTheme),
               const SizedBox(height: 24),
               _buildPremiumSection(modernTheme),
               const SizedBox(height: 24),
               _buildSettingsSection(modernTheme),
               const SizedBox(height: 32),
-              _buildCreateButton(),
+              _buildCreateButton(modernTheme),
+              if (_isCreating) ...[
+                const SizedBox(height: 16),
+                _buildUploadProgress(modernTheme),
+              ],
             ],
           ),
         ),
@@ -155,7 +92,123 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
     );
   }
 
-  Widget _buildBannerImageSection(ModernThemeExtension modernTheme) {
+  AppBar _buildAppBar(ModernThemeExtension modernTheme) {
+    return AppBar(
+      backgroundColor: modernTheme.surfaceColor,
+      elevation: 0,
+      title: Text(
+        'Create New Drama',
+        style: TextStyle(
+          color: modernTheme.textColor,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back, color: modernTheme.textColor),
+        onPressed: _isCreating ? null : () => Navigator.pop(context),
+      ),
+      actions: [
+        if (_isCreating)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                value: _uploadProgress,
+                color: const Color(0xFFFE2C55),
+                strokeWidth: 2,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDramaInfoSection(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tv, color: modernTheme.textColor, size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'Drama Information',
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Banner image
+          _buildBannerImagePicker(modernTheme),
+          
+          const SizedBox(height: 20),
+          
+          // Title field
+          TextFormField(
+            controller: _titleController,
+            decoration: InputDecoration(
+              labelText: 'Drama Title',
+              hintText: 'Enter an engaging drama title',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: modernTheme.surfaceVariantColor,
+            ),
+            style: TextStyle(color: modernTheme.textColor),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter a drama title';
+              }
+              if (value.trim().length < 3) {
+                return 'Title must be at least 3 characters';
+              }
+              return null;
+            },
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Description field
+          TextFormField(
+            controller: _descriptionController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: 'Description',
+              hintText: 'Describe what your drama is about...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: modernTheme.surfaceVariantColor,
+            ),
+            style: TextStyle(color: modernTheme.textColor),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter a description';
+              }
+              if (value.trim().length < 10) {
+                return 'Description must be at least 10 characters';
+              }
+              return null;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBannerImagePicker(ModernThemeExtension modernTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -163,8 +216,8 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           'Banner Image',
           style: TextStyle(
             color: modernTheme.textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
@@ -172,44 +225,35 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           onTap: _pickBannerImage,
           child: Container(
             width: double.infinity,
-            height: 200,
+            height: 120,
             decoration: BoxDecoration(
               color: modernTheme.surfaceVariantColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: modernTheme.textSecondaryColor?.withOpacity(0.3) ?? Colors.grey,
+                color: _bannerImage != null 
+                    ? const Color(0xFFFE2C55)
+                    : modernTheme.textSecondaryColor?.withOpacity(0.3) ?? Colors.grey,
                 width: 2,
-                style: BorderStyle.solid,
               ),
             ),
             child: _bannerImage != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.file(
-                      _bannerImage!,
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.file(_bannerImage!, fit: BoxFit.cover),
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.add_photo_alternate_outlined,
-                        size: 48,
+                        Icons.add_photo_alternate,
+                        size: 32,
                         color: modernTheme.textSecondaryColor,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(
-                        'Tap to add banner image',
+                        'Tap to add banner',
                         style: TextStyle(
                           color: modernTheme.textSecondaryColor,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        'Recommended: 16:9 aspect ratio',
-                        style: TextStyle(
-                          color: modernTheme.textSecondaryColor?.withOpacity(0.7),
                           fontSize: 12,
                         ),
                       ),
@@ -217,105 +261,258 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
                   ),
           ),
         ),
-        if (_bannerImage != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                TextButton.icon(
-                  onPressed: _pickBannerImage,
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Change Image'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFFE2C55),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () => setState(() => _bannerImage = null),
-                  icon: const Icon(Icons.delete, size: 16),
-                  label: const Text('Remove'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red.shade400,
-                  ),
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }
 
-  Widget _buildBasicInfoSection(ModernThemeExtension modernTheme) {
+  Widget _buildEpisodesSection(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _episodeVideos.isNotEmpty 
+              ? const Color(0xFFFE2C55).withOpacity(0.3)
+              : modernTheme.textSecondaryColor?.withOpacity(0.2) ?? Colors.grey,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.video_library,
+                color: _episodeVideos.isNotEmpty 
+                    ? const Color(0xFFFE2C55) 
+                    : modernTheme.textColor,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Episodes (${_episodeVideos.length}/100)',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (_episodeVideos.isNotEmpty)
+                TextButton.icon(
+                  onPressed: _clearAllEpisodes,
+                  icon: const Icon(Icons.clear_all, size: 16),
+                  label: const Text('Clear All'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red.shade400,
+                  ),
+                ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Episode upload area
+          if (_episodeVideos.isEmpty)
+            _buildEmptyEpisodesArea(modernTheme)
+          else
+            _buildEpisodesGrid(modernTheme),
+          
+          const SizedBox(height: 16),
+          
+          // Add episodes button
+          if (_episodeVideos.length < 100)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _addEpisodes,
+                icon: const Icon(Icons.add),
+                label: Text(_episodeVideos.isEmpty ? 'Add Episodes (1-100)' : 'Add More Episodes'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFFE2C55),
+                  side: const BorderSide(color: Color(0xFFFE2C55)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyEpisodesArea(ModernThemeExtension modernTheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceVariantColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: modernTheme.textSecondaryColor?.withOpacity(0.2) ?? Colors.grey,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.video_call,
+            size: 48,
+            color: modernTheme.textSecondaryColor,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Episodes Added Yet',
+            style: TextStyle(
+              color: modernTheme.textColor,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add 1-100 video files to create your drama series\nEpisodes will be numbered automatically',
+            style: TextStyle(
+              color: modernTheme.textSecondaryColor,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEpisodesGrid(ModernThemeExtension modernTheme) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Basic Information',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+        // Episodes grid
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 0.8,
           ),
-        ),
-        const SizedBox(height: 16),
-        
-        // Title field
-        TextFormField(
-          controller: _titleController,
-          decoration: InputDecoration(
-            labelText: 'Drama Title',
-            hintText: 'Enter the drama title',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            filled: true,
-            fillColor: modernTheme.surfaceColor,
-          ),
-          style: TextStyle(color: modernTheme.textColor),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Please enter a drama title';
-            }
-            if (value.trim().length < 3) {
-              return 'Title must be at least 3 characters';
-            }
-            if (value.trim().length > 100) {
-              return 'Title is too long (max 100 characters)';
-            }
-            return null;
+          itemCount: _episodeVideos.length,
+          itemBuilder: (context, index) {
+            return _buildEpisodeItem(modernTheme, index);
           },
         ),
         
-        const SizedBox(height: 16),
-        
-        // Description field
-        TextFormField(
-          controller: _descriptionController,
-          maxLines: 4,
-          decoration: InputDecoration(
-            labelText: 'Description',
-            hintText: 'Enter drama description',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            filled: true,
-            fillColor: modernTheme.surfaceColor,
+        // Episode count info
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFE2C55).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
-          style: TextStyle(color: modernTheme.textColor),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Please enter a description';
-            }
-            if (value.trim().length < 10) {
-              return 'Description must be at least 10 characters';
-            }
-            if (value.trim().length > Constants.maxDramaDescriptionLength) {
-              return 'Description is too long (max ${Constants.maxDramaDescriptionLength} characters)';
-            }
-            return null;
-          },
+          child: Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                color: Color(0xFFFE2C55),
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${_episodeVideos.length} episodes ready to upload. Episodes will be numbered 1, 2, 3... automatically.',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEpisodeItem(ModernThemeExtension modernTheme, int index) {
+    final file = _episodeVideos[index];
+    final fileName = file.path.split('/').last;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceVariantColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFFFE2C55).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFE2C55),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${index + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Icon(
+                Icons.video_file,
+                color: Color(0xFFFE2C55),
+                size: 16,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                fileName.length > 10 
+                    ? '${fileName.substring(0, 7)}...' 
+                    : fileName,
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontSize: 10,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+          
+          // Remove button
+          Positioned(
+            top: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: () => _removeEpisode(index),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade600,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 12,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -344,7 +541,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Premium Settings',
+                'Monetization Settings',
                 style: TextStyle(
                   color: modernTheme.textColor,
                   fontSize: 16,
@@ -358,12 +555,9 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           
           // Premium toggle
           SwitchListTile(
-            title: Text(
-              'Premium Drama',
-              style: TextStyle(color: modernTheme.textColor),
-            ),
+            title: Text('Premium Drama', style: TextStyle(color: modernTheme.textColor)),
             subtitle: Text(
-              'Users need to pay coins to unlock all episodes',
+              'Users pay coins to unlock episodes beyond the free ones',
               style: TextStyle(color: modernTheme.textSecondaryColor),
             ),
             value: _isPremium,
@@ -372,76 +566,74 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
             contentPadding: EdgeInsets.zero,
           ),
           
-          if (_isPremium) ...[
+          if (_isPremium && _episodeVideos.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text(
-              'Free Episodes Count',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _freeEpisodesController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: 'Number of free episodes (0-${Constants.maxFreeEpisodes})',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: modernTheme.surfaceVariantColor,
-                isDense: true,
-              ),
-              style: TextStyle(color: modernTheme.textColor),
-              validator: (value) {
-                if (_isPremium) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter number of free episodes';
-                  }
-                  final number = int.tryParse(value.trim());
-                  if (number == null) {
-                    return 'Please enter a valid number';
-                  }
-                  if (number < 0 || number > Constants.maxFreeEpisodes) {
-                    return 'Free episodes must be between 0 and ${Constants.maxFreeEpisodes}';
-                  }
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFD700).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFFFFD700).withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.info_outline,
-                    color: Color(0xFFFFD700),
-                    size: 16,
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _freeEpisodesController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Free Episodes',
+                      hintText: '0-${_episodeVideos.length}',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: modernTheme.surfaceVariantColor,
+                      isDense: true,
+                    ),
+                    style: TextStyle(color: modernTheme.textColor),
+                    validator: (value) {
+                      if (_isPremium) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Required';
+                        }
+                        final number = int.tryParse(value.trim());
+                        if (number == null || number < 0 || number > _episodeVideos.length) {
+                          return '0-${_episodeVideos.length}';
+                        }
+                      }
+                      return null;
+                    },
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Users will pay ${Constants.dramaUnlockCost} coins to unlock all episodes after watching the free ones.',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontSize: 12,
-                      ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD700).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFFFFD700).withOpacity(0.3),
                     ),
                   ),
-                ],
-              ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.monetization_on,
+                        color: Color(0xFFFFD700),
+                        size: 16,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${Constants.dramaUnlockCost}',
+                        style: const TextStyle(
+                          color: Color(0xFFFFD700),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(
+                        'coins',
+                        style: TextStyle(
+                          color: Color(0xFFFFD700),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -461,14 +653,10 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.settings,
-                color: modernTheme.textSecondaryColor,
-                size: 24,
-              ),
+              Icon(Icons.settings, color: modernTheme.textSecondaryColor, size: 24),
               const SizedBox(width: 8),
               Text(
-                'Drama Settings',
+                'Publication Settings',
                 style: TextStyle(
                   color: modernTheme.textColor,
                   fontSize: 16,
@@ -482,12 +670,9 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           
           // Featured toggle
           SwitchListTile(
-            title: Text(
-              'Featured Drama',
-              style: TextStyle(color: modernTheme.textColor),
-            ),
+            title: Text('Featured Drama', style: TextStyle(color: modernTheme.textColor)),
             subtitle: Text(
-              'Show in featured section on home page',
+              'Show prominently on home page',
               style: TextStyle(color: modernTheme.textSecondaryColor),
             ),
             value: _isFeatured,
@@ -498,12 +683,9 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           
           // Active toggle
           SwitchListTile(
-            title: Text(
-              'Active Drama',
-              style: TextStyle(color: modernTheme.textColor),
-            ),
+            title: Text('Publish Immediately', style: TextStyle(color: modernTheme.textColor)),
             subtitle: Text(
-              'Visible to users in the app',
+              'Make drama visible to users right away',
               style: TextStyle(color: modernTheme.textSecondaryColor),
             ),
             value: _isActive,
@@ -516,19 +698,16 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
     );
   }
 
-  Widget _buildCreateButton() {
+  Widget _buildCreateButton(ModernThemeExtension modernTheme) {
+    final canCreate = _episodeVideos.isNotEmpty && 
+                     _titleController.text.trim().isNotEmpty && 
+                     _descriptionController.text.trim().isNotEmpty;
+    
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _isCreating ? null : _createDrama,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFE2C55),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: _isCreating
+      child: ElevatedButton.icon(
+        onPressed: (_isCreating || !canCreate) ? null : _createDrama,
+        icon: _isCreating
             ? const SizedBox(
                 height: 20,
                 width: 20,
@@ -537,15 +716,171 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Text(
-                'Create Drama',
-                style: TextStyle(
-                  fontSize: 16,
+            : const Icon(Icons.publish),
+        label: Text(
+          _isCreating
+              ? 'Creating Drama...'
+              : 'Create Drama (${_episodeVideos.length} episodes)',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: canCreate ? const Color(0xFFFE2C55) : Colors.grey,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadProgress(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFE2C55).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFE2C55).withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.cloud_upload, color: Color(0xFFFE2C55), size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Creating Drama with ${_episodeVideos.length} Episodes...',
+                style: const TextStyle(
+                  color: Color(0xFFFE2C55),
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const Spacer(),
+              Text(
+                '${(_uploadProgress * 100).toInt()}%',
+                style: const TextStyle(
+                  color: Color(0xFFFE2C55),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: _uploadProgress,
+            backgroundColor: Colors.grey.withOpacity(0.3),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFE2C55)),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Please keep this screen open while creating.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildAccessDenied(ModernThemeExtension modernTheme) {
+    return Scaffold(
+      backgroundColor: modernTheme.backgroundColor,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.admin_panel_settings_outlined,
+              size: 64,
+              color: modernTheme.textSecondaryColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Admin Access Required',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFE2C55)),
+              child: const Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===============================
+  // EPISODE MANAGEMENT METHODS
+  // ===============================
+  
+  Future<void> _addEpisodes() async {
+    try {
+      final picker = ImagePicker();
+      
+      // Show loading
+      showSnackBar(context, 'Opening video gallery...');
+
+      // Pick multiple videos (limited to remaining slots)
+      final remainingSlots = 100 - _episodeVideos.length;
+      final List<XFile> pickedFiles = await picker.pickMultipleMedia(
+        imageQuality: 85,
+        limit: remainingSlots,
+      );
+
+      // Filter only video files
+      final videoFiles = <File>[];
+      for (final file in pickedFiles) {
+        if (file.mimeType?.startsWith('video/') == true) {
+          final videoFile = File(file.path);
+          
+          // Check file size (500MB limit per video)
+          final fileSizeInMB = await videoFile.length() / (1024 * 1024);
+          if (fileSizeInMB <= 500) {
+            videoFiles.add(videoFile);
+          } else {
+            showSnackBar(context, 'Skipped large file: ${file.name} (max 500MB)');
+          }
+        }
+      }
+
+      if (videoFiles.isNotEmpty) {
+        setState(() {
+          _episodeVideos.addAll(videoFiles);
+          // Auto-set free episodes if premium and not set
+          if (_isPremium && _freeEpisodesController.text.isEmpty) {
+            _freeEpisodesController.text = '2'; // Default 2 free episodes
+          }
+        });
+        
+        showSnackBar(context, 'Added ${videoFiles.length} episodes');
+      } else {
+        showSnackBar(context, 'No valid video files selected');
+      }
+    } catch (e) {
+      showSnackBar(context, 'Error selecting videos: $e');
+    }
+  }
+
+  void _removeEpisode(int index) {
+    setState(() {
+      _episodeVideos.removeAt(index);
+    });
+    showSnackBar(context, 'Episode ${index + 1} removed');
+  }
+
+  void _clearAllEpisodes() {
+    setState(() {
+      _episodeVideos.clear();
+    });
+    showSnackBar(context, 'All episodes cleared');
   }
 
   Future<void> _pickBannerImage() async {
@@ -562,8 +897,14 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
     }
   }
 
+  // ===============================
+  // UNIFIED DRAMA CREATION
+  // ===============================
+  
   Future<void> _createDrama() async {
-    if (!_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) return;
+    if (_episodeVideos.isEmpty) {
+      showSnackBar(context, 'Please add at least one episode');
       return;
     }
 
@@ -573,50 +914,65 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
       return;
     }
 
-    setState(() => _isCreating = true);
+    setState(() {
+      _isCreating = true;
+      _uploadProgress = 0.0;
+    });
 
     try {
-      // Validate inputs before creating drama
-      final title = _titleController.text.trim();
-      final description = _descriptionController.text.trim();
-      
-      if (title.isEmpty || description.isEmpty) {
-        throw Exception('Title and description are required');
+      // Step 1: Upload banner image (10% progress)
+      String bannerUrl = '';
+      if (_bannerImage != null) {
+        setState(() => _uploadProgress = 0.05);
+        final repository = ref.read(dramaRepositoryProvider);
+        bannerUrl = await repository.uploadBannerImage(_bannerImage!, '');
+        setState(() => _uploadProgress = 0.1);
       }
 
-      // Use the new factory constructor with RFC3339 timestamps
+      // Step 2: Upload all episode videos (10% - 90% progress)
+      final episodeUrls = <String>[];
+      for (int i = 0; i < _episodeVideos.length; i++) {
+        final repository = ref.read(dramaRepositoryProvider);
+        final videoUrl = await repository.uploadVideo(_episodeVideos[i], 'episode_${i + 1}');
+        episodeUrls.add(videoUrl);
+        
+        // Update progress (10% + 80% for videos)
+        final videoProgress = 0.1 + (0.8 * (i + 1) / _episodeVideos.length);
+        setState(() => _uploadProgress = videoProgress);
+      }
+
+      // Step 3: Create drama with all episodes (90% - 100%)
+      setState(() => _uploadProgress = 0.95);
+      
       final drama = DramaModel.create(
-        title: title,
-        description: description,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
         createdBy: currentUser.uid,
+        episodeVideos: episodeUrls,
+        bannerImage: bannerUrl,
         isPremium: _isPremium,
         freeEpisodesCount: _isPremium 
             ? int.tryParse(_freeEpisodesController.text.trim()) ?? 0 
             : 0,
         isFeatured: _isFeatured,
         isActive: _isActive,
-        bannerImage: '', // Will be set by repository after upload
       );
 
-      // Validate the drama before sending
-      if (!drama.isValidForCreation) {
-        final errors = drama.validationErrors.join(', ');
-        throw Exception('Drama validation failed: $errors');
-      }
-
-      debugPrint('Creating drama with data: $drama');
-
       final repository = ref.read(dramaRepositoryProvider);
-      final dramaId = await repository.createDrama(drama, bannerImage: _bannerImage);
+      final dramaId = await repository.createDramaWithEpisodes(drama);
+
+      setState(() => _uploadProgress = 1.0);
 
       if (mounted) {
-        // Refresh admin dramas list
+        // Refresh all relevant providers
         ref.invalidate(adminDramasProvider);
+        ref.invalidate(allDramasProvider);
+        if (_isFeatured) ref.invalidate(featuredDramasProvider);
         
-        showSnackBar(context, Constants.dramaCreated);
+        showSnackBar(context, 'Drama created successfully with ${episodeUrls.length} episodes!');
         Navigator.of(context).pop();
         
-        // Navigate to the created drama details
+        // Navigate to the new drama
         Navigator.pushNamed(
           context,
           Constants.dramaDetailsScreen,
@@ -624,13 +980,15 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
         );
       }
     } catch (e) {
-      debugPrint('Drama creation failed: $e');
       if (mounted) {
-        showSnackBar(context, 'Failed to create drama: ${e.toString()}');
+        showSnackBar(context, 'Failed to create drama: $e');
       }
     } finally {
       if (mounted) {
-        setState(() => _isCreating = false);
+        setState(() {
+          _isCreating = false;
+          _uploadProgress = 0.0;
+        });
       }
     }
   }

@@ -1,20 +1,18 @@
-// lib/features/dramas/providers/drama_providers.dart (Updated for Go Backend)
+// lib/features/dramas/providers/drama_providers.dart - SIMPLIFIED UNIFIED
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/dramas/repositories/drama_repository.dart';
 import 'package:textgb/models/drama_model.dart';
-import 'package:textgb/models/episode_model.dart';
-import 'package:textgb/models/user_model.dart';
 
 part 'drama_providers.g.dart';
 
-// Repository provider
+// Repository provider (unchanged)
 @riverpod
 DramaRepository dramaRepository(DramaRepositoryRef ref) {
   return HttpDramaRepository();
 }
 
-// Drama list state for different categories
+// Drama list state (unchanged)
 class DramaListState {
   final List<DramaModel> dramas;
   final bool isLoading;
@@ -47,7 +45,10 @@ class DramaListState {
   }
 }
 
-// Featured dramas provider
+// ===============================
+// CORE DRAMA PROVIDERS (simplified - no episodes)
+// ===============================
+
 @riverpod
 class FeaturedDramas extends _$FeaturedDramas {
   @override
@@ -65,7 +66,6 @@ class FeaturedDramas extends _$FeaturedDramas {
   }
 }
 
-// Trending dramas provider
 @riverpod
 class TrendingDramas extends _$TrendingDramas {
   @override
@@ -83,7 +83,6 @@ class TrendingDramas extends _$TrendingDramas {
   }
 }
 
-// All dramas provider with pagination (updated for HTTP backend)
 @riverpod
 class AllDramas extends _$AllDramas {
   @override
@@ -142,7 +141,6 @@ class AllDramas extends _$AllDramas {
   }
 }
 
-// Free dramas provider
 @riverpod
 class FreeDramas extends _$FreeDramas {
   @override
@@ -160,7 +158,6 @@ class FreeDramas extends _$FreeDramas {
   }
 }
 
-// Premium dramas provider
 @riverpod
 class PremiumDramas extends _$PremiumDramas {
   @override
@@ -178,7 +175,6 @@ class PremiumDramas extends _$PremiumDramas {
   }
 }
 
-// Single drama provider
 @riverpod
 class Drama extends _$Drama {
   @override
@@ -186,7 +182,7 @@ class Drama extends _$Drama {
     final repository = ref.read(dramaRepositoryProvider);
     final drama = await repository.getDramaById(dramaId);
     
-    // Increment view count when drama is loaded (fire and forget)
+    // Increment view count when drama is loaded
     if (drama != null) {
       repository.incrementDramaViews(dramaId);
     }
@@ -195,7 +191,7 @@ class Drama extends _$Drama {
   }
 
   Future<void> refresh() async {
-    final dramaId = this.dramaId; // Get the dramaId from the provider
+    final dramaId = this.dramaId;
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repository = ref.read(dramaRepositoryProvider);
@@ -204,40 +200,6 @@ class Drama extends _$Drama {
   }
 }
 
-// Drama episodes provider
-@riverpod
-class DramaEpisodes extends _$DramaEpisodes {
-  @override
-  Future<List<EpisodeModel>> build(String dramaId) async {
-    final repository = ref.read(dramaRepositoryProvider);
-    return await repository.getDramaEpisodes(dramaId);
-  }
-
-  Future<void> refresh() async {
-    final dramaId = this.dramaId; // Get the dramaId from the provider
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repository = ref.read(dramaRepositoryProvider);
-      return await repository.getDramaEpisodes(dramaId);
-    });
-  }
-}
-
-// Single episode provider
-@riverpod
-Future<EpisodeModel?> episode(EpisodeRef ref, String episodeId) async {
-  final repository = ref.read(dramaRepositoryProvider);
-  final episode = await repository.getEpisodeById(episodeId);
-  
-  // Increment view count when episode is loaded (fire and forget)
-  if (episode != null) {
-    repository.incrementEpisodeViews(episodeId);
-  }
-  
-  return episode;
-}
-
-// Search dramas provider
 @riverpod
 class SearchDramas extends _$SearchDramas {
   @override
@@ -262,7 +224,10 @@ class SearchDramas extends _$SearchDramas {
   }
 }
 
-// User's favorite dramas provider
+// ===============================
+// USER INTERACTION PROVIDERS (simplified)
+// ===============================
+
 @riverpod
 Future<List<DramaModel>> userFavoriteDramas(UserFavoriteDramasRef ref) async {
   final authState = ref.watch(authenticationProvider);
@@ -273,7 +238,6 @@ Future<List<DramaModel>> userFavoriteDramas(UserFavoriteDramasRef ref) async {
   final repository = ref.read(dramaRepositoryProvider);
   final List<DramaModel> favoriteDramas = [];
 
-  // Fetch each favorite drama
   for (final dramaId in user.favoriteDramas) {
     try {
       final drama = await repository.getDramaById(dramaId);
@@ -281,7 +245,6 @@ Future<List<DramaModel>> userFavoriteDramas(UserFavoriteDramasRef ref) async {
         favoriteDramas.add(drama);
       }
     } catch (e) {
-      // Skip dramas that can't be loaded
       continue;
     }
   }
@@ -289,7 +252,6 @@ Future<List<DramaModel>> userFavoriteDramas(UserFavoriteDramasRef ref) async {
   return favoriteDramas;
 }
 
-// Continue watching provider (dramas user has progress in)
 @riverpod
 Future<List<DramaModel>> continueWatchingDramas(ContinueWatchingDramasRef ref) async {
   final authState = ref.watch(authenticationProvider);
@@ -300,7 +262,6 @@ Future<List<DramaModel>> continueWatchingDramas(ContinueWatchingDramasRef ref) a
   final repository = ref.read(dramaRepositoryProvider);
   final List<DramaModel> continueWatchingDramas = [];
 
-  // Fetch dramas that user has progress in
   for (final dramaId in user.dramaProgress.keys) {
     try {
       final drama = await repository.getDramaById(dramaId);
@@ -308,18 +269,13 @@ Future<List<DramaModel>> continueWatchingDramas(ContinueWatchingDramasRef ref) a
         continueWatchingDramas.add(drama);
       }
     } catch (e) {
-      // Skip dramas that can't be loaded
       continue;
     }
   }
 
-  // Sort by most recently watched (could be enhanced with timestamps)
   return continueWatchingDramas;
 }
 
-// ADMIN PROVIDERS (only accessible to admin users)
-
-// Admin's dramas provider
 @riverpod
 class AdminDramas extends _$AdminDramas {
   @override
@@ -347,9 +303,10 @@ class AdminDramas extends _$AdminDramas {
   }
 }
 
-// CONVENIENCE PROVIDERS
+// ===============================
+// CONVENIENCE PROVIDERS (simplified - no episode complexity)
+// ===============================
 
-// Check if user has favorited a drama
 @riverpod
 bool isDramaFavorited(IsDramaFavoritedRef ref, String dramaId) {
   final authState = ref.watch(authenticationProvider);
@@ -357,7 +314,6 @@ bool isDramaFavorited(IsDramaFavoritedRef ref, String dramaId) {
   return user?.hasFavorited(dramaId) ?? false;
 }
 
-// Check if user has unlocked a drama
 @riverpod
 bool isDramaUnlocked(IsDramaUnlockedRef ref, String dramaId) {
   final authState = ref.watch(authenticationProvider);
@@ -365,7 +321,6 @@ bool isDramaUnlocked(IsDramaUnlockedRef ref, String dramaId) {
   return user?.hasUnlocked(dramaId) ?? false;
 }
 
-// Get user's progress in a drama
 @riverpod
 int dramaUserProgress(DramaUserProgressRef ref, String dramaId) {
   final authState = ref.watch(authenticationProvider);
@@ -373,7 +328,7 @@ int dramaUserProgress(DramaUserProgressRef ref, String dramaId) {
   return user?.getDramaProgress(dramaId) ?? 0;
 }
 
-// Check if user can watch a specific episode
+// Check if user can watch specific episode (simplified logic)
 @riverpod
 bool canWatchEpisode(CanWatchEpisodeRef ref, String dramaId, int episodeNumber) {
   final drama = ref.watch(dramaProvider(dramaId));
@@ -393,71 +348,95 @@ bool canWatchEpisode(CanWatchEpisodeRef ref, String dramaId, int episodeNumber) 
   );
 }
 
-// PERIODIC REFRESH PROVIDERS (replace real-time streams)
-// These providers can be refreshed periodically to simulate real-time updates
-
-// Featured dramas with periodic refresh
+// Get episode info for a specific drama episode (convenience)
 @riverpod
-class FeaturedDramasLive extends _$FeaturedDramasLive {
-  @override
-  Future<List<DramaModel>> build() async {
-    final repository = ref.read(dramaRepositoryProvider);
-    return await repository.getFeaturedDramas();
-  }
-
-  // Call this method periodically from UI to refresh data
-  Future<void> refreshPeriodically() async {
-    final repository = ref.read(dramaRepositoryProvider);
-    state = AsyncValue.data(await repository.getFeaturedDramas());
-  }
+Episode? dramaEpisode(DramaEpisodeRef ref, String dramaId, int episodeNumber) {
+  final drama = ref.watch(dramaProvider(dramaId));
+  
+  return drama.when(
+    data: (dramaModel) {
+      if (dramaModel == null) return null;
+      
+      final videoUrl = dramaModel.getEpisodeVideo(episodeNumber);
+      if (videoUrl == null) return null;
+      
+      return Episode.fromDrama(dramaModel, episodeNumber);
+    },
+    loading: () => null,
+    error: (_, __) => null,
+  );
 }
 
-// Trending dramas with periodic refresh
+// Get all episodes for a drama (as Episode objects for UI convenience)
 @riverpod
-class TrendingDramasLive extends _$TrendingDramasLive {
-  @override
-  Future<List<DramaModel>> build() async {
-    final repository = ref.read(dramaRepositoryProvider);
-    return await repository.getTrendingDramas();
-  }
-
-  // Call this method periodically from UI to refresh data
-  Future<void> refreshPeriodically() async {
-    final repository = ref.read(dramaRepositoryProvider);
-    state = AsyncValue.data(await repository.getTrendingDramas());
-  }
+List<Episode> dramaEpisodeList(DramaEpisodeListRef ref, String dramaId) {
+  final drama = ref.watch(dramaProvider(dramaId));
+  
+  return drama.when(
+    data: (dramaModel) {
+      if (dramaModel == null) return [];
+      
+      return List.generate(
+        dramaModel.totalEpisodes,
+        (index) => Episode.fromDrama(dramaModel, index + 1),
+      );
+    },
+    loading: () => [],
+    error: (_, __) => [],
+  );
 }
 
-// Drama with periodic refresh
+// Next episode to watch for continue watching feature
 @riverpod
-class DramaLive extends _$DramaLive {
-  @override
-  Future<DramaModel?> build(String dramaId) async {
-    final repository = ref.read(dramaRepositoryProvider);
-    return await repository.getDramaById(dramaId);
-  }
-
-  // Call this method periodically from UI to refresh data
-  Future<void> refreshPeriodically() async {
-    final dramaId = this.dramaId;
-    final repository = ref.read(dramaRepositoryProvider);
-    state = AsyncValue.data(await repository.getDramaById(dramaId));
-  }
+int nextEpisodeToWatch(NextEpisodeToWatchRef ref, String dramaId) {
+  final authState = ref.watch(authenticationProvider);
+  final user = authState.valueOrNull?.userModel;
+  
+  if (user == null) return 1;
+  
+  final progress = user.getDramaProgress(dramaId);
+  return progress + 1; // Next episode after last watched
 }
 
-// Episodes with periodic refresh
+// Check if episode requires unlock (simplified)
 @riverpod
-class DramaEpisodesLive extends _$DramaEpisodesLive {
-  @override
-  Future<List<EpisodeModel>> build(String dramaId) async {
-    final repository = ref.read(dramaRepositoryProvider);
-    return await repository.getDramaEpisodes(dramaId);
-  }
-
-  // Call this method periodically from UI to refresh data
-  Future<void> refreshPeriodically() async {
-    final dramaId = this.dramaId;
-    final repository = ref.read(dramaRepositoryProvider);
-    state = AsyncValue.data(await repository.getDramaEpisodes(dramaId));
-  }
+bool episodeRequiresUnlock(EpisodeRequiresUnlockRef ref, String dramaId, int episodeNumber) {
+  final drama = ref.watch(dramaProvider(dramaId));
+  final authState = ref.watch(authenticationProvider);
+  final user = authState.valueOrNull?.userModel;
+  
+  return drama.when(
+    data: (dramaModel) {
+      if (dramaModel == null) return false;
+      
+      // If drama is not premium, no unlock needed
+      if (!dramaModel.isPremium) return false;
+      
+      // If user has unlocked the drama, no unlock needed
+      if (user?.hasUnlocked(dramaId) ?? false) return false;
+      
+      // If episode is within free episodes count, no unlock needed
+      if (episodeNumber <= dramaModel.freeEpisodesCount) return false;
+      
+      // Episode requires unlock
+      return true;
+    },
+    loading: () => false,
+    error: (_, __) => false,
+  );
 }
+
+// REMOVED PROVIDERS:
+// - DramaEpisodes (no longer needed - episodes are in drama model)
+// - Episode (episodes are just numbered videos now)
+// - SearchDramasProvider complex episode logic
+// - EpisodeRequiresUnlock complex logic
+// - All episode-specific state management
+// - Episode view counting providers
+// - Episode thumbnail/metadata providers
+
+// What remains is MUCH simpler:
+// 1. Drama providers (list, single, search)
+// 2. User interaction providers (favorites, progress, unlock status)
+// 3. Simple episode convenience providers that work off drama data
+// 4. No complex episode state management or separate episode entities

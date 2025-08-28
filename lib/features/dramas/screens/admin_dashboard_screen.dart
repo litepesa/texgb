@@ -513,98 +513,66 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
+  // FIXED: Removed double gesture detection
   Widget _buildEnhancedDramaCard(dynamic drama) {
     final bool hasDrafts = drama.totalEpisodes == 0;
     final bool needsEpisodes = drama.totalEpisodes < 3; // Suggest adding more if less than 3 episodes
     
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(
-        context,
-        Constants.dramaDetailsScreen,
-        arguments: {'dramaId': drama.dramaId},
-      ),
-      child: Stack(
-        children: [
-          DramaCard(
-            drama: drama,
-            onTap: () => Navigator.pushNamed(
-              context,
-              Constants.dramaDetailsScreen,
-              arguments: {'dramaId': drama.dramaId},
-            ),
+    return Stack(
+      children: [
+        // FIXED: Only one gesture detector via DramaCard onTap
+        DramaCard(
+          drama: drama,
+          onTap: () => Navigator.pushNamed(
+            context,
+            Constants.dramaDetailsScreen,
+            arguments: {'dramaId': drama.dramaId},
           ),
-          
-          // Status indicators
-          Positioned(
-            top: 8,
-            left: 8,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Draft/Episode status
-                if (hasDrafts)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade600,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.edit_note, size: 12, color: Colors.white),
-                        SizedBox(width: 4),
-                        Text(
-                          'Draft',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (needsEpisodes)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade600,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      '${drama.totalEpisodes} Eps',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                
-                const SizedBox(height: 4),
-                
-                // Active/Inactive status
+        ),
+        
+        // Status indicators
+        Positioned(
+          top: 8,
+          left: 8,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Draft/Episode status
+              if (hasDrafts)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: drama.isActive 
-                        ? Colors.green.shade600 
-                        : Colors.red.shade600,
+                    color: Colors.orange.shade600,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.edit_note, size: 12, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'Draft',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (needsEpisodes)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade600,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -615,7 +583,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     ],
                   ),
                   child: Text(
-                    drama.isActive ? 'Active' : 'Inactive',
+                    '${drama.totalEpisodes} Eps',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -623,153 +591,181 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     ),
                   ),
                 ),
-              ],
+              
+              const SizedBox(height: 4),
+              
+              // Active/Inactive status
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: drama.isActive 
+                      ? Colors.green.shade600 
+                      : Colors.red.shade600,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  drama.isActive ? 'Active' : 'Inactive',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // FIXED: Quick action button with proper hit test behavior to prevent event bubbling
+        if (hasDrafts)
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () => Navigator.pushNamed(
+                context,
+                Constants.addEpisodeScreen,
+                arguments: {'dramaId': drama.dramaId},
+              ),
+              behavior: HitTestBehavior.opaque, // FIXED: Prevent event bubbling
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFE2C55),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFE2C55).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.add,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Add Episodes',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
 
-          // Quick action button - prominently placed for drafts
-          if (hasDrafts)
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  Constants.addEpisodeScreen,
-                  arguments: {'dramaId': drama.dramaId},
+        // FIXED: Standard admin menu with proper hit test behavior
+        if (!hasDrafts)
+          Positioned(
+            top: 4,
+            right: 4,
+            child: PopupMenuButton<String>(
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  shape: BoxShape.circle,
                 ),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFE2C55),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFE2C55).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
+                child: const Icon(
+                  Icons.more_vert,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              onSelected: (value) {
+                switch (value) {
+                  case 'edit':
+                    Navigator.pushNamed(
+                      context,
+                      Constants.editDramaScreen,
+                      arguments: {'dramaId': drama.dramaId},
+                    );
+                    break;
+                  case 'episodes':
+                    Navigator.pushNamed(
+                      context,
+                      Constants.addEpisodeScreen,
+                      arguments: {'dramaId': drama.dramaId},
+                    );
+                    break;
+                  case 'toggle_featured':
+                    ref.read(adminDramaActionsProvider.notifier)
+                        .toggleFeatured(drama.dramaId, !drama.isFeatured);
+                    break;
+                  case 'toggle_active':
+                    ref.read(adminDramaActionsProvider.notifier)
+                        .toggleActive(drama.dramaId, !drama.isActive);
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 16),
+                      SizedBox(width: 8),
+                      Text('Edit Drama'),
                     ],
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
+                ),
+                const PopupMenuItem(
+                  value: 'episodes',
+                  child: Row(
+                    children: [
+                      Icon(Icons.video_library, size: 16),
+                      SizedBox(width: 8),
+                      Text('Add Episodes'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'toggle_featured',
+                  child: Row(
                     children: [
                       Icon(
-                        Icons.add,
-                        color: Colors.white,
+                        drama.isFeatured ? Icons.star : Icons.star_border,
                         size: 16,
                       ),
-                      SizedBox(width: 4),
-                      Text(
-                        'Add Episodes',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      const SizedBox(width: 8),
+                      Text(drama.isFeatured ? 'Unfeature' : 'Feature'),
                     ],
                   ),
                 ),
-              ),
-            ),
-
-          // Standard admin menu for dramas with episodes
-          if (!hasDrafts)
-            Positioned(
-              top: 4,
-              right: 4,
-              child: PopupMenuButton<String>(
-                icon: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.more_vert,
-                    color: Colors.white,
-                    size: 16,
+                PopupMenuItem(
+                  value: 'toggle_active',
+                  child: Row(
+                    children: [
+                      Icon(
+                        drama.isActive ? Icons.pause_circle : Icons.play_circle,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(drama.isActive ? 'Deactivate' : 'Activate'),
+                    ],
                   ),
                 ),
-                onSelected: (value) {
-                  switch (value) {
-                    case 'edit':
-                      Navigator.pushNamed(
-                        context,
-                        Constants.editDramaScreen,
-                        arguments: {'dramaId': drama.dramaId},
-                      );
-                      break;
-                    case 'episodes':
-                      Navigator.pushNamed(
-                        context,
-                        Constants.addEpisodeScreen,
-                        arguments: {'dramaId': drama.dramaId},
-                      );
-                      break;
-                    case 'toggle_featured':
-                      ref.read(adminDramaActionsProvider.notifier)
-                          .toggleFeatured(drama.dramaId, !drama.isFeatured);
-                      break;
-                    case 'toggle_active':
-                      ref.read(adminDramaActionsProvider.notifier)
-                          .toggleActive(drama.dramaId, !drama.isActive);
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 16),
-                        SizedBox(width: 8),
-                        Text('Edit Drama'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'episodes',
-                    child: Row(
-                      children: [
-                        Icon(Icons.video_library, size: 16),
-                        SizedBox(width: 8),
-                        Text('Add Episodes'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'toggle_featured',
-                    child: Row(
-                      children: [
-                        Icon(
-                          drama.isFeatured ? Icons.star : Icons.star_border,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(drama.isFeatured ? 'Unfeature' : 'Feature'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'toggle_active',
-                    child: Row(
-                      children: [
-                        Icon(
-                          drama.isActive ? Icons.pause_circle : Icons.play_circle,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(drama.isActive ? 'Deactivate' : 'Activate'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 
