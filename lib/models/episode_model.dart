@@ -32,32 +32,38 @@ class EpisodeModel {
     required this.updatedAt,
   });
 
-  // ONLY TIME FIX: Helper method to parse DateTime to RFC3339 format
-  static String _parseDateTime(dynamic dateValue) {
-    if (dateValue == null) return DateTime.now().toUtc().toIso8601String();
+  // Helper method to create timestamps in RFC3339 format (same as UserModel)
+  static String _createTimestamp() {
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
+  // Helper method to parse timestamp (handles both milliseconds and ISO strings) - same as UserModel
+  static String _parseTimestamp(dynamic value) {
+    if (value == null) return _createTimestamp();
     
-    if (dateValue is String) {
+    final String stringValue = value.toString();
+    
+    // If it's a number (milliseconds), convert it
+    if (RegExp(r'^\d+$').hasMatch(stringValue)) {
       try {
-        // Try to parse as RFC3339/ISO8601 first
-        final parsedDate = DateTime.parse(dateValue);
-        return parsedDate.toUtc().toIso8601String(); // Ensure UTC RFC3339 format
+        final int milliseconds = int.parse(stringValue);
+        // Handle both seconds and milliseconds timestamps
+        final DateTime dateTime = milliseconds > 9999999999 
+            ? DateTime.fromMillisecondsSinceEpoch(milliseconds)
+            : DateTime.fromMillisecondsSinceEpoch(milliseconds * 1000);
+        return dateTime.toUtc().toIso8601String();
       } catch (e) {
-        try {
-          // Try to parse as microseconds since epoch
-          final microseconds = int.parse(dateValue);
-          return DateTime.fromMicrosecondsSinceEpoch(microseconds).toUtc().toIso8601String();
-        } catch (e2) {
-          return DateTime.now().toUtc().toIso8601String();
-        }
+        return _createTimestamp();
       }
     }
     
-    if (dateValue is int) {
-      // Assume microseconds since epoch
-      return DateTime.fromMicrosecondsSinceEpoch(dateValue).toUtc().toIso8601String();
+    // If it's already an ISO string, validate and return
+    try {
+      DateTime.parse(stringValue);
+      return stringValue;
+    } catch (e) {
+      return _createTimestamp();
     }
-    
-    return DateTime.now().toUtc().toIso8601String();
   }
 
   factory EpisodeModel.fromMap(Map<String, dynamic> map) {
@@ -70,11 +76,11 @@ class EpisodeModel {
       videoUrl: map[Constants.videoUrl]?.toString() ?? '',
       videoDuration: map[Constants.videoDuration]?.toInt() ?? 0,
       episodeViewCount: map[Constants.episodeViewCount]?.toInt() ?? 0,
-      // ONLY TIME FIX: Use _parseDateTime for timestamp fields
-      releasedAt: _parseDateTime(map[Constants.releasedAt]),
+      // Use _parseTimestamp for consistent time format with UserModel
+      releasedAt: _parseTimestamp(map[Constants.releasedAt]),
       uploadedBy: map[Constants.uploadedBy]?.toString() ?? '',
-      createdAt: _parseDateTime(map[Constants.createdAt]),
-      updatedAt: _parseDateTime(map[Constants.updatedAt]),
+      createdAt: _parseTimestamp(map[Constants.createdAt]),
+      updatedAt: _parseTimestamp(map[Constants.updatedAt]),
     );
   }
 

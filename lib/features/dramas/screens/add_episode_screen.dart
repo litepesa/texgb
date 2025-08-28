@@ -26,6 +26,7 @@ class AddEpisodeScreen extends ConsumerStatefulWidget {
 class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
   final _formKey = GlobalKey<FormState>();
   final _episodeNumberController = TextEditingController();
+  final _episodeTitleController = TextEditingController();
 
   File? _videoFile;
   bool _isUploading = false;
@@ -47,6 +48,7 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
   @override
   void dispose() {
     _episodeNumberController.dispose();
+    _episodeTitleController.dispose();
     super.dispose();
   }
 
@@ -385,9 +387,49 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 24),
-
+          // Episode Title Input
+          Row(
+            children: [
+              Icon(
+                Icons.title,
+                color: modernTheme.textSecondaryColor,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _episodeTitleController,
+                  keyboardType: TextInputType.text,
+                  decoration: InputDecoration(
+                    labelText: 'Episode Title',
+                    hintText: 'Enter episode title',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: modernTheme.surfaceVariantColor,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter episode title';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
           // Video Upload Section
           _videoFile != null 
               ? GestureDetector(
@@ -826,7 +868,7 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
     });
 
     try {
-      final now = DateTime.now().microsecondsSinceEpoch.toString();
+      final now = DateTime.now().toUtc().toIso8601String(); // RFC3339 format
       final episodeNumber = int.parse(_episodeNumberController.text.trim());
       
       // Get video duration (you'll need to implement this)
@@ -836,7 +878,7 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
         episodeId: '', // Will be set by repository
         dramaId: widget.dramaId,
         episodeNumber: episodeNumber,
-        episodeTitle: '', // Auto-generated or empty
+        episodeTitle: _episodeTitleController.text.trim(),
         videoDuration: videoDurationSeconds,
         releasedAt: now,
         uploadedBy: currentUser.uid,
@@ -872,6 +914,7 @@ class _AddEpisodeScreenState extends ConsumerState<AddEpisodeScreen> {
         
         // Reset form for next episode
         _episodeNumberController.text = (episodeNumber + 1).toString();
+        _episodeTitleController.clear();
         setState(() {
           _videoFile = null;
         });

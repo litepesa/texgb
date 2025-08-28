@@ -550,8 +550,35 @@ class HttpDramaRepository implements DramaRepository {
 
   List<DramaModel> _handleDramaListResponse(http.Response response) {
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((item) => DramaModel.fromMap(item as Map<String, dynamic>)).toList();
+      try {
+        final dynamic responseData = jsonDecode(response.body);
+        
+        // Handle null or empty responses
+        if (responseData == null) {
+          return [];
+        }
+        
+        // Handle if response is a List
+        if (responseData is List) {
+          return responseData.map((item) => DramaModel.fromMap(item as Map<String, dynamic>)).toList();
+        }
+        
+        // Handle if response is wrapped in an object (e.g., {"dramas": []})
+        if (responseData is Map<String, dynamic>) {
+          final dramas = responseData['dramas'] ?? responseData['data'] ?? [];
+          if (dramas is List) {
+            return dramas.map((item) => DramaModel.fromMap(item as Map<String, dynamic>)).toList();
+          }
+        }
+        
+        // If we can't parse it, return empty list
+        return [];
+        
+      } catch (e) {
+        // If JSON parsing fails, return empty list instead of crashing
+        debugPrint('Failed to parse dramas response: $e');
+        return [];
+      }
     } else {
       throw DramaRepositoryException('Failed to fetch dramas: ${response.body}');
     }
@@ -559,8 +586,35 @@ class HttpDramaRepository implements DramaRepository {
 
   List<EpisodeModel> _handleEpisodeListResponse(http.Response response) {
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((item) => EpisodeModel.fromMap(item as Map<String, dynamic>)).toList();
+      try {
+        final dynamic responseData = jsonDecode(response.body);
+        
+        // Handle null or empty responses
+        if (responseData == null) {
+          return [];
+        }
+        
+        // Handle if response is a List
+        if (responseData is List) {
+          return responseData.map((item) => EpisodeModel.fromMap(item as Map<String, dynamic>)).toList();
+        }
+        
+        // Handle if response is wrapped in an object (e.g., {"episodes": []})
+        if (responseData is Map<String, dynamic>) {
+          final episodes = responseData['episodes'] ?? responseData['data'] ?? [];
+          if (episodes is List) {
+            return episodes.map((item) => EpisodeModel.fromMap(item as Map<String, dynamic>)).toList();
+          }
+        }
+        
+        // If we can't parse it, return empty list
+        return [];
+        
+      } catch (e) {
+        // If JSON parsing fails, return empty list instead of crashing
+        debugPrint('Failed to parse episodes response: $e');
+        return [];
+      }
     } else {
       throw DramaRepositoryException('Failed to fetch episodes: ${response.body}');
     }
@@ -574,4 +628,13 @@ class DramaRepositoryException implements Exception {
   
   @override
   String toString() => 'DramaRepositoryException: $message';
+}
+
+// Add missing NotFoundException class if it doesn't exist
+class NotFoundException implements Exception {
+  final String message;
+  const NotFoundException(this.message);
+  
+  @override
+  String toString() => 'NotFoundException: $message';
 }
