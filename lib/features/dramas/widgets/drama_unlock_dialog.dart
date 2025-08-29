@@ -57,17 +57,25 @@ class _DramaUnlockDialogState extends ConsumerState<DramaUnlockDialog>
     _scaleController.forward();
     _shimmerController.repeat();
 
-    // Listen to drama actions
+    // Listen to drama actions with improved handling
     ref.listenManual(dramaActionsProvider, (previous, next) {
-      if (next.error != null) {
-        setState(() => _isUnlocking = false);
-        showSnackBar(context, next.error!);
-        ref.read(dramaActionsProvider.notifier).clearMessages();
-      } else if (next.successMessage != null) {
-        setState(() => _isUnlocking = false);
-        showSnackBar(context, next.successMessage!);
-        ref.read(dramaActionsProvider.notifier).clearMessages();
-        Navigator.of(context).pop(true); // Return success
+      if (mounted) {
+        if (next.error != null) {
+          setState(() => _isUnlocking = false);
+          showSnackBar(context, next.error!);
+          ref.read(dramaActionsProvider.notifier).clearMessages();
+        } else if (next.successMessage != null) {
+          setState(() => _isUnlocking = false);
+          showSnackBar(context, next.successMessage!);
+          ref.read(dramaActionsProvider.notifier).clearMessages();
+          
+          // ⭐ KEY FIX: Add delay to ensure providers are refreshed then close dialog
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) {
+              Navigator.of(context).pop(true); // Return success
+            }
+          });
+        }
       }
     });
   }
@@ -564,15 +572,28 @@ class _DramaUnlockDialogState extends ConsumerState<DramaUnlockDialog>
     );
   }
 
+  // ⭐ UPDATED unlock method with better refresh handling
   void _unlockDrama() async {
+    if (_isUnlocking) return; // Prevent double-tap
+    
     setState(() => _isUnlocking = true);
     
-    final success = await ref
-        .read(dramaActionsProvider.notifier)
-        .unlockDrama(widget.drama.dramaId);
+    try {
+      final success = await ref
+          .read(dramaActionsProvider.notifier)
+          .unlockDrama(widget.drama.dramaId);
 
-    if (!success) {
-      setState(() => _isUnlocking = false);
+      // The success/error handling is done in the listener above
+      // If it fails, the listener will set _isUnlocking to false
+      if (!success && mounted) {
+        setState(() => _isUnlocking = false);
+      }
+      
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUnlocking = false);
+        showSnackBar(context, 'Failed to unlock drama: ${e.toString()}');
+      }
     }
   }
 }

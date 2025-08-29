@@ -121,7 +121,7 @@ class DramaActions extends _$DramaActions {
     }
   }
 
-  // SIMPLIFIED ATOMIC DRAMA UNLOCK
+  // UPDATED ATOMIC DRAMA UNLOCK WITH PROVIDER REFRESH
   Future<bool> unlockDrama(String dramaId) async {
     final user = ref.read(currentUserProvider);
     if (user == null) {
@@ -146,15 +146,20 @@ class DramaActions extends _$DramaActions {
       );
 
       if (success) {
+        // ⭐ KEY FIX: Refresh all relevant providers after successful unlock
+        ref.invalidate(dramaProvider(dramaId));
+        ref.invalidate(walletProvider);
+        ref.invalidate(currentUserProvider);
+        ref.invalidate(continueWatchingDramasProvider);
+        ref.invalidate(userFavoriteDramasProvider);
+        ref.invalidate(allDramasProvider);
+        ref.invalidate(featuredDramasProvider);
+        ref.invalidate(trendingDramasProvider);
+        
         state = state.copyWith(
           isLoading: false,
           successMessage: 'Drama unlocked! All episodes are now available.',
         );
-
-        // Refresh all relevant providers
-        ref.invalidate(walletProvider);
-        ref.invalidate(currentUserProvider);
-        ref.invalidate(continueWatchingDramasProvider);
 
         return true;
       } else {
@@ -197,8 +202,6 @@ class DramaActions extends _$DramaActions {
     }
   }
 
-  // REMOVED: Complex episode unlock method (only drama unlock needed)
-  
   // Mark episode as watched
   Future<void> markEpisodeWatched(String episodeId, String dramaId, int episodeNumber) async {
     final user = ref.read(currentUserProvider);
