@@ -1,4 +1,4 @@
-// lib/features/dramas/providers/drama_actions_provider.dart
+// lib/features/dramas/providers/drama_actions_provider.dart - FIXED VERSION
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
@@ -8,7 +8,7 @@ import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 
 part 'drama_actions_provider.g.dart';
 
-// Custom exceptions for better error handling
+// Custom exceptions for better error handling (unchanged)
 class DramaUnlockException implements Exception {
   final String message;
   final String code;
@@ -47,28 +47,41 @@ class UserNotAuthenticatedException extends DramaUnlockException {
   );
 }
 
-// Drama actions state
+// Enhanced drama actions state with recently unlocked tracking
 class DramaActionState {
   final bool isLoading;
   final String? error;
   final String? successMessage;
+  final Set<String> recentlyUnlockedDramas;
+  final DateTime? lastUnlockTime;
 
   const DramaActionState({
     this.isLoading = false,
     this.error,
     this.successMessage,
+    this.recentlyUnlockedDramas = const {},
+    this.lastUnlockTime,
   });
 
   DramaActionState copyWith({
     bool? isLoading,
     String? error,
     String? successMessage,
+    Set<String>? recentlyUnlockedDramas,
+    DateTime? lastUnlockTime,
   }) {
     return DramaActionState(
       isLoading: isLoading ?? this.isLoading,
       error: error,
       successMessage: successMessage,
+      recentlyUnlockedDramas: recentlyUnlockedDramas ?? this.recentlyUnlockedDramas,
+      lastUnlockTime: lastUnlockTime ?? this.lastUnlockTime,
     );
+  }
+
+  // Helper method to check if drama was recently unlocked
+  bool wasRecentlyUnlocked(String dramaId) {
+    return recentlyUnlockedDramas.contains(dramaId);
   }
 }
 
@@ -79,7 +92,7 @@ class DramaActions extends _$DramaActions {
     return const DramaActionState();
   }
 
-  // Toggle favorite status of a drama
+  // Toggle favorite status of a drama (unchanged)
   Future<void> toggleFavorite(String dramaId) async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
@@ -93,7 +106,6 @@ class DramaActions extends _$DramaActions {
       final isFavorited = user.hasFavorited(dramaId);
       
       if (isFavorited) {
-        // Remove from favorites
         await authNotifier.removeFromFavorites(dramaId: dramaId);
         await repository.incrementDramaFavorites(dramaId, false);
         state = state.copyWith(
@@ -101,7 +113,6 @@ class DramaActions extends _$DramaActions {
           successMessage: Constants.favoriteRemoved
         );
       } else {
-        // Add to favorites
         await authNotifier.addToFavorites(dramaId: dramaId);
         await repository.incrementDramaFavorites(dramaId, true);
         state = state.copyWith(
@@ -110,7 +121,6 @@ class DramaActions extends _$DramaActions {
         );
       }
 
-      // Refresh relevant providers
       ref.invalidate(userFavoriteDramasProvider);
       
     } catch (e) {
@@ -121,7 +131,7 @@ class DramaActions extends _$DramaActions {
     }
   }
 
-  // UPDATED ATOMIC DRAMA UNLOCK WITH PROVIDER REFRESH
+  // ENHANCED ATOMIC DRAMA UNLOCK WITH COMPREHENSIVE REFRESH
   Future<bool> unlockDrama(String dramaId) async {
     final user = ref.read(currentUserProvider);
     if (user == null) {
@@ -132,11 +142,9 @@ class DramaActions extends _$DramaActions {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // Get drama info for display
       final drama = await ref.read(dramaProvider(dramaId).future);
       final dramaTitle = drama?.title ?? 'Premium Drama';
       
-      // Call the atomic unlock method in repository
       final repository = ref.read(dramaRepositoryProvider);
       final success = await repository.unlockDramaAtomic(
         userId: user.uid,
@@ -146,20 +154,18 @@ class DramaActions extends _$DramaActions {
       );
 
       if (success) {
-        // ⭐ KEY FIX: Refresh all relevant providers after successful unlock
-        ref.invalidate(dramaProvider(dramaId));
-        ref.invalidate(walletProvider);
-        ref.invalidate(currentUserProvider);
-        ref.invalidate(continueWatchingDramasProvider);
-        ref.invalidate(userFavoriteDramasProvider);
-        ref.invalidate(allDramasProvider);
-        ref.invalidate(featuredDramasProvider);
-        ref.invalidate(trendingDramasProvider);
+        // Add to recently unlocked set for immediate UI feedback
+        final updatedUnlockedSet = Set<String>.from(state.recentlyUnlockedDramas)..add(dramaId);
         
         state = state.copyWith(
           isLoading: false,
           successMessage: 'Drama unlocked! All episodes are now available.',
+          recentlyUnlockedDramas: updatedUnlockedSet,
+          lastUnlockTime: DateTime.now(),
         );
+
+        // 🔥 COMPREHENSIVE PROVIDER REFRESH STRATEGY
+        await _performComprehensiveRefresh(dramaId);
 
         return true;
       } else {
@@ -170,39 +176,64 @@ class DramaActions extends _$DramaActions {
         return false;
       }
     } on InsufficientFundsException catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.message,
-      );
+      state = state.copyWith(isLoading: false, error: e.message);
       return false;
     } on DramaAlreadyUnlockedException catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        successMessage: 'Drama is already unlocked!',
-      );
-      return true; // Technically success
+      state = state.copyWith(isLoading: false, successMessage: 'Drama is already unlocked!');
+      return true;
     } on DramaNotFoundException catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.message,
-      );
+      state = state.copyWith(isLoading: false, error: e.message);
       return false;
     } on UserNotAuthenticatedException catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.message,
-      );
+      state = state.copyWith(isLoading: false, error: e.message);
       return false;
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to unlock drama: $e',
-      );
+      state = state.copyWith(isLoading: false, error: 'Failed to unlock drama: $e');
       return false;
     }
   }
 
-  // Mark episode as watched
+  // 🔥 COMPREHENSIVE REFRESH STRATEGY
+  Future<void> _performComprehensiveRefresh(String dramaId) async {
+    try {
+      // 1. Refresh authentication state FIRST (most important)
+      ref.invalidate(authenticationProvider);
+      
+      // Wait a moment for auth state to propagate
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // 2. Refresh wallet/coins providers
+      ref.invalidate(walletProvider);
+      ref.invalidate(coinsBalanceProvider);
+      
+      // 3. Refresh user-specific providers
+      ref.invalidate(currentUserProvider);
+      
+      // 4. Refresh specific drama data
+      ref.invalidate(dramaProvider(dramaId));
+      
+      // 5. Refresh drama lists that might contain this drama
+      ref.invalidate(allDramasProvider);
+      ref.invalidate(featuredDramasProvider);
+      ref.invalidate(trendingDramasProvider);
+      ref.invalidate(premiumDramasProvider);
+      ref.invalidate(continueWatchingDramasProvider);
+      ref.invalidate(userFavoriteDramasProvider);
+      
+      // 6. Refresh unlock status providers specifically
+      ref.invalidate(isDramaUnlockedProvider(dramaId));
+      ref.invalidate(canAffordDramaUnlockProvider());
+      
+      // 7. Wait a bit more and do another auth refresh to be absolutely sure
+      await Future.delayed(const Duration(milliseconds: 200));
+      ref.invalidate(authenticationProvider);
+      
+    } catch (e) {
+      print('Error during comprehensive refresh: $e');
+    }
+  }
+
+  // Mark episode as watched (unchanged)
   Future<void> markEpisodeWatched(String episodeId, String dramaId, int episodeNumber) async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
@@ -210,12 +241,10 @@ class DramaActions extends _$DramaActions {
     try {
       final authNotifier = ref.read(authenticationProvider.notifier);
       
-      // Add to watch history if not already there
       if (!user.hasWatched(episodeId)) {
         await authNotifier.addToWatchHistory(episodeId: episodeId);
       }
       
-      // Update drama progress (highest episode watched)
       final currentProgress = user.getDramaProgress(dramaId);
       if (episodeNumber > currentProgress) {
         await authNotifier.updateDramaProgress(
@@ -224,7 +253,6 @@ class DramaActions extends _$DramaActions {
         );
       }
 
-      // Refresh continue watching
       ref.invalidate(continueWatchingDramasProvider);
       
     } catch (e) {
@@ -244,9 +272,37 @@ class DramaActions extends _$DramaActions {
     return ref.read(coinsBalanceProvider);
   }
 
+  // Check if drama was recently unlocked (for immediate UI feedback)
+  bool wasRecentlyUnlocked(String dramaId) {
+    return state.recentlyUnlockedDramas.contains(dramaId);
+  }
+
+  // Clear recently unlocked status (call this when navigating away or after some time)
+  void clearRecentlyUnlocked(String dramaId) {
+    final updatedSet = Set<String>.from(state.recentlyUnlockedDramas)..remove(dramaId);
+    state = state.copyWith(recentlyUnlockedDramas: updatedSet);
+  }
+
   // Clear any messages
   void clearMessages() {
     state = state.copyWith(error: null, successMessage: null);
+  }
+
+  // Force refresh all drama-related data (useful for pull-to-refresh)
+  Future<void> forceRefreshAll() async {
+    ref.invalidate(authenticationProvider);
+    ref.invalidate(currentUserProvider);
+    ref.invalidate(walletProvider);
+    ref.invalidate(coinsBalanceProvider);
+    ref.invalidate(allDramasProvider);
+    ref.invalidate(featuredDramasProvider);
+    ref.invalidate(trendingDramasProvider);
+    ref.invalidate(freeDramasProvider);
+    ref.invalidate(premiumDramasProvider);
+    ref.invalidate(continueWatchingDramasProvider);
+    ref.invalidate(userFavoriteDramasProvider);
+    
+    state = state.copyWith(recentlyUnlockedDramas: {});
   }
 }
 
@@ -258,7 +314,6 @@ class AdminDramaActions extends _$AdminDramaActions {
     return const DramaActionState();
   }
 
-  // Toggle drama featured status
   Future<void> toggleFeatured(String dramaId, bool isFeatured) async {
     final user = ref.read(currentUserProvider);
     if (user == null || !user.isAdmin) {
@@ -277,7 +332,6 @@ class AdminDramaActions extends _$AdminDramaActions {
         successMessage: isFeatured ? 'Drama featured' : 'Drama unfeatured',
       );
 
-      // Refresh admin dramas and featured dramas
       ref.invalidate(adminDramasProvider);
       ref.invalidate(featuredDramasProvider);
       
@@ -289,7 +343,6 @@ class AdminDramaActions extends _$AdminDramaActions {
     }
   }
 
-  // Toggle drama active status
   Future<void> toggleActive(String dramaId, bool isActive) async {
     final user = ref.read(currentUserProvider);
     if (user == null || !user.isAdmin) {
@@ -308,7 +361,6 @@ class AdminDramaActions extends _$AdminDramaActions {
         successMessage: isActive ? 'Drama activated' : 'Drama deactivated',
       );
 
-      // Refresh relevant providers
       ref.invalidate(adminDramasProvider);
       ref.invalidate(allDramasProvider);
       
@@ -320,7 +372,6 @@ class AdminDramaActions extends _$AdminDramaActions {
     }
   }
 
-  // Delete a drama (admin only)
   Future<void> deleteDrama(String dramaId) async {
     final user = ref.read(currentUserProvider);
     if (user == null || !user.isAdmin) {
@@ -339,7 +390,6 @@ class AdminDramaActions extends _$AdminDramaActions {
         successMessage: 'Drama deleted successfully',
       );
 
-      // Refresh all drama lists
       ref.invalidate(adminDramasProvider);
       ref.invalidate(allDramasProvider);
       ref.invalidate(featuredDramasProvider);
@@ -353,23 +403,45 @@ class AdminDramaActions extends _$AdminDramaActions {
     }
   }
 
-  // Clear any messages
   void clearMessages() {
     state = state.copyWith(error: null, successMessage: null);
   }
 }
 
-// CONVENIENCE ACTION PROVIDERS (simplified)
+// ENHANCED PROVIDERS WITH BETTER UNLOCK STATUS CHECKING
 
-// Check if user can watch a specific drama episode
+// Enhanced unlock status provider that checks recently unlocked dramas
 @riverpod
-bool canWatchDramaEpisode(CanWatchDramaEpisodeRef ref, String dramaId, int episodeNumber) {
+bool isDramaUnlockedEnhanced(IsDramaUnlockedEnhancedRef ref, String dramaId) {
+  // First check if it was recently unlocked for immediate UI feedback
+  final actionState = ref.watch(dramaActionsProvider);
+  if (actionState.wasRecentlyUnlocked(dramaId)) {
+    return true;
+  }
+  
+  // Then check the actual user state
+  final authState = ref.watch(authenticationProvider);
+  final user = authState.valueOrNull?.userModel;
+  return user?.hasUnlocked(dramaId) ?? false;
+}
+
+// Enhanced can watch episode provider
+@riverpod
+bool canWatchDramaEpisodeEnhanced(CanWatchDramaEpisodeEnhancedRef ref, String dramaId, int episodeNumber) {
   final user = ref.watch(currentUserProvider);
   final drama = ref.watch(dramaProvider(dramaId));
+  
+  // Check if recently unlocked for immediate UI feedback
+  final actionState = ref.watch(dramaActionsProvider);
+  final recentlyUnlocked = actionState.wasRecentlyUnlocked(dramaId);
   
   return drama.when(
     data: (dramaModel) {
       if (dramaModel == null || user == null) return false;
+      
+      // If recently unlocked, allow watching all episodes
+      if (recentlyUnlocked) return true;
+      
       return dramaModel.canWatchEpisode(episodeNumber, user.hasUnlocked(dramaId));
     },
     loading: () => false,
@@ -377,7 +449,13 @@ bool canWatchDramaEpisode(CanWatchDramaEpisodeRef ref, String dramaId, int episo
   );
 }
 
-// Check if user can afford to unlock a drama
+// CONVENIENCE ACTION PROVIDERS (using existing providers where possible)
+
+@riverpod
+bool canWatchDramaEpisode(CanWatchDramaEpisodeRef ref, String dramaId, int episodeNumber) {
+  return ref.watch(canWatchDramaEpisodeEnhancedProvider(dramaId, episodeNumber));
+}
+
 @riverpod
 bool canAffordDramaUnlock(CanAffordDramaUnlockRef ref, {int? customCost}) {
   final coinsBalance = ref.watch(coinsBalanceProvider);
@@ -385,42 +463,40 @@ bool canAffordDramaUnlock(CanAffordDramaUnlockRef ref, {int? customCost}) {
   return coinsBalance != null && coinsBalance >= cost;
 }
 
-// Get unlock cost for display in UI
 @riverpod
 int dramaUnlockCost(DramaUnlockCostRef ref, {int? customCost}) {
   return customCost ?? Constants.dramaUnlockCost;
 }
 
-// Quick action to get next episode to watch for a drama
 @riverpod
 int nextEpisodeToWatch(NextEpisodeToWatchRef ref, String dramaId) {
   final user = ref.watch(currentUserProvider);
   if (user == null) return 1;
   
   final progress = user.getDramaProgress(dramaId);
-  return progress + 1; // Next episode after last watched
+  return progress + 1;
 }
 
-// Check if episode requires unlock (premium episode that user hasn't unlocked)
+// Fixed episode requires unlock provider
 @riverpod
 bool episodeRequiresUnlock(EpisodeRequiresUnlockRef ref, String dramaId, int episodeNumber) {
   final user = ref.watch(currentUserProvider);
   final drama = ref.watch(dramaProvider(dramaId));
   
+  // Check if recently unlocked for immediate UI feedback
+  final actionState = ref.watch(dramaActionsProvider);
+  if (actionState.wasRecentlyUnlocked(dramaId)) {
+    return false; // No unlock required if recently unlocked
+  }
+  
   return drama.when(
     data: (dramaModel) {
       if (dramaModel == null || user == null) return false;
       
-      // If drama is not premium, no unlock needed
       if (!dramaModel.isPremium) return false;
-      
-      // If user has unlocked the entire drama, no unlock needed
       if (user.hasUnlocked(dramaId)) return false;
-      
-      // If episode is within free episodes count, no unlock needed
       if (episodeNumber <= dramaModel.freeEpisodesCount) return false;
       
-      // Episode requires unlock
       return true;
     },
     loading: () => false,
@@ -428,12 +504,11 @@ bool episodeRequiresUnlock(EpisodeRequiresUnlockRef ref, String dramaId, int epi
   );
 }
 
-// Get remaining coins after potential unlock
 @riverpod
 int? coinsAfterUnlock(CoinsAfterUnlockRef ref, int unlockCost) {
   final currentBalance = ref.watch(coinsBalanceProvider);
   if (currentBalance == null) return null;
   
   final remaining = currentBalance - unlockCost;
-  return remaining >= 0 ? remaining : null; // Return null if insufficient
+  return remaining >= 0 ? remaining : null;
 }

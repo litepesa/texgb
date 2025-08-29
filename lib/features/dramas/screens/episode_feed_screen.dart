@@ -1,8 +1,9 @@
-// lib/features/dramas/screens/episode_feed_screen.dart
+// lib/features/dramas/screens/episode_feed_screen.dart - ENHANCED VERSION
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:textgb/constants.dart';
@@ -16,7 +17,7 @@ import 'package:textgb/shared/utilities/global_methods.dart';
 
 class EpisodeFeedScreen extends ConsumerStatefulWidget {
   final String dramaId;
-  final String? initialEpisodeId; // Keep for compatibility but will use episode number
+  final String? initialEpisodeId;
   final int? initialEpisodeNumber;
 
   const EpisodeFeedScreen({
@@ -35,8 +36,8 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   int _currentIndex = 0;
   Map<int, VideoPlayerController?> _videoControllers = {};
   Map<int, bool> _videoInitialized = {};
-  Map<int, bool> _episodeCompleted = {}; // Track completion status
-  bool _isAutoPlaying = false; // Prevent multiple auto-play triggers
+  Map<int, bool> _episodeCompleted = {};
+  bool _isAutoPlaying = false;
   DramaModel? _drama;
 
   @override
@@ -44,18 +45,39 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     super.initState();
     _pageController = PageController();
     
-    // Enable wakelock to prevent screen from sleeping during video playbook
+    // Enable wakelock to prevent screen from sleeping during video playback
     WakelockPlus.enable();
     
-    // Find initial episode index if provided
+    // Listen for unlock success messages to refresh video access
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupUnlockListener();
       _findInitialEpisodeIndex();
+    });
+  }
+
+  void _setupUnlockListener() {
+    // Listen to unlock success to refresh episode access immediately
+    ref.listenManual(dramaActionsProvider, (previous, next) {
+      if (next.successMessage != null && next.successMessage!.contains('unlocked')) {
+        // Drama was unlocked - refresh current episode and allow access to all episodes
+        setState(() {
+          // This will trigger a rebuild and re-check episode access permissions
+        });
+        
+        // If current episode was locked, try to initialize its video
+        final currentEpisodeNumber = _currentIndex + 1;
+        final canWatch = ref.read(canWatchDramaEpisodeEnhancedProvider(widget.dramaId, currentEpisodeNumber));
+        if (canWatch && _videoControllers[currentEpisodeNumber] == null) {
+          _initializeVideoController(currentEpisodeNumber);
+        }
+        
+        showSnackBar(context, 'All episodes are now available!');
+      }
     });
   }
 
   @override
   void dispose() {
-    // Disable wakelock when leaving the screen
     WakelockPlus.disable();
     _disposeAllVideoControllers();
     _pageController.dispose();
@@ -65,11 +87,9 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   void _findInitialEpisodeIndex() {
     int initialIndex = 0;
     
-    // Try to get initial episode number from either parameter
     if (widget.initialEpisodeNumber != null) {
-      initialIndex = (widget.initialEpisodeNumber! - 1).clamp(0, 999); // Convert to 0-indexed
+      initialIndex = (widget.initialEpisodeNumber! - 1).clamp(0, 999);
     } else if (widget.initialEpisodeId != null) {
-      // Try to parse episode number from ID (assuming format like "episode_dramaId_3")
       final parts = widget.initialEpisodeId!.split('_');
       if (parts.length >= 3) {
         final episodeNum = int.tryParse(parts.last);
@@ -102,10 +122,8 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   void _initializeVideoController(int episodeNumber) {
     if (_videoControllers[episodeNumber] != null || _drama == null) return;
 
-    // Get video URL from drama model
     final videoUrl = _drama!.getEpisodeVideo(episodeNumber);
     if (videoUrl == null || videoUrl.isEmpty) {
-      // Fallback to demo video for testing
       const fallbackUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
       final controller = VideoPlayerController.networkUrl(Uri.parse(fallbackUrl));
       _videoControllers[episodeNumber] = controller;
@@ -120,13 +138,11 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
       if (mounted) {
         setState(() {
           _videoInitialized[episodeNumber] = true;
-          _episodeCompleted[episodeNumber] = false; // Reset completion status
+          _episodeCompleted[episodeNumber] = false;
         });
         
-        // Auto play if this is the current episode
         if (episodeNumber == (_currentIndex + 1)) {
           controller.play();
-          // Add progress listener for real-time updates
           controller.addListener(_videoProgressListener);
         }
       }
@@ -141,31 +157,27 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   }
 
   void _onPageChanged(int index) {
-    final oldEpisodeNumber = _currentIndex + 1; // Convert to 1-indexed
-    final newEpisodeNumber = index + 1; // Convert to 1-indexed
+    final oldEpisodeNumber = _currentIndex + 1;
+    final newEpisodeNumber = index + 1;
     
     setState(() {
       _currentIndex = index;
-      _isAutoPlaying = false; // Reset auto-play flag when manually changing
+      _isAutoPlaying = false;
     });
 
-    // Pause old video and remove listeners
     final oldController = _videoControllers[oldEpisodeNumber];
     if (oldController != null) {
       oldController.pause();
       oldController.removeListener(_videoProgressListener);
     }
 
-    // Play new video and add listeners
     final newController = _videoControllers[newEpisodeNumber];
     if (newController != null && _videoInitialized[newEpisodeNumber] == true) {
       newController.play();
-      // Reset completion status for new episode
       _episodeCompleted[newEpisodeNumber] = false;
       newController.addListener(_videoProgressListener);
     }
 
-    // Mark episode as watched
     _markEpisodeWatched(newEpisodeNumber);
   }
 
@@ -177,58 +189,48 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     final position = controller.value.position;
     final duration = controller.value.duration;
     
-    // Check if video completed (at the very end)
     if (duration.inMilliseconds > 0) {
-      // Use a very small buffer (50ms) to account for timing precision
       final remainingTime = duration.inMilliseconds - position.inMilliseconds;
-      final isCompleted = remainingTime <= 50; // Less than 50ms remaining
+      final isCompleted = remainingTime <= 50;
       
       if (isCompleted && 
           !(_episodeCompleted[currentEpisodeNumber] ?? false) && 
           !_isAutoPlaying) {
         
-        // Mark this episode as completed
         _episodeCompleted[currentEpisodeNumber] = true;
         _handleVideoCompleted();
       }
     }
 
-    // Trigger rebuild to update progress bar
     setState(() {});
   }
 
   void _handleVideoCompleted() async {
-    if (_isAutoPlaying || _drama == null) return; // Prevent multiple triggers
+    if (_isAutoPlaying || _drama == null) return;
     _isAutoPlaying = true;
 
     try {
-      final isDramaUnlocked = ref.read(isDramaUnlockedProvider(widget.dramaId));
       final currentEpisodeNumber = _currentIndex + 1;
       
-      // Check if there's a next episode
       if (currentEpisodeNumber < _drama!.totalEpisodes) {
         final nextEpisodeNumber = currentEpisodeNumber + 1;
-        final canWatchNext = _drama!.canWatchEpisode(nextEpisodeNumber, isDramaUnlocked);
+        
+        // Use enhanced provider to check if user can watch next episode
+        final canWatchNext = ref.read(canWatchDramaEpisodeEnhancedProvider(widget.dramaId, nextEpisodeNumber));
         
         if (canWatchNext) {
-          // Show a brief "Next Episode" indicator
-          if (mounted) {
-            // Pause current video to prevent looping
-            final currentController = _videoControllers[currentEpisodeNumber];
-            currentController?.pause();
-            
-            // Auto-advance to next episode after a brief delay
-            await Future.delayed(const Duration(milliseconds: 1500));
-            
-            if (mounted && _isAutoPlaying) {
-              _pageController.nextPage(
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeInOut,
-              );
-            }
+          final currentController = _videoControllers[currentEpisodeNumber];
+          currentController?.pause();
+          
+          await Future.delayed(const Duration(milliseconds: 1500));
+          
+          if (mounted && _isAutoPlaying) {
+            _pageController.nextPage(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOut,
+            );
           }
         } else {
-          // Can't watch next episode - restart current video
           final currentController = _videoControllers[currentEpisodeNumber];
           if (currentController != null) {
             await currentController.seekTo(Duration.zero);
@@ -237,7 +239,6 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
           _isAutoPlaying = false;
         }
       } else {
-        // No more episodes - restart current video
         final currentController = _videoControllers[currentEpisodeNumber];
         if (currentController != null) {
           await currentController.seekTo(Duration.zero);
@@ -252,9 +253,8 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   }
 
   void _markEpisodeWatched(int episodeNumber) {
-    // Update user's drama progress to this episode
     ref.read(dramaActionsProvider.notifier).markEpisodeWatched(
-      'episode_${widget.dramaId}_$episodeNumber', // Create episode ID
+      'episode_${widget.dramaId}_$episodeNumber',
       widget.dramaId,
       episodeNumber,
     );
@@ -273,7 +273,7 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
             return _buildError('Drama not found', 'This drama is no longer available.');
           }
           
-          _drama = drama; // Store for use in other methods
+          _drama = drama;
           
           if (drama.totalEpisodes == 0) {
             return _buildError('No episodes', 'This drama has no episodes yet.');
@@ -288,18 +288,17 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   }
 
   Widget _buildFeedScreen(DramaModel drama) {
-    final isDramaUnlocked = ref.watch(isDramaUnlockedProvider(widget.dramaId));
-
     return PageView.builder(
       controller: _pageController,
       scrollDirection: Axis.vertical,
       onPageChanged: _onPageChanged,
       itemCount: drama.totalEpisodes,
       itemBuilder: (context, index) {
-        final episodeNumber = index + 1; // Convert to 1-indexed
-        final canWatch = drama.canWatchEpisode(episodeNumber, isDramaUnlocked);
+        final episodeNumber = index + 1;
         
-        // Initialize video controller for watchable episodes
+        // Use enhanced provider for real-time unlock status
+        final canWatch = ref.watch(canWatchDramaEpisodeEnhancedProvider(drama.dramaId, episodeNumber));
+        
         if (canWatch) {
           _initializeVideoController(episodeNumber);
         }
@@ -315,18 +314,15 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
 
     return Stack(
       children: [
-        // Video background
         Positioned.fill(
           child: canWatch && controller != null && isInitialized
               ? _buildVideoPlayer(controller)
               : _buildVideoPlaceholder(drama, episodeNumber),
         ),
 
-        // Lock overlay for premium episodes
         if (!canWatch)
-          _buildLockOverlay(drama, episodeNumber),
+          _buildEnhancedLockOverlay(drama, episodeNumber),
 
-        // UI overlays
         _buildUIOverlays(drama, episodeNumber, controller, canWatch),
       ],
     );
@@ -361,7 +357,6 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
           ? Stack(
               fit: StackFit.expand,
               children: [
-                // Use drama banner as background with cached network image
                 CachedNetworkImage(
                   imageUrl: drama.bannerImage,
                   fit: BoxFit.cover,
@@ -373,11 +368,7 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
                   ),
                   errorWidget: (context, url, error) => _buildDefaultPlaceholder(episodeNumber),
                 ),
-                // Dark overlay for better text visibility
-                Container(
-                  color: Colors.black.withOpacity(0.4),
-                ),
-                // Episode number overlay
+                Container(color: Colors.black.withOpacity(0.4)),
                 Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -453,9 +444,14 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     );
   }
 
-  Widget _buildLockOverlay(DramaModel drama, int episodeNumber) {
+  // Enhanced lock overlay with real-time unlock button updates
+  Widget _buildEnhancedLockOverlay(DramaModel drama, int episodeNumber) {
+    final coinsBalance = ref.watch(coinsBalanceProvider) ?? 0;
+    final canAfford = ref.watch(canAffordDramaUnlockProvider());
+    final isLoading = ref.watch(dramaActionsProvider).isLoading;
+
     return Container(
-      color: Colors.black.withOpacity(0.7),
+      color: Colors.black.withOpacity(0.8),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -492,20 +488,60 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => _showUnlockDialog(drama),
-              icon: const Icon(Icons.workspace_premium),
-              label: Text('Unlock for ${Constants.dramaUnlockCost} coins'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFE2C55),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+            const SizedBox(height: 8),
+            Text(
+              'Balance: $coinsBalance coins',
+              style: TextStyle(
+                color: canAfford ? Colors.green.shade300 : Colors.red.shade300,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
+            const SizedBox(height: 24),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: canAfford ? () => _showUnlockDialog(drama) : null,
+                      icon: Icon(canAfford ? Icons.workspace_premium : Icons.account_balance_wallet),
+                      label: Text(
+                        canAfford 
+                            ? 'Unlock for ${Constants.dramaUnlockCost} coins'
+                            : 'Insufficient coins',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: canAfford ? const Color(0xFFFE2C55) : Colors.grey,
+                        disabledBackgroundColor: Colors.grey.shade600,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+            ),
+            if (!canAfford) ...[
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, Constants.walletScreen),
+                child: const Text(
+                  'Get more coins',
+                  style: TextStyle(
+                    color: Color(0xFFFE2C55),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -516,7 +552,6 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     return SafeArea(
       child: Column(
         children: [
-          // Simple top bar with only back button
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 8),
             child: Align(
@@ -534,7 +569,6 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
 
           const Spacer(),
 
-          // Bottom episode info
           Padding(
             padding: const EdgeInsets.all(16),
             child: Align(
@@ -556,7 +590,6 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
             ),
           ),
 
-          // Video controls (if video is playing)
           if (canWatch && controller != null)
             _buildVideoControls(controller),
         ],
@@ -565,11 +598,9 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   }
 
   Widget _buildVideoControls(VideoPlayerController controller) {
-    // Get current position and duration safely
     final currentPosition = controller.value.position;
     final totalDuration = controller.value.duration;
     
-    // Calculate progress as a value between 0.0 and 1.0
     final progress = totalDuration.inMilliseconds > 0 
         ? currentPosition.inMilliseconds / totalDuration.inMilliseconds 
         : 0.0;
@@ -603,11 +634,9 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
                   controller.seekTo(newPosition);
                 },
                 onChangeStart: (value) {
-                  // Pause video while seeking
                   controller.pause();
                 },
                 onChangeEnd: (value) {
-                  // Resume playing after seeking (if it was playing before)
                   if (controller.value.isBuffering == false) {
                     controller.play();
                   }

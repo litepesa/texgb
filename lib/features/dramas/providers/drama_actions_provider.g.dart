@@ -6,8 +6,8 @@ part of 'drama_actions_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$canWatchDramaEpisodeHash() =>
-    r'c7266abf3152890cd802c25745b82300576880c3';
+String _$isDramaUnlockedEnhancedHash() =>
+    r'91a498a46dea9cb7408d2b68af387e166b3c5225';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -29,6 +29,289 @@ class _SystemHash {
     return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
   }
 }
+
+/// See also [isDramaUnlockedEnhanced].
+@ProviderFor(isDramaUnlockedEnhanced)
+const isDramaUnlockedEnhancedProvider = IsDramaUnlockedEnhancedFamily();
+
+/// See also [isDramaUnlockedEnhanced].
+class IsDramaUnlockedEnhancedFamily extends Family<bool> {
+  /// See also [isDramaUnlockedEnhanced].
+  const IsDramaUnlockedEnhancedFamily();
+
+  /// See also [isDramaUnlockedEnhanced].
+  IsDramaUnlockedEnhancedProvider call(
+    String dramaId,
+  ) {
+    return IsDramaUnlockedEnhancedProvider(
+      dramaId,
+    );
+  }
+
+  @override
+  IsDramaUnlockedEnhancedProvider getProviderOverride(
+    covariant IsDramaUnlockedEnhancedProvider provider,
+  ) {
+    return call(
+      provider.dramaId,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'isDramaUnlockedEnhancedProvider';
+}
+
+/// See also [isDramaUnlockedEnhanced].
+class IsDramaUnlockedEnhancedProvider extends AutoDisposeProvider<bool> {
+  /// See also [isDramaUnlockedEnhanced].
+  IsDramaUnlockedEnhancedProvider(
+    String dramaId,
+  ) : this._internal(
+          (ref) => isDramaUnlockedEnhanced(
+            ref as IsDramaUnlockedEnhancedRef,
+            dramaId,
+          ),
+          from: isDramaUnlockedEnhancedProvider,
+          name: r'isDramaUnlockedEnhancedProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$isDramaUnlockedEnhancedHash,
+          dependencies: IsDramaUnlockedEnhancedFamily._dependencies,
+          allTransitiveDependencies:
+              IsDramaUnlockedEnhancedFamily._allTransitiveDependencies,
+          dramaId: dramaId,
+        );
+
+  IsDramaUnlockedEnhancedProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.dramaId,
+  }) : super.internal();
+
+  final String dramaId;
+
+  @override
+  Override overrideWith(
+    bool Function(IsDramaUnlockedEnhancedRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: IsDramaUnlockedEnhancedProvider._internal(
+        (ref) => create(ref as IsDramaUnlockedEnhancedRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        dramaId: dramaId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<bool> createElement() {
+    return _IsDramaUnlockedEnhancedProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is IsDramaUnlockedEnhancedProvider && other.dramaId == dramaId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, dramaId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin IsDramaUnlockedEnhancedRef on AutoDisposeProviderRef<bool> {
+  /// The parameter `dramaId` of this provider.
+  String get dramaId;
+}
+
+class _IsDramaUnlockedEnhancedProviderElement
+    extends AutoDisposeProviderElement<bool> with IsDramaUnlockedEnhancedRef {
+  _IsDramaUnlockedEnhancedProviderElement(super.provider);
+
+  @override
+  String get dramaId => (origin as IsDramaUnlockedEnhancedProvider).dramaId;
+}
+
+String _$canWatchDramaEpisodeEnhancedHash() =>
+    r'9519f5d88d9c6a20a955c8740a613b7dd7a459df';
+
+/// See also [canWatchDramaEpisodeEnhanced].
+@ProviderFor(canWatchDramaEpisodeEnhanced)
+const canWatchDramaEpisodeEnhancedProvider =
+    CanWatchDramaEpisodeEnhancedFamily();
+
+/// See also [canWatchDramaEpisodeEnhanced].
+class CanWatchDramaEpisodeEnhancedFamily extends Family<bool> {
+  /// See also [canWatchDramaEpisodeEnhanced].
+  const CanWatchDramaEpisodeEnhancedFamily();
+
+  /// See also [canWatchDramaEpisodeEnhanced].
+  CanWatchDramaEpisodeEnhancedProvider call(
+    String dramaId,
+    int episodeNumber,
+  ) {
+    return CanWatchDramaEpisodeEnhancedProvider(
+      dramaId,
+      episodeNumber,
+    );
+  }
+
+  @override
+  CanWatchDramaEpisodeEnhancedProvider getProviderOverride(
+    covariant CanWatchDramaEpisodeEnhancedProvider provider,
+  ) {
+    return call(
+      provider.dramaId,
+      provider.episodeNumber,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'canWatchDramaEpisodeEnhancedProvider';
+}
+
+/// See also [canWatchDramaEpisodeEnhanced].
+class CanWatchDramaEpisodeEnhancedProvider extends AutoDisposeProvider<bool> {
+  /// See also [canWatchDramaEpisodeEnhanced].
+  CanWatchDramaEpisodeEnhancedProvider(
+    String dramaId,
+    int episodeNumber,
+  ) : this._internal(
+          (ref) => canWatchDramaEpisodeEnhanced(
+            ref as CanWatchDramaEpisodeEnhancedRef,
+            dramaId,
+            episodeNumber,
+          ),
+          from: canWatchDramaEpisodeEnhancedProvider,
+          name: r'canWatchDramaEpisodeEnhancedProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$canWatchDramaEpisodeEnhancedHash,
+          dependencies: CanWatchDramaEpisodeEnhancedFamily._dependencies,
+          allTransitiveDependencies:
+              CanWatchDramaEpisodeEnhancedFamily._allTransitiveDependencies,
+          dramaId: dramaId,
+          episodeNumber: episodeNumber,
+        );
+
+  CanWatchDramaEpisodeEnhancedProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.dramaId,
+    required this.episodeNumber,
+  }) : super.internal();
+
+  final String dramaId;
+  final int episodeNumber;
+
+  @override
+  Override overrideWith(
+    bool Function(CanWatchDramaEpisodeEnhancedRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: CanWatchDramaEpisodeEnhancedProvider._internal(
+        (ref) => create(ref as CanWatchDramaEpisodeEnhancedRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        dramaId: dramaId,
+        episodeNumber: episodeNumber,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeProviderElement<bool> createElement() {
+    return _CanWatchDramaEpisodeEnhancedProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CanWatchDramaEpisodeEnhancedProvider &&
+        other.dramaId == dramaId &&
+        other.episodeNumber == episodeNumber;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, dramaId.hashCode);
+    hash = _SystemHash.combine(hash, episodeNumber.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin CanWatchDramaEpisodeEnhancedRef on AutoDisposeProviderRef<bool> {
+  /// The parameter `dramaId` of this provider.
+  String get dramaId;
+
+  /// The parameter `episodeNumber` of this provider.
+  int get episodeNumber;
+}
+
+class _CanWatchDramaEpisodeEnhancedProviderElement
+    extends AutoDisposeProviderElement<bool>
+    with CanWatchDramaEpisodeEnhancedRef {
+  _CanWatchDramaEpisodeEnhancedProviderElement(super.provider);
+
+  @override
+  String get dramaId =>
+      (origin as CanWatchDramaEpisodeEnhancedProvider).dramaId;
+  @override
+  int get episodeNumber =>
+      (origin as CanWatchDramaEpisodeEnhancedProvider).episodeNumber;
+}
+
+String _$canWatchDramaEpisodeHash() =>
+    r'54f08def9375dca2e6d4747bd27320ad6c12fc7a';
 
 /// See also [canWatchDramaEpisode].
 @ProviderFor(canWatchDramaEpisode)
@@ -570,7 +853,7 @@ class _NextEpisodeToWatchProviderElement extends AutoDisposeProviderElement<int>
 }
 
 String _$episodeRequiresUnlockHash() =>
-    r'de447b78519ccf75830e1456aacbaf08babdc890';
+    r'0c7f942d975a6a08c4c26b085d8c329a383ee153';
 
 /// See also [episodeRequiresUnlock].
 @ProviderFor(episodeRequiresUnlock)
@@ -848,7 +1131,7 @@ class _CoinsAfterUnlockProviderElement extends AutoDisposeProviderElement<int?>
   int get unlockCost => (origin as CoinsAfterUnlockProvider).unlockCost;
 }
 
-String _$dramaActionsHash() => r'cc6c6b991b01f69bd1118e55bb20bba5a335e9b6';
+String _$dramaActionsHash() => r'8422302d3eff1ad0570aea7d0dfb536e0c093ed1';
 
 /// See also [DramaActions].
 @ProviderFor(DramaActions)

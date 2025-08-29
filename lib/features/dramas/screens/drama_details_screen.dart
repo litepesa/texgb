@@ -1,4 +1,4 @@
-// lib/features/dramas/screens/drama_details_screen.dart - SIMPLIFIED
+// lib/features/dramas/screens/drama_details_screen.dart - SIMPLIFIED VERSION
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -36,6 +36,15 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
       } else if (next.successMessage != null) {
         showSnackBar(context, next.successMessage!);
         ref.read(dramaActionsProvider.notifier).clearMessages();
+        
+        // If it was an unlock success, clear the recently unlocked status after a delay
+        if (next.successMessage!.contains('unlocked')) {
+          Future.delayed(const Duration(seconds: 5), () {
+            if (mounted) {
+              ref.read(dramaActionsProvider.notifier).clearRecentlyUnlocked(widget.dramaId);
+            }
+          });
+        }
       }
     });
   }
@@ -47,24 +56,39 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
 
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      body: drama.when(
-        data: (dramaModel) {
-          if (dramaModel == null) {
-            return _buildNotFound();
-          }
-          
-          return _buildDramaDetails(dramaModel);
-        },
-        loading: () => _buildLoading(),
-        error: (error, stack) => _buildError(error.toString()),
+      body: RefreshIndicator(
+        onRefresh: () => _handleRefresh(),
+        backgroundColor: modernTheme.surfaceColor,
+        color: modernTheme.textColor,
+        child: drama.when(
+          data: (dramaModel) {
+            if (dramaModel == null) {
+              return _buildNotFound();
+            }
+            
+            return _buildDramaDetails(dramaModel);
+          },
+          loading: () => _buildLoading(),
+          error: (error, stack) => _buildError(error.toString()),
+        ),
       ),
     );
   }
 
+  Future<void> _handleRefresh() async {
+    // Force refresh all drama-related data
+    await ref.read(dramaActionsProvider.notifier).forceRefreshAll();
+    
+    // Specifically refresh this drama
+    ref.invalidate(dramaProvider(widget.dramaId));
+  }
+
   Widget _buildDramaDetails(DramaModel drama) {
     final modernTheme = context.modernTheme;
+    
+    // Use enhanced providers for better state management
     final isFavorited = ref.watch(isDramaFavoritedProvider(drama.dramaId));
-    final isUnlocked = ref.watch(isDramaUnlockedProvider(drama.dramaId));
+    final isUnlocked = ref.watch(isDramaUnlockedEnhancedProvider(drama.dramaId));
     final userProgress = ref.watch(dramaUserProgressProvider(drama.dramaId));
     final coinsBalance = ref.watch(coinsBalanceProvider) ?? 0;
 
@@ -88,6 +112,7 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
+            // Favorite button with real-time updates
             IconButton(
               icon: Container(
                 padding: const EdgeInsets.all(8),
@@ -95,13 +120,19 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                   color: Colors.black.withOpacity(0.5),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  isFavorited ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorited ? Colors.red.shade400 : Colors.white,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Icon(
+                    isFavorited ? Icons.favorite : Icons.favorite_border,
+                    key: ValueKey(isFavorited),
+                    color: isFavorited ? Colors.red.shade400 : Colors.white,
+                  ),
                 ),
               ),
               onPressed: () => _toggleFavorite(),
             ),
+            
+            // Wallet balance with real-time updates
             IconButton(
               icon: Container(
                 padding: const EdgeInsets.all(8),
@@ -114,12 +145,16 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                   children: [
                     const Icon(Icons.account_balance_wallet, color: Colors.white, size: 16),
                     const SizedBox(width: 4),
-                    Text(
-                      '$coinsBalance',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Text(
+                        '$coinsBalance',
+                        key: ValueKey(coinsBalance),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -172,7 +207,7 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                   ),
                 ),
 
-                // Badges
+                // Badges with unlock status animation
                 Positioned(
                   top: 100,
                   left: 16,
@@ -230,29 +265,41 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                       
                       const SizedBox(width: 8),
                       
-                      // Unlocked badge
-                      if (isUnlocked)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade600,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.lock_open, size: 16, color: Colors.white),
-                              const SizedBox(width: 4),
-                              const Text(
-                                'Unlocked',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                      // Enhanced unlocked badge with animation
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 500),
+                        child: isUnlocked
+                            ? Container(
+                                key: const ValueKey('unlocked'),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade600,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.green.shade600.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.lock_open, size: 16, color: Colors.white),
+                                    const SizedBox(width: 4),
+                                    const Text(
+                                      'Unlocked',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
                     ],
                   ),
                 ),
@@ -305,21 +352,29 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
 
                 const SizedBox(height: 16),
 
-                // Premium info
+                // Enhanced premium info with unlock status
                 if (drama.isPremium)
-                  Container(
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFFFE2C55).withOpacity(0.1),
-                          const Color(0xFFFE2C55).withOpacity(0.05),
-                        ],
+                        colors: isUnlocked
+                            ? [
+                                Colors.green.shade600.withOpacity(0.1),
+                                Colors.green.shade600.withOpacity(0.05),
+                              ]
+                            : [
+                                const Color(0xFFFE2C55).withOpacity(0.1),
+                                const Color(0xFFFE2C55).withOpacity(0.05),
+                              ],
                       ),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: const Color(0xFFFE2C55).withOpacity(0.3),
+                        color: isUnlocked
+                            ? Colors.green.shade600.withOpacity(0.3)
+                            : const Color(0xFFFE2C55).withOpacity(0.3),
                         width: 1,
                       ),
                     ),
@@ -328,30 +383,42 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(
-                              isUnlocked ? Icons.lock_open : Icons.info_outline,
-                              color: isUnlocked ? Colors.green.shade600 : const Color(0xFFFE2C55),
-                              size: 20,
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: Icon(
+                                isUnlocked ? Icons.lock_open : Icons.info_outline,
+                                key: ValueKey(isUnlocked),
+                                color: isUnlocked ? Colors.green.shade600 : const Color(0xFFFE2C55),
+                                size: 20,
+                              ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              isUnlocked ? 'Premium Content - Unlocked' : 'Premium Content',
-                              style: TextStyle(
-                                color: isUnlocked ? Colors.green.shade600 : const Color(0xFFFE2C55),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: Text(
+                                isUnlocked ? 'Premium Content - Unlocked' : 'Premium Content',
+                                key: ValueKey(isUnlocked),
+                                style: TextStyle(
+                                  color: isUnlocked ? Colors.green.shade600 : const Color(0xFFFE2C55),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          isUnlocked 
-                              ? 'You have full access to all episodes in this drama!'
-                              : drama.premiumInfo,
-                          style: TextStyle(
-                            color: modernTheme.textColor,
-                            fontSize: 14,
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            isUnlocked 
+                                ? 'You have full access to all episodes in this drama!'
+                                : drama.premiumInfo,
+                            key: ValueKey(isUnlocked),
+                            style: TextStyle(
+                              color: modernTheme.textColor,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                         if (!isUnlocked) ...[
@@ -391,7 +458,7 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
 
                 const SizedBox(height: 24),
 
-                // Action buttons
+                // Enhanced action buttons
                 Row(
                   children: [
                     Expanded(
@@ -406,18 +473,27 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => _toggleFavorite(),
-                      icon: Icon(isFavorited ? Icons.favorite : Icons.favorite_border),
-                      label: Text(isFavorited ? 'Favorited' : 'Favorite'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isFavorited 
-                            ? Colors.red.shade400 
-                            : modernTheme.surfaceVariantColor,
-                        foregroundColor: isFavorited 
-                            ? Colors.white 
-                            : modernTheme.textColor,
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      child: ElevatedButton.icon(
+                        onPressed: () => _toggleFavorite(),
+                        icon: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: Icon(
+                            isFavorited ? Icons.favorite : Icons.favorite_border,
+                            key: ValueKey(isFavorited),
+                          ),
+                        ),
+                        label: Text(isFavorited ? 'Favorited' : 'Favorite'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isFavorited 
+                              ? Colors.red.shade400 
+                              : modernTheme.surfaceVariantColor,
+                          foregroundColor: isFavorited 
+                              ? Colors.white 
+                              : modernTheme.textColor,
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                        ),
                       ),
                     ),
                   ],
@@ -427,28 +503,42 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
           ),
         ),
 
-        // Episodes section - SIMPLIFIED
+        // Episodes section - Enhanced with better unlock status
         if (drama.hasEpisodes) ...[
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(
-                'Episodes (${drama.totalEpisodes})',
-                style: TextStyle(
-                  color: modernTheme.textColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Episodes (${drama.totalEpisodes})',
+                    style: TextStyle(
+                      color: modernTheme.textColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (drama.isPremium && !isUnlocked)
+                    TextButton.icon(
+                      onPressed: () => _showUnlockDialog(drama),
+                      icon: const Icon(Icons.workspace_premium, size: 16),
+                      label: Text('Unlock All (${Constants.dramaUnlockCost})'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFFE2C55),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
 
-          // Episodes list - MUCH SIMPLER
+          // Episodes list - Enhanced with real-time unlock status
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final episodeNumber = index + 1;
-                return _buildSimpleEpisodeItem(drama, episodeNumber, isUnlocked);
+                return _buildEnhancedEpisodeItem(drama, episodeNumber, isUnlocked);
               },
               childCount: drama.totalEpisodes,
             ),
@@ -497,16 +587,26 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     );
   }
 
-  // SIMPLIFIED episode item - no complex EpisodeModel needed
-  Widget _buildSimpleEpisodeItem(DramaModel drama, int episodeNumber, bool isDramaUnlocked) {
+  // Enhanced episode item with real-time unlock status updates
+  Widget _buildEnhancedEpisodeItem(DramaModel drama, int episodeNumber, bool isDramaUnlocked) {
     final modernTheme = context.modernTheme;
     final user = ref.watch(currentUserProvider);
     final userProgress = ref.watch(dramaUserProgressProvider(drama.dramaId));
+    
+    // Use enhanced provider for real-time can-watch status
+    final canWatch = ref.watch(canWatchDramaEpisodeEnhancedProvider(drama.dramaId, episodeNumber));
+    
+    // Simple check for episode unlock requirement (no need for separate provider)
+    final episodeRequiresUnlock = drama.isPremium && 
+        episodeNumber > drama.freeEpisodesCount && 
+        !isDramaUnlocked && 
+        !ref.read(dramaActionsProvider).wasRecentlyUnlocked(drama.dramaId);
+    
     final hasWatched = userProgress >= episodeNumber;
-    final canWatch = drama.canWatchEpisode(episodeNumber, isDramaUnlocked);
     final isLocked = !canWatch;
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: modernTheme.surfaceColor,
@@ -514,6 +614,13 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
         border: hasWatched
             ? Border.all(color: const Color(0xFFFE2C55).withOpacity(0.3), width: 1)
             : null,
+        boxShadow: !isLocked ? [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ] : null,
       ),
       child: ListTile(
         leading: Stack(
@@ -599,49 +706,54 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
           ),
         ),
         subtitle: Text(
-          hasWatched ? 'Watched' : 'Tap to watch',
+          hasWatched ? 'Watched' : (canWatch ? 'Tap to watch' : 'Requires unlock'),
           style: TextStyle(
             color: modernTheme.textSecondaryColor,
             fontSize: 12,
           ),
         ),
-        trailing: isLocked
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.lock, size: 14, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${Constants.dramaUnlockCost}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+        trailing: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: isLocked
+              ? Container(
+                  key: const ValueKey('locked'),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
                     ),
-                  ],
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.lock, size: 14, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${Constants.dramaUnlockCost}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Container(
+                  key: const ValueKey('unlocked'),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFE2C55),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow,
+                    size: 16,
+                    color: Colors.white,
+                  ),
                 ),
-              )
-            : Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFE2C55),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.play_arrow,
-                  size: 16,
-                  color: Colors.white,
-                ),
-              ),
+        ),
         onTap: () => _playEpisode(drama, episodeNumber, canWatch),
       ),
     );
@@ -794,7 +906,6 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     ref.read(dramaActionsProvider.notifier).toggleFavorite(widget.dramaId);
   }
 
-  // SIMPLIFIED - no complex episode logic needed
   void _watchNow(DramaModel drama) {
     if (!drama.hasEpisodes) {
       showSnackBar(context, 'No episodes available');
@@ -804,10 +915,8 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     final userProgress = ref.read(dramaUserProgressProvider(widget.dramaId));
     final nextEpisodeNumber = userProgress > 0 ? userProgress + 1 : 1;
     
-    // Make sure episode exists
     final episodeToWatch = nextEpisodeNumber <= drama.totalEpisodes ? nextEpisodeNumber : 1;
 
-    // Navigate to the TikTok-style feed - SIMPLIFIED
     Navigator.pushNamed(
       context,
       Constants.episodeFeedScreen,
@@ -818,15 +927,12 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     );
   }
 
-  // SIMPLIFIED - just pass episode number instead of complex episode object
   void _playEpisode(DramaModel drama, int episodeNumber, bool canWatch) {
     if (!canWatch) {
-      // Show unlock dialog
-      showDramaUnlockDialog(context, drama);
+      _showUnlockDialog(drama);
       return;
     }
 
-    // Navigate to the TikTok-style feed - SIMPLIFIED
     Navigator.pushNamed(
       context,
       Constants.episodeFeedScreen,
@@ -834,6 +940,13 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
         'dramaId': drama.dramaId,
         'initialEpisodeNumber': episodeNumber,
       },
+    );
+  }
+
+  void _showUnlockDialog(DramaModel drama) {
+    showDialog(
+      context: context,
+      builder: (context) => DramaUnlockDialog(drama: drama),
     );
   }
 
@@ -847,11 +960,3 @@ class _DramaDetailsScreenState extends ConsumerState<DramaDetailsScreen> {
     }
   }
 }
-
-// MASSIVE SIMPLIFICATION:
-// - No more complex episode queries or AsyncValue<List<EpisodeModel>>
-// - Episodes are just numbers (1, 2, 3...) from drama.totalEpisodes
-// - Simple episode display using drama banner + episode number
-// - Much cleaner navigation to episode feed
-// - No complex episode state management
-// - Everything works off the unified DramaModel
