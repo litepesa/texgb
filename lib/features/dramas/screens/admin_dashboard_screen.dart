@@ -521,22 +521,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         return SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Bottom padding for FAB
           sliver: SliverGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: MediaQuery.of(context).size.width > 400 ? 0.75 : 0.7,
+              childAspectRatio: 0.7,
               crossAxisSpacing: 12,
               mainAxisSpacing: 16,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final drama = dramas[index];
-                return Container(
-                  constraints: const BoxConstraints(
-                    maxWidth: 200,
-                    maxHeight: 280,
-                  ),
-                  child: _buildEnhancedDramaCard(drama),
-                );
+                return _buildEnhancedDramaCard(drama);
               },
               childCount: dramas.length,
             ),
@@ -564,30 +558,24 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Stack(
-          clipBehavior: Clip.antiAlias,
           children: [
-            // Main Drama Card with constrained size
-            SizedBox(
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: DramaCard(
-                  drama: drama,
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    Constants.dramaDetailsScreen,
-                    arguments: {'dramaId': drama.dramaId},
-                  ),
+            // Main Drama Card
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: DramaCard(
+                drama: drama,
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  Constants.dramaDetailsScreen,
+                  arguments: {'dramaId': drama.dramaId},
                 ),
               ),
             ),
             
-            // Status indicators with improved positioning and overflow protection
+            // Status indicators with improved positioning
             Positioned(
-              top: 6,
-              left: 6,
-              right: 30, // Leave space for menu button
+              top: 8,
+              left: 8,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -595,15 +583,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   // Draft/Episode status
                   if (hasDrafts)
                     Container(
-                      constraints: const BoxConstraints(maxWidth: 60),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.orange.shade600,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.2),
-                            blurRadius: 2,
+                            blurRadius: 3,
                             offset: const Offset(0, 1),
                           ),
                         ],
@@ -611,17 +598,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.edit_note, size: 8, color: Colors.white),
-                          SizedBox(width: 1),
-                          Flexible(
-                            child: Text(
-                              'Draft',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 7,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          Icon(Icons.edit_note, size: 10, color: Colors.white),
+                          SizedBox(width: 2),
+                          Text(
+                            'Draft',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -629,45 +613,42 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     )
                   else if (needsEpisodes)
                     Container(
-                      constraints: const BoxConstraints(maxWidth: 60),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade600,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.2),
-                            blurRadius: 2,
+                            blurRadius: 3,
                             offset: const Offset(0, 1),
                           ),
                         ],
                       ),
                       child: Text(
-                        '${drama.totalEpisodes}Ep',
+                        '${drama.totalEpisodes} Eps',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 7,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   
                   // Active/Inactive status
                   Container(
-                    constraints: const BoxConstraints(maxWidth: 60),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: drama.isActive 
                           ? Colors.green.shade600 
                           : Colors.red.shade600,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.2),
-                          blurRadius: 2,
+                          blurRadius: 3,
                           offset: const Offset(0, 1),
                         ),
                       ],
@@ -676,21 +657,20 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       drama.isActive ? 'Active' : 'Inactive',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 7,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Action button for drafts with overflow protection
+            // Action button for drafts
             if (hasDrafts)
               Positioned(
-                bottom: 6,
-                right: 6,
+                bottom: 8,
+                right: 8,
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -699,43 +679,35 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       Constants.addEpisodeScreen,
                       arguments: {'dramaId': drama.dramaId},
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     child: Container(
-                      constraints: const BoxConstraints(
-                        maxWidth: 60,
-                        maxHeight: 24,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFE2C55),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
                             color: const Color(0xFFFE2C55).withOpacity(0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.add,
                             color: Colors.white,
-                            size: 10,
+                            size: 12,
                           ),
-                          SizedBox(width: 1),
-                          Flexible(
-                            child: Text(
-                              'Add',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 7,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          SizedBox(width: 2),
+                          Text(
+                            'Add Ep',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -745,21 +717,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 ),
               ),
 
-            // Admin menu for non-drafts with overflow protection  
+            // Admin menu for non-drafts
             if (!hasDrafts)
               Positioned(
                 top: 4,
                 right: 4,
                 child: PopupMenuButton<String>(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 0,
-                    maxWidth: 200,
-                  ),
                   icon: Container(
-                    width: 20,
-                    height: 20,
-                    padding: const EdgeInsets.all(2),
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.5),
                       shape: BoxShape.circle,
@@ -767,7 +732,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     child: const Icon(
                       Icons.more_vert,
                       color: Colors.white,
-                      size: 12,
+                      size: 14,
                     ),
                   ),
                   onSelected: (value) {
@@ -799,60 +764,56 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   itemBuilder: (context) => [
                     const PopupMenuItem(
                       value: 'edit',
-                      height: 36,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.edit, size: 12),
-                          SizedBox(width: 4),
-                          Text('Edit', style: TextStyle(fontSize: 11)),
+                          Icon(Icons.edit, size: 14),
+                          SizedBox(width: 6),
+                          Text('Edit', style: TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),
                     const PopupMenuItem(
                       value: 'episodes',
-                      height: 36,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.video_library, size: 12),
-                          SizedBox(width: 4),
-                          Text('Episodes', style: TextStyle(fontSize: 11)),
+                          Icon(Icons.video_library, size: 14),
+                          SizedBox(width: 6),
+                          Text('Episodes', style: TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),
                     PopupMenuItem(
                       value: 'toggle_featured',
-                      height: 36,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             drama.isFeatured ? Icons.star : Icons.star_border,
-                            size: 12,
+                            size: 14,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           Text(
                             drama.isFeatured ? 'Unfeature' : 'Feature',
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(fontSize: 12),
                           ),
                         ],
                       ),
                     ),
                     PopupMenuItem(
                       value: 'toggle_active',
-                      height: 36,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             drama.isActive ? Icons.pause_circle : Icons.play_circle,
-                            size: 12,
+                            size: 14,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           Text(
                             drama.isActive ? 'Deactivate' : 'Activate',
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(fontSize: 12),
                           ),
                         ],
                       ),

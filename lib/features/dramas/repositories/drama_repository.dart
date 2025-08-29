@@ -1,4 +1,4 @@
-// lib/features/dramas/repositories/drama_repository.dart - SIMPLIFIED UNIFIED WITH EPISODE ADDITION
+// lib/features/dramas/repositories/drama_repository.dart - SIMPLIFIED UNIFIED
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -20,9 +20,6 @@ abstract class DramaRepository {
   
   // UNIFIED CREATION - Create drama with all episodes at once
   Future<String> createDramaWithEpisodes(DramaModel drama);
-  
-  // NEW: Add episodes to existing drama
-  Future<void> addEpisodesToDrama(String dramaId, List<String> newEpisodeUrls);
   
   // Drama unlock (unchanged)
   Future<bool> unlockDramaAtomic({
@@ -48,7 +45,7 @@ abstract class DramaRepository {
   Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress});
 }
 
-// HTTP implementation - simplified with episode addition
+// HTTP implementation - simplified
 class HttpDramaRepository implements DramaRepository {
   final HttpClientService _httpClient;
 
@@ -181,47 +178,6 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // NEW: ADD EPISODES TO EXISTING DRAMA
-  // ===============================
-
-  @override
-  Future<void> addEpisodesToDrama(String dramaId, List<String> newEpisodeUrls) async {
-    try {
-      debugPrint('=== ADDING ${newEpisodeUrls.length} EPISODES TO DRAMA $dramaId ===');
-      
-      if (newEpisodeUrls.isEmpty) {
-        throw DramaRepositoryException('No episodes provided to add');
-      }
-      
-      if (newEpisodeUrls.length > 100) {
-        throw DramaRepositoryException('Cannot add more than 100 episodes at once');
-      }
-
-      final requestData = {
-        'dramaId': dramaId,
-        'newEpisodeUrls': newEpisodeUrls,
-        'episodeCount': newEpisodeUrls.length,
-      };
-      
-      debugPrint('Adding episodes with data: ${jsonEncode(requestData)}');
-      
-      final response = await _httpClient.post('/admin/dramas/$dramaId/add-episodes', body: requestData);
-
-      debugPrint('Response: ${response.statusCode} - ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        debugPrint('Episodes added successfully: ${responseData['message'] ?? 'Success'}');
-      } else {
-        throw DramaRepositoryException('Failed to add episodes: ${response.body}');
-      }
-    } catch (e) {
-      debugPrint('Exception during episode addition: $e');
-      throw DramaRepositoryException('Failed to add episodes: $e');
-    }
-  }
-
-  // ===============================
   // DRAMA UNLOCK (unchanged)
   // ===============================
 
@@ -287,8 +243,6 @@ class HttpDramaRepository implements DramaRepository {
       if (response.statusCode != 200) {
         throw DramaRepositoryException('Failed to update drama: ${response.body}');
       }
-
-      debugPrint('Drama updated successfully: ${drama.dramaId}');
     } catch (e) {
       throw DramaRepositoryException('Failed to update drama: $e');
     }
@@ -301,7 +255,6 @@ class HttpDramaRepository implements DramaRepository {
       if (response.statusCode != 200) {
         throw DramaRepositoryException('Failed to delete drama: ${response.body}');
       }
-      debugPrint('Drama deleted successfully: $dramaId');
     } catch (e) {
       throw DramaRepositoryException('Failed to delete drama: $e');
     }
@@ -326,7 +279,6 @@ class HttpDramaRepository implements DramaRepository {
       if (response.statusCode != 200) {
         throw DramaRepositoryException('Failed to toggle featured: ${response.body}');
       }
-      debugPrint('Drama featured status updated: $dramaId -> $isFeatured');
     } catch (e) {
       throw DramaRepositoryException('Failed to toggle featured: $e');
     }
@@ -341,7 +293,6 @@ class HttpDramaRepository implements DramaRepository {
       if (response.statusCode != 200) {
         throw DramaRepositoryException('Failed to toggle active: ${response.body}');
       }
-      debugPrint('Drama active status updated: $dramaId -> $isActive');
     } catch (e) {
       throw DramaRepositoryException('Failed to toggle active: $e');
     }
@@ -355,7 +306,6 @@ class HttpDramaRepository implements DramaRepository {
   Future<void> incrementDramaViews(String dramaId) async {
     try {
       await _httpClient.post('/dramas/$dramaId/views');
-      debugPrint('Drama view count incremented: $dramaId');
     } catch (e) {
       debugPrint('Failed to increment drama views: $e');
     }
@@ -367,7 +317,6 @@ class HttpDramaRepository implements DramaRepository {
       await _httpClient.post('/dramas/$dramaId/favorites', body: {
         'increment': isAdding ? 1 : -1,
       });
-      debugPrint('Drama favorite count updated: $dramaId -> ${isAdding ? 'added' : 'removed'}');
     } catch (e) {
       debugPrint('Failed to update drama favorites: $e');
     }
@@ -380,23 +329,16 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<String> uploadBannerImage(File imageFile, String dramaId) async {
     try {
-      debugPrint('Uploading banner image for drama: $dramaId');
-      
       final response = await _httpClient.uploadFile(
         '/upload',
         imageFile,
         'file',
-        additionalFields: {
-          'type': 'banner',
-          'dramaId': dramaId,
-        },
+        additionalFields: {'type': 'banner'},
       );
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        final imageUrl = responseData['url'] as String;
-        debugPrint('Banner image uploaded successfully: $imageUrl');
-        return imageUrl;
+        return responseData['url'] as String;
       } else {
         throw DramaRepositoryException('Failed to upload banner: ${response.body}');
       }
@@ -408,28 +350,16 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress}) async {
     try {
-      debugPrint('Uploading video for episode: $episodeId');
-      
-      // Get file size for progress calculation
-      final fileSize = await videoFile.length();
-      debugPrint('Video file size: ${(fileSize / (1024 * 1024)).toStringAsFixed(1)}MB');
-      
       final response = await _httpClient.uploadFile(
         '/upload',
         videoFile,
         'file',
-        additionalFields: {
-          'type': 'video',
-          'episodeId': episodeId,
-        },
-        //onProgress: onProgress,
+        additionalFields: {'type': 'video'},
       );
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        final videoUrl = responseData['url'] as String;
-        debugPrint('Video uploaded successfully: $videoUrl');
-        return videoUrl;
+        return responseData['url'] as String;
       } else {
         throw DramaRepositoryException('Failed to upload video: ${response.body}');
       }
@@ -476,7 +406,6 @@ class HttpDramaRepository implements DramaRepository {
 // REMOVED: Complex episode CRUD operations
 // REMOVED: Episode file upload methods
 // REMOVED: Episode view counting (now drama-level only)
-// ADDED: addEpisodesToDrama method for extending existing dramas
 
 // Exception classes (unchanged)
 class DramaRepositoryException implements Exception {
