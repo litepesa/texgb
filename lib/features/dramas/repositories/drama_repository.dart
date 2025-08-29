@@ -1,4 +1,4 @@
-// lib/features/dramas/repositories/drama_repository.dart - SIMPLIFIED UNIFIED
+// lib/features/dramas/repositories/drama_repository.dart - SEQUENTIAL UPLOAD VERSION
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -7,9 +7,9 @@ import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/shared/services/http_client.dart';
 import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
 
-// Simplified repository interface
+// Updated repository interface with progress callback
 abstract class DramaRepository {
-  // Core drama operations (simplified)
+  // Core drama operations
   Future<List<DramaModel>> getAllDramas({int limit = 20, int offset = 0});
   Future<List<DramaModel>> getFeaturedDramas({int limit = 10});
   Future<List<DramaModel>> getTrendingDramas({int limit = 10});
@@ -21,7 +21,7 @@ abstract class DramaRepository {
   // UNIFIED CREATION - Create drama with all episodes at once
   Future<String> createDramaWithEpisodes(DramaModel drama);
   
-  // Drama unlock (unchanged)
+  // Drama unlock
   Future<bool> unlockDramaAtomic({
     required String userId,
     required String dramaId,
@@ -29,23 +29,23 @@ abstract class DramaRepository {
     required String dramaTitle,
   });
   
-  // Admin operations (simplified)
+  // Admin operations
   Future<void> updateDrama(DramaModel drama, {File? bannerImage});
   Future<void> deleteDrama(String dramaId);
   Future<List<DramaModel>> getDramasByAdmin(String adminId);
   Future<void> toggleDramaFeatured(String dramaId, bool isFeatured);
   Future<void> toggleDramaActive(String dramaId, bool isActive);
   
-  // User interactions (simplified - drama level only)
+  // User interactions
   Future<void> incrementDramaViews(String dramaId);
   Future<void> incrementDramaFavorites(String dramaId, bool isAdding);
   
-  // File upload helpers
+  // File upload helpers with progress tracking
   Future<String> uploadBannerImage(File imageFile, String dramaId);
   Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress});
 }
 
-// HTTP implementation - simplified
+// HTTP implementation with improved upload handling
 class HttpDramaRepository implements DramaRepository {
   final HttpClientService _httpClient;
 
@@ -53,7 +53,7 @@ class HttpDramaRepository implements DramaRepository {
       : _httpClient = httpClient ?? HttpClientService();
 
   // ===============================
-  // CORE DRAMA OPERATIONS (unchanged but simplified)
+  // CORE DRAMA OPERATIONS (unchanged)
   // ===============================
 
   @override
@@ -315,7 +315,7 @@ class HttpDramaRepository implements DramaRepository {
   Future<void> incrementDramaFavorites(String dramaId, bool isAdding) async {
     try {
       await _httpClient.post('/dramas/$dramaId/favorites', body: {
-        'increment': isAdding ? 1 : -1,
+        'isAdding': isAdding,
       });
     } catch (e) {
       debugPrint('Failed to update drama favorites: $e');
@@ -323,12 +323,14 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // FILE UPLOAD OPERATIONS
+  // IMPROVED FILE UPLOAD OPERATIONS WITH PROGRESS TRACKING
   // ===============================
 
   @override
   Future<String> uploadBannerImage(File imageFile, String dramaId) async {
     try {
+      debugPrint('Uploading banner image: ${imageFile.path}');
+      
       final response = await _httpClient.uploadFile(
         '/upload',
         imageFile,
@@ -338,11 +340,14 @@ class HttpDramaRepository implements DramaRepository {
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        return responseData['url'] as String;
+        final url = responseData['url'] as String;
+        debugPrint('Banner uploaded successfully: $url');
+        return url;
       } else {
         throw DramaRepositoryException('Failed to upload banner: ${response.body}');
       }
     } catch (e) {
+      debugPrint('Banner upload failed: $e');
       throw DramaRepositoryException('Failed to upload banner: $e');
     }
   }
@@ -350,6 +355,20 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress}) async {
     try {
+      debugPrint('Uploading video: ${videoFile.path} for episode: $episodeId');
+      
+      // Get file size for progress tracking
+      final fileSizeInBytes = await videoFile.length();
+      final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+      
+      debugPrint('Video file size: ${fileSizeInMB.toStringAsFixed(2)}MB');
+      
+      // Simulate progress updates during upload (since http package doesn't provide real progress)
+      // In a real implementation, you might use a different HTTP client like dio for progress tracking
+      if (onProgress != null) {
+        _simulateUploadProgress(onProgress, fileSizeInMB);
+      }
+      
       final response = await _httpClient.uploadFile(
         '/upload',
         videoFile,
@@ -359,12 +378,36 @@ class HttpDramaRepository implements DramaRepository {
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        return responseData['url'] as String;
+        final url = responseData['url'] as String;
+        debugPrint('Video uploaded successfully: $url');
+        
+        // Complete progress
+        if (onProgress != null) {
+          onProgress(100.0);
+        }
+        
+        return url;
       } else {
         throw DramaRepositoryException('Failed to upload video: ${response.body}');
       }
     } catch (e) {
+      debugPrint('Video upload failed: $e');
       throw DramaRepositoryException('Failed to upload video: $e');
+    }
+  }
+
+  // Simulate upload progress based on file size
+  // In a real implementation, you'd use a proper HTTP client with progress callbacks
+  void _simulateUploadProgress(Function(double) onProgress, double fileSizeInMB) {
+    // Estimate upload time based on file size (assuming 10MB/s upload speed)
+    final estimatedSeconds = (fileSizeInMB / 10).clamp(1, 30);
+    final totalSteps = (estimatedSeconds * 2).round(); // Update every 0.5 seconds
+    
+    for (int i = 1; i <= totalSteps; i++) {
+      Future.delayed(Duration(milliseconds: 500 * i), () {
+        final progress = (i / totalSteps * 95).clamp(0.0, 95.0); // Stop at 95%, let actual completion set to 100%
+        onProgress(progress);
+      });
     }
   }
 
@@ -402,10 +445,72 @@ class HttpDramaRepository implements DramaRepository {
   }
 }
 
-// REMOVED: All episode-specific repository methods
-// REMOVED: Complex episode CRUD operations
-// REMOVED: Episode file upload methods
-// REMOVED: Episode view counting (now drama-level only)
+// Enhanced HTTP Client Service for better upload handling
+extension UploadExtensions on HttpClientService {
+  // Enhanced upload method with better error handling and timeout
+  Future<http.Response> uploadFileWithRetry(
+    String endpoint,
+    File file,
+    String fieldName, {
+    Map<String, String>? additionalFields,
+    int maxRetries = 3,
+    Duration timeout = const Duration(minutes: 10), // Longer timeout for large files
+  }) async {
+    int attempt = 0;
+    
+    while (attempt < maxRetries) {
+      try {
+        debugPrint('Upload attempt ${attempt + 1} of $maxRetries for file: ${file.path}');
+        
+        final response = await uploadFile(
+          endpoint,
+          file,
+          fieldName,
+          additionalFields: additionalFields,
+        ).timeout(timeout);
+        
+        // If successful, return immediately
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          debugPrint('Upload successful on attempt ${attempt + 1}');
+          return response;
+        }
+        
+        // If it's a client error (4xx), don't retry
+        if (response.statusCode >= 400 && response.statusCode < 500) {
+          debugPrint('Client error ${response.statusCode}, not retrying');
+          return response;
+        }
+        
+        // Server error (5xx), retry
+        debugPrint('Server error ${response.statusCode}, retrying...');
+        attempt++;
+        
+        if (attempt < maxRetries) {
+          // Exponential backoff: 2s, 4s, 8s...
+          final delay = Duration(seconds: 2 * attempt);
+          debugPrint('Waiting ${delay.inSeconds}s before retry...');
+          await Future.delayed(delay);
+        }
+        
+      } catch (e) {
+        attempt++;
+        debugPrint('Upload attempt ${attempt} failed: $e');
+        
+        if (attempt >= maxRetries) {
+          debugPrint('All upload attempts failed');
+          rethrow;
+        }
+        
+        // Wait before retry
+        final delay = Duration(seconds: 2 * attempt);
+        debugPrint('Waiting ${delay.inSeconds}s before retry...');
+        await Future.delayed(delay);
+      }
+    }
+    
+    throw HttpException('Upload failed after $maxRetries attempts');
+  }
+}
 
 // Exception classes (unchanged)
 class DramaRepositoryException implements Exception {

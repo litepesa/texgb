@@ -1,4 +1,4 @@
-// lib/features/dramas/screens/create_drama_screen.dart - IMPROVED INTUITIVE VERSION with TS support
+// lib/features/dramas/screens/create_drama_screen.dart - UPLOAD-AS-YOU-ADD VERSION
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,16 +27,18 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
   bool _isFeatured = false;
   bool _isActive = true;
   bool _isCreating = false;
-  double _uploadProgress = 0.0;
   
   File? _bannerImage;
-  List<File> _episodeVideos = []; // Up to 100 episodes
+  List<EpisodeUploadItem> _episodes = [];
   bool _isAddingEpisode = false;
+  
+  // Upload progress tracking
+  double _overallProgress = 0.0;
+  String _currentUploadStatus = '';
 
   @override
   void initState() {
     super.initState();
-    // Check admin access
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final isAdmin = ref.read(isAdminProvider);
       if (!isAdmin) {
@@ -95,11 +97,922 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
     );
   }
 
+  Widget _buildEpisodesSection(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _episodes.isNotEmpty 
+              ? const Color(0xFFFE2C55).withOpacity(0.3)
+              : modernTheme.textSecondaryColor?.withOpacity(0.2) ?? Colors.grey,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.video_library,
+                color: _episodes.isNotEmpty 
+                    ? const Color(0xFFFE2C55) 
+                    : modernTheme.textColor,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Step 2: Add Episodes (${_episodes.length}/100)',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (_episodes.isNotEmpty)
+                TextButton.icon(
+                  onPressed: _clearAllEpisodes,
+                  icon: const Icon(Icons.clear_all, size: 16),
+                  label: const Text('Clear All'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red.shade400,
+                  ),
+                ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Episode list area
+          if (_episodes.isEmpty)
+            _buildEmptyEpisodesArea(modernTheme)
+          else
+            _buildEpisodesList(modernTheme),
+          
+          const SizedBox(height: 16),
+          
+          // Add episode button
+          if (_episodes.length < 100)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isAddingEpisode || _isCreating ? null : _addSingleEpisode,
+                icon: _isAddingEpisode
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.add_circle_outline),
+                label: Text(_isAddingEpisode 
+                    ? 'Selecting Video...' 
+                    : _episodes.isEmpty 
+                        ? 'Add First Episode' 
+                        : 'Add Episode ${_episodes.length + 1}'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFE2C55),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            
+          // Batch actions
+          if (_episodes.isNotEmpty && _episodes.length < 95 && !_isCreating)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isAddingEpisode ? null : _addMultipleEpisodes,
+                      icon: const Icon(Icons.playlist_add, size: 16),
+                      label: const Text('Add Multiple'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFFE2C55),
+                        side: const BorderSide(color: Color(0xFFFE2C55)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _reorderEpisodes,
+                      icon: const Icon(Icons.reorder, size: 16),
+                      label: const Text('Reorder'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: modernTheme.textColor,
+                        side: BorderSide(color: modernTheme.textSecondaryColor!),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEpisodesList(ModernThemeExtension modernTheme) {
+    return Column(
+      children: [
+        // Episodes list with upload status
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _episodes.length,
+          itemBuilder: (context, index) {
+            return _buildEpisodeListItem(modernTheme, index);
+          },
+        ),
+        
+        // Episode summary
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFE2C55).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                color: Color(0xFFFE2C55),
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${_episodes.length} episode${_episodes.length != 1 ? 's' : ''} added. '
+                  'Uploaded: ${_episodes.where((e) => e.isUploaded).length}, '
+                  'Uploading: ${_episodes.where((e) => e.isUploading).length}, '
+                  'Failed: ${_episodes.where((e) => e.uploadError != null).length}',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEpisodeListItem(ModernThemeExtension modernTheme, int index) {
+    final episode = _episodes[index];
+    final fileName = episode.file.path.split('/').last;
+    final fileSize = episode.fileSizeInMB;
+    
+    Color statusColor;
+    IconData statusIcon;
+    String statusText;
+    
+    if (episode.uploadError != null) {
+      statusColor = Colors.red;
+      statusIcon = Icons.error;
+      statusText = 'Failed';
+    } else if (episode.isUploaded) {
+      statusColor = Colors.green;
+      statusIcon = Icons.check_circle;
+      statusText = 'Uploaded';
+    } else if (episode.isUploading) {
+      statusColor = const Color(0xFFFE2C55);
+      statusIcon = Icons.cloud_upload;
+      statusText = 'Uploading...';
+    } else {
+      statusColor = Colors.orange;
+      statusIcon = Icons.schedule;
+      statusText = 'Ready to upload';
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceVariantColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: statusColor.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFE2C55),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              '${index + 1}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        title: Text(
+          fileName.length > 25 ? '${fileName.substring(0, 22)}...' : fileName,
+          style: TextStyle(
+            color: modernTheme.textColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${fileSize.toStringAsFixed(1)} MB • $statusText',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 12,
+              ),
+            ),
+            if (episode.isUploading && episode.uploadProgress != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: LinearProgressIndicator(
+                  value: episode.uploadProgress! / 100,
+                  backgroundColor: Colors.grey.withOpacity(0.3),
+                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                ),
+              ),
+            if (episode.uploadError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Error: ${episode.uploadError}',
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(statusIcon, color: statusColor, size: 20),
+            const SizedBox(width: 8),
+            if (episode.uploadError != null)
+              // Retry button for failed uploads
+              IconButton(
+                onPressed: () => _retryEpisodeUpload(index),
+                icon: const Icon(Icons.refresh, color: Colors.blue, size: 20),
+                constraints: const BoxConstraints(),
+                padding: EdgeInsets.zero,
+                tooltip: 'Retry upload',
+              )
+            else if (!_isCreating && !episode.isUploading)
+              // Delete button (only when not creating drama and not uploading)
+              IconButton(
+                onPressed: () => _removeEpisode(index),
+                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                constraints: const BoxConstraints(),
+                padding: EdgeInsets.zero,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadProgress(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFE2C55).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFE2C55).withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.cloud_upload, color: Color(0xFFFE2C55), size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _currentUploadStatus.isNotEmpty 
+                      ? _currentUploadStatus
+                      : 'Creating Drama with ${_episodes.length} Episodes...',
+                  style: const TextStyle(
+                    color: Color(0xFFFE2C55),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Text(
+                '${(_overallProgress * 100).toInt()}%',
+                style: const TextStyle(
+                  color: Color(0xFFFE2C55),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: _overallProgress,
+            backgroundColor: Colors.grey.withOpacity(0.3),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFE2C55)),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Please keep this screen open during creation.',
+            style: TextStyle(
+              fontSize: 12, 
+              color: modernTheme.textSecondaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===============================
+  // UPLOAD-AS-YOU-ADD EPISODE MANAGEMENT
+  // ===============================
+  
+  Future<void> _addSingleEpisode() async {
+    if (_episodes.length >= 100) {
+      showSnackBar(context, 'Maximum 100 episodes allowed');
+      return;
+    }
+
+    setState(() => _isAddingEpisode = true);
+
+    try {
+      final picker = ImagePicker();
+      
+      // Show loading message
+      showSnackBar(context, 'Opening video gallery...');
+
+      final pickedFile = await picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 120), // 2 hour max
+      );
+
+      if (pickedFile != null) {
+        final file = File(pickedFile.path);
+        
+        // Check if file exists
+        if (!await file.exists()) {
+          showSnackBar(context, 'Selected video file does not exist');
+          return;
+        }
+
+        // Check file size (1GB limit)
+        final fileSizeInBytes = await file.length();
+        final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+        
+        if (fileSizeInMB > 1000) {
+          showSnackBar(context, 'Video file is too large (max 1GB, current: ${fileSizeInMB.toStringAsFixed(1)}MB)');
+          return;
+        }
+
+        // Add to episodes list as "pending upload"
+        final episodeItem = EpisodeUploadItem(
+          file: file,
+          fileSizeInMB: fileSizeInMB,
+        );
+
+        setState(() {
+          _episodes.add(episodeItem);
+        });
+        
+        final fileName = pickedFile.path.split('/').last;
+        showSnackBar(context, 'Episode ${_episodes.length} selected: $fileName (${fileSizeInMB.toStringAsFixed(1)}MB)');
+
+        // IMMEDIATELY UPLOAD the episode (like add_episode_screen does)
+        await _uploadSingleEpisode(_episodes.length - 1);
+
+        // Auto-update free episodes if premium
+        if (_isPremium && _freeEpisodesController.text.isEmpty) {
+          final suggested = (_episodes.length * 0.3).ceil().clamp(1, 5);
+          _freeEpisodesController.text = suggested.toString();
+        }
+      } else {
+        showSnackBar(context, 'No video selected');
+      }
+    } catch (e) {
+      showSnackBar(context, 'Error selecting video: $e');
+    } finally {
+      setState(() => _isAddingEpisode = false);
+    }
+  }
+
+  // Upload a single episode immediately (like add_episode_screen does)
+  Future<void> _uploadSingleEpisode(int index) async {
+    if (index >= _episodes.length) return;
+
+    try {
+      // Mark as uploading
+      setState(() {
+        _episodes[index] = _episodes[index].copyWith(
+          isUploading: true,
+          uploadProgress: 0,
+        );
+      });
+
+      final repository = ref.read(dramaRepositoryProvider);
+      
+      // Simulate upload progress (like add_episode_screen)
+      for (double progress = 10; progress <= 95; progress += 10) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        if (mounted) {
+          setState(() {
+            _episodes[index] = _episodes[index].copyWith(uploadProgress: progress);
+          });
+        }
+      }
+
+      // Actually upload the video
+      final videoUrl = await repository.uploadVideo(
+        _episodes[index].file, 
+        'episode_${index + 1}',
+      );
+
+      // Mark as uploaded successfully
+      setState(() {
+        _episodes[index] = _episodes[index].copyWith(
+          isUploading: false,
+          isUploaded: true,
+          videoUrl: videoUrl,
+          uploadProgress: 100,
+        );
+      });
+
+      showSnackBar(context, '✓ Episode ${index + 1} uploaded successfully!');
+
+    } catch (e) {
+      // Mark as failed
+      setState(() {
+        _episodes[index] = _episodes[index].copyWith(
+          isUploading: false,
+          uploadError: e.toString(),
+        );
+      });
+      
+      showSnackBar(context, '✗ Episode ${index + 1} upload failed: $e');
+    }
+  }
+
+  // Retry failed upload
+  Future<void> _retryEpisodeUpload(int index) async {
+    if (index >= _episodes.length) return;
+    
+    // Clear error and retry
+    setState(() {
+      _episodes[index] = _episodes[index].copyWith(uploadError: null);
+    });
+    
+    await _uploadSingleEpisode(index);
+  }
+
+  Future<void> _addMultipleEpisodes() async {
+    if (_episodes.length >= 100) {
+      showSnackBar(context, 'Maximum 100 episodes allowed');
+      return;
+    }
+
+    setState(() => _isAddingEpisode = true);
+
+    try {
+      final picker = ImagePicker();
+      showSnackBar(context, 'Opening gallery...');
+
+      final remainingSlots = 100 - _episodes.length;
+      
+      // Use pickMultipleMedia for multiple video selection
+      final List<XFile> pickedFiles = await picker.pickMultipleMedia(
+        limit: remainingSlots.clamp(1, 20), // Limit to prevent too many at once
+      );
+
+      if (pickedFiles.isEmpty) {
+        showSnackBar(context, 'No files selected');
+        return;
+      }
+
+      final List<File> validVideos = [];
+      final List<String> skippedFiles = [];
+      
+      showSnackBar(context, 'Processing ${pickedFiles.length} selected files...');
+      
+      for (final file in pickedFiles) {
+        try {
+          // Check if it's a video file using simple extension check
+          if (!_isVideoFile(file)) {
+            skippedFiles.add('${_getFileName(file.path)} (not a video file)');
+            continue;
+          }
+          
+          final videoFile = File(file.path);
+          
+          // Verify file exists and is accessible
+          if (!await videoFile.exists()) {
+            skippedFiles.add('${_getFileName(file.path)} (file not accessible)');
+            continue;
+          }
+          
+          final fileSizeInBytes = await videoFile.length();
+          final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+          
+          if (fileSizeInMB <= 1000) { // 1GB limit
+            validVideos.add(videoFile);
+          } else {
+            skippedFiles.add('${_getFileName(file.path)} (${fileSizeInMB.toStringAsFixed(1)}MB - too large)');
+          }
+          
+        } catch (e) {
+          skippedFiles.add('${_getFileName(file.path)} (error processing file)');
+        }
+      }
+
+      if (validVideos.isNotEmpty) {
+        // Add all valid videos to the list first
+        final startingIndex = _episodes.length;
+        for (int i = 0; i < validVideos.length; i++) {
+          final file = validVideos[i];
+          final fileSizeInBytes = await file.length();
+          final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+          
+          setState(() {
+            _episodes.add(EpisodeUploadItem(
+              file: file,
+              fileSizeInMB: fileSizeInMB,
+            ));
+          });
+        }
+        
+        String message = 'Added ${validVideos.length} episodes, starting uploads...';
+        if (skippedFiles.isNotEmpty) {
+          message += ' (${skippedFiles.length} files skipped)';
+        }
+        showSnackBar(context, message);
+        
+        // Upload each video one by one
+        for (int i = 0; i < validVideos.length; i++) {
+          await _uploadSingleEpisode(startingIndex + i);
+        }
+
+        // Auto-update free episodes if premium
+        if (_isPremium && _freeEpisodesController.text.isEmpty) {
+          final suggested = (_episodes.length * 0.3).ceil().clamp(1, 5);
+          _freeEpisodesController.text = suggested.toString();
+        }
+        
+        // Show details of skipped files if not too many
+        if (skippedFiles.isNotEmpty && skippedFiles.length <= 5) {
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              showSnackBar(context, 'Skipped: ${skippedFiles.join(', ')}');
+            }
+          });
+        }
+      } else {
+        String message = 'No valid video files found';
+        if (skippedFiles.isNotEmpty) {
+          message += '. ${skippedFiles.length} files were incompatible';
+        }
+        showSnackBar(context, '$message\n\nSupported: MP4, MOV, AVI, TS, WEBM, MKV (max 1GB each)');
+      }
+    } catch (e) {
+      showSnackBar(context, 'Error selecting videos: $e');
+    } finally {
+      setState(() => _isAddingEpisode = false);
+    }
+  }
+
+  // Simple video file detection (simplified from add_episode_screen approach)
+  bool _isVideoFile(XFile file) {
+    final fileName = file.path.toLowerCase();
+    final mimeType = file.mimeType?.toLowerCase() ?? '';
+    
+    // Check by file extension (most reliable)
+    final videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.ts', '.webm', '.m4v', '.3gp'];
+    final hasVideoExtension = videoExtensions.any((ext) => fileName.endsWith(ext));
+    
+    // Check by MIME type as backup
+    final hasVideoMimeType = mimeType.startsWith('video/');
+    
+    return hasVideoExtension || hasVideoMimeType;
+  }
+
+  // Helper method to get filename from path
+  String _getFileName(String path) {
+    return path.split('/').last;
+  }
+
+  void _removeEpisode(int index) {
+    setState(() {
+      _episodes.removeAt(index);
+      // Update free episodes count if needed
+      if (_isPremium) {
+        final currentFree = int.tryParse(_freeEpisodesController.text) ?? 0;
+        if (currentFree > _episodes.length) {
+          _freeEpisodesController.text = _episodes.length.toString();
+        }
+      }
+    });
+    showSnackBar(context, 'Episode removed. Episodes renumbered automatically.');
+  }
+
+  void _clearAllEpisodes() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear All Episodes'),
+        content: Text('Are you sure you want to remove all ${_episodes.length} episodes?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _episodes.clear();
+                _freeEpisodesController.clear();
+              });
+              Navigator.pop(context);
+              showSnackBar(context, 'All episodes cleared');
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _reorderEpisodes() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reorder Episodes'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: ReorderableListView.builder(
+            itemCount: _episodes.length,
+            onReorder: (oldIndex, newIndex) {
+              if (oldIndex < newIndex) {
+                newIndex -= 1;
+              }
+              setState(() {
+                final item = _episodes.removeAt(oldIndex);
+                _episodes.insert(newIndex, item);
+              });
+            },
+            itemBuilder: (context, index) {
+              final fileName = _episodes[index].file.path.split('/').last;
+              return ListTile(
+                key: Key('$index'),
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFFFE2C55),
+                  child: Text('${index + 1}', style: const TextStyle(color: Colors.white)),
+                ),
+                title: Text(fileName.length > 30 ? '${fileName.substring(0, 27)}...' : fileName),
+                trailing: const Icon(Icons.drag_handle),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickBannerImage() async {
+    try {
+      final picker = ImagePicker();
+      showSnackBar(context, 'Opening image gallery...');
+      
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1080,
+      );
+
+      if (pickedFile != null) {
+        final imageFile = File(pickedFile.path);
+        
+        // Check if file exists
+        if (!await imageFile.exists()) {
+          showSnackBar(context, 'Selected image file does not exist');
+          return;
+        }
+        
+        final fileSizeInBytes = await imageFile.length();
+        final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+        
+        if (fileSizeInMB <= 10) {
+          setState(() {
+            _bannerImage = imageFile;
+          });
+          showSnackBar(context, 'Banner image added successfully!');
+        } else {
+          showSnackBar(context, 'Image too large! Maximum size is 10MB (current: ${fileSizeInMB.toStringAsFixed(1)}MB)');
+        }
+      } else {
+        showSnackBar(context, 'No image selected');
+      }
+    } catch (e) {
+      showSnackBar(context, 'Error selecting image: $e');
+    }
+  }
+
+  // ===============================
+  // SIMPLIFIED DRAMA CREATION (episodes already uploaded)
+  // ===============================
+  
+  Future<void> _createDrama() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_episodes.isEmpty) {
+      showSnackBar(context, 'Please add at least one episode');
+      return;
+    }
+
+    // Check if all episodes are uploaded
+    final uploadedEpisodes = _episodes.where((e) => e.isUploaded).length;
+    final failedEpisodes = _episodes.where((e) => e.uploadError != null).length;
+    final uploadingEpisodes = _episodes.where((e) => e.isUploading).length;
+
+    if (uploadingEpisodes > 0) {
+      showSnackBar(context, 'Please wait for all episodes to finish uploading');
+      return;
+    }
+
+    if (failedEpisodes > 0) {
+      final shouldContinue = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Some Episodes Failed'),
+          content: Text('$failedEpisodes episode(s) failed to upload. Do you want to create the drama with only the successfully uploaded episodes ($uploadedEpisodes episodes)?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFE2C55)),
+              child: const Text('Create Drama'),
+            ),
+          ],
+        ),
+      ) ?? false;
+
+      if (!shouldContinue) return;
+    }
+
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null || !currentUser.isAdmin) {
+      showSnackBar(context, Constants.adminOnly);
+      return;
+    }
+
+    // Final confirmation dialog
+    final confirmed = await _showCreateConfirmationDialog();
+    if (!confirmed) return;
+
+    setState(() {
+      _isCreating = true;
+      _overallProgress = 0.1;
+      _currentUploadStatus = 'Creating drama record...';
+    });
+
+    try {
+      final repository = ref.read(dramaRepositoryProvider);
+      
+      // Step 1: Upload banner image if needed (10% - 20%)
+      String bannerUrl = '';
+      if (_bannerImage != null) {
+        setState(() {
+          _overallProgress = 0.15;
+          _currentUploadStatus = 'Uploading banner image...';
+        });
+        
+        bannerUrl = await repository.uploadBannerImage(_bannerImage!, '');
+        
+        setState(() => _overallProgress = 0.2);
+      }
+
+      // Step 2: Collect all uploaded video URLs (20% - 80%)
+      setState(() {
+        _overallProgress = 0.5;
+        _currentUploadStatus = 'Preparing episode list...';
+      });
+
+      final episodeUrls = _episodes
+          .where((e) => e.isUploaded && e.videoUrl != null)
+          .map((e) => e.videoUrl!)
+          .toList();
+
+      if (episodeUrls.isEmpty) {
+        throw Exception('No successfully uploaded episodes found');
+      }
+
+      // Step 3: Create drama record (80% - 100%)
+      setState(() {
+        _overallProgress = 0.8;
+        _currentUploadStatus = 'Creating drama with ${episodeUrls.length} episodes...';
+      });
+
+      final drama = DramaModel.create(
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        createdBy: currentUser.uid,
+        episodeVideos: episodeUrls,
+        bannerImage: bannerUrl,
+        isPremium: _isPremium,
+        freeEpisodesCount: _isPremium 
+            ? int.tryParse(_freeEpisodesController.text.trim()) ?? 0 
+            : 0,
+        isFeatured: _isFeatured,
+        isActive: _isActive,
+      );
+
+      final dramaId = await repository.createDramaWithEpisodes(drama);
+
+      setState(() {
+        _overallProgress = 1.0;
+        _currentUploadStatus = 'Drama created successfully!';
+      });
+
+      if (mounted) {
+        // Refresh providers
+        ref.invalidate(adminDramasProvider);
+        ref.invalidate(allDramasProvider);
+        if (_isFeatured) ref.invalidate(featuredDramasProvider);
+        
+        await Future.delayed(const Duration(milliseconds: 1000));
+        
+        showSnackBar(context, 'Drama "${_titleController.text.trim()}" created with ${episodeUrls.length} episodes!');
+        Navigator.of(context).pop();
+        
+        // Navigate to the drama details
+        Navigator.pushNamed(
+          context,
+          Constants.dramaDetailsScreen,
+          arguments: {'dramaId': dramaId},
+        );
+      }
+
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _currentUploadStatus = 'Creation failed: $e';
+        });
+        showSnackBar(context, 'Failed to create drama: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreating = false;
+          _overallProgress = 0.0;
+        });
+      }
+    }
+  }
+
+  // ===============================
+  // UI COMPONENTS
+  // ===============================
+
   Widget _buildProgressIndicator(ModernThemeExtension modernTheme) {
     final hasBasicInfo = _titleController.text.isNotEmpty && 
                         _descriptionController.text.isNotEmpty;
-    final hasEpisodes = _episodeVideos.isNotEmpty;
-    final hasSettings = true; // Always true as they have defaults
+    final hasEpisodes = _episodes.isNotEmpty;
+    final hasSettings = true;
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -196,7 +1109,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
-                value: _uploadProgress,
+                value: _overallProgress,
                 color: const Color(0xFFFE2C55),
                 strokeWidth: 2,
               ),
@@ -241,7 +1154,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           // Title field
           TextFormField(
             controller: _titleController,
-            onChanged: (_) => setState(() {}), // Trigger rebuild for progress
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               labelText: 'Drama Title',
               hintText: 'Enter an engaging drama title',
@@ -266,7 +1179,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           // Description field
           TextFormField(
             controller: _descriptionController,
-            onChanged: (_) => setState(() {}), // Trigger rebuild for progress
+            onChanged: (_) => setState(() {}),
             maxLines: 3,
             decoration: InputDecoration(
               labelText: 'Description',
@@ -305,7 +1218,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
         ),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: _pickBannerImage,
+          onTap: _isCreating ? null : _pickBannerImage,
           child: Container(
             width: double.infinity,
             height: 120,
@@ -348,131 +1261,6 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
     );
   }
 
-  Widget _buildEpisodesSection(ModernThemeExtension modernTheme) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _episodeVideos.isNotEmpty 
-              ? const Color(0xFFFE2C55).withOpacity(0.3)
-              : modernTheme.textSecondaryColor?.withOpacity(0.2) ?? Colors.grey,
-          width: 2,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.video_library,
-                color: _episodeVideos.isNotEmpty 
-                    ? const Color(0xFFFE2C55) 
-                    : modernTheme.textColor,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Step 2: Add Episodes (${_episodeVideos.length}/100)',
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (_episodeVideos.isNotEmpty)
-                TextButton.icon(
-                  onPressed: _clearAllEpisodes,
-                  icon: const Icon(Icons.clear_all, size: 16),
-                  label: const Text('Clear All'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red.shade400,
-                  ),
-                ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Episode upload area
-          if (_episodeVideos.isEmpty)
-            _buildEmptyEpisodesArea(modernTheme)
-          else
-            _buildEpisodesGrid(modernTheme),
-          
-          const SizedBox(height: 16),
-          
-          // Add episode button - one at a time
-          if (_episodeVideos.length < 100)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isAddingEpisode ? null : _addSingleEpisode,
-                icon: _isAddingEpisode
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Icon(Icons.add),
-                label: Text(_isAddingEpisode 
-                    ? 'Selecting Video...' 
-                    : _episodeVideos.isEmpty 
-                        ? 'Add First Episode' 
-                        : 'Add Episode ${_episodeVideos.length + 1}'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFE2C55),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-            
-          // Quick actions for multiple episodes
-          if (_episodeVideos.isNotEmpty && _episodeVideos.length < 95)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isAddingEpisode ? null : _addMultipleEpisodes,
-                      icon: const Icon(Icons.playlist_add, size: 16),
-                      label: const Text('Add Multiple'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFFE2C55),
-                        side: const BorderSide(color: Color(0xFFFE2C55)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _reorderEpisodes,
-                      icon: const Icon(Icons.reorder, size: 16),
-                      label: const Text('Reorder'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: modernTheme.textColor,
-                        side: BorderSide(color: modernTheme.textSecondaryColor!),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmptyEpisodesArea(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -503,153 +1291,12 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Add video files one by one to build your drama series\nSupported formats: MP4, MOV, AVI, TS, WEBM\nEpisodes will be numbered automatically (1, 2, 3...)',
+            'Add video files one by one to build your drama series\nSupported formats: MP4, MOV, AVI, TS, WEBM\nEpisodes will be uploaded sequentially when you publish',
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEpisodesGrid(ModernThemeExtension modernTheme) {
-    return Column(
-      children: [
-        // Episodes grid with improved layout
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.9,
-          ),
-          itemCount: _episodeVideos.length,
-          itemBuilder: (context, index) {
-            return _buildEpisodeItem(modernTheme, index);
-          },
-        ),
-        
-        // Episode count info
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFE2C55).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.info_outline,
-                color: Color(0xFFFE2C55),
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${_episodeVideos.length} episode${_episodeVideos.length != 1 ? 's' : ''} ready. Episodes are numbered automatically in order.',
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEpisodeItem(ModernThemeExtension modernTheme, int index) {
-    final file = _episodeVideos[index];
-    final fileName = file.path.split('/').last;
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceVariantColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFFE2C55).withOpacity(0.3),
-          width: 2,
-        ),
-      ),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Episode number badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFE2C55),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'EP ${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                
-                // Video icon
-                const Icon(
-                  Icons.play_circle_filled,
-                  color: Color(0xFFFE2C55),
-                  size: 24,
-                ),
-                
-                const SizedBox(height: 4),
-                
-                // File name
-                Text(
-                  fileName.length > 15 
-                      ? '${fileName.substring(0, 12)}...' 
-                      : fileName,
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          
-          // Remove button
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: () => _removeEpisode(index),
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade600,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  size: 12,
-                  color: Colors.white,
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -693,7 +1340,6 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           
           const SizedBox(height: 16),
           
-          // Premium toggle
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -712,12 +1358,11 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
                 style: TextStyle(color: modernTheme.textSecondaryColor),
               ),
               value: _isPremium,
-              onChanged: (value) {
+              onChanged: _isCreating ? null : (value) {
                 setState(() {
                   _isPremium = value;
-                  if (value && _episodeVideos.isNotEmpty && _freeEpisodesController.text.isEmpty) {
-                    // Auto-suggest free episodes count
-                    final suggested = (_episodeVideos.length * 0.3).ceil().clamp(1, 5);
+                  if (value && _episodes.isNotEmpty && _freeEpisodesController.text.isEmpty) {
+                    final suggested = (_episodes.length * 0.3).ceil().clamp(1, 5);
                     _freeEpisodesController.text = suggested.toString();
                   }
                 });
@@ -727,7 +1372,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
             ),
           ),
           
-          if (_isPremium && _episodeVideos.isNotEmpty) ...[
+          if (_isPremium && _episodes.isNotEmpty) ...[
             const SizedBox(height: 16),
             Row(
               children: [
@@ -735,10 +1380,11 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
                   flex: 2,
                   child: TextFormField(
                     controller: _freeEpisodesController,
+                    enabled: !_isCreating,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: 'Free Episodes',
-                      hintText: '1-${_episodeVideos.length}',
+                      hintText: '1-${_episodes.length}',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       filled: true,
                       fillColor: modernTheme.surfaceVariantColor,
@@ -751,8 +1397,8 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
                           return 'Required';
                         }
                         final number = int.tryParse(value.trim());
-                        if (number == null || number < 0 || number > _episodeVideos.length) {
-                          return '1-${_episodeVideos.length}';
+                        if (number == null || number < 0 || number > _episodes.length) {
+                          return '1-${_episodes.length}';
                         }
                       }
                       return null;
@@ -787,7 +1433,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
                           ),
                         ),
                         const Text(
-                          'coins/episode',
+                          'coins/unlock',
                           style: TextStyle(
                             color: Color(0xFFFFD700),
                             fontSize: 10,
@@ -832,7 +1478,6 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           
           const SizedBox(height: 16),
           
-          // Featured toggle
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -848,7 +1493,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
                 style: TextStyle(color: modernTheme.textSecondaryColor),
               ),
               value: _isFeatured,
-              onChanged: (value) => setState(() => _isFeatured = value),
+              onChanged: _isCreating ? null : (value) => setState(() => _isFeatured = value),
               activeColor: const Color(0xFFFE2C55),
               contentPadding: EdgeInsets.zero,
             ),
@@ -856,7 +1501,6 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           
           const SizedBox(height: 8),
           
-          // Active toggle
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -872,7 +1516,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
                 style: TextStyle(color: modernTheme.textSecondaryColor),
               ),
               value: _isActive,
-              onChanged: (value) => setState(() => _isActive = value),
+              onChanged: _isCreating ? null : (value) => setState(() => _isActive = value),
               activeColor: Colors.green.shade400,
               contentPadding: EdgeInsets.zero,
             ),
@@ -883,9 +1527,13 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
   }
 
   Widget _buildCreateButton(ModernThemeExtension modernTheme) {
-    final canCreate = _episodeVideos.isNotEmpty && 
+    final canCreate = _episodes.isNotEmpty && 
                      _titleController.text.trim().isNotEmpty && 
                      _descriptionController.text.trim().isNotEmpty;
+                     
+    final uploadedCount = _episodes.where((e) => e.isUploaded).length;
+    final uploadingCount = _episodes.where((e) => e.isUploading).length;
+    final failedCount = _episodes.where((e) => e.uploadError != null).length;
     
     return SizedBox(
       width: double.infinity,
@@ -904,14 +1552,18 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
         label: Text(
           _isCreating
               ? 'Creating Drama...'
-              : 'Create Drama (${_episodeVideos.length} episodes)',
+              : uploadingCount > 0
+                  ? 'Creating Drama (${uploadingCount} uploading...)'
+                  : failedCount > 0
+                      ? 'Create Drama (${uploadedCount} episodes, ${failedCount} failed)'
+                      : 'Create Drama (${uploadedCount} episodes ready)',
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: canCreate ? const Color(0xFFFE2C55) : Colors.grey,
+          backgroundColor: canCreate && !_isCreating ? const Color(0xFFFE2C55) : Colors.grey,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -919,53 +1571,54 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
     );
   }
 
-  Widget _buildUploadProgress(ModernThemeExtension modernTheme) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFE2C55).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFFE2C55).withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.cloud_upload, color: Color(0xFFFE2C55), size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Creating Drama with ${_episodeVideos.length} Episodes...',
-                style: const TextStyle(
-                  color: Color(0xFFFE2C55),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${(_uploadProgress * 100).toInt()}%',
-                style: const TextStyle(
-                  color: Color(0xFFFE2C55),
-                  fontWeight: FontWeight.bold,
-                ),
+  Future<bool> _showCreateConfirmationDialog() async {
+    final uploadedCount = _episodes.where((e) => e.isUploaded).length;
+    final failedCount = _episodes.where((e) => e.uploadError != null).length;
+    final uploadingCount = _episodes.where((e) => e.isUploading).length;
+    
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create Drama'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Title: ${_titleController.text.trim()}'),
+            const SizedBox(height: 8),
+            Text('Episodes Ready: $uploadedCount'),
+            if (uploadingCount > 0) Text('Still Uploading: $uploadingCount'),
+            if (failedCount > 0) Text('Failed Uploads: $failedCount'),
+            if (_isPremium) ...[
+              const SizedBox(height: 8),
+              Text('Free Episodes: ${_freeEpisodesController.text}'),
+              Text('Premium Episodes: ${uploadedCount - (int.tryParse(_freeEpisodesController.text) ?? 0)}'),
+            ],
+            const SizedBox(height: 8),
+            Text('Featured: ${_isFeatured ? "Yes" : "No"}'),
+            Text('Publish Immediately: ${_isActive ? "Yes" : "No"}'),
+            if (failedCount > 0) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Note: Only successfully uploaded episodes will be included in the drama.',
+                style: TextStyle(fontSize: 12, color: Colors.orange),
               ),
             ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
           ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: _uploadProgress,
-            backgroundColor: Colors.grey.withOpacity(0.3),
-            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFE2C55)),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Please keep this screen open while creating.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ElevatedButton(
+            onPressed: uploadingCount > 0 ? null : () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFE2C55)),
+            child: Text(uploadingCount > 0 ? 'Wait for uploads...' : 'Create Drama'),
           ),
         ],
       ),
-    );
+    ) ?? false;
   }
 
   Widget _buildAccessDenied(ModernThemeExtension modernTheme) {
@@ -1000,388 +1653,48 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
       ),
     );
   }
+}
 
-  // ===============================
-  // IMPROVED EPISODE MANAGEMENT METHODS - UPDATED WITH TS SUPPORT
-  // ===============================
-  
-  Future<void> _addSingleEpisode() async {
-    if (_episodeVideos.length >= 100) {
-      showSnackBar(context, 'Maximum 100 episodes allowed');
-      return;
-    }
+// ===============================
+// EPISODE UPLOAD ITEM CLASS
+// ===============================
 
-    setState(() => _isAddingEpisode = true);
+class EpisodeUploadItem {
+  final File file;
+  final double fileSizeInMB;
+  final bool isUploaded;
+  final bool isUploading;
+  final double? uploadProgress;
+  final String? videoUrl;
+  final String? uploadError;
 
-    try {
-      final picker = ImagePicker();
-      
-      // Pick single video with proper type specification
-      final XFile? pickedFile = await picker.pickVideo(
-        source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 60), // 60 min max per episode
-      );
+  const EpisodeUploadItem({
+    required this.file,
+    required this.fileSizeInMB,
+    this.isUploaded = false,
+    this.isUploading = false,
+    this.uploadProgress,
+    this.videoUrl,
+    this.uploadError,
+  });
 
-      if (pickedFile != null) {
-        final videoFile = File(pickedFile.path);
-        
-        // Check file size (500MB limit per video)
-        final fileSizeInBytes = await videoFile.length();
-        final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
-        
-        if (fileSizeInMB <= 500) {
-          setState(() {
-            _episodeVideos.add(videoFile);
-            // Auto-update free episodes if premium and not manually set
-            if (_isPremium && _freeEpisodesController.text.isEmpty) {
-              final suggested = (_episodeVideos.length * 0.3).ceil().clamp(1, 5);
-              _freeEpisodesController.text = suggested.toString();
-            }
-          });
-          
-          showSnackBar(context, 'Episode ${_episodeVideos.length} added successfully!');
-        } else {
-          showSnackBar(context, 'Video too large! Maximum size is 500MB (current: ${fileSizeInMB.toStringAsFixed(1)}MB)');
-        }
-      }
-    } catch (e) {
-      showSnackBar(context, 'Error selecting video: $e');
-    } finally {
-      setState(() => _isAddingEpisode = false);
-    }
-  }
-
-  Future<void> _addMultipleEpisodes() async {
-    if (_episodeVideos.length >= 100) {
-      showSnackBar(context, 'Maximum 100 episodes allowed');
-      return;
-    }
-
-    setState(() => _isAddingEpisode = true);
-
-    try {
-      final picker = ImagePicker();
-      
-      // Show loading
-      showSnackBar(context, 'Opening video gallery...');
-
-      // Pick multiple videos (limited to remaining slots)
-      final remainingSlots = 100 - _episodeVideos.length;
-      
-      // Use pickMultipleMedia but filter for videos only
-      final List<XFile> pickedFiles = await picker.pickMultipleMedia(
-        limit: remainingSlots,
-      );
-
-      // Filter and process video files - Updated to include TS format
-      final List<File> validVideoFiles = [];
-      final List<String> skippedFiles = [];
-      
-      for (final file in pickedFiles) {
-        // Check if it's a video file - Added TS support
-        final fileName = file.path.toLowerCase();
-        if (fileName.endsWith('.mp4') || 
-            fileName.endsWith('.mov') || 
-            fileName.endsWith('.avi') || 
-            fileName.endsWith('.mkv') ||
-            fileName.endsWith('.ts') ||    // Added TS support
-            fileName.endsWith('.webm') ||
-            file.mimeType?.startsWith('video/') == true) {
-          
-          final videoFile = File(file.path);
-          
-          // Check file size (500MB limit per video)
-          final fileSizeInBytes = await videoFile.length();
-          final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
-          
-          if (fileSizeInMB <= 500) {
-            validVideoFiles.add(videoFile);
-          } else {
-            skippedFiles.add('${file.name} (${fileSizeInMB.toStringAsFixed(1)}MB - too large)');
-          }
-        } else {
-          skippedFiles.add('${file.name} (not a supported video file)');
-        }
-      }
-
-      if (validVideoFiles.isNotEmpty) {
-        setState(() {
-          _episodeVideos.addAll(validVideoFiles);
-          // Auto-update free episodes if premium
-          if (_isPremium && _freeEpisodesController.text.isEmpty) {
-            final suggested = (_episodeVideos.length * 0.3).ceil().clamp(1, 5);
-            _freeEpisodesController.text = suggested.toString();
-          }
-        });
-        
-        String message = 'Added ${validVideoFiles.length} episodes';
-        if (skippedFiles.isNotEmpty) {
-          message += ' (${skippedFiles.length} files skipped)';
-        }
-        showSnackBar(context, message);
-        
-        // Show skipped files if any
-        if (skippedFiles.isNotEmpty && skippedFiles.length <= 3) {
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) {
-              showSnackBar(context, 'Skipped: ${skippedFiles.join(', ')}');
-            }
-          });
-        }
-      } else {
-        showSnackBar(context, 'No valid video files selected (supported: MP4, MOV, AVI, TS, WEBM - max 500MB each)');
-      }
-    } catch (e) {
-      showSnackBar(context, 'Error selecting videos: $e');
-    } finally {
-      setState(() => _isAddingEpisode = false);
-    }
-  }
-
-  void _removeEpisode(int index) {
-    setState(() {
-      _episodeVideos.removeAt(index);
-      // Update free episodes count if needed
-      if (_isPremium) {
-        final currentFree = int.tryParse(_freeEpisodesController.text) ?? 0;
-        if (currentFree > _episodeVideos.length) {
-          _freeEpisodesController.text = _episodeVideos.length.toString();
-        }
-      }
-    });
-    showSnackBar(context, 'Episode removed. Episodes renumbered automatically.');
-  }
-
-  void _clearAllEpisodes() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear All Episodes'),
-        content: Text('Are you sure you want to remove all ${_episodeVideos.length} episodes?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _episodeVideos.clear();
-                _freeEpisodesController.clear();
-              });
-              Navigator.pop(context);
-              showSnackBar(context, 'All episodes cleared');
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Clear All'),
-          ),
-        ],
-      ),
+  EpisodeUploadItem copyWith({
+    File? file,
+    double? fileSizeInMB,
+    bool? isUploaded,
+    bool? isUploading,
+    double? uploadProgress,
+    String? videoUrl,
+    String? uploadError,
+  }) {
+    return EpisodeUploadItem(
+      file: file ?? this.file,
+      fileSizeInMB: fileSizeInMB ?? this.fileSizeInMB,
+      isUploaded: isUploaded ?? this.isUploaded,
+      isUploading: isUploading ?? this.isUploading,
+      uploadProgress: uploadProgress ?? this.uploadProgress,
+      videoUrl: videoUrl ?? this.videoUrl,
+      uploadError: uploadError ?? this.uploadError,
     );
-  }
-
-  void _reorderEpisodes() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reorder Episodes'),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: ReorderableListView.builder(
-            itemCount: _episodeVideos.length,
-            onReorder: (oldIndex, newIndex) {
-              if (oldIndex < newIndex) {
-                newIndex -= 1;
-              }
-              setState(() {
-                final item = _episodeVideos.removeAt(oldIndex);
-                _episodeVideos.insert(newIndex, item);
-              });
-            },
-            itemBuilder: (context, index) {
-              final fileName = _episodeVideos[index].path.split('/').last;
-              return ListTile(
-                key: Key('$index'),
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFFFE2C55),
-                  child: Text('${index + 1}', style: const TextStyle(color: Colors.white)),
-                ),
-                title: Text(fileName.length > 30 ? '${fileName.substring(0, 27)}...' : fileName),
-                trailing: const Icon(Icons.drag_handle),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Done'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pickBannerImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-      maxWidth: 1920,
-      maxHeight: 1080,
-    );
-
-    if (pickedFile != null) {
-      // Check file size (10MB limit for banner)
-      final imageFile = File(pickedFile.path);
-      final fileSizeInBytes = await imageFile.length();
-      final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
-      
-      if (fileSizeInMB <= 10) {
-        setState(() {
-          _bannerImage = imageFile;
-        });
-        showSnackBar(context, 'Banner image added successfully!');
-      } else {
-        showSnackBar(context, 'Image too large! Maximum size is 10MB (current: ${fileSizeInMB.toStringAsFixed(1)}MB)');
-      }
-    }
-  }
-
-  // ===============================
-  // UNIFIED DRAMA CREATION
-  // ===============================
-  
-  Future<void> _createDrama() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_episodeVideos.isEmpty) {
-      showSnackBar(context, 'Please add at least one episode');
-      return;
-    }
-
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || !currentUser.isAdmin) {
-      showSnackBar(context, Constants.adminOnly);
-      return;
-    }
-
-    // Final validation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create Drama'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Title: ${_titleController.text.trim()}'),
-            const SizedBox(height: 8),
-            Text('Episodes: ${_episodeVideos.length}'),
-            if (_isPremium) ...[
-              const SizedBox(height: 8),
-              Text('Free Episodes: ${_freeEpisodesController.text}'),
-              Text('Premium Episodes: ${_episodeVideos.length - (int.tryParse(_freeEpisodesController.text) ?? 0)}'),
-            ],
-            const SizedBox(height: 8),
-            Text('Featured: ${_isFeatured ? "Yes" : "No"}'),
-            Text('Publish Immediately: ${_isActive ? "Yes" : "No"}'),
-            const SizedBox(height: 16),
-            const Text('This will upload all videos and create your drama. Continue?'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFE2C55)),
-            child: const Text('Create Drama'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    setState(() {
-      _isCreating = true;
-      _uploadProgress = 0.0;
-    });
-
-    try {
-      // Step 1: Upload banner image (10% progress)
-      String bannerUrl = '';
-      if (_bannerImage != null) {
-        setState(() => _uploadProgress = 0.05);
-        final repository = ref.read(dramaRepositoryProvider);
-        bannerUrl = await repository.uploadBannerImage(_bannerImage!, '');
-        setState(() => _uploadProgress = 0.1);
-      }
-
-      // Step 2: Upload all episode videos (10% - 90% progress)
-      final episodeUrls = <String>[];
-      for (int i = 0; i < _episodeVideos.length; i++) {
-        final repository = ref.read(dramaRepositoryProvider);
-        final videoUrl = await repository.uploadVideo(_episodeVideos[i], 'episode_${i + 1}');
-        episodeUrls.add(videoUrl);
-        
-        // Update progress (10% + 80% for videos)
-        final videoProgress = 0.1 + (0.8 * (i + 1) / _episodeVideos.length);
-        setState(() => _uploadProgress = videoProgress);
-      }
-
-      // Step 3: Create drama with all episodes (90% - 100%)
-      setState(() => _uploadProgress = 0.95);
-      
-      final drama = DramaModel.create(
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        createdBy: currentUser.uid,
-        episodeVideos: episodeUrls,
-        bannerImage: bannerUrl,
-        isPremium: _isPremium,
-        freeEpisodesCount: _isPremium 
-            ? int.tryParse(_freeEpisodesController.text.trim()) ?? 0 
-            : 0,
-        isFeatured: _isFeatured,
-        isActive: _isActive,
-      );
-
-      final repository = ref.read(dramaRepositoryProvider);
-      final dramaId = await repository.createDramaWithEpisodes(drama);
-
-      setState(() => _uploadProgress = 1.0);
-
-      if (mounted) {
-        // Refresh all relevant providers
-        ref.invalidate(adminDramasProvider);
-        ref.invalidate(allDramasProvider);
-        if (_isFeatured) ref.invalidate(featuredDramasProvider);
-        
-        showSnackBar(context, 'Drama created successfully with ${episodeUrls.length} episodes!');
-        Navigator.of(context).pop();
-        
-        // Navigate to the new drama
-        Navigator.pushNamed(
-          context,
-          Constants.dramaDetailsScreen,
-          arguments: {'dramaId': dramaId},
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Failed to create drama: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isCreating = false;
-          _uploadProgress = 0.0;
-        });
-      }
-    }
   }
 }
