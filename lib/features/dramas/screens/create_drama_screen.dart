@@ -1,4 +1,4 @@
-// lib/features/dramas/screens/create_drama_screen.dart - IMPROVED INTUITIVE VERSION
+// lib/features/dramas/screens/create_drama_screen.dart - IMPROVED INTUITIVE VERSION with TS support
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -503,7 +503,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Add video files one by one to build your drama series\nEpisodes will be numbered automatically (1, 2, 3...)',
+            'Add video files one by one to build your drama series\nSupported formats: MP4, MOV, AVI, TS, WEBM\nEpisodes will be numbered automatically (1, 2, 3...)',
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
               fontSize: 14,
@@ -1002,7 +1002,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
   }
 
   // ===============================
-  // IMPROVED EPISODE MANAGEMENT METHODS
+  // IMPROVED EPISODE MANAGEMENT METHODS - UPDATED WITH TS SUPPORT
   // ===============================
   
   Future<void> _addSingleEpisode() async {
@@ -1073,17 +1073,19 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
         limit: remainingSlots,
       );
 
-      // Filter and process video files
+      // Filter and process video files - Updated to include TS format
       final List<File> validVideoFiles = [];
       final List<String> skippedFiles = [];
       
       for (final file in pickedFiles) {
-        // Check if it's a video file
+        // Check if it's a video file - Added TS support
         final fileName = file.path.toLowerCase();
         if (fileName.endsWith('.mp4') || 
             fileName.endsWith('.mov') || 
             fileName.endsWith('.avi') || 
             fileName.endsWith('.mkv') ||
+            fileName.endsWith('.ts') ||    // Added TS support
+            fileName.endsWith('.webm') ||
             file.mimeType?.startsWith('video/') == true) {
           
           final videoFile = File(file.path);
@@ -1098,7 +1100,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
             skippedFiles.add('${file.name} (${fileSizeInMB.toStringAsFixed(1)}MB - too large)');
           }
         } else {
-          skippedFiles.add('${file.name} (not a video file)');
+          skippedFiles.add('${file.name} (not a supported video file)');
         }
       }
 
@@ -1127,7 +1129,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
           });
         }
       } else {
-        showSnackBar(context, 'No valid video files selected (max 500MB each)');
+        showSnackBar(context, 'No valid video files selected (supported: MP4, MOV, AVI, TS, WEBM - max 500MB each)');
       }
     } catch (e) {
       showSnackBar(context, 'Error selecting videos: $e');

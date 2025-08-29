@@ -1,4 +1,4 @@
-// lib/constants.dart - Updated for Coins-based Micro Dramas App
+// lib/constants.dart - Updated for Coins-based Micro Dramas App with TS support
 class Constants {
   // ===== SCREEN ROUTES =====
   
@@ -219,7 +219,7 @@ class Constants {
   static const int maxDramaDescriptionLength = 500;
   static const int maxEpisodeTitleLength = 100;
   static const int maxFreeEpisodes = 30; // Max free episodes admin can set for premium drama
-  static const List<String> supportedVideoFormats = ['mp4', 'mov', 'avi'];
+  static const List<String> supportedVideoFormats = ['mp4', 'mov', 'avi', 'ts']; // Added TS support
   static const List<String> supportedImageFormats = ['jpg', 'jpeg', 'png', 'webp'];
   
   // Admin coin management
