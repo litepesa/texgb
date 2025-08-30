@@ -1,4 +1,4 @@
-// lib/features/dramas/screens/manage_dramas_screen.dart
+// lib/features/dramas/screens/manage_dramas_screen.dart - ADMIN OWNERSHIP ONLY
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
@@ -22,7 +22,8 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  final List<String> _tabs = ['My Dramas', 'All Dramas', 'Featured', 'Inactive'];
+  // UPDATED: Simplified tabs - only admin's own dramas and status filters
+  final List<String> _tabs = ['My Dramas', 'Active', 'Inactive', 'Featured'];
 
   @override
   void initState() {
@@ -145,7 +146,7 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Manage Dramas',
+                  'Manage My Dramas',
                   style: TextStyle(
                     color: modernTheme.textColor,
                     fontSize: 24,
@@ -153,7 +154,7 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
                   ),
                 ),
                 Text(
-                  'Manage all dramas in the platform',
+                  'Manage the dramas you have created',
                   style: TextStyle(
                     color: modernTheme.textSecondaryColor,
                     fontSize: 14,
@@ -170,31 +171,31 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
             onSelected: (value) {
               switch (value) {
                 case 'refresh':
-                  _refreshAllData();
+                  _refreshData();
                   break;
-                case 'bulk_actions':
-                  _showBulkActionsDialog();
+                case 'help':
+                  _showHelpDialog();
                   break;
               }
             },
             itemBuilder: (context) => [
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'refresh',
                 child: Row(
                   children: [
-                    const Icon(Icons.refresh),
-                    const SizedBox(width: 8),
-                    const Text('Refresh Data'),
+                    Icon(Icons.refresh),
+                    SizedBox(width: 8),
+                    Text('Refresh Data'),
                   ],
                 ),
               ),
-              PopupMenuItem(
-                value: 'bulk_actions',
+              const PopupMenuItem(
+                value: 'help',
                 child: Row(
                   children: [
-                    const Icon(Icons.checklist),
-                    const SizedBox(width: 8),
-                    const Text('Bulk Actions'),
+                    Icon(Icons.help_outline),
+                    SizedBox(width: 8),
+                    Text('Help'),
                   ],
                 ),
               ),
@@ -217,7 +218,7 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
         },
         style: TextStyle(color: modernTheme.textColor),
         decoration: InputDecoration(
-          hintText: 'Search dramas...',
+          hintText: 'Search your dramas...',
           hintStyle: TextStyle(color: modernTheme.textSecondaryColor),
           prefixIcon: Icon(
             Icons.search,
@@ -280,10 +281,10 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
     return TabBarView(
       controller: _tabController,
       children: [
-        _buildMyDramas(),
-        _buildAllDramas(),
-        _buildFeaturedDramas(),
-        _buildInactiveDramas(),
+        _buildMyDramas(), // All dramas created by this admin
+        _buildActiveDramas(), // Active dramas only
+        _buildInactiveDramas(), // Inactive dramas only
+        _buildFeaturedDramas(), // Featured dramas only
       ],
     );
   }
@@ -308,7 +309,7 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
         return RefreshIndicator(
           onRefresh: () => ref.refresh(adminDramasProvider.future),
           color: const Color(0xFFFE2C55),
-          child: _buildDramaGrid(filteredDramas, isOwned: true),
+          child: _buildDramaGrid(filteredDramas),
         );
       },
       loading: () => const Center(
@@ -318,55 +319,26 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
     );
   }
 
-  Widget _buildAllDramas() {
-    final allDramas = ref.watch(allDramasProvider);
+  Widget _buildActiveDramas() {
+    final adminDramas = ref.watch(adminDramasProvider);
     
-    return allDramas.when(
-      data: (dramaState) {
-        final filteredDramas = _filterDramas(dramaState.dramas);
-        
-        if (filteredDramas.isEmpty) {
-          return _buildEmptyState(
-            'No dramas found',
-            _searchQuery.isNotEmpty 
-                ? 'Try adjusting your search query'
-                : 'No dramas available in the platform',
-            Icons.tv_off,
-          );
-        }
-        
-        return RefreshIndicator(
-          onRefresh: () => ref.read(allDramasProvider.notifier).refresh(),
-          color: const Color(0xFFFE2C55),
-          child: _buildDramaGrid(filteredDramas, hasMore: dramaState.hasMore),
-        );
-      },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: Color(0xFFFE2C55)),
-      ),
-      error: (error, stack) => _buildErrorState('Failed to load all dramas', error.toString()),
-    );
-  }
-
-  Widget _buildFeaturedDramas() {
-    final featuredDramas = ref.watch(featuredDramasProvider);
-    
-    return featuredDramas.when(
+    return adminDramas.when(
       data: (dramas) {
-        final filteredDramas = _filterDramas(dramas);
+        final activeDramas = dramas.where((drama) => drama.isActive).toList();
+        final filteredDramas = _filterDramas(activeDramas);
         
         if (filteredDramas.isEmpty) {
           return _buildEmptyState(
-            'No featured dramas',
+            'No active dramas',
             _searchQuery.isNotEmpty 
-                ? 'No featured dramas match your search'
-                : 'No dramas are currently featured',
-            Icons.star_border,
+                ? 'No active dramas match your search'
+                : 'All your dramas are currently inactive',
+            Icons.play_circle_outline,
           );
         }
         
         return RefreshIndicator(
-          onRefresh: () => ref.read(featuredDramasProvider.notifier).refresh(),
+          onRefresh: () => ref.refresh(adminDramasProvider.future),
           color: const Color(0xFFFE2C55),
           child: _buildDramaGrid(filteredDramas),
         );
@@ -374,16 +346,16 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
       loading: () => const Center(
         child: CircularProgressIndicator(color: Color(0xFFFE2C55)),
       ),
-      error: (error, stack) => _buildErrorState('Failed to load featured dramas', error.toString()),
+      error: (error, stack) => _buildErrorState('Failed to load active dramas', error.toString()),
     );
   }
 
   Widget _buildInactiveDramas() {
-    final allDramas = ref.watch(allDramasProvider);
+    final adminDramas = ref.watch(adminDramasProvider);
     
-    return allDramas.when(
-      data: (dramaState) {
-        final inactiveDramas = dramaState.dramas.where((drama) => !drama.isActive).toList();
+    return adminDramas.when(
+      data: (dramas) {
+        final inactiveDramas = dramas.where((drama) => !drama.isActive).toList();
         final filteredDramas = _filterDramas(inactiveDramas);
         
         if (filteredDramas.isEmpty) {
@@ -391,13 +363,13 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
             'No inactive dramas',
             _searchQuery.isNotEmpty 
                 ? 'No inactive dramas match your search'
-                : 'All dramas are currently active',
+                : 'All your dramas are currently active',
             Icons.pause_circle_outline,
           );
         }
         
         return RefreshIndicator(
-          onRefresh: () => ref.read(allDramasProvider.notifier).refresh(),
+          onRefresh: () => ref.refresh(adminDramasProvider.future),
           color: const Color(0xFFFE2C55),
           child: _buildDramaGrid(filteredDramas),
         );
@@ -409,11 +381,38 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
     );
   }
 
-  Widget _buildDramaGrid(
-    List<dynamic> dramas, {
-    bool isOwned = false,
-    bool hasMore = false,
-  }) {
+  Widget _buildFeaturedDramas() {
+    final adminDramas = ref.watch(adminDramasProvider);
+    
+    return adminDramas.when(
+      data: (dramas) {
+        final featuredDramas = dramas.where((drama) => drama.isFeatured).toList();
+        final filteredDramas = _filterDramas(featuredDramas);
+        
+        if (filteredDramas.isEmpty) {
+          return _buildEmptyState(
+            'No featured dramas',
+            _searchQuery.isNotEmpty 
+                ? 'No featured dramas match your search'
+                : 'None of your dramas are currently featured',
+            Icons.star_border,
+          );
+        }
+        
+        return RefreshIndicator(
+          onRefresh: () => ref.refresh(adminDramasProvider.future),
+          color: const Color(0xFFFE2C55),
+          child: _buildDramaGrid(filteredDramas),
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFE2C55)),
+      ),
+      error: (error, stack) => _buildErrorState('Failed to load featured dramas', error.toString()),
+    );
+  }
+
+  Widget _buildDramaGrid(List<dynamic> dramas) {
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -422,19 +421,15 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
         crossAxisSpacing: 12,
         mainAxisSpacing: 16,
       ),
-      itemCount: dramas.length + (hasMore ? 1 : 0),
+      itemCount: dramas.length,
       itemBuilder: (context, index) {
-        if (hasMore && index == dramas.length) {
-          return _buildLoadMoreButton();
-        }
-        
         final drama = dramas[index];
-        return _buildManageableDramaCard(drama, isOwned);
+        return _buildManageableDramaCard(drama);
       },
     );
   }
 
-  Widget _buildManageableDramaCard(dynamic drama, bool isOwned) {
+  Widget _buildManageableDramaCard(dynamic drama) {
     return Stack(
       children: [
         DramaCard(
@@ -450,7 +445,8 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
         Positioned(
           top: 8,
           left: 8,
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Active/Inactive status
               Container(
@@ -470,24 +466,31 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
                   ),
                 ),
               ),
-              if (isOwned) ...[
-                const SizedBox(width: 4),
+              const SizedBox(height: 4),
+              // Featured status (if featured)
+              if (drama.isFeatured)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade600,
+                    color: Colors.amber.shade600,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'Mine',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.star, size: 8, color: Colors.white),
+                      SizedBox(width: 2),
+                      Text(
+                        'Featured',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
             ],
           ),
         ),
@@ -511,28 +514,26 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
             ),
             onSelected: (value) => _handleDramaAction(value, drama),
             itemBuilder: (context) => [
-              if (isOwned) ...[
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.edit, size: 16),
-                      const SizedBox(width: 8),
-                      const Text('Edit'),
-                    ],
-                  ),
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 16),
+                    SizedBox(width: 8),
+                    Text('Edit'),
+                  ],
                 ),
-                PopupMenuItem(
-                  value: 'episodes',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.video_library, size: 16),
-                      const SizedBox(width: 8),
-                      const Text('Episodes'),
-                    ],
-                  ),
+              ),
+              const PopupMenuItem(
+                value: 'episodes',
+                child: Row(
+                  children: [
+                    Icon(Icons.video_library, size: 16),
+                    SizedBox(width: 8),
+                    Text('Episodes'),
+                  ],
                 ),
-              ],
+              ),
               PopupMenuItem(
                 value: 'toggle_featured',
                 child: Row(
@@ -559,46 +560,41 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
                   ],
                 ),
               ),
-              if (isOwned)
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.delete, size: 16, color: Colors.red),
-                      const SizedBox(width: 8),
-                      const Text('Delete', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 16, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Delete', style: TextStyle(color: Colors.red)),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
-      ],
-    );
-  }
 
-  Widget _buildLoadMoreButton() {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      child: ElevatedButton(
-        onPressed: () => ref.read(allDramasProvider.notifier).loadMore(),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFE2C55).withOpacity(0.1),
-          foregroundColor: const Color(0xFFFE2C55),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        // Episode count indicator
+        Positioned(
+          bottom: 8,
+          left: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${drama.totalEpisodes} Episodes',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add),
-            SizedBox(height: 4),
-            Text('Load More'),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
@@ -634,6 +630,18 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
               ),
               textAlign: TextAlign.center,
             ),
+            if (_searchQuery.isEmpty && title == 'No dramas found') ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pushNamed(context, Constants.createDramaScreen),
+                icon: const Icon(Icons.add),
+                label: const Text('Create Your First Drama'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFE2C55),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -674,7 +682,7 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _refreshAllData,
+              onPressed: _refreshData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFE2C55),
               ),
@@ -757,28 +765,53 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
     );
   }
 
-  void _showBulkActionsDialog() {
+  void _showHelpDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Bulk Actions'),
-        content: const Text(
-          'Bulk actions for multiple dramas will be implemented in a future update.',
+        title: const Text('Drama Management Help'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Manage Your Dramas',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            SizedBox(height: 8),
+            Text('• You can only see and manage dramas you have created'),
+            Text('• Use tabs to filter by status (Active, Inactive, Featured)'),
+            Text('• Search to find specific dramas quickly'),
+            SizedBox(height: 12),
+            Text(
+              'Drama Actions',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            SizedBox(height: 8),
+            Text('• Edit: Modify drama details and episodes'),
+            Text('• Episodes: Manage episode videos'),
+            Text('• Feature/Unfeature: Control visibility on homepage'),
+            Text('• Activate/Deactivate: Control public availability'),
+            Text('• Delete: Permanently remove drama'),
+            SizedBox(height: 12),
+            Text(
+              'Note: Only platform administrators can create and manage dramas.',
+              style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: const Text('Got it'),
           ),
         ],
       ),
     );
   }
 
-  void _refreshAllData() {
+  void _refreshData() {
     ref.invalidate(adminDramasProvider);
-    ref.invalidate(allDramasProvider);
-    ref.invalidate(featuredDramasProvider);
     showSnackBar(context, 'Data refreshed');
   }
 }
