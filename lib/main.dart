@@ -1,28 +1,45 @@
-// lib/main.dart (Updated with missing routes)
+//main.dart
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Authentication screens
 import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
-import 'package:textgb/constants.dart';
-import 'package:textgb/features/authentication/screens/profile_setup_screen.dart';
-import 'package:textgb/features/users/screens/edit_profile_screen.dart';
-import 'package:textgb/features/users/screens/my_profile_screen.dart';
-import 'package:textgb/features/users/screens/users_list_screen.dart';
-import 'package:textgb/features/users/models/user_model.dart';
-import 'package:textgb/features/users/screens/user_profile_screen.dart';
-import 'package:textgb/features/videos/screens/single_video_screen.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
-import 'package:textgb/features/videos/screens/create_post_screen.dart';
-import 'package:textgb/features/videos/screens/my_post_screen.dart'; // Add this import
+import 'package:textgb/features/authentication/screens/user_information_screen.dart';
+import 'package:textgb/features/dramas/screens/episode_feed_screen.dart';
+
+
+// Profile screens
+import 'package:textgb/features/profile/screens/my_profile_screen.dart';
+
+// Wallet screens
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+
+// Drama screens
+import 'package:textgb/features/dramas/screens/discover_screen.dart';
+import 'package:textgb/features/dramas/screens/drama_details_screen.dart';
+import 'package:textgb/features/dramas/screens/admin_dashboard_screen.dart';
+import 'package:textgb/features/dramas/screens/create_drama_screen.dart';
+import 'package:textgb/features/dramas/screens/manage_dramas_screen.dart';
+import 'package:textgb/features/dramas/screens/edit_drama_screen.dart';
+
+
+// Models
+
+// Constants and utilities
+import 'package:textgb/constants.dart';
 import 'package:textgb/firebase_options.dart';
 import 'package:textgb/main_screen/home_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:textgb/shared/theme/theme_manager.dart';
 import 'package:textgb/shared/theme/system_ui_updater.dart';
+
+// Enums
+
+// Firebase
+import 'package:firebase_auth/firebase_auth.dart';
 
 // Create a route observer to monitor route changes
 final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -81,42 +98,11 @@ class AppRoot extends ConsumerWidget {
     return themeState.when(
       loading: () => MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(
+        home: const Scaffold(
           extendBodyBehindAppBar: true,
           extendBody: true,
-          body: Padding(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top,
-              bottom: MediaQuery.of(context).padding.bottom
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // App logo or branding
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFE2C55),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '微宝 WeiBao',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  CircularProgressIndicator(
-                    color: const Color(0xFFFE2C55),
-                  ),
-                ],
-              ),
-            ),
+          body: Center(
+            child: CircularProgressIndicator(),
           ),
         ),
       ),
@@ -134,84 +120,45 @@ class AppRoot extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         title: 'WeiBao',
         theme: themeData.activeTheme,
-        // Start directly with HomeScreen - no authentication required
-        home: const HomeScreen(),
+        // Start with a safe screen that handles navigation
+        home: const SafeStartScreen(),
         // Define all your routes
         routes: {
           // Authentication routes
           Constants.landingScreen: (context) => const LandingScreen(),
           Constants.loginScreen: (context) => const LoginScreen(),
           Constants.otpScreen: (context) => const OtpScreen(),
+          Constants.userInformationScreen: (context) => const UserInformationScreen(),
           
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
+          Constants.discoverScreen: (context) => const DiscoverScreen(),
+          Constants.searchScreen: (context) => const DiscoverScreen(), // Using DiscoverScreen for search functionality
+          Constants.profileScreen: (context) => const MyProfileScreen(),
+          Constants.settingsScreen: (context) => const MyProfileScreen(), // Placeholder - create settings screen if needed
           
-          // User/Profile routes with enhanced navigation support
-          Constants.createProfileScreen: (context) => const ProfileSetupScreen(),
-          Constants.videosFeedScreen: (context) {
-            final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-            return VideosFeedScreen(
-              startVideoId: args?[Constants.startVideoId] as String?,
-              userId: args?[Constants.userId] as String?,
-            );
-          },
-          Constants.myProfileScreen: (context) => const MyProfileScreen(),
-          Constants.createPostScreen: (context) => const CreatePostScreen(),
-          Constants.singleVideoScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments;
-            if (args is String) {
-              // Single video ID argument
-              return SingleVideoScreen(videoId: args);
-            } else if (args is Map<String, dynamic>) {
-              // Map with startVideoId and optional userId
-              return SingleVideoScreen(
-                videoId: args[Constants.startVideoId] as String,
-                userId: args[Constants.userId] as String?,
-              );
-            }
-            throw ArgumentError('Invalid arguments for SingleVideoScreen');
-          },
+          // Drama routes
+          Constants.favoritesScreen: (context) => const DiscoverScreen(), // You can create a specific favorites screen later
+          Constants.continueWatchingScreen: (context) => const DiscoverScreen(), // You can create a specific continue watching screen later
           
-          // Add the missing post detail/my post routes
-          Constants.postDetailScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-            final videoId = args[Constants.videoId] as String;
-            return MyPostScreen(videoId: videoId);
-          },
+          // Admin routes (hidden for normal users, shown only when userType == admin)
+          Constants.adminDashboardScreen: (context) => const AdminDashboardScreen(),
+          Constants.createDramaScreen: (context) => const CreateDramaScreen(),
+          Constants.manageDramasScreen: (context) => const ManageDramasScreen(),
           
-          Constants.myPostScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments;
-            if (args is String) {
-              // Direct video ID
-              return MyPostScreen(videoId: args);
-            } else if (args is Map<String, dynamic>) {
-              // Map with video ID
-              final videoId = args[Constants.videoId] as String;
-              return MyPostScreen(videoId: videoId);
-            }
-            throw ArgumentError('Invalid arguments for MyPostScreen');
-          },
-          
-          Constants.userProfileScreen: (context) {
-            final userId = ModalRoute.of(context)!.settings.arguments as String;
-            return UserProfileScreen(userId: userId);
-          },
-          Constants.editProfileScreen: (context) {
-            final user = ModalRoute.of(context)!.settings.arguments as UserModel;
-            return EditProfileScreen(user: user);
-          },
-          
-          // Users List Screen
-          Constants.usersListScreen: (context) => const UsersListScreen(),
-          
-          Constants.exploreScreen: (context) => const Scaffold(
-              body: Center(
-                child: Text('Explore Screen - To be implemented'),
-              ),
-            ),
-          
-          // Wallet routes
+          // Premium routes
+          Constants.premiumScreen: (context) => const WalletScreen(), // Using wallet screen for premium features
           Constants.walletScreen: (context) => const WalletScreen(),
+          Constants.topUpScreen: (context) => const WalletScreen(), // You can create specific top-up screen later
+          
+          // Profile routes
+          Constants.myProfileScreen: (context) => const MyProfileScreen(),
+
+          
+          // Support routes (placeholders - create these screens as needed)
+          Constants.aboutScreen: (context) => const _PlaceholderScreen(title: 'About'),
+          Constants.privacyPolicyScreen: (context) => const _PlaceholderScreen(title: 'Privacy Policy'),
+          Constants.termsAndConditionsScreen: (context) => const _PlaceholderScreen(title: 'Terms and Conditions'),
         },
         navigatorObservers: [routeObserver],
         onUnknownRoute: (settings) {
@@ -230,46 +177,70 @@ class AppRoot extends ConsumerWidget {
           );
         },
         onGenerateRoute: (settings) {
-          // Handle dynamic routes that need custom logic
+          // Handle dynamic routes that need custom logic and parameters
           switch (settings.name) {
-            case '/user-profile':
-              // Handle user profile route
-              final userId = settings.arguments as String?;
-              if (userId != null) {
-                return MaterialPageRoute(
-                  builder: (context) => UserProfileScreen(userId: userId),
-                  settings: settings,
-                );
-              }
-              break;
-            case '/video-feed':
-              // Handle video feed route with flexible arguments
+            case Constants.dramaDetailsScreen:
               final args = settings.arguments as Map<String, dynamic>?;
-              return MaterialPageRoute(
-                builder: (context) => VideosFeedScreen(
-                  startVideoId: args?[Constants.startVideoId] as String?,
-                  userId: args?[Constants.userId] as String?,
-                ),
-                settings: settings,
-              );
-            case '/my-post':
-              // Handle my post route dynamically
-              final args = settings.arguments;
-              if (args is String) {
+              if (args != null && args.containsKey('dramaId')) {
                 return MaterialPageRoute(
-                  builder: (context) => MyPostScreen(videoId: args),
+                  builder: (context) => DramaDetailsScreen(
+                    dramaId: args['dramaId'] as String,
+                  ),
                   settings: settings,
                 );
-              } else if (args is Map<String, dynamic>) {
-                final videoId = args[Constants.videoId] as String?;
-                if (videoId != null) {
-                  return MaterialPageRoute(
-                    builder: (context) => MyPostScreen(videoId: videoId),
-                    settings: settings,
-                  );
-                }
               }
               break;
+              
+            case Constants.editDramaScreen:
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('dramaId')) {
+                return MaterialPageRoute(
+                  builder: (context) => EditDramaScreen(
+                    dramaId: args['dramaId'] as String,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+              
+            /*case Constants.addEpisodeScreen:
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('dramaId')) {
+                return MaterialPageRoute(
+                  builder: (context) => AddEpisodesScreen(
+                    dramaId: args['dramaId'] as String,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+              
+            case Constants.episodePlayerScreen:
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('dramaId') && args.containsKey('episodeId')) {
+                return MaterialPageRoute(
+                 builder: (context) => EpisodePlayerScreen(
+                    dramaId: args['dramaId'] as String,
+                    episodeId: args['episodeId'] as String,
+                  ),
+                  settings: settings,
+                );
+             }
+              break;*/
+
+            // Add the new episode feed route
+    case Constants.episodeFeedScreen:
+      final args = settings.arguments as Map<String, dynamic>?;
+      if (args != null && args.containsKey('dramaId')) {
+        return MaterialPageRoute(
+          builder: (context) => EpisodeFeedScreen(
+            dramaId: args['dramaId'] as String,
+            initialEpisodeId: args['initialEpisodeId'] as String?,
+          ),
+          settings: settings,
+        );
+      }
+      break;  
           }
           
           // Return null to let the default route handling take over
@@ -280,165 +251,241 @@ class AppRoot extends ConsumerWidget {
   }
 }
 
-// Helper class for navigation utilities (updated for TikTok-style system)
-class UserNavigationHelper {
-  // Navigate to user profile
-  static void navigateToUserProfile(
-    BuildContext context, {
-    required String userId,
-  }) {
-    Navigator.pushNamed(
-      context,
-      Constants.userProfileScreen,
-      arguments: userId,
+// Placeholder screen for routes that don't have dedicated screens yet
+class _PlaceholderScreen extends StatelessWidget {
+  final String title;
+  
+  const _PlaceholderScreen({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        title: Text(title),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Padding(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + kToolbarHeight,
+          bottom: MediaQuery.of(context).padding.bottom,
+          left: 24.0,
+          right: 24.0,
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.construction,
+                size: 64,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '$title Screen',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This screen is under construction and will be available in a future update.',
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Go Back'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
+}
 
-  // Navigate to videos feed
-  static void navigateToVideosFeed(
-    BuildContext context, {
-    String? startVideoId,
-    String? userId,
-  }) {
-    Navigator.pushNamed(
-      context,
-      Constants.videosFeedScreen,
-      arguments: {
-        Constants.startVideoId: startVideoId,
-        Constants.userId: userId,
-      },
-    );
+// A safe starting screen that handles navigation properly
+class SafeStartScreen extends StatefulWidget {
+  const SafeStartScreen({super.key});
+
+  @override
+  State<SafeStartScreen> createState() => _SafeStartScreenState();
+}
+
+class _SafeStartScreenState extends State<SafeStartScreen> {
+  bool _hasError = false;
+  String _errorMessage = '';
+  
+  @override
+  void initState() {
+    super.initState();
+    // Schedule navigation after the first frame renders
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _navigateToStartScreen();
+    });
   }
-
-  // Navigate to single video
-  static void navigateToSingleVideo(
-    BuildContext context, {
-    required String videoId,
-    String? userId,
-  }) {
-    Navigator.pushNamed(
-      context,
-      Constants.singleVideoScreen,
-      arguments: {
-        Constants.startVideoId: videoId,
-        Constants.userId: userId,
-      },
-    );
-  }
-
-  // Navigate to create post (requires authentication)
-  static void navigateToCreatePost(BuildContext context) {
-    Navigator.pushNamed(context, Constants.createPostScreen);
-  }
-
-  // Navigate to my profile (requires authentication)
-  static void navigateToMyProfile(BuildContext context) {
-    Navigator.pushNamed(context, Constants.myProfileScreen);
-  }
-
-  // Navigate to edit profile (requires authentication)
-  static void navigateToEditProfile(
-    BuildContext context, {
-    required UserModel user,
-  }) {
-    Navigator.pushNamed(
-      context,
-      Constants.editProfileScreen,
-      arguments: user,
-    );
-  }
-
-  // Navigate to users list
-  static void navigateToUsersList(BuildContext context) {
-    Navigator.pushNamed(context, Constants.usersListScreen);
-  }
-
-  // Navigate to post detail - UPDATED
-  static void navigateToPostDetail(
-    BuildContext context, {
-    required String videoId,
-    dynamic videoModel,
-  }) {
-    Navigator.pushNamed(
-      context,
-      Constants.postDetailScreen,
-      arguments: {
-        Constants.videoId: videoId,
-        Constants.videoModel: videoModel,
-      },
-    );
-  }
-
-  // Navigate to my post - NEW METHOD
-  static void navigateToMyPost(
-    BuildContext context, {
-    required String videoId,
-  }) {
-    Navigator.pushNamed(
-      context,
-      Constants.myPostScreen,
-      arguments: videoId,
-    );
-  }
-
-  // Navigate to explore screen
-  static void navigateToExplore(BuildContext context) {
-    Navigator.pushNamed(context, Constants.exploreScreen);
-  }
-
-  // Navigate to recommended posts
-  static void navigateToRecommendedPosts(BuildContext context) {
-    Navigator.pushNamed(context, Constants.recommendedPostsScreen);
-  }
-
-  // Helper method to check if user needs to authenticate for an action
-  static bool requiresAuthentication(BuildContext context) {
-    // You can add your authentication check logic here
-    // For now, we'll assume Firebase Auth
-    return FirebaseAuth.instance.currentUser == null;
-  }
-
-  // Navigate to authentication if required
-  static void navigateToAuthIfRequired(BuildContext context, VoidCallback onAuthenticated) {
-    if (requiresAuthentication(context)) {
-      Navigator.pushNamed(context, Constants.landingScreen).then((_) {
-        // Check if user is now authenticated
-        if (!requiresAuthentication(context)) {
-          onAuthenticated();
+  
+  Future<void> _navigateToStartScreen() async {
+    try {
+      // Add a small delay to ensure the widget tree is fully built
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (!mounted) return;
+      
+      // Try to show the HomeScreen directly
+      // If there are authentication issues, fallback to LandingScreen
+      try {
+        // Check if user is already signed in
+        final currentUser = FirebaseAuth.instance.currentUser;
+        
+        if (currentUser != null) {
+          // User is signed in, navigate to HomeScreen
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, Constants.homeScreen);
+          }
+        } else {
+          // User is not signed in, navigate to LandingScreen
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, Constants.landingScreen);
+          }
         }
-      });
-    } else {
-      onAuthenticated();
+      } catch (e) {
+        // If there's an authentication error, go to LandingScreen
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, Constants.landingScreen);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Error initializing app: ${e.toString()}';
+        });
+      }
     }
   }
 
-  // Navigate to wallet
-  static void navigateToWallet(BuildContext context) {
-    Navigator.pushNamed(context, Constants.walletScreen);
+  @override
+  Widget build(BuildContext context) {
+    // Get the theme's colors for safe display
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final backgroundColor = theme.scaffoldBackgroundColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.white;
+    
+    return Scaffold(
+      // Important for edge-to-edge UI
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      backgroundColor: backgroundColor,
+      body: _hasError 
+        ? _buildErrorScreen(textColor)
+        : _buildLoadingScreen(primaryColor, backgroundColor, textColor),
+    );
   }
-
-  // Navigate to profile setup
-  static void navigateToProfileSetup(BuildContext context) {
-    Navigator.pushNamed(context, Constants.createProfileScreen);
+  
+  Widget _buildErrorScreen(Color textColor) {
+    return Padding(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top,
+        bottom: MediaQuery.of(context).padding.bottom, 
+        left: 24.0, 
+        right: 24.0
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Something went wrong',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _hasError = false;
+                  _errorMessage = '';
+                });
+                _navigateToStartScreen();
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-
-  // Navigate back with result
-  static void navigateBack(BuildContext context, [dynamic result]) {
-    Navigator.of(context).pop(result);
-  }
-
-  // Replace current route
-  static void navigateAndReplace(BuildContext context, String routeName, {Object? arguments}) {
-    Navigator.pushReplacementNamed(context, routeName, arguments: arguments);
-  }
-
-  // Clear stack and navigate to route
-  static void navigateAndClearStack(BuildContext context, String routeName, {Object? arguments}) {
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      routeName,
-      (route) => false,
-      arguments: arguments,
+  
+  Widget _buildLoadingScreen(Color primaryColor, Color backgroundColor, Color textColor) {
+    return Padding(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top,
+        bottom: MediaQuery.of(context).padding.bottom
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // App logo or branding
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFE2C55),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '微宝 WeiBao',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            CircularProgressIndicator(
+              color: const Color(0xFFFE2C55),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Loading...',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

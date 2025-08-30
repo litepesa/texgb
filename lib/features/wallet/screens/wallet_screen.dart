@@ -279,7 +279,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               child: Column(
                 children: [
                   ...transactions.take(5).map((transaction) => 
-                    _buildTransactionItem(transaction, modernTheme)).toList(),
+                    _buildTransactionItem(transaction, modernTheme)),
                   if (transactions.length > 5)
                     InkWell(
                       onTap: () => _showTransactionHistory(context, transactions, modernTheme),
@@ -386,8 +386,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '• Use coins to unlock premium drama episodes\n'
-                  '• 1 coin = 1 episode unlock (cost varies by drama)\n'
+                  '• Use coins to unlock premium episodes\n'
                   '• Some coin purchases are processed manually by admin\n'
                   '• Balance updates within 10 minutes after payment\n'
                   '• Choose from 3 coin packages: 99, 495, or 990 coins',

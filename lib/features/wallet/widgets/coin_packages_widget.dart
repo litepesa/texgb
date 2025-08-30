@@ -2,11 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
 
 class CoinPackagesWidget extends ConsumerWidget {
-  const CoinPackagesWidget({Key? key}) : super(key: key);
+  const CoinPackagesWidget({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -139,7 +139,7 @@ class CoinPackagesWidget extends ConsumerWidget {
                         
                         // Display all coin packages
                         ...CoinPackages.available.map((package) => 
-                          _buildCoinPackageCard(context, package)).toList(),
+                          _buildCoinPackageCard(context, package)),
                         
                         const SizedBox(height: 24),
 

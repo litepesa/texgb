@@ -20,7 +20,6 @@ ThemeData modernLightTheme() {
   const tertiaryText = Color(0xFF8E8E8E);  // Medium gray tertiary text
   
   return base.copyWith(
-    useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
       seedColor: primaryGreen,
       brightness: Brightness.light,
@@ -259,20 +258,20 @@ ThemeData modernLightTheme() {
     
     // Switch Theme
     switchTheme: SwitchThemeData(
-      thumbColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return primaryGreen;
         }
         return Colors.white;
       }),
-      trackColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return primaryGreen.withOpacity(0.3);
         }
         return Colors.grey.withOpacity(0.3);
       }),
-      trackOutlineColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return Colors.transparent;
         }
         return Colors.transparent;
@@ -281,13 +280,13 @@ ThemeData modernLightTheme() {
     
     // Checkbox Theme
     checkboxTheme: CheckboxThemeData(
-      fillColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return primaryGreen;
         }
         return Colors.transparent;
       }),
-      checkColor: MaterialStateProperty.resolveWith((states) {
+      checkColor: WidgetStateProperty.resolveWith((states) {
         return Colors.white;
       }),
       shape: RoundedRectangleBorder(

@@ -1,13 +1,14 @@
+// lib/shared/utilities/global_methods.dart (Updated for Go Backend)
+import 'dart:convert';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:date_format/date_format.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
+import 'package:textgb/shared/services/http_client.dart';
 
 void showSnackBar(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
@@ -234,33 +235,41 @@ Widget messageToShow({required MessageEnum type, required String message}) {
   }
 }
 
-// Store file to Firebase Storage and return download URL
+// Store file to R2 storage via Go backend and return download URL
 Future<String> storeFileToStorage({
   required File file,
   required String reference,
 }) async {
-  // Create upload task
-  UploadTask uploadTask =
-      FirebaseStorage.instance.ref().child(reference).putFile(file);
+  final httpClient = HttpClientService();
   
-  // Set metadata for videos if needed
-  if (reference.contains('video') || file.path.toLowerCase().endsWith('.mp4')) {
-    uploadTask = FirebaseStorage.instance.ref().child(reference).putFile(
+  try {
+    final response = await httpClient.uploadFile(
+      '/upload',
       file,
-      SettableMetadata(contentType: 'video/mp4'),
+      'file',
+      additionalFields: {
+        'type': _getFileTypeFromReference(reference),
+      },
     );
+
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      return responseData['url'] as String;
+    } else {
+      throw Exception('Failed to upload file: ${response.body}');
+    }
+  } catch (e) {
+    throw Exception('Failed to upload file: $e');
   }
-  
-  // Monitor upload progress - could be connected to a progress indicator
-  uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-    final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-    debugPrint('Upload progress: ${(progress * 100).toStringAsFixed(2)}%');
-  });
-  
-  // Wait for upload to complete
-  TaskSnapshot taskSnapshot = await uploadTask;
-  String fileUrl = await taskSnapshot.ref.getDownloadURL();
-  return fileUrl;
+}
+
+// Helper method to determine file type from reference
+String _getFileTypeFromReference(String reference) {
+  if (reference.contains('profile') || reference.contains('userImages')) return 'profile';
+  if (reference.contains('banner')) return 'banner';
+  if (reference.contains('thumbnail')) return 'thumbnail';
+  if (reference.contains('video')) return 'video';
+  return 'profile'; // Default to profile
 }
 
 // Format file size for display

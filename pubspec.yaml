@@ -21,32 +21,37 @@ dependencies:
   image_picker: ^1.1.2
   adaptive_theme: ^3.7.0
   country_picker: ^2.0.27
+  firebase_storage: ^12.4.5
   firebase_auth: ^5.5.2
-  firebase_core: ^3.13.0
+  firebase_core: ^3.15.2
   shared_preferences: ^2.5.3
   flutter_riverpod: ^2.6.1
   uuid: ^4.5.1
+  cloud_firestore: ^5.6.6
   image_cropper: ^9.1.0
   pinput: ^5.0.1
   lottie: ^3.3.1
   google_fonts: ^6.2.1
-  permission_handler: ^12.0.1
+  permission_handler: ^12.0.0+1
   cached_network_image: ^3.4.1
   timeago: ^3.7.0
   flutter_sound_record: ^3.3.2
   path_provider: ^2.1.5
   emoji_picker_flutter: ^4.3.0
+  audioplayers: ^6.4.0
   animate_do: ^3.3.9
   date_format: ^2.0.9
+  grouped_list: ^6.0.0
+  swipe_to: ^1.0.6
+  chewie: ^1.11.1
   video_player: ^2.9.5
   get: ^4.6.1
   git: ^2.3.1
   github: ^9.24.0
-  flutter_colorpicker: ^1.1.0
   file_picker: ^10.1.2
   photo_view: ^0.15.0
   crypto: ^3.0.6
-  http: ^1.5.0
+  http: ^1.3.0
   intl: ^0.19.0
   photo_manager: ^3.6.4
   url_launcher: ^6.3.1
@@ -60,6 +65,7 @@ dependencies:
   html: ^0.15.4                 # Parse HTML for link previews
   image_size_getter: ^2.1.2     # Get image dimensions
   visibility_detector: ^0.4.0+2 # Detect when widgets are visible on screen
+  collection: ^1.18.0           # Utility for collections
   flutter_staggered_grid_view: ^0.7.0 # For media grid layout
   provider: ^6.1.5
   riverpod_generator: ^2.6.5
@@ -67,18 +73,16 @@ dependencies:
   flutter_local_notifications: ^19.2.0
   encrypt: ^5.0.3
   carousel_slider: ^5.0.0
-  connectivity_plus: ^6.1.4
   sqflite: ^2.4.1
   wakelock_plus: ^1.3.2
   confetti: ^0.8.0
   flutter_cache_manager: ^3.4.1
   camera: ^0.11.1
-  dio: ^5.9.0
+  dio: ^5.8.0+1
   device_info_plus: ^11.3.0
   video_thumbnail: ^0.5.6
   image: ^4.5.4
   gal: ^2.3.1
-
 
 
 

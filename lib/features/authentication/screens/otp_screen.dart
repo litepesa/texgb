@@ -1,4 +1,3 @@
-// lib/features/authentication/screens/otp_screen.dart
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,8 +6,6 @@ import 'package:pinput/pinput.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
-import 'package:textgb/features/authentication/repositories/authentication_repository.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
@@ -121,6 +118,7 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
     required String otpCode,
   }) async {
     final authNotifier = ref.read(authenticationProvider.notifier);
+    
     authNotifier.verifyOTPCode(
       verificationId: verificationId,
       otpCode: otpCode,
@@ -129,25 +127,30 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
         if (!mounted) return;
         
         try {
-          // Get the current user and repository
-          final repository = ref.read(authenticationRepositoryProvider);
-          final currentUserId = repository.currentUserId;
+          // Check if user exists in Go backend
+          final userExists = await authNotifier.checkUserExists();
           
-          if (currentUserId != null) {
-            // Check if user already has a profile
-            final userExists = await repository.checkUserExists(currentUserId);
-            _navigate(hasProfile: userExists);
-          } else {
-            // Something went wrong with authentication
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Authentication error. Please try again.'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
+          bool hasCompleteProfile = false;
+          
+          if (userExists) {
+            // Get user data from backend
+            final userData = await authNotifier.getUserDataFromBackend();
+            
+            // Check if user has complete profile
+            if (userData != null && 
+                userData.name.isNotEmpty && 
+                userData.name.trim().isNotEmpty) {
+              // User has complete profile, save to shared preferences
+              await authNotifier.saveUserDataToSharedPreferences();
+              hasCompleteProfile = true;
             }
           }
+          
+          // Navigate based on profile completeness
+          // If user has complete profile -> go to home
+          // If user doesn't have complete profile -> go to user info
+          _navigate(hasCompleteProfile: hasCompleteProfile);
+          
         } catch (e) {
           debugPrint('Error during OTP verification: $e');
           if (mounted) {
@@ -163,10 +166,10 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
     );
   }
 
-  void _navigate({required bool hasProfile}) {
+  void _navigate({required bool hasCompleteProfile}) {
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(
-      hasProfile ? Constants.homeScreen : Constants.createProfileScreen,
+      hasCompleteProfile ? Constants.homeScreen : Constants.userInformationScreen,
       (route) => false,
     );
   }
@@ -234,12 +237,18 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
                   // Using Consumer for localized rebuilds
                   Consumer(
                     builder: (context, ref, _) {
-                      final isLoading = ref.watch(isAuthLoadingProvider);
-                      final isAuthenticated = ref.watch(isAuthenticatedProvider);
-                      
+                      final authState = ref.watch(authenticationProvider);
+                      final isLoading = authState.maybeWhen(
+                        data: (data) => data.isLoading,
+                        orElse: () => false,
+                      );
+                      final isSuccessful = authState.maybeWhen(
+                        data: (data) => data.isSuccessful,
+                        orElse: () => false,
+                      );
                       return _VerificationStatusIndicator(
                         isLoading: isLoading,
-                        isSuccessful: isAuthenticated,
+                        isSuccessful: isSuccessful,
                       );
                     },
                   ),
@@ -430,8 +439,7 @@ class _VerificationStatusIndicator extends StatelessWidget {
   const _VerificationStatusIndicator({
     required this.isLoading,
     required this.isSuccessful,
-    Key? key,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -471,8 +479,7 @@ class _ResendCodeWidget extends StatelessWidget {
     required this.resendEnabled,
     required this.resendTimer,
     required this.onResend,
-    Key? key,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
