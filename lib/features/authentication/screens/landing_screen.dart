@@ -1,8 +1,10 @@
+// lib/features/authentication/screens/landing_screen.dart
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/utilities/assets_manager.dart';
 
 // State provider for loading state
@@ -33,7 +35,15 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
       final isAuthenticated = await authNotifier.checkAuthenticationState();
 
       if (isAuthenticated && mounted) {
-        Navigator.pushReplacementNamed(context, Constants.homeScreen);
+        // Check if user has profile
+        final userProfile = await authNotifier.getUserProfile();
+        if (userProfile != null) {
+          // User is fully authenticated with profile
+          Navigator.pushReplacementNamed(context, Constants.homeScreen);
+        } else {
+          // User is authenticated but needs to create profile
+          Navigator.pushReplacementNamed(context, Constants.createProfileScreen);
+        }
       }
     } catch (e) {
       debugPrint('Authentication check error: $e');

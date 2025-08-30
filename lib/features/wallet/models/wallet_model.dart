@@ -69,7 +69,7 @@ class WalletModel {
   final String userId;
   final String userPhoneNumber;
   final String userName;
-  final int coinsBalance;
+  final int coinsBalance; // Changed from double balance to int coinsBalance
   final String lastUpdated;
   final String createdAt;
   final List<WalletTransaction> transactions;
@@ -87,14 +87,13 @@ class WalletModel {
 
   factory WalletModel.fromMap(Map<String, dynamic> map) {
     return WalletModel(
-      walletId: map['walletId']?.toString() ?? map['wallet_id']?.toString() ?? '',
-      userId: map['userId']?.toString() ?? map['user_id']?.toString() ?? '',
-      userPhoneNumber: map['userPhoneNumber']?.toString() ?? map['user_phone_number']?.toString() ?? '',
-      userName: map['userName']?.toString() ?? map['user_name']?.toString() ?? '',
-      // FIXED: Handle both camelCase and snake_case from backend
-      coinsBalance: (map['coinsBalance'] ?? map['coins_balance'] ?? 0).toInt(),
-      lastUpdated: map['lastUpdated']?.toString() ?? map['updated_at']?.toString() ?? '',
-      createdAt: map['createdAt']?.toString() ?? map['created_at']?.toString() ?? '',
+      walletId: map['walletId']?.toString() ?? '',
+      userId: map['userId']?.toString() ?? '',
+      userPhoneNumber: map['userPhoneNumber']?.toString() ?? '',
+      userName: map['userName']?.toString() ?? '',
+      coinsBalance: (map['coinsBalance'] ?? 0).toInt(), // Changed from balance to coinsBalance
+      lastUpdated: map['lastUpdated']?.toString() ?? '',
+      createdAt: map['createdAt']?.toString() ?? '',
       transactions: (map['transactions'] as List?)
           ?.map((t) => WalletTransaction.fromMap(t as Map<String, dynamic>))
           .toList() ?? [],
@@ -107,7 +106,7 @@ class WalletModel {
       'userId': userId,
       'userPhoneNumber': userPhoneNumber,
       'userName': userName,
-      'coinsBalance': coinsBalance,
+      'coinsBalance': coinsBalance, // Changed from balance to coinsBalance
       'lastUpdated': lastUpdated,
       'createdAt': createdAt,
       'transactions': transactions.map((t) => t.toMap()).toList(),
@@ -119,7 +118,7 @@ class WalletModel {
     String? userId,
     String? userPhoneNumber,
     String? userName,
-    int? coinsBalance,
+    int? coinsBalance, // Changed from double? balance
     String? lastUpdated,
     String? createdAt,
     List<WalletTransaction>? transactions,
@@ -137,11 +136,11 @@ class WalletModel {
   }
 
   // Helper methods
-  String get formattedBalance => '$coinsBalance Coins';
+  String get formattedBalance => '$coinsBalance Coins'; // Updated formatting
   
   bool get hasBalance => coinsBalance > 0;
   
-  bool canAfford(int coinAmount) => coinsBalance >= coinAmount;
+  bool canAfford(int coinAmount) => coinsBalance >= coinAmount; // Changed from double to int
 
   // Get equivalent KES value (approximate, based on starter pack rate)
   double get equivalentKESValue => coinsBalance * (100.0 / 99.0);
@@ -168,10 +167,10 @@ class WalletTransaction {
   final String userId;
   final String userPhoneNumber;
   final String userName;
-  final String type; // 'coin_purchase', 'episode_unlock', 'admin_credit', 'drama_unlock'
-  final int coinAmount;
-  final int balanceBefore;
-  final int balanceAfter;
+  final String type; // 'coin_purchase', 'episode_unlock', 'admin_credit'
+  final int coinAmount; // Changed from double amount to int coinAmount
+  final int balanceBefore; // Changed to int
+  final int balanceAfter; // Changed to int
   final String description;
   final String? referenceId; // For episode unlocks, coin package purchases, etc.
   final String? adminNote; // For admin-added coins
@@ -205,24 +204,23 @@ class WalletTransaction {
 
   factory WalletTransaction.fromMap(Map<String, dynamic> map) {
     return WalletTransaction(
-      transactionId: map['transactionId']?.toString() ?? map['transaction_id']?.toString() ?? '',
-      walletId: map['walletId']?.toString() ?? map['wallet_id']?.toString() ?? '',
-      userId: map['userId']?.toString() ?? map['user_id']?.toString() ?? '',
-      userPhoneNumber: map['userPhoneNumber']?.toString() ?? map['user_phone_number']?.toString() ?? '',
-      userName: map['userName']?.toString() ?? map['user_name']?.toString() ?? '',
+      transactionId: map['transactionId']?.toString() ?? '',
+      walletId: map['walletId']?.toString() ?? '',
+      userId: map['userId']?.toString() ?? '',
+      userPhoneNumber: map['userPhoneNumber']?.toString() ?? '',
+      userName: map['userName']?.toString() ?? '',
       type: map['type']?.toString() ?? '',
-      // FIXED: Handle both camelCase and snake_case for amounts
-      coinAmount: (map['coinAmount'] ?? map['coin_amount'] ?? 0).toInt(),
-      balanceBefore: (map['balanceBefore'] ?? map['balance_before'] ?? 0).toInt(),
-      balanceAfter: (map['balanceAfter'] ?? map['balance_after'] ?? 0).toInt(),
+      coinAmount: (map['coinAmount'] ?? 0).toInt(), // Changed from amount
+      balanceBefore: (map['balanceBefore'] ?? 0).toInt(),
+      balanceAfter: (map['balanceAfter'] ?? 0).toInt(),
       description: map['description']?.toString() ?? '',
-      referenceId: map['referenceId']?.toString() ?? map['reference_id']?.toString(),
-      adminNote: map['adminNote']?.toString() ?? map['admin_note']?.toString(),
-      paymentMethod: map['paymentMethod']?.toString() ?? map['payment_method']?.toString(),
-      paymentReference: map['paymentReference']?.toString() ?? map['payment_reference']?.toString(),
-      packageId: map['packageId']?.toString() ?? map['package_id']?.toString(),
-      paidAmount: (map['paidAmount'] ?? map['paid_amount'] ?? 0.0).toDouble(),
-      createdAt: map['createdAt']?.toString() ?? map['created_at']?.toString() ?? '',
+      referenceId: map['referenceId']?.toString(),
+      adminNote: map['adminNote']?.toString(),
+      paymentMethod: map['paymentMethod']?.toString(),
+      paymentReference: map['paymentReference']?.toString(),
+      packageId: map['packageId']?.toString(),
+      paidAmount: (map['paidAmount'] ?? 0.0).toDouble(),
+      createdAt: map['createdAt']?.toString() ?? '',
       metadata: Map<String, dynamic>.from(map['metadata'] ?? {}),
     );
   }
@@ -235,7 +233,7 @@ class WalletTransaction {
       'userPhoneNumber': userPhoneNumber,
       'userName': userName,
       'type': type,
-      'coinAmount': coinAmount,
+      'coinAmount': coinAmount, // Changed from amount
       'balanceBefore': balanceBefore,
       'balanceAfter': balanceAfter,
       'description': description,
@@ -257,7 +255,7 @@ class WalletTransaction {
     String? userPhoneNumber,
     String? userName,
     String? type,
-    int? coinAmount,
+    int? coinAmount, // Changed from double? amount
     int? balanceBefore,
     int? balanceAfter,
     String? description,
@@ -295,10 +293,9 @@ class WalletTransaction {
   // Helper methods
   bool get isCoinPurchase => type == 'coin_purchase';
   bool get isEpisodeUnlock => type == 'episode_unlock';
-  bool get isDramaUnlock => type == 'drama_unlock';
   bool get isAdminCredit => type == 'admin_credit';
   bool get isCredit => isCoinPurchase || isAdminCredit;
-  bool get isDebit => isEpisodeUnlock || isDramaUnlock;
+  bool get isDebit => isEpisodeUnlock;
   
   String get formattedAmount {
     final sign = isCredit ? '+' : '-';
@@ -321,8 +318,6 @@ class WalletTransaction {
         return package != null ? '${package.displayName} Purchase' : 'Coin Purchase';
       case 'episode_unlock':
         return 'Episode Unlock';
-      case 'drama_unlock':
-        return 'Drama Unlock';
       case 'admin_credit':
         return 'Admin Credit';
       default:
@@ -337,8 +332,6 @@ class WalletTransaction {
         return 'add_circle_outline';
       case 'episode_unlock':
         return 'play_circle_outline';
-      case 'drama_unlock':
-        return 'lock_open';
       case 'admin_credit':
         return 'admin_panel_settings';
       default:

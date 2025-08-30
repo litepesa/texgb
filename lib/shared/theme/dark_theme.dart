@@ -17,6 +17,7 @@ ThemeData modernDarkTheme() {
   const pureWhite = Colors.white;             // Pure white for text
   
   return base.copyWith(
+    useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
       seedColor: newPrimaryGreen,
       brightness: Brightness.dark,
@@ -219,20 +220,20 @@ ThemeData modernDarkTheme() {
     
     // Switch Theme
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
+      thumbColor: MaterialStateProperty.resolveWith((states) {
+        if (states.contains(MaterialState.selected)) {
           return newPrimaryGreen;
         }
         return Colors.white;
       }),
-      trackColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
+      trackColor: MaterialStateProperty.resolveWith((states) {
+        if (states.contains(MaterialState.selected)) {
           return newPrimaryGreen.withOpacity(0.3);
         }
         return const Color(0xFFBBBBBB).withOpacity(0.3);
       }),
-      trackOutlineColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
+      trackOutlineColor: MaterialStateProperty.resolveWith((states) {
+        if (states.contains(MaterialState.selected)) {
           return Colors.transparent;
         }
         return Colors.transparent;
@@ -241,13 +242,13 @@ ThemeData modernDarkTheme() {
     
     // Checkbox Theme
     checkboxTheme: CheckboxThemeData(
-      fillColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
+      fillColor: MaterialStateProperty.resolveWith((states) {
+        if (states.contains(MaterialState.selected)) {
           return newPrimaryGreen;
         }
         return Colors.transparent;
       }),
-      checkColor: WidgetStateProperty.resolveWith((states) {
+      checkColor: MaterialStateProperty.resolveWith((states) {
         return Colors.white;
       }),
       shape: RoundedRectangleBorder(
