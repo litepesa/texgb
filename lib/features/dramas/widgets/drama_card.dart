@@ -98,6 +98,7 @@ class DramaCard extends ConsumerWidget {
                             top: 12,
                             left: 12,
                             child: Row(
+                              mainAxisSize: MainAxisSize.min, // Fix potential overflow here
                               children: [
                                 if (drama.isPremium) _buildPremiumBadge(modernTheme),
                                 if (drama.isPremium && drama.isFeatured)
@@ -208,86 +209,83 @@ class DramaCard extends ConsumerWidget {
                 ),
               ),
 
-              // Channel-like info section
+              // Channel-like info section - MAIN FIX HERE
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 child: Row(
                   children: [
-                    // Avatar
-                    Stack(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: modernTheme.dividerColor!.withOpacity(0.2),
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: modernTheme.primaryColor!.withOpacity(0.15),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                    // Avatar - Fixed size
+                    Container(
+                      width: 48,
+                      height: 48,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: modernTheme.dividerColor!.withOpacity(0.2),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: modernTheme.primaryColor!.withOpacity(0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: drama.bannerImage.isNotEmpty
-                                ? CachedNetworkImage(
-                                    imageUrl: drama.bannerImage,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (context, url, error) => Container(
-                                      decoration: BoxDecoration(
-                                        color: modernTheme.primaryColor!.withOpacity(0.15),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          drama.title.isNotEmpty
-                                              ? drama.title[0].toUpperCase()
-                                              : "D",
-                                          style: TextStyle(
-                                            color: modernTheme.primaryColor,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : Container(
-                                    decoration: BoxDecoration(
-                                      color: modernTheme.primaryColor!.withOpacity(0.15),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        drama.title.isNotEmpty
-                                            ? drama.title[0].toUpperCase()
-                                            : "D",
-                                        style: TextStyle(
-                                          color: modernTheme.primaryColor,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: drama.bannerImage.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: drama.bannerImage,
+                                fit: BoxFit.cover,
+                                errorWidget: (context, url, error) => Container(
+                                  decoration: BoxDecoration(
+                                    color: modernTheme.primaryColor!.withOpacity(0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      drama.title.isNotEmpty
+                                          ? drama.title[0].toUpperCase()
+                                          : "D",
+                                      style: TextStyle(
+                                        color: modernTheme.primaryColor,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                          ),
-                        ),
-                      ],
+                                ),
+                              )
+                            : Container(
+                                decoration: BoxDecoration(
+                                  color: modernTheme.primaryColor!.withOpacity(0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    drama.title.isNotEmpty
+                                        ? drama.title[0].toUpperCase()
+                                        : "D",
+                                    style: TextStyle(
+                                      color: modernTheme.primaryColor,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      ),
                     ),
 
                     const SizedBox(width: 14),
 
-                    // Drama info
+                    // Drama info - Flexible to prevent overflow
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min, // Prevent unnecessary expansion
                         children: [
                           Text(
                             drama.title,
@@ -298,36 +296,43 @@ class DramaCard extends ConsumerWidget {
                               letterSpacing: -0.2,
                             ),
                             overflow: TextOverflow.ellipsis,
+                            maxLines: 1, // Ensure single line
                           ),
                           const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: modernTheme.surfaceVariantColor!.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: modernTheme.dividerColor!.withOpacity(0.2),
-                                width: 1,
+                          // Flexible container for the badge to prevent overflow
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: modernTheme.surfaceVariantColor!.withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: modernTheme.dividerColor!.withOpacity(0.2),
+                                  width: 1,
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  drama.isPremium ? Icons.workspace_premium : Icons.tv,
-                                  size: 14,
-                                  color: modernTheme.textSecondaryColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  drama.isPremium ? 'Premium Drama' : 'Free Drama',
-                                  style: TextStyle(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min, // Only take necessary space
+                                children: [
+                                  Icon(
+                                    drama.isPremium ? Icons.workspace_premium : Icons.tv,
+                                    size: 14,
                                     color: modernTheme.textSecondaryColor,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 6),
+                                  Flexible( // Allow text to shrink if necessary
+                                    child: Text(
+                                      drama.isPremium ? 'Premium Drama' : 'Free Drama',
+                                      style: TextStyle(
+                                        color: modernTheme.textSecondaryColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],

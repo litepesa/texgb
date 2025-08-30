@@ -9,6 +9,7 @@ import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
+import 'package:textgb/features/dramas/screens/add_episodes_screen.dart';
 import 'package:textgb/features/dramas/screens/episode_feed_screen.dart';
 
 
@@ -203,7 +204,7 @@ class AppRoot extends ConsumerWidget {
               }
               break;
               
-            /*case Constants.addEpisodeScreen:
+            case Constants.addEpisodeScreen:
               final args = settings.arguments as Map<String, dynamic>?;
               if (args != null && args.containsKey('dramaId')) {
                 return MaterialPageRoute(
@@ -215,7 +216,7 @@ class AppRoot extends ConsumerWidget {
               }
               break;
               
-            case Constants.episodePlayerScreen:
+            /*case Constants.episodePlayerScreen:
               final args = settings.arguments as Map<String, dynamic>?;
               if (args != null && args.containsKey('dramaId') && args.containsKey('episodeId')) {
                 return MaterialPageRoute(
