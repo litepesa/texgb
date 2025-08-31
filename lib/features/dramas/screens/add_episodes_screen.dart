@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/dramas/providers/drama_providers.dart';
+import 'package:textgb/features/dramas/providers/episode_management_provider.dart';
 import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -24,10 +25,8 @@ class AddEpisodesScreen extends ConsumerStatefulWidget {
 }
 
 class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
-  File? _newEpisode;
-  bool _isAddingEpisode = false;
+  File? _selectedVideoFile;
   bool _isSelectingVideo = false;
-  double _uploadProgress = 0.0;
   DramaModel? _drama;
 
   @override
@@ -40,7 +39,17 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
         showSnackBar(context, Constants.adminOnly);
         Navigator.of(context).pop();
       }
+      
+      // Clear any previous state
+      ref.read(episodeManagementProvider.notifier).clearState();
     });
+  }
+
+  @override
+  void dispose() {
+    // Clear state when leaving screen
+    ref.read(episodeManagementProvider.notifier).clearState();
+    super.dispose();
   }
 
   @override
@@ -48,6 +57,42 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
     final modernTheme = context.modernTheme;
     final currentUser = ref.watch(currentUserProvider);
     final dramaAsync = ref.watch(dramaProvider(widget.dramaId));
+    
+    // Watch episode management state
+    final episodeState = ref.watch(episodeManagementProvider);
+    final isProcessing = ref.watch(isProcessingEpisodeProvider);
+    final uploadProgress = ref.watch(episodeUploadProgressProvider);
+    final error = ref.watch(episodeManagementErrorProvider);
+    final successMessage = ref.watch(episodeManagementSuccessProvider);
+
+    // Listen for state changes
+    ref.listen<String?>(episodeManagementErrorProvider, (previous, next) {
+      if (next != null && mounted) {
+        showSnackBar(context, next);
+        ref.read(episodeManagementProvider.notifier).clearMessages();
+      }
+    });
+
+    ref.listen<String?>(episodeManagementSuccessProvider, (previous, next) {
+      if (next != null && mounted) {
+        showSnackBar(context, next);
+        ref.read(episodeManagementProvider.notifier).clearMessages();
+        
+        // Clear selected file and navigate back on success
+        if (next.contains('Successfully added')) {
+          setState(() {
+            _selectedVideoFile = null;
+          });
+          
+          // Navigate back after successful addition
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) {
+              Navigator.of(context).pop();
+            }
+          });
+        }
+      }
+    });
 
     if (currentUser == null || !currentUser.isAdmin) {
       return _buildAccessDenied(modernTheme);
@@ -60,17 +105,23 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
         }
 
         _drama = drama;
-        return _buildAddEpisodesScreen(modernTheme, drama);
+        return _buildAddEpisodesScreen(modernTheme, drama, episodeState, isProcessing, uploadProgress);
       },
       loading: () => _buildLoading(modernTheme),
       error: (error, stack) => _buildError(modernTheme, error.toString()),
     );
   }
 
-  Widget _buildAddEpisodesScreen(ModernThemeExtension modernTheme, DramaModel drama) {
+  Widget _buildAddEpisodesScreen(
+    ModernThemeExtension modernTheme, 
+    DramaModel drama, 
+    EpisodeManagementState episodeState,
+    bool isProcessing,
+    double uploadProgress,
+  ) {
     return Scaffold(
       backgroundColor: modernTheme.backgroundColor,
-      appBar: _buildAppBar(modernTheme, drama),
+      appBar: _buildAppBar(modernTheme, drama, isProcessing, uploadProgress),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -80,12 +131,15 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
             const SizedBox(height: 24),
             _buildCurrentEpisodesSection(modernTheme, drama),
             const SizedBox(height: 24),
-            _buildNewEpisodeSection(modernTheme),
+            _buildNewEpisodeSection(modernTheme, episodeState),
             const SizedBox(height: 32),
-            if (_newEpisode != null) _buildAddEpisodeButton(modernTheme),
-            if (_isAddingEpisode) ...[
+            if (_selectedVideoFile != null && !episodeState.hasUploadedVideo) 
+              _buildUploadVideoButton(modernTheme, isProcessing),
+            if (episodeState.hasUploadedVideo && !isProcessing)
+              _buildAddEpisodeButton(modernTheme),
+            if (isProcessing) ...[
               const SizedBox(height: 16),
-              _buildUploadProgress(modernTheme),
+              _buildUploadProgress(modernTheme, episodeState, uploadProgress),
             ],
           ],
         ),
@@ -93,7 +147,7 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
     );
   }
 
-  AppBar _buildAppBar(ModernThemeExtension modernTheme, DramaModel drama) {
+  AppBar _buildAppBar(ModernThemeExtension modernTheme, DramaModel drama, bool isProcessing, double uploadProgress) {
     return AppBar(
       backgroundColor: modernTheme.surfaceColor,
       elevation: 0,
@@ -121,17 +175,17 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
       ),
       leading: IconButton(
         icon: Icon(Icons.arrow_back, color: modernTheme.textColor),
-        onPressed: _isAddingEpisode ? null : () => Navigator.pop(context),
+        onPressed: isProcessing ? null : () => Navigator.pop(context),
       ),
       actions: [
-        if (_isAddingEpisode)
+        if (isProcessing)
           Padding(
             padding: const EdgeInsets.all(16),
             child: SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
-                value: _uploadProgress,
+                value: uploadProgress,
                 color: const Color(0xFFFE2C55),
                 strokeWidth: 2,
               ),
@@ -436,14 +490,17 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
     );
   }
 
-  Widget _buildNewEpisodeSection(ModernThemeExtension modernTheme) {
+  Widget _buildNewEpisodeSection(ModernThemeExtension modernTheme, EpisodeManagementState episodeState) {
+    final hasSelectedFile = _selectedVideoFile != null;
+    final hasUploadedVideo = episodeState.hasUploadedVideo;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: modernTheme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _newEpisode != null 
+          color: (hasSelectedFile || hasUploadedVideo)
               ? const Color(0xFFFE2C55).withOpacity(0.3)
               : modernTheme.textSecondaryColor?.withOpacity(0.2) ?? Colors.grey,
           width: 2,
@@ -455,16 +512,22 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
           Row(
             children: [
               Icon(
-                Icons.add_circle,
-                color: _newEpisode != null 
-                    ? const Color(0xFFFE2C55) 
-                    : modernTheme.textColor,
+                hasUploadedVideo ? Icons.check_circle : Icons.add_circle,
+                color: hasUploadedVideo 
+                    ? Colors.green.shade400
+                    : hasSelectedFile 
+                        ? const Color(0xFFFE2C55) 
+                        : modernTheme.textColor,
                 size: 24,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _newEpisode != null ? 'New Episode Ready' : 'Add New Episode',
+                  hasUploadedVideo 
+                      ? 'Video Uploaded - Ready to Add'
+                      : hasSelectedFile 
+                          ? 'Video Selected'
+                          : 'Add New Episode',
                   style: TextStyle(
                     color: modernTheme.textColor,
                     fontSize: 18,
@@ -472,13 +535,27 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
                   ),
                 ),
               ),
-              if (_newEpisode != null)
+              if (hasSelectedFile && !hasUploadedVideo)
                 TextButton.icon(
-                  onPressed: _clearNewEpisode,
+                  onPressed: episodeState.isProcessing ? null : _clearSelectedVideo,
                   icon: const Icon(Icons.clear, size: 16),
                   label: const Text('Clear'),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.red.shade400,
+                  ),
+                ),
+              if (hasUploadedVideo)
+                TextButton.icon(
+                  onPressed: episodeState.isProcessing ? null : () {
+                    ref.read(episodeManagementProvider.notifier).clearUploadedVideo();
+                    setState(() {
+                      _selectedVideoFile = null;
+                    });
+                  },
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('New Video'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFFE2C55),
                   ),
                 ),
             ],
@@ -486,42 +563,45 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
           
           const SizedBox(height: 16),
           
-          // New episode area
-          if (_newEpisode == null)
+          // Episode area
+          if (!hasSelectedFile && !hasUploadedVideo)
             _buildEmptyNewEpisodeArea(modernTheme)
-          else
-            _buildNewEpisodeItem(modernTheme),
+          else if (hasSelectedFile && !hasUploadedVideo)
+            _buildSelectedVideoItem(modernTheme)
+          else if (hasUploadedVideo)
+            _buildUploadedVideoItem(modernTheme),
           
           const SizedBox(height: 16),
           
-          // Add episode button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isSelectingVideo ? null : _addEpisode,
-              icon: _isSelectingVideo
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.add),
-              label: Text(_isSelectingVideo 
-                  ? 'Selecting Video...' 
-                  : _newEpisode == null 
-                      ? (_drama?.totalEpisodes == 0 ? 'Add First Episode' : 'Add Episode ${(_drama?.totalEpisodes ?? 0) + 1}')
-                      : 'Replace Episode ${(_drama?.totalEpisodes ?? 0) + 1}'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFE2C55),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          // Select video button (only show if no video selected/uploaded)
+          if (!hasSelectedFile && !hasUploadedVideo)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isSelectingVideo ? null : _selectVideo,
+                icon: _isSelectingVideo
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.video_library),
+                label: Text(_isSelectingVideo 
+                    ? 'Selecting Video...' 
+                    : _drama?.totalEpisodes == 0 
+                        ? 'Select First Episode' 
+                        : 'Select Episode ${(_drama?.totalEpisodes ?? 0) + 1}'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFE2C55),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -557,7 +637,7 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Add a video file to extend this drama series\nNew episode will be numbered automatically',
+            'Select a video file to add as the next episode\nNew episode will be numbered automatically',
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
               fontSize: 14,
@@ -569,8 +649,8 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
     );
   }
 
-  Widget _buildNewEpisodeItem(ModernThemeExtension modernTheme) {
-    final file = _newEpisode!;
+  Widget _buildSelectedVideoItem(ModernThemeExtension modernTheme) {
+    final file = _selectedVideoFile!;
     final fileName = file.path.split('/').last;
     final episodeNumber = (_drama?.totalEpisodes ?? 0) + 1;
     
@@ -636,11 +716,11 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade600,
+                    color: Colors.orange.shade600,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
-                    'READY TO ADD',
+                    'READY TO UPLOAD',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -651,22 +731,85 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
               ],
             ),
           ),
-          
-          // Remove button
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _clearNewEpisode,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.red.shade600,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.close,
-                size: 16,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadedVideoItem(ModernThemeExtension modernTheme) {
+    final episodeNumber = (_drama?.totalEpisodes ?? 0) + 1;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceVariantColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.green.shade400.withOpacity(0.5),
+          width: 2,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Episode indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.green.shade600,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'EP $episodeNumber',
+              style: const TextStyle(
                 color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
+            ),
+          ),
+          
+          const SizedBox(width: 16),
+          
+          // Video info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.cloud_done,
+                      color: Colors.green.shade600,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Video Uploaded',
+                      style: TextStyle(
+                        color: modernTheme.textColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade600,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'READY TO ADD TO DRAMA',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -674,12 +817,12 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
     );
   }
 
-  Widget _buildAddEpisodeButton(ModernThemeExtension modernTheme) {
+  Widget _buildUploadVideoButton(ModernThemeExtension modernTheme, bool isProcessing) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: _isAddingEpisode ? null : _addEpisodeToDrama,
-        icon: _isAddingEpisode
+        onPressed: isProcessing ? null : _uploadVideo,
+        icon: isProcessing
             ? const SizedBox(
                 height: 20,
                 width: 20,
@@ -688,11 +831,9 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Icon(Icons.add_to_photos),
+            : const Icon(Icons.cloud_upload),
         label: Text(
-          _isAddingEpisode
-              ? 'Adding Episode...'
-              : 'Add Episode ${(_drama?.totalEpisodes ?? 0) + 1} to Drama',
+          isProcessing ? 'Uploading Video...' : 'Upload Video',
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -707,7 +848,36 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
     );
   }
 
-  Widget _buildUploadProgress(ModernThemeExtension modernTheme) {
+  Widget _buildAddEpisodeButton(ModernThemeExtension modernTheme) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _addEpisodeToDrama,
+        icon: const Icon(Icons.add_to_photos),
+        label: Text(
+          'Add Episode ${(_drama?.totalEpisodes ?? 0) + 1} to Drama',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green.shade600,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadProgress(ModernThemeExtension modernTheme, EpisodeManagementState episodeState, double uploadProgress) {
+    String statusText = 'Processing...';
+    if (episodeState.isUploading) {
+      statusText = 'Uploading video...';
+    } else if (episodeState.isAdding) {
+      statusText = 'Adding episode to drama...';
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -723,16 +893,16 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
             children: [
               const Icon(Icons.cloud_upload, color: Color(0xFFFE2C55), size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'Adding Episode...',
-                style: TextStyle(
+              Text(
+                statusText,
+                style: const TextStyle(
                   color: Color(0xFFFE2C55),
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
               Text(
-                '${(_uploadProgress * 100).toInt()}%',
+                '${(uploadProgress * 100).toInt()}%',
                 style: const TextStyle(
                   color: Color(0xFFFE2C55),
                   fontWeight: FontWeight.bold,
@@ -742,14 +912,16 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            value: _uploadProgress,
+            value: uploadProgress,
             backgroundColor: Colors.grey.withOpacity(0.3),
             valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFE2C55)),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Please keep this screen open while adding the episode.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          Text(
+            episodeState.isUploading 
+                ? 'Please keep this screen open while uploading the video.'
+                : 'Please keep this screen open while adding the episode.',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ],
       ),
@@ -910,7 +1082,7 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
   // EPISODE MANAGEMENT METHODS
   // ===============================
   
-  Future<void> _addEpisode() async {
+  Future<void> _selectVideo() async {
     setState(() => _isSelectingVideo = true);
 
     try {
@@ -927,14 +1099,14 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
         final fileSizeInBytes = await videoFile.length();
         final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
         
-        if (fileSizeInMB <= 500) {
+        if (fileSizeInMB <= 50) { // Use 50MB limit as per the provider
           setState(() {
-            _newEpisode = videoFile;
+            _selectedVideoFile = videoFile;
           });
           
-          showSnackBar(context, 'Episode selected successfully!');
+          showSnackBar(context, 'Video selected successfully!');
         } else {
-          showSnackBar(context, 'Video too large! Maximum size is 500MB (current: ${fileSizeInMB.toStringAsFixed(1)}MB)');
+          showSnackBar(context, 'Video too large! Maximum size is 50MB (current: ${fileSizeInMB.toStringAsFixed(1)}MB)');
         }
       }
     } catch (e) {
@@ -944,25 +1116,29 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
     }
   }
 
-  void _clearNewEpisode() {
+  void _clearSelectedVideo() {
     setState(() {
-      _newEpisode = null;
+      _selectedVideoFile = null;
     });
-    showSnackBar(context, 'Episode cleared');
+    showSnackBar(context, 'Video selection cleared');
+  }
+
+  Future<void> _uploadVideo() async {
+    if (_selectedVideoFile == null) {
+      showSnackBar(context, 'No video selected');
+      return;
+    }
+
+    final success = await ref.read(episodeManagementProvider.notifier)
+        .uploadVideo(_selectedVideoFile!, widget.dramaId);
+    
+    if (!success) {
+      // Error is handled by the listener
+      return;
+    }
   }
 
   Future<void> _addEpisodeToDrama() async {
-    if (_newEpisode == null) {
-      showSnackBar(context, 'No episode to add');
-      return;
-    }
-
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || !currentUser.isAdmin) {
-      showSnackBar(context, Constants.adminOnly);
-      return;
-    }
-
     final drama = _drama;
     if (drama == null) return;
 
@@ -980,7 +1156,7 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
             Text('Current episodes: ${drama.totalEpisodes}'),
             Text('Episode to add: Episode ${drama.totalEpisodes + 1}'),
             const SizedBox(height: 16),
-            const Text('This will upload the video and add it to the drama. Continue?'),
+            const Text('This will add the uploaded video as a new episode. Continue?'),
           ],
         ),
         actions: [
@@ -999,50 +1175,12 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
 
     if (confirmed != true) return;
 
-    setState(() {
-      _isAddingEpisode = true;
-      _uploadProgress = 0.0;
-    });
-
-    try {
-      // Upload the new episode video
-      final repository = ref.read(dramaRepositoryProvider);
-      final episodeNumber = drama.totalEpisodes + 1;
-      final videoUrl = await repository.uploadVideo(
-        _newEpisode!, 
-        'episode_$episodeNumber',
-      );
-      
-      setState(() => _uploadProgress = 1.0);
-
-      // Update drama with new episode
-      final updatedEpisodeVideos = [...drama.episodeVideos, videoUrl];
-      final updatedDrama = drama.copyWith(
-        episodeVideos: updatedEpisodeVideos,
-        updatedAt: DateTime.now().toUtc().toIso8601String(),
-      );
-
-      await repository.updateDrama(updatedDrama);
-
-      if (mounted) {
-        // Refresh drama data
-        ref.invalidate(dramaProvider(widget.dramaId));
-        ref.invalidate(adminDramasProvider);
-        
-        showSnackBar(context, 'Successfully added Episode ${episodeNumber}!');
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Failed to add episode: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAddingEpisode = false;
-          _uploadProgress = 0.0;
-        });
-      }
+    final success = await ref.read(episodeManagementProvider.notifier)
+        .addEpisodeToDrama(widget.dramaId);
+    
+    if (!success) {
+      // Error is handled by the listener
+      return;
     }
   }
 }

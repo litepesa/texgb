@@ -1,4 +1,4 @@
-// lib/features/dramas/repositories/drama_repository.dart - SEQUENTIAL UPLOAD VERSION
+// lib/features/dramas/repositories/drama_repository.dart - UPDATED WITH ADD EPISODE METHOD
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -7,7 +7,7 @@ import 'package:textgb/models/drama_model.dart';
 import 'package:textgb/shared/services/http_client.dart';
 import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
 
-// Updated repository interface with progress callback
+// Updated repository interface with add episode method
 abstract class DramaRepository {
   // Core drama operations
   Future<List<DramaModel>> getAllDramas({int limit = 20, int offset = 0});
@@ -20,6 +20,9 @@ abstract class DramaRepository {
   
   // UNIFIED CREATION - Create drama with all episodes at once
   Future<String> createDramaWithEpisodes(DramaModel drama);
+  
+  // NEW: Add single episode to existing drama
+  Future<Map<String, dynamic>> addEpisodeToDrama(String dramaId, String episodeVideoUrl);
   
   // Drama unlock
   Future<bool> unlockDramaAtomic({
@@ -45,7 +48,7 @@ abstract class DramaRepository {
   Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress});
 }
 
-// HTTP implementation with improved upload handling
+// HTTP implementation with add episode method
 class HttpDramaRepository implements DramaRepository {
   final HttpClientService _httpClient;
 
@@ -137,7 +140,7 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // UNIFIED DRAMA CREATION WITH EPISODES
+  // UNIFIED DRAMA CREATION WITH EPISODES (unchanged)
   // ===============================
 
   @override
@@ -174,6 +177,78 @@ class HttpDramaRepository implements DramaRepository {
     } catch (e) {
       debugPrint('Exception during drama creation: $e');
       throw DramaRepositoryException('Failed to create drama: $e');
+    }
+  }
+
+  // ===============================
+  // NEW: ADD SINGLE EPISODE TO EXISTING DRAMA
+  // ===============================
+
+  @override
+  Future<Map<String, dynamic>> addEpisodeToDrama(String dramaId, String episodeVideoUrl) async {
+    try {
+      debugPrint('=== ADDING EPISODE TO DRAMA $dramaId ===');
+      debugPrint('Episode video URL: $episodeVideoUrl');
+      
+      if (dramaId.isEmpty) {
+        throw DramaRepositoryException('Drama ID is required');
+      }
+      
+      if (episodeVideoUrl.isEmpty) {
+        throw DramaRepositoryException('Episode video URL is required');
+      }
+
+      // Prepare request body
+      final requestBody = {
+        'episodeVideoUrl': episodeVideoUrl,
+      };
+      
+      debugPrint('Request body: ${jsonEncode(requestBody)}');
+      
+      // Call backend API endpoint
+      final response = await _httpClient.post('/admin/dramas/$dramaId/episodes', body: requestBody);
+
+      debugPrint('Add episode response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        final result = {
+          'success': true,
+          'message': responseData['message'] ?? 'Episode added successfully',
+          'episodeNumber': responseData['episodeNumber'] ?? 1,
+          'totalEpisodes': responseData['totalEpisodes'] ?? 1,
+          'dramaId': responseData['dramaId'] ?? dramaId,
+        };
+        
+        debugPrint('Episode added successfully: $result');
+        return result;
+      } else {
+        // Handle specific error cases
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        final errorMessage = errorData['error'] ?? 'Unknown error';
+        
+        switch (response.statusCode) {
+          case 400:
+            if (errorMessage.contains('Maximum 100 episodes')) {
+              throw DramaRepositoryException('Drama has reached maximum episodes limit (100)');
+            } else if (errorMessage.contains('Invalid video URL')) {
+              throw DramaRepositoryException('Invalid video URL or file doesn\'t meet requirements (2min max, 50MB max)');
+            } else {
+              throw DramaRepositoryException('Bad request: $errorMessage');
+            }
+          case 403:
+            throw DramaRepositoryException('You can only add episodes to dramas you created');
+          case 404:
+            throw DramaRepositoryException('Drama not found or no longer available');
+          default:
+            throw DramaRepositoryException('Failed to add episode: $errorMessage');
+        }
+      }
+    } catch (e) {
+      debugPrint('Exception during add episode: $e');
+      if (e is DramaRepositoryException) rethrow;
+      throw DramaRepositoryException('Failed to add episode to drama: $e');
     }
   }
 
@@ -226,7 +301,7 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // ADMIN OPERATIONS (simplified)
+  // ADMIN OPERATIONS (unchanged)
   // ===============================
 
   @override
@@ -299,7 +374,7 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // USER INTERACTIONS (simplified)
+  // USER INTERACTIONS (unchanged)
   // ===============================
 
   @override
@@ -323,7 +398,7 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // IMPROVED FILE UPLOAD OPERATIONS WITH PROGRESS TRACKING
+  // FILE UPLOAD OPERATIONS WITH PROGRESS TRACKING (unchanged)
   // ===============================
 
   @override
@@ -363,8 +438,12 @@ class HttpDramaRepository implements DramaRepository {
       
       debugPrint('Video file size: ${fileSizeInMB.toStringAsFixed(2)}MB');
       
-      // Simulate progress updates during upload (since http package doesn't provide real progress)
-      // In a real implementation, you might use a different HTTP client like dio for progress tracking
+      // Validate file size (50MB limit)
+      if (fileSizeInMB > 50) {
+        throw DramaRepositoryException('File too large. Maximum size is 50MB (current: ${fileSizeInMB.toStringAsFixed(1)}MB)');
+      }
+      
+      // Simulate progress updates during upload
       if (onProgress != null) {
         _simulateUploadProgress(onProgress, fileSizeInMB);
       }
@@ -397,7 +476,6 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // Simulate upload progress based on file size
-  // In a real implementation, you'd use a proper HTTP client with progress callbacks
   void _simulateUploadProgress(Function(double) onProgress, double fileSizeInMB) {
     // Estimate upload time based on file size (assuming 10MB/s upload speed)
     final estimatedSeconds = (fileSizeInMB / 10).clamp(1, 30);
