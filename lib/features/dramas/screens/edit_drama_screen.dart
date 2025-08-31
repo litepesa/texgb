@@ -901,7 +901,7 @@ class _EditDramaScreenState extends ConsumerState<EditDramaScreen> {
             : 0,
         isFeatured: _isFeatured,
         isActive: _isActive,
-        updatedAt: DateTime.now().microsecondsSinceEpoch.toString(),
+        updatedAt: DateTime.now().toUtc().toIso8601String(),
       );
 
       final repository = ref.read(dramaRepositoryProvider);

@@ -1131,7 +1131,7 @@ class _CoinsAfterUnlockProviderElement extends AutoDisposeProviderElement<int?>
   int get unlockCost => (origin as CoinsAfterUnlockProvider).unlockCost;
 }
 
-String _$dramaActionsHash() => r'8422302d3eff1ad0570aea7d0dfb536e0c093ed1';
+String _$dramaActionsHash() => r'a7cce5d25f050ae47732f5e8c2fe322f2b1e92fd';
 
 /// See also [DramaActions].
 @ProviderFor(DramaActions)

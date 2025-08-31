@@ -1019,7 +1019,7 @@ class _AddEpisodesScreenState extends ConsumerState<AddEpisodesScreen> {
       final updatedEpisodeVideos = [...drama.episodeVideos, videoUrl];
       final updatedDrama = drama.copyWith(
         episodeVideos: updatedEpisodeVideos,
-        updatedAt: DateTime.now().microsecondsSinceEpoch.toString(),
+        updatedAt: DateTime.now().toUtc().toIso8601String(),
       );
 
       await repository.updateDrama(updatedDrama);
