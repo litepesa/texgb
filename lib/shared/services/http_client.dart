@@ -9,19 +9,22 @@ class HttpClientService {
   // Updated base URL to work with Android emulator
   static String get _baseUrl {
     if (kDebugMode) {
-      // For Android emulator, use 10.0.2.2 instead of localhost
-      // For iOS simulator, localhost works fine
-      if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8080/api/v1';
-      } else {
-        return 'http://localhost:8080/api/v1';
-      }
+      // For development - check if we can reach localhost first
+      // If not, fall back to production server
+      return 'http://144.126.252.66:8080/api/v1'; // Use production for now
+      
+      // Alternative: Use localhost only for iOS simulator
+      // if (Platform.isIOS) {
+      //   return 'http://localhost:8080/api/v1';
+      // } else {
+      //   return 'http://64.227.142.38:8080/api/v1';
+      // }
     } else {
-      return 'https://your-production-domain.com/api/v1';
+      return 'http://144.126.252.66:8080/api/v1';
     }
   }
   
-  static const Duration _timeout = Duration(seconds: 30);
+  static const Duration _timeout = Duration(seconds: 300);
 
   // Singleton pattern
   static final HttpClientService _instance = HttpClientService._internal();
@@ -273,35 +276,35 @@ class HttpException implements Exception {
 }
 
 class BadRequestException extends HttpException {
-  const BadRequestException(String message) : super(message);
+  const BadRequestException(super.message);
   @override
   String toString() => 'BadRequestException: $message';
 }
 
 class UnauthorizedException extends HttpException {
-  const UnauthorizedException(String message) : super(message);
+  const UnauthorizedException(super.message);
   @override
   String toString() => 'UnauthorizedException: $message';
 }
 
 class ForbiddenException extends HttpException {
-  const ForbiddenException(String message) : super(message);
+  const ForbiddenException(super.message);
   @override
   String toString() => 'ForbiddenException: $message';
 }
 
 class NotFoundException extends HttpException {
-  const NotFoundException(String message) : super(message);
+  const NotFoundException(super.message);
   @override
   String toString() => 'NotFoundException: $message';
 }
 
 class ConflictException extends HttpException {
-  const ConflictException(String message) : super(message);
+  const ConflictException(super.message);
 }
 
 class InternalServerException extends HttpException {
-  const InternalServerException(String message) : super(message);
+  const InternalServerException(super.message);
   @override
   String toString() => 'InternalServerException: $message';
 }

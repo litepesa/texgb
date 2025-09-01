@@ -9,8 +9,8 @@ import 'package:textgb/features/authentication/screens/landing_screen.dart';
 import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/features/authentication/screens/user_information_screen.dart';
-import 'package:textgb/features/dramas/screens/add_episodes_screen.dart';
 import 'package:textgb/features/dramas/screens/episode_feed_screen.dart';
+import 'package:textgb/features/dramas/screens/my_drama_details_screen.dart';
 
 
 // Profile screens
@@ -204,11 +204,11 @@ class AppRoot extends ConsumerWidget {
               }
               break;
               
-            case Constants.addEpisodeScreen:
+            case Constants.myDramaDetailsScreen:
               final args = settings.arguments as Map<String, dynamic>?;
               if (args != null && args.containsKey('dramaId')) {
                 return MaterialPageRoute(
-                  builder: (context) => AddEpisodesScreen(
+                  builder: (context) => MyDramaDetailsScreen(
                     dramaId: args['dramaId'] as String,
                   ),
                   settings: settings,

@@ -436,7 +436,7 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
           drama: drama,
           onTap: () => Navigator.pushNamed(
             context,
-            Constants.dramaDetailsScreen,
+            Constants.myDramaDetailsScreen,
             arguments: {'dramaId': drama.dramaId},
           ),
         ),

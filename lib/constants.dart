@@ -28,6 +28,7 @@ class Constants {
   static const String editDramaScreen = '/editDramaScreen';
   static const String addEpisodeScreen = '/addEpisodeScreen';
   static const String episodeFeedScreen = '/episode-feed';
+  static const String myDramaDetailsScreen = '/my-drama-details';
   
   // Premium routes
   static const String premiumScreen = '/premiumScreen';
@@ -139,6 +140,7 @@ class Constants {
   static const String publishedAt = 'publishedAt';
   static const String isActive = 'isActive'; // Admin can activate/deactivate
   static const String createdBy = 'createdBy'; // Admin UID who created
+  static const String unlockCount = 'unlockCount';
   
   // ===== EPISODE MODEL FIELD NAMES =====
   
@@ -285,7 +287,7 @@ class Constants {
   
   // ===== API TIMEOUTS =====
   
-  static const int networkTimeoutSeconds = 30;
+  static const int networkTimeoutSeconds = 300;
   static const int paymentTimeoutSeconds = 60;
-  static const int videoLoadTimeoutSeconds = 45;
+  static const int videoLoadTimeoutSeconds = 300;
 }
