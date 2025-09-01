@@ -535,52 +535,59 @@ class _MyDramaDetailsScreenState extends ConsumerState<MyDramaDetailsScreen>
   }
 
   Widget _buildKeyMetricsRow(DramaModel drama, ModernThemeExtension modernTheme) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildMetricCard(
-            modernTheme,
-            title: 'Views',
-            value: _formatCount(drama.viewCount),
-            icon: Icons.visibility,
-            color: Colors.blue.shade400,
-            subtitle: 'Total views',
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 85, // Fixed width to prevent overflow
+            child: _buildMetricCard(
+              modernTheme,
+              title: 'Views',
+              value: _formatCount(drama.viewCount),
+              icon: Icons.visibility,
+              color: Colors.blue.shade400,
+              subtitle: 'Total views',
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMetricCard(
-            modernTheme,
-            title: 'Favorites',
-            value: _formatCount(drama.favoriteCount),
-            icon: Icons.favorite,
-            color: Colors.red.shade400,
-            subtitle: 'Total favorites',
+          const SizedBox(width: 8), // Reduced spacing
+          SizedBox(
+            width: 85,
+            child: _buildMetricCard(
+              modernTheme,
+              title: 'Favorites',
+              value: _formatCount(drama.favoriteCount),
+              icon: Icons.favorite,
+              color: Colors.red.shade400,
+              subtitle: 'Total favorites',
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMetricCard(
-            modernTheme,
-            title: 'Unlocks',
-            value: _formatCount(drama.unlockCount),
-            icon: Icons.lock_open,
-            color: Colors.green.shade400,
-            subtitle: drama.isPremium ? 'Paid unlocks' : 'N/A (Free)',
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 85,
+            child: _buildMetricCard(
+              modernTheme,
+              title: 'Unlocks',
+              value: _formatCount(drama.unlockCount),
+              icon: Icons.lock_open,
+              color: Colors.green.shade400,
+              subtitle: drama.isPremium ? 'Paid unlocks' : 'N/A (Free)',
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMetricCard(
-            modernTheme,
-            title: 'Episodes',
-            value: drama.totalEpisodes.toString(),
-            icon: Icons.play_circle,
-            color: Colors.purple.shade400,
-            subtitle: 'Total episodes',
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 85,
+            child: _buildMetricCard(
+              modernTheme,
+              title: 'Episodes',
+              value: drama.totalEpisodes.toString(),
+              icon: Icons.play_circle,
+              color: Colors.purple.shade400,
+              subtitle: 'Total episodes',
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1051,7 +1058,7 @@ class _MyDramaDetailsScreenState extends ConsumerState<MyDramaDetailsScreen>
     required String subtitle,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12), // Reduced padding
       decoration: BoxDecoration(
         color: modernTheme.surfaceColor,
         borderRadius: BorderRadius.circular(12),
@@ -1065,37 +1072,43 @@ class _MyDramaDetailsScreenState extends ConsumerState<MyDramaDetailsScreen>
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  color: modernTheme.textSecondaryColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+              Icon(icon, color: color, size: 16), // Smaller icon
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: modernTheme.textSecondaryColor,
+                    fontSize: 10, // Smaller font
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
               color: modernTheme.textColor,
-              fontSize: 24,
+              fontSize: 18, // Reduced from 24
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             subtitle,
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
-              fontSize: 10,
+              fontSize: 8, // Smaller subtitle
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ],
       ),

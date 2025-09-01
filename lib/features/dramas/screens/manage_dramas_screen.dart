@@ -524,7 +524,7 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              /*const PopupMenuItem(
                 value: 'episodes',
                 child: Row(
                   children: [
@@ -533,7 +533,7 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
                     Text('Episodes'),
                   ],
                 ),
-              ),
+              ),*/
               PopupMenuItem(
                 value: 'toggle_featured',
                 child: Row(

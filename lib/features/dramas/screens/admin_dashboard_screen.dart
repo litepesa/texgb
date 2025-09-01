@@ -800,7 +800,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    /*const PopupMenuItem(
                       value: 'episodes',
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -810,7 +810,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           Text('Episodes', style: TextStyle(fontSize: 12)),
                         ],
                       ),
-                    ),
+                    ),*/
                     PopupMenuItem(
                       value: 'toggle_featured',
                       child: Row(
