@@ -1,11 +1,8 @@
 // lib/features/wallet/repositories/wallet_repository.dart
-// FIXED VERSION - Add null safety checks
-
-import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
-import 'package:textgb/shared/services/http_client.dart';
 
-// Abstract wallet repository interface (unchanged)
+// Abstract wallet repository interface - READ-ONLY for frontend
 abstract class WalletRepository {
   // Wallet operations (READ-ONLY)
   Future<WalletModel?> getUserWallet(String userId);
@@ -21,49 +18,61 @@ abstract class WalletRepository {
     String? lastTransactionId,
   });
   
-  // Streams (deprecated for HTTP backend)
+  // Streams (READ-ONLY)
   Stream<WalletModel?> walletStream(String userId);
   Stream<List<WalletTransaction>> transactionsStream(String userId);
 }
 
-// HTTP Backend implementation
-class HttpWalletRepository implements WalletRepository {
-  final HttpClientService _httpClient;
+// Firebase implementation
+class FirebaseWalletRepository implements WalletRepository {
+  final FirebaseFirestore _firestore;
+  final String _walletsCollection;
+  final String _transactionsCollection;
 
-  HttpWalletRepository({
-    HttpClientService? httpClient,
-  }) : _httpClient = httpClient ?? HttpClientService();
-
-  // ===============================
-  // WALLET OPERATIONS (HTTP BACKEND)
-  // ===============================
+  FirebaseWalletRepository({
+    FirebaseFirestore? firestore,
+    String walletsCollection = 'wallets',
+    String transactionsCollection = 'wallet_transactions',
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _walletsCollection = walletsCollection,
+       _transactionsCollection = transactionsCollection;
 
   @override
   Future<WalletModel?> getUserWallet(String userId) async {
     try {
-      final response = await _httpClient.get('/wallet/$userId');
-      
-      if (response.statusCode == 200) {
-        final responseBody = response.body.trim();
-        if (responseBody.isEmpty || responseBody == 'null') {
-          return null;
+      // Check if wallet exists
+      DocumentSnapshot walletDoc = await _firestore
+          .collection(_walletsCollection)
+          .doc(userId)
+          .get();
+
+      if (!walletDoc.exists) {
+        // Get user info to create wallet
+        DocumentSnapshot userDoc = await _firestore
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          final userPhoneNumber = userData['phoneNumber'] ?? '';
+          final userName = userData['name'] ?? '';
+          
+          // Create wallet if it doesn't exist
+          await createWallet(userId, userPhoneNumber, userName);
+          walletDoc = await _firestore
+              .collection(_walletsCollection)
+              .doc(userId)
+              .get();
         }
-        
-        final walletData = jsonDecode(responseBody);
-        // Add null check for wallet data
-        if (walletData == null) {
-          return null;
-        }
-        
-        return WalletModel.fromMap(walletData as Map<String, dynamic>);
-      } else if (response.statusCode == 404) {
-        // Wallet doesn't exist, backend will create it automatically
-        return null;
-      } else {
-        throw WalletRepositoryException('Failed to get user wallet: ${response.body}');
       }
+
+      if (walletDoc.exists) {
+        return WalletModel.fromMap(walletDoc.data() as Map<String, dynamic>);
+      }
+      
+      return null;
     } catch (e) {
-      if (e is NotFoundException) return null;
       throw WalletRepositoryException('Failed to get user wallet: $e');
     }
   }
@@ -71,84 +80,95 @@ class HttpWalletRepository implements WalletRepository {
   @override
   Future<void> createWallet(String userId, String userPhoneNumber, String userName) async {
     try {
-      final response = await _httpClient.post('/wallet', body: {
-        'userId': userId,
-        'userPhoneNumber': userPhoneNumber,
-        'userName': userName,
-      });
+      final now = DateTime.now().microsecondsSinceEpoch.toString();
+      final walletModel = WalletModel(
+        walletId: userId, // Use userId as walletId for simplicity
+        userId: userId,
+        userPhoneNumber: userPhoneNumber,
+        userName: userName,
+        coinsBalance: 0, // Start with 0 coins
+        lastUpdated: now,
+        createdAt: now,
+      );
 
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw WalletRepositoryException('Failed to create wallet: ${response.body}');
-      }
+      await _firestore
+          .collection(_walletsCollection)
+          .doc(userId)
+          .set(walletModel.toMap());
     } catch (e) {
       throw WalletRepositoryException('Failed to create wallet: $e');
     }
   }
 
-  // ===============================
-  // REQUEST OPERATIONS (HTTP BACKEND)
-  // ===============================
-
+  // Request episode unlock - backend AUTOMATICALLY processes this
   @override
   Future<bool> requestEpisodeUnlock(String userId, String episodeId, int coinAmount, String description) async {
     try {
-      final response = await _httpClient.post('/wallet/$userId/unlock-episode', body: {
+      // This calls a backend Cloud Function or API that:
+      // 1. Verifies user has enough coins
+      // 2. Deducts coins atomically  
+      // 3. Grants episode access immediately
+      // 4. Logs transaction
+      // NO ADMIN INTERVENTION REQUIRED!
+      
+      // In Firebase, this would be a Cloud Function call
+      // For now, simulating with a direct request that backend processes automatically
+      final unlockRequest = {
+        'userId': userId,
         'episodeId': episodeId,
         'coinAmount': coinAmount,
         'description': description,
-      });
-
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        final responseBody = response.body.trim();
-        if (responseBody.isEmpty || responseBody == 'null') {
-          return false;
-        }
-        
-        final errorData = jsonDecode(responseBody);
-        if (errorData == null) {
-          return false;
-        }
-        
-        final errorMessage = errorData['error'] ?? 'Unknown error';
-        
-        // Handle specific errors
-        switch (errorMessage) {
-          case 'Insufficient coins':
-          case 'insufficient_funds':
-            return false; // Not enough coins
-          default:
-            throw WalletRepositoryException('Failed to request episode unlock: $errorMessage');
-        }
-      }
+        'status': 'processing', // Backend will process this automatically
+        'requestedAt': DateTime.now().microsecondsSinceEpoch.toString(),
+        'type': 'episode_unlock', // Automatic processing
+      };
+      
+      await _firestore
+          .collection('episode_unlock_requests')
+          .add(unlockRequest);
+      
+      // In production, this would be a Cloud Function HTTP call like:
+      // final response = await http.post('/unlockEpisode', body: unlockRequest);
+      // return response.statusCode == 200;
+      
+      return true;
     } catch (e) {
       throw WalletRepositoryException('Failed to request episode unlock: $e');
     }
   }
 
+  // Submit coin purchase request - admin MANUALLY verifies payment
   @override
   Future<bool> submitCoinPurchaseRequest(String userId, CoinPackage package, String paymentReference) async {
     try {
-      final response = await _httpClient.post('/wallet/$userId/purchase-request', body: {
+      // This creates a purchase request that admin manually verifies
+      // because M-Pesa payments need human verification for security
+      final purchaseRequest = {
+        'userId': userId,
         'packageId': package.packageId,
+        'coinAmount': package.coins,
+        'paidAmount': package.priceKES,
         'paymentReference': paymentReference,
         'paymentMethod': 'mpesa',
-      });
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
-      } else {
-        throw WalletRepositoryException('Failed to submit coin purchase request: ${response.body}');
-      }
+        'status': 'pending_admin_verification', // Needs admin verification
+        'requestedAt': DateTime.now().microsecondsSinceEpoch.toString(),
+        'type': 'coin_purchase', // Manual admin processing
+        'packageDetails': {
+          'name': package.displayName,
+          'coins': package.coins,
+          'price': package.priceKES,
+        }
+      };
+      
+      await _firestore
+          .collection('coin_purchase_requests')
+          .add(purchaseRequest);
+      
+      return true;
     } catch (e) {
       throw WalletRepositoryException('Failed to submit coin purchase request: $e');
     }
   }
-
-  // ===============================
-  // TRANSACTION OPERATIONS (HTTP BACKEND) - FIXED
-  // ===============================
 
   @override
   Future<List<WalletTransaction>> getWalletTransactions(String userId, {
@@ -156,108 +176,77 @@ class HttpWalletRepository implements WalletRepository {
     String? lastTransactionId,
   }) async {
     try {
-      String endpoint = '/wallet/$userId/transactions?limit=$limit';
+      Query query = _firestore
+          .collection(_transactionsCollection)
+          .where('walletId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(limit);
+
       if (lastTransactionId != null) {
-        endpoint += '&after=$lastTransactionId';
+        DocumentSnapshot lastDoc = await _firestore
+            .collection(_transactionsCollection)
+            .doc(lastTransactionId)
+            .get();
+        query = query.startAfterDocument(lastDoc);
       }
 
-      final response = await _httpClient.get(endpoint);
+      QuerySnapshot querySnapshot = await query.get();
       
-      if (response.statusCode == 200) {
-        final responseBody = response.body.trim();
-        
-        // Handle empty or null response
-        if (responseBody.isEmpty || responseBody == 'null') {
-          return <WalletTransaction>[];
-        }
-        
-        final decodedData = jsonDecode(responseBody);
-        
-        // Handle null response data
-        if (decodedData == null) {
-          return <WalletTransaction>[];
-        }
-        
-        // Handle case where response is not a list
-        if (decodedData is! List) {
-          // If it's a map with a transactions field
-          if (decodedData is Map<String, dynamic> && decodedData.containsKey('transactions')) {
-            final transactionsData = decodedData['transactions'];
-            if (transactionsData == null) {
-              return <WalletTransaction>[];
-            }
-            if (transactionsData is List) {
-              return transactionsData
-                  .where((item) => item != null)
-                  .map((data) => WalletTransaction.fromMap(data as Map<String, dynamic>))
-                  .toList();
-            }
-          }
-          // If it's some other structure, return empty list
-          return <WalletTransaction>[];
-        }
-        
-        // Handle normal list response
-        final List<dynamic> transactionsData = decodedData;
-        return transactionsData
-            .where((item) => item != null) // Filter out null items
-            .map((data) => WalletTransaction.fromMap(data as Map<String, dynamic>))
-            .toList();
-            
-      } else if (response.statusCode == 404) {
-        // User has no transactions yet
-        return <WalletTransaction>[];
-      } else {
-        throw WalletRepositoryException('Failed to get wallet transactions: ${response.body}');
-      }
+      return querySnapshot.docs
+          .map((doc) => WalletTransaction.fromMap(
+              doc.data() as Map<String, dynamic>))
+          .toList();
     } catch (e) {
-      // If it's a parsing error, return empty list instead of throwing
-      if (e is FormatException || e.toString().contains('subtype')) {
-        print('Warning: Failed to parse transactions data: $e');
-        return <WalletTransaction>[];
-      }
       throw WalletRepositoryException('Failed to get wallet transactions: $e');
     }
   }
 
-  // ===============================
-  // DEPRECATED STREAM METHODS
-  // ===============================
-
   @override
   Stream<WalletModel?> walletStream(String userId) {
-    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
+    return _firestore
+        .collection(_walletsCollection)
+        .doc(userId)
+        .snapshots()
+        .map((doc) {
+      if (doc.exists) {
+        return WalletModel.fromMap(doc.data() as Map<String, dynamic>);
+      }
+      return null;
+    });
   }
 
   @override
   Stream<List<WalletTransaction>> transactionsStream(String userId) {
-    throw UnsupportedError('Streams are deprecated with HTTP backend. Use provider refresh methods instead.');
+    return _firestore
+        .collection(_transactionsCollection)
+        .where('walletId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .limit(20)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => WalletTransaction.fromMap(
+                doc.data()))
+            .toList());
   }
 
-  // ===============================
-  // ADDITIONAL UTILITY METHODS (HTTP BACKEND) - ALSO FIXED
-  // ===============================
+  // Additional utility methods
 
   /// Get total coins spent by user
   Future<int> getTotalCoinsSpent(String userId) async {
     try {
-      final response = await _httpClient.get('/wallet/$userId/stats/spent');
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_transactionsCollection)
+          .where('walletId', isEqualTo: userId)
+          .where('type', isEqualTo: 'episode_unlock')
+          .get();
       
-      if (response.statusCode == 200) {
-        final responseBody = response.body.trim();
-        if (responseBody.isEmpty || responseBody == 'null') {
-          return 0;
-        }
-        
-        final data = jsonDecode(responseBody);
-        if (data == null || data is! Map<String, dynamic>) {
-          return 0;
-        }
-        
-        return (data['totalSpent'] as int?) ?? 0;
-      } else {
-        throw WalletRepositoryException('Failed to get total coins spent: ${response.body}');
+      int totalSpent = 0;
+      for (var doc in querySnapshot.docs) {
+        final transaction = WalletTransaction.fromMap(doc.data() as Map<String, dynamic>);
+        totalSpent += transaction.coinAmount;
       }
+      
+      return totalSpent;
     } catch (e) {
       throw WalletRepositoryException('Failed to get total coins spent: $e');
     }
@@ -266,61 +255,42 @@ class HttpWalletRepository implements WalletRepository {
   /// Get total coins purchased by user
   Future<int> getTotalCoinsPurchased(String userId) async {
     try {
-      final response = await _httpClient.get('/wallet/$userId/stats/purchased');
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_transactionsCollection)
+          .where('walletId', isEqualTo: userId)
+          .where('type', whereIn: ['coin_purchase', 'admin_credit'])
+          .get();
       
-      if (response.statusCode == 200) {
-        final responseBody = response.body.trim();
-        if (responseBody.isEmpty || responseBody == 'null') {
-          return 0;
-        }
-        
-        final data = jsonDecode(responseBody);
-        if (data == null || data is! Map<String, dynamic>) {
-          return 0;
-        }
-        
-        return (data['totalPurchased'] as int?) ?? 0;
-      } else {
-        throw WalletRepositoryException('Failed to get total coins purchased: ${response.body}');
+      int totalPurchased = 0;
+      for (var doc in querySnapshot.docs) {
+        final transaction = WalletTransaction.fromMap(doc.data() as Map<String, dynamic>);
+        totalPurchased += transaction.coinAmount;
       }
+      
+      return totalPurchased;
     } catch (e) {
       throw WalletRepositoryException('Failed to get total coins purchased: $e');
     }
   }
 
-  /// Get transactions by type - FIXED
+  /// Get transactions by type
   Future<List<WalletTransaction>> getTransactionsByType(String userId, String type, {
     int limit = 50,
   }) async {
     try {
-      final response = await _httpClient.get('/wallet/$userId/transactions?type=$type&limit=$limit');
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_transactionsCollection)
+          .where('walletId', isEqualTo: userId)
+          .where('type', isEqualTo: type)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
       
-      if (response.statusCode == 200) {
-        final responseBody = response.body.trim();
-        if (responseBody.isEmpty || responseBody == 'null') {
-          return <WalletTransaction>[];
-        }
-        
-        final decodedData = jsonDecode(responseBody);
-        if (decodedData == null || decodedData is! List) {
-          return <WalletTransaction>[];
-        }
-        
-        final List<dynamic> transactionsData = decodedData;
-        return transactionsData
-            .where((item) => item != null)
-            .map((data) => WalletTransaction.fromMap(data as Map<String, dynamic>))
-            .toList();
-      } else if (response.statusCode == 404) {
-        return <WalletTransaction>[];
-      } else {
-        throw WalletRepositoryException('Failed to get transactions by type: ${response.body}');
-      }
+      return querySnapshot.docs
+          .map((doc) => WalletTransaction.fromMap(
+              doc.data() as Map<String, dynamic>))
+          .toList();
     } catch (e) {
-      if (e is FormatException || e.toString().contains('subtype')) {
-        print('Warning: Failed to parse transactions by type: $e');
-        return <WalletTransaction>[];
-      }
       throw WalletRepositoryException('Failed to get transactions by type: $e');
     }
   }
@@ -335,7 +305,7 @@ class HttpWalletRepository implements WalletRepository {
     }
   }
 
-  /// Get user's coin purchase history
+  /// Get user's coin purchase history with KES amounts
   Future<List<WalletTransaction>> getCoinPurchaseHistory(String userId) async {
     try {
       return await getTransactionsByType(userId, 'coin_purchase');
@@ -353,183 +323,88 @@ class HttpWalletRepository implements WalletRepository {
     }
   }
 
-  /// Get user's drama unlock history
-  Future<List<WalletTransaction>> getDramaUnlockHistory(String userId) async {
-    try {
-      return await getTransactionsByType(userId, 'drama_unlock');
-    } catch (e) {
-      throw WalletRepositoryException('Failed to get drama unlock history: $e');
-    }
-  }
-
-  /// Get wallet statistics for a user - FIXED
+  /// Get wallet statistics for a user
   Future<Map<String, dynamic>> getWalletStats(String userId) async {
     try {
-      final response = await _httpClient.get('/wallet/$userId/stats');
+      final wallet = await getUserWallet(userId);
+      final totalSpent = await getTotalCoinsSpent(userId);
+      final totalPurchased = await getTotalCoinsPurchased(userId);
+      final purchaseHistory = await getCoinPurchaseHistory(userId);
+      final unlockHistory = await getEpisodeUnlockHistory(userId);
       
-      if (response.statusCode == 200) {
-        final responseBody = response.body.trim();
-        if (responseBody.isEmpty || responseBody == 'null') {
-          return <String, dynamic>{};
-        }
-        
-        final data = jsonDecode(responseBody);
-        if (data == null) {
-          return <String, dynamic>{};
-        }
-        
-        return data as Map<String, dynamic>;
-      } else {
-        throw WalletRepositoryException('Failed to get wallet stats: ${response.body}');
+      // Calculate total KES spent
+      double totalKESSpent = 0;
+      for (var transaction in purchaseHistory) {
+        totalKESSpent += transaction.paidAmount ?? 0;
       }
+
+      return {
+        'currentBalance': wallet?.coinsBalance ?? 0,
+        'totalCoinsSpent': totalSpent,
+        'totalCoinsPurchased': totalPurchased,
+        'totalKESSpent': totalKESSpent,
+        'totalPurchases': purchaseHistory.length,
+        'totalUnlocks': unlockHistory.length,
+        'equivalentKESValue': wallet?.equivalentKESValue ?? 0,
+      };
     } catch (e) {
       throw WalletRepositoryException('Failed to get wallet stats: $e');
     }
   }
 
-  // ... rest of the admin methods remain the same with similar null safety checks
-  
-  /// Admin method: Get all pending coin purchases - FIXED
+  /// Admin method: Get all pending coin purchases (for manual processing)
   Future<List<Map<String, dynamic>>> getPendingCoinPurchases() async {
     try {
-      final response = await _httpClient.get('/admin/wallet/pending-purchases');
+      // This would be used if we track payment requests separately
+      // For now, admin manually adds coins after M-Pesa verification
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_transactionsCollection)
+          .where('type', isEqualTo: 'coin_purchase')
+          .where('paymentMethod', isEqualTo: 'mpesa')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
       
-      if (response.statusCode == 200) {
-        final responseBody = response.body.trim();
-        if (responseBody.isEmpty || responseBody == 'null') {
-          return <Map<String, dynamic>>[];
-        }
-        
-        final decodedData = jsonDecode(responseBody);
-        if (decodedData == null || decodedData is! List) {
-          return <Map<String, dynamic>>[];
-        }
-        
-        final List<dynamic> purchasesData = decodedData;
-        return purchasesData
-            .where((item) => item != null)
-            .map((data) => data as Map<String, dynamic>)
-            .toList();
-      } else {
-        throw WalletRepositoryException('Failed to get pending purchases: ${response.body}');
-      }
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
     } catch (e) {
-      if (e is FormatException || e.toString().contains('subtype')) {
-        print('Warning: Failed to parse pending purchases: $e');
-        return <Map<String, dynamic>>[];
-      }
       throw WalletRepositoryException('Failed to get pending purchases: $e');
     }
   }
 
-  /// Admin method: Approve coin purchase
-  Future<void> approveCoinPurchase(String requestId, String adminNote) async {
-    try {
-      final response = await _httpClient.post('/admin/wallet/approve-purchase/$requestId', body: {
-        'adminNote': adminNote,
-      });
-
-      if (response.statusCode != 200) {
-        throw WalletRepositoryException('Failed to approve purchase: ${response.body}');
-      }
-    } catch (e) {
-      throw WalletRepositoryException('Failed to approve purchase: $e');
-    }
-  }
-
-  /// Admin method: Reject coin purchase
-  Future<void> rejectCoinPurchase(String requestId, String adminNote) async {
-    try {
-      final response = await _httpClient.post('/admin/wallet/reject-purchase/$requestId', body: {
-        'adminNote': adminNote,
-      });
-
-      if (response.statusCode != 200) {
-        throw WalletRepositoryException('Failed to reject purchase: ${response.body}');
-      }
-    } catch (e) {
-      throw WalletRepositoryException('Failed to reject purchase: $e');
-    }
-  }
-
-  /// Admin method: Add coins manually
-  Future<void> addCoinsManually(String userId, int coinAmount, String description, String adminNote) async {
-    try {
-      final response = await _httpClient.post('/admin/wallet/$userId/add-coins', body: {
-        'coinAmount': coinAmount,
-        'description': description,
-        'adminNote': adminNote,
-      });
-
-      if (response.statusCode != 200) {
-        throw WalletRepositoryException('Failed to add coins: ${response.body}');
-      }
-    } catch (e) {
-      throw WalletRepositoryException('Failed to add coins: $e');
-    }
-  }
-
   /// Batch update wallet balances (admin utility)
-  Future<void> batchUpdateWallet(List<Map<String, dynamic>> updates) async {
+  Future<void> batchUpdateWallets(List<Map<String, dynamic>> updates) async {
     try {
-      final response = await _httpClient.post('/admin/wallet/batch-update', body: {
-        'updates': updates,
-      });
-
-      if (response.statusCode != 200) {
-        throw WalletRepositoryException('Failed to batch update wallet: ${response.body}');
+      WriteBatch batch = _firestore.batch();
+      
+      for (var update in updates) {
+        final userId = update['userId'] as String;
+        final coinAmount = update['coinAmount'] as int;
+        final description = update['description'] as String;
+        
+        DocumentReference walletRef = _firestore
+            .collection(_walletsCollection)
+            .doc(userId);
+        
+        // Note: This is a simplified batch update
+        // In production, you'd want to read current balances first
+        batch.update(walletRef, {
+          'coinsBalance': FieldValue.increment(coinAmount),
+          'lastUpdated': DateTime.now().microsecondsSinceEpoch.toString(),
+        });
       }
+      
+      await batch.commit();
     } catch (e) {
-      throw WalletRepositoryException('Failed to batch update wallet: $e');
+      throw WalletRepositoryException('Failed to batch update wallets: $e');
     }
   }
 }
 
-// Keep existing Firebase implementation for backward compatibility
-class FirebaseWalletRepository implements WalletRepository {
-  // ... existing Firebase implementation remains for reference
-  // This allows gradual migration if needed
-  
-  @override
-  Future<WalletModel?> getUserWallet(String userId) async {
-    throw UnimplementedError('Use HttpWalletRepository for new backend');
-  }
-
-  @override
-  Future<void> createWallet(String userId, String userPhoneNumber, String userName) async {
-    throw UnimplementedError('Use HttpWalletRepository for new backend');
-  }
-
-  @override
-  Future<bool> requestEpisodeUnlock(String userId, String episodeId, int coinAmount, String description) async {
-    throw UnimplementedError('Use HttpWalletRepository for new backend');
-  }
-
-  @override
-  Future<bool> submitCoinPurchaseRequest(String userId, CoinPackage package, String paymentReference) async {
-    throw UnimplementedError('Use HttpWalletRepository for new backend');
-  }
-
-  @override
-  Future<List<WalletTransaction>> getWalletTransactions(String userId, {
-    int limit = 50,
-    String? lastTransactionId,
-  }) async {
-    throw UnimplementedError('Use HttpWalletRepository for new backend');
-  }
-
-  @override
-  Stream<WalletModel?> walletStream(String userId) {
-    throw UnimplementedError('Use HttpWalletRepository for new backend');
-  }
-
-  @override
-  Stream<List<WalletTransaction>> transactionsStream(String userId) {
-    throw UnimplementedError('Use HttpWalletRepository for new backend');
-  }
-}
-
-// Exception class for wallet repository errors (unchanged)
+// Exception class for wallet repository errors
 class WalletRepositoryException implements Exception {
   final String message;
   const WalletRepositoryException(this.message);

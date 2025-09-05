@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
 
 class CoinPackagesWidget extends ConsumerWidget {
@@ -78,7 +78,7 @@ class CoinPackagesWidget extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Choose a coin package to unlock premium episodes',
+                          'Choose a coin package to send amazing virtual gifts',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey[600],
@@ -179,7 +179,7 @@ class CoinPackagesWidget extends ConsumerWidget {
                                 '1. Select a coin package above\n'
                                 '2. Pay via M-Pesa using the provided details\n'
                                 '3. Admin will add coins to your account within 30 minutes\n'
-                                '4. Use coins to unlock premium episodes',
+                                '4. Use coins to send virtual gifts to friends and creators',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.blue[700],
@@ -326,7 +326,7 @@ class CoinPackagesWidget extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${package.coins} coins',
+                          '${package.coins} coins for gifts',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[600],
@@ -545,14 +545,14 @@ class CoinPackagesWidget extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
-                          Icons.warning_amber,
+                          Icons.card_giftcard,
                           color: Colors.orange[700],
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Important: Make sure to use your registered phone number as the account number for the payment.',
+                            'After payment, you can use your coins to send virtual gifts like hearts, diamonds, unicorns and more!',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.orange[700],

@@ -68,7 +68,7 @@ class WalletModel {
   final String userId;
   final String userPhoneNumber;
   final String userName;
-  final int coinsBalance;
+  final int coinsBalance; // Coins for sending gifts
   final String lastUpdated;
   final String createdAt;
   final List<WalletTransaction> transactions;
@@ -86,14 +86,13 @@ class WalletModel {
 
   factory WalletModel.fromMap(Map<String, dynamic> map) {
     return WalletModel(
-      walletId: map['walletId']?.toString() ?? map['wallet_id']?.toString() ?? '',
-      userId: map['userId']?.toString() ?? map['user_id']?.toString() ?? '',
-      userPhoneNumber: map['userPhoneNumber']?.toString() ?? map['user_phone_number']?.toString() ?? '',
-      userName: map['userName']?.toString() ?? map['user_name']?.toString() ?? '',
-      // FIXED: Handle both camelCase and snake_case from backend
-      coinsBalance: (map['coinsBalance'] ?? map['coins_balance'] ?? 0).toInt(),
-      lastUpdated: map['lastUpdated']?.toString() ?? map['updated_at']?.toString() ?? '',
-      createdAt: map['createdAt']?.toString() ?? map['created_at']?.toString() ?? '',
+      walletId: map['walletId']?.toString() ?? '',
+      userId: map['userId']?.toString() ?? '',
+      userPhoneNumber: map['userPhoneNumber']?.toString() ?? '',
+      userName: map['userName']?.toString() ?? '',
+      coinsBalance: (map['coinsBalance'] ?? 0).toInt(),
+      lastUpdated: map['lastUpdated']?.toString() ?? '',
+      createdAt: map['createdAt']?.toString() ?? '',
       transactions: (map['transactions'] as List?)
           ?.map((t) => WalletTransaction.fromMap(t as Map<String, dynamic>))
           .toList() ?? [],
@@ -167,17 +166,20 @@ class WalletTransaction {
   final String userId;
   final String userPhoneNumber;
   final String userName;
-  final String type; // 'coin_purchase', 'episode_unlock', 'admin_credit', 'drama_unlock'
+  final String type; // 'coin_purchase', 'gift_sent', 'gift_received', 'admin_credit'
   final int coinAmount;
   final int balanceBefore;
   final int balanceAfter;
   final String description;
-  final String? referenceId; // For episode unlocks, coin package purchases, etc.
+  final String? referenceId; // For gifts, coin package purchases, etc.
   final String? adminNote; // For admin-added coins
   final String? paymentMethod; // 'mpesa', 'admin_credit'
   final String? paymentReference; // M-Pesa confirmation code, etc.
   final String? packageId; // For coin purchases (links to CoinPackage)
   final double? paidAmount; // KES amount paid (for purchases)
+  final String? giftId; // For gift transactions
+  final String? recipientId; // For sent gifts
+  final String? senderId; // For received gifts
   final String createdAt;
   final Map<String, dynamic> metadata;
 
@@ -198,30 +200,35 @@ class WalletTransaction {
     this.paymentReference,
     this.packageId,
     this.paidAmount,
+    this.giftId,
+    this.recipientId,
+    this.senderId,
     required this.createdAt,
     this.metadata = const {},
   });
 
   factory WalletTransaction.fromMap(Map<String, dynamic> map) {
     return WalletTransaction(
-      transactionId: map['transactionId']?.toString() ?? map['transaction_id']?.toString() ?? '',
-      walletId: map['walletId']?.toString() ?? map['wallet_id']?.toString() ?? '',
-      userId: map['userId']?.toString() ?? map['user_id']?.toString() ?? '',
-      userPhoneNumber: map['userPhoneNumber']?.toString() ?? map['user_phone_number']?.toString() ?? '',
-      userName: map['userName']?.toString() ?? map['user_name']?.toString() ?? '',
+      transactionId: map['transactionId']?.toString() ?? '',
+      walletId: map['walletId']?.toString() ?? '',
+      userId: map['userId']?.toString() ?? '',
+      userPhoneNumber: map['userPhoneNumber']?.toString() ?? '',
+      userName: map['userName']?.toString() ?? '',
       type: map['type']?.toString() ?? '',
-      // FIXED: Handle both camelCase and snake_case for amounts
-      coinAmount: (map['coinAmount'] ?? map['coin_amount'] ?? 0).toInt(),
-      balanceBefore: (map['balanceBefore'] ?? map['balance_before'] ?? 0).toInt(),
-      balanceAfter: (map['balanceAfter'] ?? map['balance_after'] ?? 0).toInt(),
+      coinAmount: (map['coinAmount'] ?? 0).toInt(),
+      balanceBefore: (map['balanceBefore'] ?? 0).toInt(),
+      balanceAfter: (map['balanceAfter'] ?? 0).toInt(),
       description: map['description']?.toString() ?? '',
-      referenceId: map['referenceId']?.toString() ?? map['reference_id']?.toString(),
-      adminNote: map['adminNote']?.toString() ?? map['admin_note']?.toString(),
-      paymentMethod: map['paymentMethod']?.toString() ?? map['payment_method']?.toString(),
-      paymentReference: map['paymentReference']?.toString() ?? map['payment_reference']?.toString(),
-      packageId: map['packageId']?.toString() ?? map['package_id']?.toString(),
-      paidAmount: (map['paidAmount'] ?? map['paid_amount'] ?? 0.0).toDouble(),
-      createdAt: map['createdAt']?.toString() ?? map['created_at']?.toString() ?? '',
+      referenceId: map['referenceId']?.toString(),
+      adminNote: map['adminNote']?.toString(),
+      paymentMethod: map['paymentMethod']?.toString(),
+      paymentReference: map['paymentReference']?.toString(),
+      packageId: map['packageId']?.toString(),
+      paidAmount: (map['paidAmount'] ?? 0.0).toDouble(),
+      giftId: map['giftId']?.toString(),
+      recipientId: map['recipientId']?.toString(),
+      senderId: map['senderId']?.toString(),
+      createdAt: map['createdAt']?.toString() ?? '',
       metadata: Map<String, dynamic>.from(map['metadata'] ?? {}),
     );
   }
@@ -244,6 +251,9 @@ class WalletTransaction {
       'paymentReference': paymentReference,
       'packageId': packageId,
       'paidAmount': paidAmount,
+      'giftId': giftId,
+      'recipientId': recipientId,
+      'senderId': senderId,
       'createdAt': createdAt,
       'metadata': metadata,
     };
@@ -266,6 +276,9 @@ class WalletTransaction {
     String? paymentReference,
     String? packageId,
     double? paidAmount,
+    String? giftId,
+    String? recipientId,
+    String? senderId,
     String? createdAt,
     Map<String, dynamic>? metadata,
   }) {
@@ -286,6 +299,9 @@ class WalletTransaction {
       paymentReference: paymentReference ?? this.paymentReference,
       packageId: packageId ?? this.packageId,
       paidAmount: paidAmount ?? this.paidAmount,
+      giftId: giftId ?? this.giftId,
+      recipientId: recipientId ?? this.recipientId,
+      senderId: senderId ?? this.senderId,
       createdAt: createdAt ?? this.createdAt,
       metadata: metadata ?? this.metadata,
     );
@@ -293,11 +309,11 @@ class WalletTransaction {
 
   // Helper methods
   bool get isCoinPurchase => type == 'coin_purchase';
-  bool get isEpisodeUnlock => type == 'episode_unlock';
-  bool get isDramaUnlock => type == 'drama_unlock';
+  bool get isGiftSent => type == 'gift_sent';
+  bool get isGiftReceived => type == 'gift_received';
   bool get isAdminCredit => type == 'admin_credit';
-  bool get isCredit => isCoinPurchase || isAdminCredit;
-  bool get isDebit => isEpisodeUnlock || isDramaUnlock;
+  bool get isCredit => isCoinPurchase || isAdminCredit || isGiftReceived;
+  bool get isDebit => isGiftSent;
   
   String get formattedAmount {
     final sign = isCredit ? '+' : '-';
@@ -318,10 +334,10 @@ class WalletTransaction {
       case 'coin_purchase':
         final package = coinPackage;
         return package != null ? '${package.displayName} Purchase' : 'Coin Purchase';
-      case 'episode_unlock':
-        return 'Episode Unlock';
-      case 'drama_unlock':
-        return 'Drama Unlock';
+      case 'gift_sent':
+        return 'Gift Sent';
+      case 'gift_received':
+        return 'Gift Received';
       case 'admin_credit':
         return 'Admin Credit';
       default:
@@ -334,10 +350,10 @@ class WalletTransaction {
     switch (type) {
       case 'coin_purchase':
         return 'add_circle_outline';
-      case 'episode_unlock':
-        return 'play_circle_outline';
-      case 'drama_unlock':
-        return 'lock_open';
+      case 'gift_sent':
+        return 'card_giftcard';
+      case 'gift_received':
+        return 'redeem';
       case 'admin_credit':
         return 'admin_panel_settings';
       default:
