@@ -1,6 +1,4 @@
 // lib/features/comments/models/comment_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class CommentModel {
   final String id;
   final String videoId;
@@ -8,7 +6,8 @@ class CommentModel {
   final String authorName;
   final String authorImage;
   final String content;
-  final DateTime createdAt;
+  final String createdAt;  // Changed to String for RFC3339 format
+  final String updatedAt;  // Added for Go backend
   final List<String> likedBy;
   final int likesCount;
   final bool isReply;
@@ -23,6 +22,7 @@ class CommentModel {
     required this.authorImage,
     required this.content,
     required this.createdAt,
+    required this.updatedAt,
     required this.likedBy,
     required this.likesCount,
     this.isReply = false,
@@ -38,7 +38,8 @@ class CommentModel {
       authorName: map['authorName'] ?? '',
       authorImage: map['authorImage'] ?? '',
       content: map['content'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: map['createdAt'] ?? '',
+      updatedAt: map['updatedAt'] ?? '',
       likedBy: List<String>.from(map['likedBy'] ?? []),
       likesCount: map['likesCount'] ?? 0,
       isReply: map['isReply'] ?? false,
@@ -54,7 +55,8 @@ class CommentModel {
       'authorName': authorName,
       'authorImage': authorImage,
       'content': content,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
       'likedBy': likedBy,
       'likesCount': likesCount,
       'isReply': isReply,
@@ -70,7 +72,8 @@ class CommentModel {
     String? authorName,
     String? authorImage,
     String? content,
-    DateTime? createdAt,
+    String? createdAt,
+    String? updatedAt,
     List<String>? likedBy,
     int? likesCount,
     bool? isReply,
@@ -85,6 +88,7 @@ class CommentModel {
       authorImage: authorImage ?? this.authorImage,
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       likedBy: likedBy ?? this.likedBy,
       likesCount: likesCount ?? this.likesCount,
       isReply: isReply ?? this.isReply,

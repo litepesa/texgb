@@ -2,7 +2,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:textgb/features/users/models/user_model.dart';
@@ -73,26 +72,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         return;
       }
       
-      // Create user model
-      final userModel = UserModel(
-        id: currentUserId,
-        phoneNumber: phoneNumber,
+      // Create user model using the factory method for Go backend
+      final userModel = UserModel.create(
+        uid: currentUserId,
         name: _nameController.text.trim(),
-        about: _aboutController.text.trim(),
+        email: '', // Empty for now, will be filled if needed
+        phoneNumber: phoneNumber,
         profileImage: '', // Will be set after upload
-        coverImage: '', // Empty for now
-        followers: 0,
-        following: 0,
-        videosCount: 0,
-        likesCount: 0,
-        isVerified: false,
-        tags: [], // No tags in profile setup
-        followerUIDs: [],
-        followingUIDs: [],
-        createdAt: Timestamp.now(),
-        lastPostAt: null,
-        isActive: true,
-        isFeatured: false,
+        bio: _aboutController.text.trim(),
       );
       
       // Create user profile using the new authentication provider

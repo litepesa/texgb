@@ -1,5 +1,4 @@
 // lib/features/videos/models/video_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class VideoModel {
@@ -16,7 +15,8 @@ class VideoModel {
   final int shares;
   final bool isLiked;
   final List<String> tags;
-  final Timestamp createdAt;
+  final String createdAt;  // Changed to String for RFC3339 format
+  final String updatedAt;  // Added for Go backend
   final bool isActive;
   final bool isFeatured;
   final bool isMultipleImages;
@@ -37,6 +37,7 @@ class VideoModel {
     required this.isLiked,
     required this.tags,
     required this.createdAt,
+    required this.updatedAt,
     required this.isActive,
     required this.isFeatured,
     this.isMultipleImages = false,
@@ -45,6 +46,7 @@ class VideoModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'userId': userId,
       'userName': userName,
       'userImage': userImage,
@@ -57,6 +59,7 @@ class VideoModel {
       'shares': shares,
       'tags': tags,
       'createdAt': createdAt,
+      'updatedAt': updatedAt,
       'isActive': isActive,
       'isFeatured': isFeatured,
       'isMultipleImages': isMultipleImages,
@@ -85,7 +88,8 @@ class VideoModel {
       shares: map['shares'] ?? 0,
       isLiked: isLiked,
       tags: List<String>.from(map['tags'] ?? []),
-      createdAt: map['createdAt'] ?? Timestamp.now(),
+      createdAt: map['createdAt'] ?? '',
+      updatedAt: map['updatedAt'] ?? '',
       isActive: map['isActive'] ?? true,
       isFeatured: map['isFeatured'] ?? false,
       isMultipleImages: map['isMultipleImages'] ?? false,
@@ -107,7 +111,8 @@ class VideoModel {
     int? shares,
     bool? isLiked,
     List<String>? tags,
-    Timestamp? createdAt,
+    String? createdAt,
+    String? updatedAt,
     bool? isActive,
     bool? isFeatured,
     bool? isMultipleImages,
@@ -128,6 +133,7 @@ class VideoModel {
       isLiked: isLiked ?? this.isLiked,
       tags: tags ?? this.tags,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
       isMultipleImages: isMultipleImages ?? this.isMultipleImages,

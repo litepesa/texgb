@@ -42,7 +42,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     
     // Initialize controllers with existing data
     _nameController = TextEditingController(text: currentUser?.name ?? '');
-    _aboutController = TextEditingController(text: currentUser?.about ?? '');
+    _aboutController = TextEditingController(text: currentUser?.bio ?? '');
     _tagsController = TextEditingController(text: currentUser?.tags.join(', ') ?? '');
   }
   
@@ -285,7 +285,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       // Create updated user model
       final updatedUser = currentUser!.copyWith(
         name: _nameController.text.trim(),
-        about: _aboutController.text.trim(),
+        bio: _aboutController.text.trim(),
         tags: tags,
       );
       

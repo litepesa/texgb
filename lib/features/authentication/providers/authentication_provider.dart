@@ -1,7 +1,6 @@
 // lib/features/authentication/providers/authentication_provider.dart
 import 'dart:convert';
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,7 +9,6 @@ import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/models/comment_model.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-
 
 part 'authentication_provider.g.dart';
 
@@ -414,7 +412,7 @@ class Authentication extends _$Authentication {
       // Upload video to storage with progress tracking
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
-        reference: 'videos/${user.id}/${DateTime.now().millisecondsSinceEpoch}.mp4',
+        reference: 'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
         onProgress: (progress) {
           // Update upload progress in real-time
           final currentState = state.value ?? const AuthenticationState();
@@ -429,7 +427,7 @@ class Authentication extends _$Authentication {
       
       // Create video
       final videoData = await _repository.createVideo(
-        userId: user.id,
+        userId: user.uid,
         userName: user.name,
         userImage: user.profileImage,
         videoUrl: videoUrl,
@@ -490,14 +488,14 @@ class Authentication extends _$Authentication {
         final file = imageFiles[i];
         final imageUrl = await _repository.storeFileToStorage(
           file: file,
-          reference: 'images/${user.id}/${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+          reference: 'images/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
         );
         imageUrls.add(imageUrl);
       }
       
       // Create image post
       final postData = await _repository.createImagePost(
-        userId: user.id,
+        userId: user.uid,
         userName: user.name,
         userImage: user.profileImage,
         imageUrls: imageUrls,
@@ -626,7 +624,7 @@ class Authentication extends _$Authentication {
       
       // Update users list with new follow status
       final updatedUsers = currentState.users.map((user) {
-        if (user.id == userId) {
+        if (user.uid == userId) {
           return user.copyWith(
             followers: isCurrentlyFollowed ? user.followers - 1 : user.followers + 1,
             followerUIDs: isCurrentlyFollowed
@@ -700,7 +698,7 @@ class Authentication extends _$Authentication {
       
       await _repository.addComment(
         videoId: videoId,
-        authorId: user.id,
+        authorId: user.uid,
         authorName: user.name,
         authorImage: user.profileImage,
         content: content,
@@ -790,7 +788,7 @@ class Authentication extends _$Authentication {
     if (userModelString.isEmpty) return;
     
     final Map<String, dynamic> userMap = jsonDecode(userModelString);
-    final user = UserModel.fromMap(userMap, userMap['id'] ?? '');
+    final user = UserModel.fromMap(userMap);
     final currentState = state.value ?? const AuthenticationState();
     
     state = AsyncValue.data(currentState.copyWith(
@@ -864,20 +862,20 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Stream methods for real-time updates
+  // Deprecated stream methods - kept for compatibility but return empty streams
   Stream<DocumentSnapshot> userStream({required String userId}) {
-    return _repository.userStream(userId: userId);
+    return const Stream.empty();
   }
 
   Stream<QuerySnapshot> getAllUsersStream({required String excludeUserId}) {
-    return _repository.getAllUsersStream(excludeUserId: excludeUserId);
+    return const Stream.empty();
   }
 
   Stream<QuerySnapshot> getVideosStream() {
-    return _repository.getVideosStream();
+    return const Stream.empty();
   }
 
   Stream<List<CommentModel>> getCommentsStream(String videoId) {
-    return _repository.getCommentsStream(videoId);
+    return const Stream.empty();
   }
 }

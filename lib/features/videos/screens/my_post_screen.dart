@@ -6,7 +6,6 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:video_player/video_player.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
@@ -316,18 +315,25 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
     );
   }
 
-  String _formatTimeAgo(Timestamp timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp.toDate());
-    
-    if (difference.inDays > 0) {
-      return DateFormat('MMM d, y').format(timestamp.toDate());
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
+  // UPDATED: Handle RFC3339 string timestamps instead of Firestore Timestamps
+  String _formatTimeAgo(String timestamp) {
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+      
+      if (difference.inDays > 0) {
+        return DateFormat('MMM d, y').format(dateTime);
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours}h ago';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes}m ago';
+      } else {
+        return 'Just now';
+      }
+    } catch (e) {
+      // Fallback for invalid timestamp
+      return 'Unknown';
     }
   }
 
@@ -791,7 +797,7 @@ class _MyPostScreenState extends ConsumerState<MyPostScreen>
                                   ),
                                 ),
                                 Text(
-                                  _formatTimeAgo(video.createdAt),
+                                  _formatTimeAgo(video.createdAt), // UPDATED: Pass string directly
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,

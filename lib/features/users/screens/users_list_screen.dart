@@ -1197,10 +1197,10 @@ class UserSearchDelegate extends SearchDelegate<UserModel?> {
                                 fontSize: 14,
                               ),
                             ),
-                            if (user.about.isNotEmpty) ...[
+                            if (user.bio.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(
-                                user.about,
+                                user.bio,
                                 style: TextStyle(
                                   color: theme.textSecondaryColor,
                                   fontSize: 12,

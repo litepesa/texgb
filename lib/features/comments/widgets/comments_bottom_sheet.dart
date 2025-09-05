@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/comments_bottom_sheet.dart
+// lib/features/comments/widgets/comments_bottom_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -295,6 +295,41 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
     }
   }
 
+  // Helper method to parse RFC3339 timestamp and format time ago
+  String _formatTimeAgo(String timestampString) {
+    try {
+      // Parse RFC3339 timestamp
+      final dateTime = DateTime.parse(timestampString);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inDays > 7) {
+        return '${(difference.inDays / 7).floor()}w ago';
+      } else if (difference.inDays > 0) {
+        return '${difference.inDays}d ago';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours}h ago';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes}m ago';
+      } else {
+        return 'Just now';
+      }
+    } catch (e) {
+      // Fallback if parsing fails
+      return 'Unknown';
+    }
+  }
+
+  // Helper method to parse video creation time
+  String _formatVideoTime(String timestampString) {
+    try {
+      final dateTime = DateTime.parse(timestampString);
+      return timeago.format(dateTime);
+    } catch (e) {
+      return 'Unknown time';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
@@ -486,7 +521,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  timeago.format(widget.video.createdAt.toDate()),
+                  _formatVideoTime(widget.video.createdAt), // Use helper method
                   style: const TextStyle(
                     color: _mediumGray,
                     fontSize: 12,
@@ -858,7 +893,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
                 // Comment actions
                 Row(
                   children: [
-                    // Time
+                    // Time - Updated to use RFC3339 parsing
                     Text(
                       _formatTimeAgo(comment.createdAt),
                       style: const TextStyle(
@@ -965,23 +1000,6 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet>
         ],
       ),
     );
-  }
-
-  String _formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 7) {
-      return '${(difference.inDays / 7).floor()}w ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
   }
 
   Widget _buildEmptyCommentsState() {

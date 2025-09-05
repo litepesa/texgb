@@ -401,6 +401,17 @@ class _VideoItemState extends ConsumerState<VideoItem>
     });
   }
 
+  // Helper method to parse RFC3339 timestamp to DateTime
+  DateTime _parseVideoTimestamp() {
+    try {
+      return DateTime.parse(widget.video.createdAt);
+    } catch (e) {
+      debugPrint('Error parsing video timestamp: $e');
+      // Fallback to current time if parsing fails
+      return DateTime.now();
+    }
+  }
+
   @override
   void dispose() {
     _likeAnimationController.dispose();
@@ -857,7 +868,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final followedUsers = ref.watch(followedUsersProvider);
     final isFollowing = followedUsers.contains(widget.video.userId);
     final currentUser = ref.watch(currentUserProvider);
-    final isOwner = currentUser != null && currentUser.id == widget.video.userId;
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId; // Changed from id to uid
     
     return Positioned(
       bottom: 8,
@@ -1011,10 +1022,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Helper method to format timestamp as relative time with better formatting
+  // Helper method to format timestamp as relative time with better formatting - UPDATED
   String _getRelativeTime() {
     final now = DateTime.now();
-    final videoTime = widget.video.createdAt.toDate();
+    final videoTime = _parseVideoTimestamp(); // Use helper method to parse RFC3339
     final difference = now.difference(videoTime);
 
     if (difference.inSeconds < 30) {
@@ -1042,9 +1053,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // Helper method to format timestamp as absolute date/time
+  // Helper method to format timestamp as absolute date/time - UPDATED
   String _getFormattedDateTime() {
-    final videoTime = widget.video.createdAt.toDate();
+    final videoTime = _parseVideoTimestamp(); // Use helper method to parse RFC3339
     final now = DateTime.now();
     final difference = now.difference(videoTime);
 
@@ -1142,7 +1153,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final followedUsers = ref.watch(followedUsersProvider);
     final isFollowing = followedUsers.contains(widget.video.userId);
     final currentUser = ref.watch(currentUserProvider);
-    final isOwner = currentUser != null && currentUser.id == widget.video.userId;
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId; // Changed from id to uid
     
     // Don't show follow button if user owns this video
     if (isOwner) return const SizedBox.shrink();

@@ -651,7 +651,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       body: Column(
         children: [
           // About Section (if available)
-          if (_user!.about.isNotEmpty)
+          if (_user!.bio.isNotEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -665,7 +665,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 ),
               ),
               child: Text(
-                _user!.about,
+                _user!.bio,
                 style: TextStyle(
                   color: theme.textColor,
                   fontSize: 14,

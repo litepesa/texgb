@@ -48,11 +48,11 @@ double uploadProgress(UploadProgressRef ref) {
   return authState.value?.uploadProgress ?? 0.0;
 }
 
-// Convenience provider to get current user ID
+// Convenience provider to get current user ID - UPDATED
 @riverpod
 String? currentUserId(CurrentUserIdRef ref) {
   final authState = ref.watch(authenticationProvider);
-  return authState.value?.currentUser?.id;
+  return authState.value?.currentUser?.uid; // Changed from id to uid
 }
 
 // Convenience provider to get current phone number

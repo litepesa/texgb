@@ -610,9 +610,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
               const SizedBox(height: 12),
               
               // User description
-              if (_user!.about.isNotEmpty)
+              if (_user!.bio.isNotEmpty)
                 Text(
-                  _user!.about,
+                  _user!.bio,
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 16,

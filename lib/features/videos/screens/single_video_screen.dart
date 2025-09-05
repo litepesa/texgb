@@ -15,8 +15,6 @@ import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/constants.dart';
 import 'package:video_player/video_player.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:dio/dio.dart';
@@ -41,8 +39,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   
   // Core controllers
   final PageController _pageController = PageController();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   
   // State management
   int _currentVideoIndex = 0;
@@ -213,16 +209,27 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         orElse: () => throw Exception('Video not found'),
       );
       
-      // Get the user/author
+      // Get the user/author - UPDATED to use uid instead of id
       final allUsers = ref.read(usersProvider);
       final author = allUsers.firstWhere(
-        (user) => user.id == targetVideo.userId,
+        (user) => user.uid == targetVideo.userId, // Changed from user.id to user.uid
         orElse: () => throw Exception('User not found'),
       );
       
       // Load all user videos
       final userVideos = allVideos.where((video) => video.userId == targetVideo.userId).toList();
-      userVideos.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Sort by newest first
+      
+      // Sort by newest first - UPDATED to handle string timestamps
+      userVideos.sort((a, b) {
+        try {
+          final aTime = DateTime.parse(a.createdAt);
+          final bTime = DateTime.parse(b.createdAt);
+          return bTime.compareTo(aTime); // Sort by newest first
+        } catch (e) {
+          // Fallback to string comparison if parsing fails
+          return b.createdAt.compareTo(a.createdAt);
+        }
+      });
       
       // Find the index of the target video
       final targetIndex = userVideos.indexWhere((video) => video.id == widget.videoId);
@@ -230,7 +237,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       final followedUsers = ref.read(followedUsersProvider);
       final isFollowing = followedUsers.contains(targetVideo.userId);
       final currentUser = ref.read(currentUserProvider);
-      final isOwner = currentUser != null && currentUser.id == targetVideo.userId;
+      final isOwner = currentUser != null && currentUser.uid == targetVideo.userId; // Changed from id to uid
       
       if (mounted) {
         setState(() {
@@ -559,7 +566,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     await Navigator.pushNamed(
       context,
       Constants.userProfileScreen,
-      arguments: _videoAuthor!.id, // Pass only the userId string, not a Map
+      arguments: _videoAuthor!.uid, // Changed from id to uid
     );
   
     // Resume video when returning (if still active)
@@ -1127,8 +1134,8 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     final currentUser = ref.read(currentUserProvider);
     
     // At this point we know user is authenticated
-    // Check if user is trying to gift their own video
-    if (video.userId == currentUser!.id) {
+    // Check if user is trying to gift their own video - UPDATED to use uid
+    if (video.userId == currentUser!.uid) { // Changed from id to uid
       _showCannotGiftOwnVideoMessage();
       return;
     }
