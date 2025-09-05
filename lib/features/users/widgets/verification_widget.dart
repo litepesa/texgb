@@ -86,7 +86,7 @@ class VerificationInfoWidget extends StatelessWidget {
                         _buildBenefitItem(
                           icon: Icons.live_tv,
                           title: 'Go Live',
-                          description: 'Only verified users can qualify to go live and stream to followers',
+                          description: 'Only verified qualifying accounts can go live and stream to followers',
                           color: Colors.purple,
                         ),
                         const SizedBox(height: 16),
@@ -106,15 +106,15 @@ class VerificationInfoWidget extends StatelessWidget {
                         const SizedBox(height: 16),
                         _buildBenefitItem(
                           icon: Icons.attach_money,
-                          title: 'Creator Bonus Eligibility',
-                          description: 'Qualify for monthly creator bonus programs and rewards',
+                          title: 'Creator Awards Eligibility',
+                          description: 'Eligibility for monthly top creator awards programs and rewards',
                           color: Colors.orange,
                         ),
                         const SizedBox(height: 16),
                         _buildBenefitItem(
                           icon: Icons.security,
                           title: 'Enhanced Trust',
-                          description: 'Build credibility with the verified badge',
+                          description: 'Build business credibility with the verified badge',
                           color: Colors.blue,
                         ),
                         const SizedBox(height: 24),
