@@ -369,7 +369,7 @@ class Constants {
   static const bool requireBiometricForSensitiveActions = true;
 
   // ===================== FILE SIZE LIMITS =====================
-  static const int maxVideoSizeMB = 100;
+  static const int maxVideoSizeMB = 50;
   static const int maxImageSizeMB = 10;
   static const int maxThumbnailSizeMB = 2;
   static const int maxProfileImageSizeMB = 5;

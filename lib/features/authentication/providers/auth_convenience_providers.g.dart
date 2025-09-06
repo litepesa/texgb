@@ -105,7 +105,7 @@ final uploadProgressProvider = AutoDisposeProvider<double>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef UploadProgressRef = AutoDisposeProviderRef<double>;
-String _$currentUserIdHash() => r'8cead6f40c44d22fc793fc76bb78b49e87131f58';
+String _$currentUserIdHash() => r'66b9e27760180e2bcc7b9bf5951c1dc56872d11b';
 
 /// See also [currentUserId].
 @ProviderFor(currentUserId)

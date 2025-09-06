@@ -1,17 +1,17 @@
-// lib/features/authentication/repositories/authentication_repository.dart
+// lib/features/authentication/repositories/authentication_repository.dart (Updated with syncUserWithBackend)
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/features/comments/models/comment_model.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
+import '../../../features/users/models/user_model.dart';
 import '../../../constants.dart';
 import '../../../shared/services/http_client.dart';
-import '../../videos/models/video_model.dart';
-import '../../comments/models/comment_model.dart';
 
-// Abstract repository interface
+// Abstract repository interface (updated for Go backend)
 abstract class AuthenticationRepository {
-  // Firebase Auth operations (unchanged)
+  // Authentication operations (Firebase Auth only - unchanged)
   Future<bool> checkAuthenticationState();
   Future<void> signInWithPhoneNumber({
     required String phoneNumber,
@@ -25,9 +25,10 @@ abstract class AuthenticationRepository {
   });
   Future<void> signOut();
 
-  // User operations (Go backend via HTTP)
-  Future<bool> checkUserExists(String userId);
-  Future<UserModel?> getUserProfile(String userId);
+  // NEW: User sync and data operations (Go backend via HTTP)
+  Future<UserModel?> syncUserWithBackend(String uid);
+  Future<bool> checkUserExists(String uid);
+  Future<UserModel?> getUserProfile(String uid);
   Future<UserModel> createUserProfile({
     required UserModel user,
     required File? profileImage,
@@ -38,7 +39,6 @@ abstract class AuthenticationRepository {
     File? profileImage,
     File? coverImage,
   });
-  Future<void> deleteUserProfile(String userId);
 
   // Social operations (Go backend via HTTP)
   Future<void> followUser({required String followerId, required String userId});
@@ -94,12 +94,6 @@ abstract class AuthenticationRepository {
     required String reference,
     Function(double)? onProgress,
   });
-
-  // Deprecated Firestore streams - keep for compatibility but make them no-ops
-  Stream<DocumentSnapshot> userStream({required String userId});
-  Stream<QuerySnapshot> getAllUsersStream({required String excludeUserId});
-  Stream<QuerySnapshot> getVideosStream();
-  Stream<List<CommentModel>> getCommentsStream(String videoId);
 
   // Current user info (Firebase Auth - unchanged)
   String? get currentUserId;
@@ -194,13 +188,58 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
+  // NEW: USER SYNC OPERATIONS (GO BACKEND VIA HTTP)
+  // ===============================
+
+  @override
+  Future<UserModel?> syncUserWithBackend(String uid) async {
+    try {
+      // First check if user exists in backend
+      final userExists = await checkUserExists(uid);
+      
+      if (userExists) {
+        // Get existing user data
+        return await getUserProfile(uid);
+      } else {
+        // Create new minimal user with Firebase info
+        final firebaseUser = _auth.currentUser;
+        if (firebaseUser == null) {
+          throw AuthRepositoryException('No Firebase user found');
+        }
+
+        // Create minimal user model
+        final newUser = UserModel.create(
+          uid: uid,
+          name: firebaseUser.displayName ?? '', // Empty name - to be filled later
+          email: firebaseUser.email ?? '',
+          phoneNumber: firebaseUser.phoneNumber ?? '',
+          profileImage: firebaseUser.photoURL ?? '',
+          bio: '', // Empty bio - to be filled later
+        );
+
+        // Create user in backend (no auth middleware required for this endpoint)
+        final response = await _httpClient.post('/auth/sync', body: newUser.toMap());
+        
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+          return UserModel.fromMap(responseData['user'] ?? responseData);
+        } else {
+          throw AuthRepositoryException('Failed to create user in backend: ${response.body}');
+        }
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to sync user with backend: $e');
+    }
+  }
+
+  // ===============================
   // USER OPERATIONS (GO BACKEND VIA HTTP)
   // ===============================
 
   @override
-  Future<bool> checkUserExists(String userId) async {
+  Future<bool> checkUserExists(String uid) async {
     try {
-      final response = await _httpClient.get('/users/$userId');
+      final response = await _httpClient.get('/users/$uid');
       return response.statusCode == 200;
     } catch (e) {
       if (e is NotFoundException) return false;
@@ -209,9 +248,9 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   @override
-  Future<UserModel?> getUserProfile(String userId) async {
+  Future<UserModel?> getUserProfile(String uid) async {
     try {
-      final response = await _httpClient.get('/users/$userId');
+      final response = await _httpClient.get('/users/$uid');
       
       if (response.statusCode == 200) {
         final userData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -262,10 +301,10 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         lastSeen: timestamp,
       );
 
-      // Save to backend
-      final response = await _httpClient.post('/users', body: finalUser.toMap());
+      // Save to backend (this now works because user exists from sync)
+      final response = await _httpClient.put('/users/${finalUser.uid}', body: finalUser.toMap());
       
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode == 200) {
         return finalUser;
       } else {
         throw AuthRepositoryException('Failed to create user profile: ${response.body}');
@@ -320,19 +359,6 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     }
   }
 
-  @override
-  Future<void> deleteUserProfile(String userId) async {
-    try {
-      final response = await _httpClient.put('/users/$userId', body: {'isActive': false});
-      
-      if (response.statusCode != 200) {
-        throw AuthRepositoryException('Failed to delete user profile: ${response.body}');
-      }
-    } catch (e) {
-      throw AuthRepositoryException('Failed to delete user profile: $e');
-    }
-  }
-
   // ===============================
   // SOCIAL OPERATIONS (GO BACKEND VIA HTTP)
   // ===============================
@@ -340,8 +366,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<void> followUser({required String followerId, required String userId}) async {
     try {
-      final response = await _httpClient.post('/users/$followerId/follow', body: {
-        'targetUserId': userId,
+      final response = await _httpClient.post('/users/$userId/follow', body: {
+        'followerId': followerId,
       });
 
       if (response.statusCode != 200) {
@@ -355,9 +381,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<void> unfollowUser({required String followerId, required String userId}) async {
     try {
-      final response = await _httpClient.post('/users/$followerId/unfollow', body: {
-        'targetUserId': userId,
-      });
+      final response = await _httpClient.delete('/users/$userId/follow?followerId=$followerId');
 
       if (response.statusCode != 200) {
         throw AuthRepositoryException('Failed to unfollow user: ${response.body}');
@@ -373,7 +397,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       final response = await _httpClient.get('/users/search?q=${Uri.encodeComponent(query)}');
       
       if (response.statusCode == 200) {
-        final List<dynamic> usersData = jsonDecode(response.body);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> usersData = responseData['users'] ?? [];
         return usersData
             .map((userData) => UserModel.fromMap(userData as Map<String, dynamic>))
             .toList();
@@ -391,7 +416,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       final response = await _httpClient.get('/users?exclude=$excludeUserId');
       
       if (response.statusCode == 200) {
-        final List<dynamic> usersData = jsonDecode(response.body);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> usersData = responseData['users'] ?? [];
         return usersData
             .map((userData) => UserModel.fromMap(userData as Map<String, dynamic>))
             .toList();
@@ -404,7 +430,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // VIDEO OPERATIONS (GO BACKEND VIA HTTP)
+  // VIDEO OPERATIONS (GO BACKEND VIA HTTP) - Keep existing implementation
   // ===============================
 
   @override
@@ -413,7 +439,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       final response = await _httpClient.get('/videos');
       
       if (response.statusCode == 200) {
-        final List<dynamic> videosData = jsonDecode(response.body);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> videosData = responseData['videos'] ?? [];
         return videosData
             .map((videoData) => VideoModel.fromMap(videoData as Map<String, dynamic>))
             .toList();
@@ -431,7 +458,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       final response = await _httpClient.get('/users/$userId/videos');
       
       if (response.statusCode == 200) {
-        final List<dynamic> videosData = jsonDecode(response.body);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> videosData = responseData['videos'] ?? [];
         return videosData
             .map((videoData) => VideoModel.fromMap(videoData as Map<String, dynamic>))
             .toList();
@@ -482,10 +510,10 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'videoUrl': videoUrl,
         'thumbnailUrl': thumbnailUrl,
         'caption': caption,
-        'likes': 0,
-        'comments': 0,
-        'views': 0,
-        'shares': 0,
+        'likesCount': 0,
+        'commentsCount': 0,
+        'viewsCount': 0,
+        'sharesCount': 0,
         'tags': tags ?? [],
         'createdAt': timestamp,
         'updatedAt': timestamp,
@@ -499,7 +527,9 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        return VideoModel.fromMap(responseData);
+        // Handle both direct video data and wrapped response
+        final videoMap = responseData.containsKey('video') ? responseData['video'] : responseData;
+        return VideoModel.fromMap(videoMap);
       } else {
         throw AuthRepositoryException('Failed to create video: ${response.body}');
       }
@@ -527,10 +557,10 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'videoUrl': '',
         'thumbnailUrl': imageUrls.isNotEmpty ? imageUrls.first : '',
         'caption': caption,
-        'likes': 0,
-        'comments': 0,
-        'views': 0,
-        'shares': 0,
+        'likesCount': 0,
+        'commentsCount': 0,
+        'viewsCount': 0,
+        'sharesCount': 0,
         'tags': tags ?? [],
         'createdAt': timestamp,
         'updatedAt': timestamp,
@@ -544,7 +574,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        return VideoModel.fromMap(responseData);
+        final videoMap = responseData.containsKey('video') ? responseData['video'] : responseData;
+        return VideoModel.fromMap(videoMap);
       } else {
         throw AuthRepositoryException('Failed to create image post: ${response.body}');
       }
@@ -556,7 +587,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<void> deleteVideo(String videoId, String userId) async {
     try {
-      final response = await _httpClient.delete('/videos/$videoId?userId=$userId');
+      final response = await _httpClient.delete('/videos/$videoId');
       
       if (response.statusCode != 200) {
         throw AuthRepositoryException('Failed to delete video: ${response.body}');
@@ -569,9 +600,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<void> likeVideo(String videoId, String userId) async {
     try {
-      final response = await _httpClient.post('/videos/$videoId/like', body: {
-        'userId': userId,
-      });
+      final response = await _httpClient.post('/videos/$videoId/like', body: {});
 
       if (response.statusCode != 200) {
         throw AuthRepositoryException('Failed to like video: ${response.body}');
@@ -584,9 +613,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<void> unlikeVideo(String videoId, String userId) async {
     try {
-      final response = await _httpClient.post('/videos/$videoId/unlike', body: {
-        'userId': userId,
-      });
+      final response = await _httpClient.delete('/videos/$videoId/like');
 
       if (response.statusCode != 200) {
         throw AuthRepositoryException('Failed to unlike video: ${response.body}');
@@ -602,7 +629,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       final response = await _httpClient.get('/users/$userId/liked-videos');
       
       if (response.statusCode == 200) {
-        final List<dynamic> likedVideosData = jsonDecode(response.body);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> likedVideosData = responseData['videos'] ?? [];
         return likedVideosData.cast<String>();
       } else {
         throw AuthRepositoryException('Failed to get liked videos: ${response.body}');
@@ -615,7 +643,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<void> incrementViewCount(String videoId) async {
     try {
-      final response = await _httpClient.post('/videos/$videoId/view', body: {});
+      final response = await _httpClient.post('/videos/$videoId/views', body: {});
       
       if (response.statusCode != 200) {
         throw AuthRepositoryException('Failed to increment view count: ${response.body}');
@@ -626,7 +654,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // COMMENT OPERATIONS (GO BACKEND VIA HTTP)
+  // COMMENT OPERATIONS (GO BACKEND VIA HTTP) - Keep existing implementation
   // ===============================
 
   @override
@@ -650,14 +678,13 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         'content': content.trim(),
         'createdAt': timestamp,
         'updatedAt': timestamp,
-        'likedBy': <String>[],
         'likesCount': 0,
         'isReply': repliedToCommentId != null,
         if (repliedToCommentId != null) 'repliedToCommentId': repliedToCommentId,
         if (repliedToAuthorName != null) 'repliedToAuthorName': repliedToAuthorName,
       };
 
-      final response = await _httpClient.post('/comments', body: commentData);
+      final response = await _httpClient.post('/videos/$videoId/comments', body: commentData);
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -676,7 +703,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       final response = await _httpClient.get('/videos/$videoId/comments');
       
       if (response.statusCode == 200) {
-        final List<dynamic> commentsData = jsonDecode(response.body);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> commentsData = responseData['comments'] ?? [];
         return commentsData.map((commentData) {
           final Map<String, dynamic> data = commentData as Map<String, dynamic>;
           return CommentModel.fromMap(data, data['id'] ?? '');
@@ -692,7 +720,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<void> deleteComment(String commentId, String userId) async {
     try {
-      final response = await _httpClient.delete('/comments/$commentId?userId=$userId');
+      final response = await _httpClient.delete('/comments/$commentId');
       
       if (response.statusCode != 200) {
         throw AuthRepositoryException('Failed to delete comment: ${response.body}');
@@ -705,9 +733,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<void> likeComment(String commentId, String userId) async {
     try {
-      final response = await _httpClient.post('/comments/$commentId/like', body: {
-        'userId': userId,
-      });
+      final response = await _httpClient.post('/comments/$commentId/like', body: {});
 
       if (response.statusCode != 200) {
         throw AuthRepositoryException('Failed to like comment: ${response.body}');
@@ -720,9 +746,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<void> unlikeComment(String commentId, String userId) async {
     try {
-      final response = await _httpClient.post('/comments/$commentId/unlike', body: {
-        'userId': userId,
-      });
+      final response = await _httpClient.post('/comments/$commentId/unlike', body: {});
 
       if (response.statusCode != 200) {
         throw AuthRepositoryException('Failed to unlike comment: ${response.body}');
@@ -771,91 +795,6 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     if (reference.contains('video')) return 'video';
     return 'profile'; // Default to profile
   }
-
-  // ===============================
-  // DEPRECATED STREAM METHODS (NO-OPS FOR COMPATIBILITY)
-  // ===============================
-
-  @override
-  Stream<DocumentSnapshot> userStream({required String userId}) {
-    // Return empty stream for compatibility - streams are deprecated with HTTP backend
-    return const Stream.empty();
-  }
-
-  @override
-  Stream<QuerySnapshot> getAllUsersStream({required String excludeUserId}) {
-    // Return empty stream for compatibility - streams are deprecated with HTTP backend
-    return const Stream.empty();
-  }
-
-  @override
-  Stream<QuerySnapshot> getVideosStream() {
-    // Return empty stream for compatibility - streams are deprecated with HTTP backend
-    return const Stream.empty();
-  }
-
-  @override
-  Stream<List<CommentModel>> getCommentsStream(String videoId) {
-    // Return empty stream for compatibility - streams are deprecated with HTTP backend
-    return const Stream.empty();
-  }
-
-  // ===============================
-  // ADDITIONAL HELPER METHODS
-  // ===============================
-
-  // Test backend connection
-  Future<bool> testBackendConnection() async {
-    try {
-      return await _httpClient.testConnection();
-    } catch (e) {
-      debugPrint('Backend connection test failed: $e');
-      return false;
-    }
-  }
-
-  // Get current user's Firebase token
-  Future<String?> getCurrentUserToken() async {
-    try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        return await user.getIdToken();
-      }
-      return null;
-    } catch (e) {
-      debugPrint('Failed to get current user token: $e');
-      return null;
-    }
-  }
-
-  // Refresh user token
-  Future<String?> refreshUserToken() async {
-    try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        return await user.getIdToken(true); // Force refresh
-      }
-      return null;
-    } catch (e) {
-      debugPrint('Failed to refresh user token: $e');
-      return null;
-    }
-  }
-
-  // Check if current user is authenticated
-  bool get isUserAuthenticated => _auth.currentUser != null;
-
-  // Get current user's email
-  String? get currentUserEmail => _auth.currentUser?.email;
-
-  // Get current user's display name
-  String? get currentUserDisplayName => _auth.currentUser?.displayName;
-
-  // Listen to auth state changes
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
-
-  // Listen to user changes
-  Stream<User?> get userChanges => _auth.userChanges();
 }
 
 // Exception class for repository errors (unchanged)

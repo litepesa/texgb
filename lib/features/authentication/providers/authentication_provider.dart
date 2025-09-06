@@ -1,4 +1,4 @@
-// lib/features/authentication/providers/authentication_provider.dart
+// lib/features/authentication/providers/authentication_provider.dart (Updated with syncUserWithBackend)
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -92,10 +92,12 @@ class Authentication extends _$Authentication {
     final isAuthenticated = await checkAuthenticationState();
     
     if (isAuthenticated && _repository.currentUserId != null) {
-      final userProfile = await getUserProfile();
-      await loadUserDataFromSharedPreferences();
+      // First sync with backend to ensure user exists
+      final userProfile = await syncUserWithBackend();
       
       if (userProfile != null) {
+        await loadUserDataFromSharedPreferences();
+        
         // Load all app data for authenticated user
         await loadVideos();
         await loadLikedVideos();
@@ -170,43 +172,58 @@ class Authentication extends _$Authentication {
         verificationId: verificationId,
         otpCode: otpCode,
         context: context,
-        onSuccess: onSuccess,
-      );
-      
-      // Check if user profile exists
-      final userId = _repository.currentUserId;
-      if (userId != null) {
-        final userExists = await _repository.checkUserExists(userId);
-        
-        if (userExists) {
-          // User profile exists, load full authentication state
-          final userProfile = await _repository.getUserProfile(userId);
-          await saveUserDataToSharedPreferences();
-          await loadVideos();
-          await loadLikedVideos();
-          await loadUsers();
-          await loadFollowedUsers();
+        onSuccess: () async {
+          // CRITICAL: Sync user with backend immediately after Firebase auth
+          final userProfile = await syncUserWithBackend();
           
-          state = AsyncValue.data(AuthenticationState(
-            state: AuthState.authenticated,
-            currentUser: userProfile,
-            phoneNumber: _repository.currentUserPhoneNumber,
-            videos: state.value?.videos ?? [],
-            likedVideos: state.value?.likedVideos ?? [],
-            users: state.value?.users ?? [],
-            followedUsers: state.value?.followedUsers ?? [],
-          ));
-        } else {
-          // User profile doesn't exist, need to create profile
-          state = AsyncValue.data(AuthenticationState(
-            state: AuthState.loading,
-            phoneNumber: _repository.currentUserPhoneNumber,
-          ));
-        }
-      }
+          if (userProfile != null) {
+            await saveUserDataToSharedPreferences();
+            await loadVideos();
+            await loadLikedVideos();
+            await loadUsers();
+            await loadFollowedUsers();
+            
+            state = AsyncValue.data(AuthenticationState(
+              state: AuthState.authenticated,
+              currentUser: userProfile,
+              phoneNumber: _repository.currentUserPhoneNumber,
+              videos: state.value?.videos ?? [],
+              likedVideos: state.value?.likedVideos ?? [],
+              users: state.value?.users ?? [],
+              followedUsers: state.value?.followedUsers ?? [],
+            ));
+          }
+          
+          onSuccess();
+        },
+      );
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
       showSnackBar(context, e.message);
+    }
+  }
+
+  // NEW: Sync user with backend (key method to fix auth flow)
+  Future<UserModel?> syncUserWithBackend() async {
+    final uid = _repository.currentUserId;
+    if (uid == null) return null;
+
+    try {
+      final userModel = await _repository.syncUserWithBackend(uid);
+      
+      if (userModel != null) {
+        final currentState = state.value ?? const AuthenticationState();
+        state = AsyncValue.data(currentState.copyWith(
+          currentUser: userModel,
+          state: AuthState.authenticated,
+        ));
+        await saveUserDataToSharedPreferences();
+      }
+      
+      return userModel;
+    } on AuthRepositoryException catch (e) {
+      debugPrint('Failed to sync user with backend: ${e.message}');
+      return null;
     }
   }
 
@@ -860,22 +877,5 @@ class Authentication extends _$Authentication {
     } on AuthRepositoryException catch (e) {
       throw e.message;
     }
-  }
-
-  // Deprecated stream methods - kept for compatibility but return empty streams
-  Stream<DocumentSnapshot> userStream({required String userId}) {
-    return const Stream.empty();
-  }
-
-  Stream<QuerySnapshot> getAllUsersStream({required String excludeUserId}) {
-    return const Stream.empty();
-  }
-
-  Stream<QuerySnapshot> getVideosStream() {
-    return const Stream.empty();
-  }
-
-  Stream<List<CommentModel>> getCommentsStream(String videoId) {
-    return const Stream.empty();
   }
 }
