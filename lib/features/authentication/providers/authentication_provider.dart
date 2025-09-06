@@ -1,4 +1,4 @@
-// lib/features/authentication/providers/authentication_provider.dart (Updated with syncUserWithBackend)
+// lib/features/authentication/providers/authentication_provider.dart (Updated TikTok provider with better user management)
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -16,6 +16,7 @@ part 'authentication_provider.g.dart';
 enum AuthState {
   guest,           // Can browse videos only
   authenticated,   // Firebase user + profile exists
+  partial,         // Firebase authenticated but no backend profile (BORROWED from drama provider)
   loading,
   error
 }
@@ -24,6 +25,7 @@ enum AuthState {
 class AuthenticationState {
   final AuthState state;
   final bool isLoading;
+  final bool isSuccessful;    // BORROWED: Better success state logic
   final UserModel? currentUser;
   final String? phoneNumber;
   final String? error;
@@ -37,6 +39,7 @@ class AuthenticationState {
   const AuthenticationState({
     this.state = AuthState.guest,
     this.isLoading = false,
+    this.isSuccessful = false,
     this.currentUser,
     this.phoneNumber,
     this.error,
@@ -51,6 +54,7 @@ class AuthenticationState {
   AuthenticationState copyWith({
     AuthState? state,
     bool? isLoading,
+    bool? isSuccessful,
     UserModel? currentUser,
     String? phoneNumber,
     String? error,
@@ -64,6 +68,7 @@ class AuthenticationState {
     return AuthenticationState(
       state: state ?? this.state,
       isLoading: isLoading ?? this.isLoading,
+      isSuccessful: isSuccessful ?? this.isSuccessful,
       currentUser: currentUser ?? this.currentUser,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       error: error,
@@ -88,30 +93,48 @@ class Authentication extends _$Authentication {
 
   @override
   FutureOr<AuthenticationState> build() async {
-    // Check authentication state on initialization
-    final isAuthenticated = await checkAuthenticationState();
+    // BORROWED: Better initialization logic from drama provider
+    final isFirebaseAuthenticated = await checkAuthenticationState();
     
-    if (isAuthenticated && _repository.currentUserId != null) {
-      // First sync with backend to ensure user exists
-      final userProfile = await syncUserWithBackend();
+    if (isFirebaseAuthenticated && _repository.currentUserId != null) {
+      // BORROWED: Check if backend user profile exists FIRST
+      final userExists = await checkUserExists();
       
-      if (userProfile != null) {
-        await loadUserDataFromSharedPreferences();
+      if (userExists) {
+        // BORROWED: Get complete user profile from backend
+        final userProfile = await getUserDataFromBackend();
         
-        // Load all app data for authenticated user
+        if (userProfile != null) {
+          await saveUserDataToSharedPreferences();
+          
+          // Load all app data for authenticated user
+          await loadVideos();
+          await loadLikedVideos();
+          await loadUsers();
+          await loadFollowedUsers();
+          
+          return AuthenticationState(
+            state: AuthState.authenticated,
+            isSuccessful: true,  // BORROWED: Only true when profile exists
+            currentUser: userProfile,
+            phoneNumber: _repository.currentUserPhoneNumber,
+            videos: state.value?.videos ?? [],
+            likedVideos: state.value?.likedVideos ?? [],
+            users: state.value?.users ?? [],
+            followedUsers: state.value?.followedUsers ?? [],
+          );
+        }
+      } else {
+        // BORROWED: Firebase auth exists but no backend profile
         await loadVideos();
-        await loadLikedVideos();
         await loadUsers();
-        await loadFollowedUsers();
         
         return AuthenticationState(
-          state: AuthState.authenticated,
-          currentUser: userProfile,
+          state: AuthState.partial,
+          isSuccessful: false,  // BORROWED: Incomplete auth - needs profile creation
           phoneNumber: _repository.currentUserPhoneNumber,
           videos: state.value?.videos ?? [],
-          likedVideos: state.value?.likedVideos ?? [],
           users: state.value?.users ?? [],
-          followedUsers: state.value?.followedUsers ?? [],
         );
       }
     }
@@ -125,6 +148,43 @@ class Authentication extends _$Authentication {
       videos: state.value?.videos ?? [],
       users: state.value?.users ?? [],
     );
+  }
+
+  // BORROWED: Better user existence checking from drama provider
+  Future<bool> checkUserExists() async {
+    final userId = _repository.currentUserId;
+    if (userId == null) return false;
+    
+    try {
+      return await _repository.checkUserExists(userId);
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      return false;
+    }
+  }
+
+  // BORROWED: Better user data retrieval from drama provider  
+  Future<UserModel?> getUserDataFromBackend() async {
+    final userId = _repository.currentUserId;
+    if (userId == null) return null;
+    
+    try {
+      final userModel = await _repository.getUserProfile(userId);
+      
+      if (userModel != null) {
+        final currentState = state.value ?? const AuthenticationState();
+        state = AsyncValue.data(currentState.copyWith(
+          currentUser: userModel,
+          state: AuthState.authenticated,
+          isSuccessful: true,
+        ));
+      }
+      
+      return userModel;
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      return null;
+    }
   }
 
   // Authentication methods
@@ -141,7 +201,10 @@ class Authentication extends _$Authentication {
     required String phoneNumber,
     required BuildContext context,
   }) async {
-    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    state = AsyncValue.data(const AuthenticationState(
+      state: AuthState.loading,
+      isLoading: true,
+    ));
 
     try {
       await _repository.signInWithPhoneNumber(
@@ -165,7 +228,10 @@ class Authentication extends _$Authentication {
     required BuildContext context,
     required Function onSuccess,
   }) async {
-    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    state = AsyncValue.data(const AuthenticationState(
+      state: AuthState.loading,
+      isLoading: true,
+    ));
 
     try {
       await _repository.verifyOTPCode(
@@ -173,27 +239,8 @@ class Authentication extends _$Authentication {
         otpCode: otpCode,
         context: context,
         onSuccess: () async {
-          // CRITICAL: Sync user with backend immediately after Firebase auth
-          final userProfile = await syncUserWithBackend();
-          
-          if (userProfile != null) {
-            await saveUserDataToSharedPreferences();
-            await loadVideos();
-            await loadLikedVideos();
-            await loadUsers();
-            await loadFollowedUsers();
-            
-            state = AsyncValue.data(AuthenticationState(
-              state: AuthState.authenticated,
-              currentUser: userProfile,
-              phoneNumber: _repository.currentUserPhoneNumber,
-              videos: state.value?.videos ?? [],
-              likedVideos: state.value?.likedVideos ?? [],
-              users: state.value?.users ?? [],
-              followedUsers: state.value?.followedUsers ?? [],
-            ));
-          }
-          
+          // BORROWED: Better post-OTP verification from drama provider
+          await _handlePostOTPVerification();
           onSuccess();
         },
       );
@@ -203,29 +250,68 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // NEW: Sync user with backend (key method to fix auth flow)
-  Future<UserModel?> syncUserWithBackend() async {
+  // BORROWED: Critical post-OTP verification logic from drama provider
+  Future<void> _handlePostOTPVerification() async {
     final uid = _repository.currentUserId;
-    if (uid == null) return null;
+    if (uid == null) return;
 
     try {
-      final userModel = await _repository.syncUserWithBackend(uid);
+      // Step 1: Check if user profile exists in backend
+      final userExists = await checkUserExists();
       
-      if (userModel != null) {
-        final currentState = state.value ?? const AuthenticationState();
-        state = AsyncValue.data(currentState.copyWith(
-          currentUser: userModel,
-          state: AuthState.authenticated,
+      if (userExists) {
+        // Step 2: User exists - get complete profile data
+        final userModel = await getUserDataFromBackend();
+        
+        if (userModel != null) {
+          await saveUserDataToSharedPreferences();
+          await loadVideos();
+          await loadLikedVideos();
+          await loadUsers();
+          await loadFollowedUsers();
+          
+          state = AsyncValue.data(AuthenticationState(
+            state: AuthState.authenticated,
+            isSuccessful: true,  // Complete authentication
+            currentUser: userModel,
+            phoneNumber: _repository.currentUserPhoneNumber,
+            videos: state.value?.videos ?? [],
+            likedVideos: state.value?.likedVideos ?? [],
+            users: state.value?.users ?? [],
+            followedUsers: state.value?.followedUsers ?? [],
+          ));
+        }
+      } else {
+        // Step 3: Firebase auth successful but no backend profile - needs profile creation
+        await loadVideos();
+        await loadUsers();
+        
+        state = AsyncValue.data(AuthenticationState(
+          state: AuthState.partial,
+          isSuccessful: false,  // Incomplete - needs profile creation
+          phoneNumber: _repository.currentUserPhoneNumber,
+          videos: state.value?.videos ?? [],
+          users: state.value?.users ?? [],
         ));
-        await saveUserDataToSharedPreferences();
       }
-      
-      return userModel;
     } on AuthRepositoryException catch (e) {
-      debugPrint('Failed to sync user with backend: ${e.message}');
-      return null;
+      debugPrint('Failed to handle post-OTP verification: ${e.message}');
+      // Keep partial state for user to create profile
+      await loadVideos();
+      await loadUsers();
+      
+      state = AsyncValue.data(AuthenticationState(
+        state: AuthState.partial,
+        isSuccessful: false,
+        phoneNumber: _repository.currentUserPhoneNumber,
+        videos: state.value?.videos ?? [],
+        users: state.value?.users ?? [],
+      ));
     }
   }
+
+  // REMOVED: The problematic auto-sync method that created users without proper setup
+  // OLD: Future<UserModel?> syncUserWithBackend() - This was the problem!
 
   Future<void> createUserProfile({
     required UserModel user,
@@ -234,7 +320,10 @@ class Authentication extends _$Authentication {
     required Function onSuccess,
     required Function onFail,
   }) async {
-    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    state = AsyncValue.data(const AuthenticationState(
+      state: AuthState.loading,
+      isLoading: true,
+    ));
 
     try {
       final createdUser = await _repository.createUserProfile(
@@ -251,6 +340,7 @@ class Authentication extends _$Authentication {
       
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.authenticated,
+        isSuccessful: true,  // BORROWED: Only true after successful profile creation
         currentUser: createdUser,
         phoneNumber: _repository.currentUserPhoneNumber,
         videos: state.value?.videos ?? [],
@@ -297,6 +387,8 @@ class Authentication extends _$Authentication {
       
       state = AsyncValue.data(currentState.copyWith(
         currentUser: updatedUser,
+        state: AuthState.authenticated,
+        isSuccessful: true,
         isLoading: false,
       ));
 
@@ -308,7 +400,10 @@ class Authentication extends _$Authentication {
   }
 
   Future<void> signOut() async {
-    state = AsyncValue.data(const AuthenticationState(isLoading: true));
+    state = AsyncValue.data(const AuthenticationState(
+      state: AuthState.loading,
+      isLoading: true,
+    ));
     
     try {
       await _repository.signOut();
@@ -332,6 +427,7 @@ class Authentication extends _$Authentication {
     }
   }
 
+  // KEEP ALL ORIGINAL TIKTOK/SOCIAL MEDIA FUNCTIONALITY
   // Video methods
   Future<void> loadVideos() async {
     try {
@@ -811,18 +907,25 @@ class Authentication extends _$Authentication {
     state = AsyncValue.data(currentState.copyWith(
       currentUser: user,
       phoneNumber: user.phoneNumber,
+      state: AuthState.authenticated,
+      isSuccessful: true,
     ));
   }
 
-  // Helper methods for UI
+  // BORROWED: Helper methods for UI from drama provider
   bool get isAuthenticated {
     final currentState = state.value;
-    return currentState?.state == AuthState.authenticated;
+    return currentState?.state == AuthState.authenticated && currentState?.isSuccessful == true;
   }
 
   bool get isGuest {
     final currentState = state.value;
     return currentState?.state == AuthState.guest;
+  }
+
+  bool get needsProfileCreation {
+    final currentState = state.value;
+    return currentState?.state == AuthState.partial;
   }
 
   bool get isLoading {
