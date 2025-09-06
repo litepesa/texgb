@@ -1,4 +1,5 @@
 // lib/features/users/models/user_model.dart
+// FIXED: Resolved PostgreSQL array literal problem for tags field
 import 'package:flutter/material.dart';
 
 class UserModel {
@@ -60,16 +61,41 @@ class UserModel {
       videosCount: map['videosCount'] ?? 0,
       likesCount: map['likesCount'] ?? 0,
       isVerified: map['isVerified'] ?? false,
-      tags: List<String>.from(map['tags'] ?? []),
-      followerUIDs: List<String>.from(map['followerUIDs'] ?? []),
-      followingUIDs: List<String>.from(map['followingUIDs'] ?? []),
-      likedVideos: List<String>.from(map['likedVideos'] ?? []),
+      tags: _parseStringArray(map['tags']),  // 🔧 FIXED: Safe array parsing
+      followerUIDs: _parseStringArray(map['followerUIDs']),  // 🔧 FIXED: Safe array parsing
+      followingUIDs: _parseStringArray(map['followingUIDs']),  // 🔧 FIXED: Safe array parsing
+      likedVideos: _parseStringArray(map['likedVideos']),  // 🔧 FIXED: Safe array parsing
       createdAt: map['createdAt'] ?? '',
       updatedAt: map['updatedAt'] ?? '',
       lastSeen: map['lastSeen'] ?? '',
       isActive: map['isActive'] ?? true,
       isFeatured: map['isFeatured'] ?? false,
     );
+  }
+
+  // 🔧 FIXED: Helper method to safely parse string arrays from various formats
+  static List<String> _parseStringArray(dynamic value) {
+    if (value == null) return [];
+    
+    if (value is List) {
+      return value.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+    }
+    
+    if (value is String) {
+      // Handle PostgreSQL array format like '{tag1,tag2}' or '[]'
+      if (value.isEmpty || value == '{}' || value == '[]') return [];
+      
+      // Remove curly braces and split by comma
+      String cleaned = value.replaceAll(RegExp(r'[{}"\[\]]'), '');
+      if (cleaned.isEmpty) return [];
+      
+      return cleaned.split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+    
+    return [];
   }
 
   // Create method for new users (PHONE-ONLY)
@@ -105,7 +131,7 @@ class UserModel {
     );
   }
 
-  // FIXED: Updated toMap method to match Go backend schema
+  // 🔧 CRITICAL FIX: Updated toMap method to handle PostgreSQL array format correctly
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
@@ -122,7 +148,7 @@ class UserModel {
       'isVerified': isVerified,
       'isActive': isActive,
       'isFeatured': isFeatured,
-      'tags': tags, // This should work now as an array
+      'tags': _formatArrayForPostgreSQL(tags), // 🔧 FIXED: PostgreSQL-compatible array format
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'lastSeen': lastSeen,
@@ -131,6 +157,19 @@ class UserModel {
       // 'followingUIDs': followingUIDs, 
       // 'likedVideos': likedVideos,
     };
+  }
+
+  // 🔧 CRITICAL FIX: Format arrays for PostgreSQL compatibility
+  static dynamic _formatArrayForPostgreSQL(List<String> array) {
+    if (array.isEmpty) {
+      // Return empty list instead of empty PostgreSQL array literal
+      // Go backend will handle the conversion to PostgreSQL format
+      return <String>[];
+    }
+    
+    // For non-empty arrays, return as regular Dart list
+    // Go backend StringSlice.Value() will convert to PostgreSQL format
+    return array;
   }
 
   UserModel copyWith({
@@ -197,4 +236,32 @@ class UserModel {
   String toString() {
     return 'UserModel(uid: $uid, name: $name, phoneNumber: $phoneNumber)';
   }
+
+  // 🔧 ADDITIONAL FIX: Helper methods for debugging array formatting
+  Map<String, dynamic> toDebugMap() {
+    return {
+      ...toMap(),
+      'debug_info': {
+        'tags_length': tags.length,
+        'tags_type': tags.runtimeType.toString(),
+        'tags_formatted': _formatArrayForPostgreSQL(tags),
+        'formatted_type': _formatArrayForPostgreSQL(tags).runtimeType.toString(),
+      },
+    };
+  }
+
+  // Helper to validate model before sending to backend
+  List<String> validate() {
+    List<String> errors = [];
+    
+    if (uid.isEmpty) errors.add('UID cannot be empty');
+    if (name.isEmpty) errors.add('Name cannot be empty');
+    if (phoneNumber.isEmpty) errors.add('Phone number cannot be empty');
+    if (name.length > 50) errors.add('Name cannot exceed 50 characters');
+    if (bio.length > 160) errors.add('Bio cannot exceed 160 characters');
+    
+    return errors;
+  }
+
+  bool get isValid => validate().isEmpty;
 }

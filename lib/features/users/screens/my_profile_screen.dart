@@ -57,6 +57,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     super.dispose();
   }
 
+  // 🔧 CRITICAL FIX: Load fresh user data from backend instead of cached data
   Future<void> _loadUserData() async {
     setState(() {
       _isLoading = true;
@@ -80,13 +81,41 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
         return;
       }
       
-      // Get user's videos
+      // 🔧 CRITICAL FIX: Fetch fresh user data from backend instead of using cached data
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      
+      debugPrint('🔄 Loading fresh user profile data...');
+      
+      // Get fresh user profile from backend (includes latest R2 image URLs)
+      final freshUserProfile = await authNotifier.getUserProfile();
+      
+      if (freshUserProfile == null) {
+        debugPrint('❌ User profile not found in backend');
+        // User profile not found in backend
+        if (mounted) {
+          setState(() {
+            _hasNoProfile = true;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+      
+      debugPrint('✅ Fresh user profile loaded: ${freshUserProfile.name}');
+      debugPrint('📸 Profile image URL: ${freshUserProfile.profileImage}');
+      
+      // Get user's videos (also refresh these)
+      await authNotifier.loadVideos(); // Refresh videos from backend
+      await authNotifier.loadUserVideos(freshUserProfile.uid); // Load user-specific videos
+      
       final videos = ref.read(videosProvider);
-      final userVideos = videos.where((video) => video.userId == currentUser.id).toList();
+      final userVideos = videos.where((video) => video.userId == freshUserProfile.uid).toList();
+      
+      debugPrint('📹 User videos loaded: ${userVideos.length}');
       
       if (mounted) {
         setState(() {
-          _user = currentUser;
+          _user = freshUserProfile; // ✅ Using fresh data with latest R2 URLs
           _userVideos = userVideos;
           _isLoading = false;
         });
@@ -95,6 +124,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
         _generateVideoThumbnails();
       }
     } catch (e) {
+      debugPrint('❌ Error loading user data: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -145,7 +175,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
             }
           }
         } catch (e) {
-          print('Error generating thumbnail for video ${video.id}: $e');
+          debugPrint('❌ Error generating thumbnail for video ${video.id}: $e');
         }
       }
     }
@@ -261,9 +291,26 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     ).then((_) => _loadUserData());
   }
 
-  void _onProfileCreated() {
+  // 🔧 FIXED: Enhanced profile creation callback with cache clearing
+  void _onProfileCreated() async {
+    debugPrint('🔄 Profile created, refreshing data...');
+    
+    // 🔧 FIX: Clear any cached network images
+    if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
+      await CachedNetworkImage.evictFromCache(_user!.profileImage);
+    }
+    
+    // 🔧 FIX: Clear thumbnail cache
+    await _thumbnailCacheManager.emptyCache();
+    
+    // 🔧 FIX: Force refresh authentication state to get latest user data
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    await authNotifier.loadUserDataFromSharedPreferences();
+    
     // Reload the screen data after profile creation
-    _loadUserData();
+    await _loadUserData();
+    
+    debugPrint('✅ Profile data refreshed');
   }
 
   @override
@@ -443,125 +490,163 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
 
- Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
-  return Container(
-    width: double.infinity,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          modernTheme.primaryColor!,
-          modernTheme.primaryColor!.withOpacity(0.8),
-          modernTheme.primaryColor!.withOpacity(0.6),
-        ],
-      ),
-    ),
-    child: Column(
-      children: [
-        // Add safe area padding at the top
-        SizedBox(height: MediaQuery.of(context).padding.top),
-        
-        // App bar with theme switcher
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Left side - placeholder for symmetry
-              const SizedBox(width: 40),
-              
-              // Center - Profile title
-              const Text(
-                'Profile',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              
-              // Right side - Theme switcher
-              GestureDetector(
-                onTap: () => showThemeSelector(context),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.brightness_6,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
-          ),
+  // 🔧 FIXED: Enhanced profile header with better R2 image handling
+  Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            modernTheme.primaryColor!,
+            modernTheme.primaryColor!.withOpacity(0.8),
+            modernTheme.primaryColor!.withOpacity(0.6),
+          ],
         ),
-        
-        // Profile Content
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          child: Column(
-            children: [
-              // Profile Image with enhanced styling
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Outer glow effect
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          Colors.white.withOpacity(0.3),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
+      ),
+      child: Column(
+        children: [
+          // Add safe area padding at the top
+          SizedBox(height: MediaQuery.of(context).padding.top),
+          
+          // App bar with theme switcher
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Left side - placeholder for symmetry
+                const SizedBox(width: 40),
+                
+                // Center - Profile title
+                const Text(
+                  'Profile',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
                   ),
-                  Container(
-                    width: 110,
-                    height: 110,
+                ),
+                
+                // Right side - Theme switcher
+                GestureDetector(
+                  onTap: () => showThemeSelector(context),
+                  child: Container(
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white,
-                        width: 4,
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
                     ),
-                    child: ClipOval(
-                      child: _user!.profileImage.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: _user!.profileImage,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => Container(
-                                color: Colors.grey[300],
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
+                    child: const Icon(
+                      Icons.brightness_6,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Profile Content
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            child: Column(
+              children: [
+                // 🔧 ENHANCED: Profile Image with better R2 handling
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Outer glow effect
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.3),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: _user!.profileImage.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: _user!.profileImage,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  color: Colors.grey[300],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              errorWidget: (context, error, stackTrace) => Container(
+                                errorWidget: (context, error, stackTrace) {
+                                  // 🔧 DEBUG: Print R2 URL for debugging
+                                  debugPrint('❌ Failed to load profile image: ${_user!.profileImage}');
+                                  debugPrint('Error: $error');
+                                  return Container(
+                                    color: Colors.grey[300],
+                                    child: const Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: Colors.white,
+                                    ),
+                                  );
+                                },
+                                // Enhanced cache options for R2 images
+                                memCacheWidth: 110,
+                                memCacheHeight: 110,
+                                maxWidthDiskCache: 220,
+                                maxHeightDiskCache: 220,
+                                // 🔧 FIX: Add headers for R2 images if needed
+                                httpHeaders: const {
+                                  'User-Agent': 'WeiBao-App/1.0',
+                                },
+                                // 🔧 FIX: Force reload if cached version fails
+                                cacheKey: _user!.profileImage,
+                                // Add loading success callback for debugging
+                                imageBuilder: (context, imageProvider) {
+                                  debugPrint('✅ Profile image loaded successfully: ${_user!.profileImage}');
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      image: DecorationImage(
+                                        image: imageProvider,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
                                 color: Colors.grey[300],
                                 child: const Icon(
                                   Icons.person,
@@ -569,265 +654,251 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                   color: Colors.white,
                                 ),
                               ),
-                              // Enhanced cache options for better performance
-                              memCacheWidth: 110,
-                              memCacheHeight: 110,
-                              maxWidthDiskCache: 220,
-                              maxHeightDiskCache: 220,
-                            )
-                          : Container(
-                              color: Colors.grey[300],
-                              child: const Icon(
-                                Icons.person,
-                                size: 50,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              
-              // User name with enhanced styling
-              Text(
-                _user!.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black26,
-                      offset: Offset(0, 2),
-                      blurRadius: 4,
+                      ),
                     ),
                   ],
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              
-              // User description
-              if (_user!.bio.isNotEmpty)
+                const SizedBox(height: 20),
+                
+                // User name with enhanced styling
                 Text(
-                  _user!.bio,
+                  _user!.name,
                   style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        offset: Offset(0, 2),
+                        blurRadius: 4,
+                      ),
+                    ],
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              const SizedBox(height: 20),
-              
-              // Side-by-side buttons: Verification and Edit Profile
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Verification status button - more prominent and bright
-                  GestureDetector(
-                    onTap: () => VerificationInfoWidget.show(context),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      decoration: BoxDecoration(
-                        gradient: _user!.isVerified
-                            ? const LinearGradient(
-                                colors: [
-                                  Color(0xFF1565C0), // Deep blue
-                                  Color(0xFF0D47A1), // Darker blue
-                                  Color(0xFF0A1E3D), // Very dark blue
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : const LinearGradient(
-                                colors: [
-                                  Color(0xFF1976D2), // Material blue
-                                  Color(0xFF1565C0), // Darker blue
-                                  Color(0xFF0D47A1), // Deep blue
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                        borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _user!.isVerified
-                                ? const Color(0xFF1565C0).withOpacity(0.4)
-                                : const Color(0xFF1976D2).withOpacity(0.4),
-                            blurRadius: 12,
-                            spreadRadius: 2,
-                            offset: const Offset(0, 4),
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.25),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _user!.isVerified ? Icons.verified_rounded : Icons.star_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _user!.isVerified ? 'Verified' : 'Get Verified',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black38,
-                                  blurRadius: 3,
-                                  offset: Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                const SizedBox(height: 12),
+                
+                // User description
+                if (_user!.bio.isNotEmpty)
+                  Text(
+                    _user!.bio,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      letterSpacing: 0.5,
                     ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  
-                  const SizedBox(width: 16),
-                  
-                  // Edit Profile Button - simplified without icon
-                  GestureDetector(
-                    onTap: _editProfile,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        'Edit Profile',
-                        style: TextStyle(
-                          color: modernTheme.primaryColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                const SizedBox(height: 20),
+                
+                // Side-by-side buttons: Verification and Edit Profile
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Verification status button - more prominent and bright
+                    GestureDetector(
+                      onTap: () => VerificationInfoWidget.show(context),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: _user!.isVerified
+                              ? const LinearGradient(
+                                  colors: [
+                                    Color(0xFF1565C0), // Deep blue
+                                    Color(0xFF0D47A1), // Darker blue
+                                    Color(0xFF0A1E3D), // Very dark blue
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : const LinearGradient(
+                                  colors: [
+                                    Color(0xFF1976D2), // Material blue
+                                    Color(0xFF1565C0), // Darker blue
+                                    Color(0xFF0D47A1), // Deep blue
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _user!.isVerified
+                                  ? const Color(0xFF1565C0).withOpacity(0.4)
+                                  : const Color(0xFF1976D2).withOpacity(0.4),
+                              blurRadius: 12,
+                              spreadRadius: 2,
+                              offset: const Offset(0, 4),
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _user!.isVerified ? Icons.verified_rounded : Icons.star_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _user!.isVerified ? 'Verified' : 'Get Verified',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black38,
+                                    blurRadius: 3,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-    Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
-      return Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: modernTheme.surfaceColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Stats Row with 4 items
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(
-                  _user!.videosCount.toString(),
-                  'Posts',
-                  Icons.video_library,
-                  modernTheme,
-                ),
-                _buildStatItem(
-                  _user!.followers.toString(),
-                  'Followers',
-                  Icons.people,
-                  modernTheme,
-                ),
-                _buildStatItem(
-                  _user!.following.toString(),
-                  'Following',
-                  Icons.person_add,
-                  modernTheme,
-                ),
-                _buildStatItem(
-                  _user!.likesCount.toString(),
-                  'Likes',
-                  Icons.favorite,
-                  modernTheme,
+                    
+                    const SizedBox(width: 16),
+                    
+                    // Edit Profile Button - simplified without icon
+                    GestureDetector(
+                      onTap: _editProfile,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          'Edit Profile',
+                          style: TextStyle(
+                            color: modernTheme.primaryColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          
-            // Tags
-            if (_user!.tags.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 32,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _user!.tags.length,
-                  itemBuilder: (context, index) {
-                    final tag = _user!.tags[index];
-                    return Container(
-                      margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: modernTheme.primaryColor!.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: modernTheme.primaryColor!.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Text(
-                        '#$tag',
-                        style: TextStyle(
-                          color: modernTheme.primaryColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Stats Row with 4 items
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
+                _user!.videosCount.toString(),
+                'Posts',
+                Icons.video_library,
+                modernTheme,
+              ),
+              _buildStatItem(
+                _user!.followers.toString(),
+                'Followers',
+                Icons.people,
+                modernTheme,
+              ),
+              _buildStatItem(
+                _user!.following.toString(),
+                'Following',
+                Icons.person_add,
+                modernTheme,
+              ),
+              _buildStatItem(
+                _user!.likesCount.toString(),
+                'Likes',
+                Icons.favorite,
+                modernTheme,
               ),
             ],
+          ),
+        
+          // Tags
+          if (_user!.tags.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 32,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _user!.tags.length,
+                itemBuilder: (context, index) {
+                  final tag = _user!.tags[index];
+                  return Container(
+                    margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: modernTheme.primaryColor!.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      '#$tag',
+                      style: TextStyle(
+                        color: modernTheme.primaryColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
-        ),
-      );
+        ],
+      ),
+    );
   }
 
   Widget _buildStatItem(

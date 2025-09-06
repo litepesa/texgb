@@ -267,7 +267,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       debugPrint('📥 Getting user profile: $uid');
       final response = await _httpClient.get('/users/$uid');
       
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final userData = jsonDecode(response.body) as Map<String, dynamic>;
         debugPrint('✅ User profile retrieved: ${userData['name']}');
         return UserModel.fromMap(userData);
