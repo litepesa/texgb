@@ -105,28 +105,31 @@ class UserModel {
     );
   }
 
+  // FIXED: Updated toMap method to match Go backend schema
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
-      'phoneNumber': phoneNumber,
       'name': name,
-      'bio': bio,
+      'phoneNumber': phoneNumber,
       'profileImage': profileImage,
       'coverImage': coverImage,
-      'followersCount': followers,  // Updated mapping
-      'followingCount': following,  // Updated mapping
+      'bio': bio,
+      'userType': 'user', // Add this field that Go backend expects
+      'followersCount': followers,
+      'followingCount': following,
       'videosCount': videosCount,
       'likesCount': likesCount,
       'isVerified': isVerified,
-      'tags': tags,
-      'followerUIDs': followerUIDs,
-      'followingUIDs': followingUIDs,
-      'likedVideos': likedVideos,
+      'isActive': isActive,
+      'isFeatured': isFeatured,
+      'tags': tags, // This should work now as an array
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'lastSeen': lastSeen,
-      'isActive': isActive,
-      'isFeatured': isFeatured,
+      // REMOVED these fields that don't exist in Go backend:
+      // 'followerUIDs': followerUIDs,
+      // 'followingUIDs': followingUIDs, 
+      // 'likedVideos': likedVideos,
     };
   }
 

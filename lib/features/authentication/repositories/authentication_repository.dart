@@ -213,6 +213,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         }
 
         // Create minimal user model (PHONE-ONLY, NO Firebase URLs)
+        final timestamp = _createTimestamp();
         final newUser = UserModel.create(
           uid: uid,
           name: firebaseUser.displayName ?? 'User', // Default name if empty
@@ -221,14 +222,20 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
           bio: '', // Empty bio - to be filled later
         );
 
-        debugPrint('📤 Sending user data to backend: ${newUser.toMap()}');
+        // Add proper timestamps like drama repository
+        final newUserWithTimestamp = newUser.copyWith(
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          lastSeen: timestamp,
+        );
 
-        // Create user in backend (no auth middleware required for this endpoint)
-        final response = await _httpClient.post('/auth/sync', body: newUser.toMap());
+        debugPrint('📤 Sending user data to backend: ${newUserWithTimestamp.toMap()}');
+
+        // Use the auth sync endpoint designed for user creation
+        final response = await _httpClient.post('/auth/sync', body: newUserWithTimestamp.toMap());
         
         if (response.statusCode == 200 || response.statusCode == 201) {
-          final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-          final userData = responseData['user'] ?? responseData;
+          final userData = jsonDecode(response.body) as Map<String, dynamic>;
           debugPrint('✅ User created successfully: $userData');
           return UserModel.fromMap(userData);
         } else {
