@@ -1,4 +1,4 @@
-// lib/features/authentication/screens/profile_setup_screen.dart
+// lib/features/authentication/screens/profile_setup_screen.dart (PHONE-ONLY FIXED)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,15 +72,16 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         return;
       }
       
-      // Create user model using the factory method for Go backend
+      // FIXED: Create user model using the factory method for Go backend (PHONE-ONLY)
       final userModel = UserModel.create(
         uid: currentUserId,
         name: _nameController.text.trim(),
-        email: '', // Empty for now, will be filled if needed
         phoneNumber: phoneNumber,
         profileImage: '', // Will be set after upload
         bio: _aboutController.text.trim(),
       );
+      
+      debugPrint('🏗️ Creating profile for: ${userModel.name} (${userModel.phoneNumber})');
       
       // Create user profile using the new authentication provider
       authNotifier.createUserProfile(
@@ -88,6 +89,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         profileImage: _profileImage,
         coverImage: null,
         onSuccess: () {
+          debugPrint('✅ Profile created successfully');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Profile created successfully!'),
@@ -104,6 +106,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           });
         },
         onFail: () {
+          debugPrint('❌ Profile creation failed');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to create profile. Please try again.'),

@@ -2,10 +2,9 @@
 import 'package:flutter/material.dart';
 
 class UserModel {
-  final String uid;  // Changed from 'id' to 'uid' to match Go backend
+  final String uid;  // Using uid to match Go backend
   final String phoneNumber;
   final String name;
-  final String email;
   final String bio;  // Changed from 'about' to 'bio'
   final String profileImage;
   final String coverImage;
@@ -28,7 +27,6 @@ class UserModel {
     required this.uid,
     required this.phoneNumber,
     required this.name,
-    required this.email,
     required this.bio,
     required this.profileImage,
     required this.coverImage,
@@ -54,12 +52,11 @@ class UserModel {
       uid: map['uid'] ?? map['id'] ?? '',  // Support both for compatibility
       phoneNumber: map['phoneNumber'] ?? '',
       name: map['name'] ?? '',
-      email: map['email'] ?? '',
       bio: map['bio'] ?? '',
       profileImage: map['profileImage'] ?? '',
       coverImage: map['coverImage'] ?? '',
-      followers: map['followers'] ?? 0,
-      following: map['following'] ?? 0,
+      followers: map['followersCount'] ?? 0,  // Updated mapping
+      following: map['followingCount'] ?? 0,  // Updated mapping
       videosCount: map['videosCount'] ?? 0,
       likesCount: map['likesCount'] ?? 0,
       isVerified: map['isVerified'] ?? false,
@@ -75,11 +72,10 @@ class UserModel {
     );
   }
 
-  // Create method for new users
+  // Create method for new users (PHONE-ONLY)
   factory UserModel.create({
     required String uid,
     required String name,
-    required String email,
     required String phoneNumber,
     required String profileImage,
     required String bio,
@@ -89,7 +85,6 @@ class UserModel {
       uid: uid,
       phoneNumber: phoneNumber,
       name: name,
-      email: email,
       bio: bio,
       profileImage: profileImage,
       coverImage: '',
@@ -115,12 +110,11 @@ class UserModel {
       'uid': uid,
       'phoneNumber': phoneNumber,
       'name': name,
-      'email': email,
       'bio': bio,
       'profileImage': profileImage,
       'coverImage': coverImage,
-      'followers': followers,
-      'following': following,
+      'followersCount': followers,  // Updated mapping
+      'followingCount': following,  // Updated mapping
       'videosCount': videosCount,
       'likesCount': likesCount,
       'isVerified': isVerified,
@@ -140,7 +134,6 @@ class UserModel {
     String? uid,
     String? phoneNumber,
     String? name,
-    String? email,
     String? bio,
     String? profileImage,
     String? coverImage,
@@ -163,7 +156,6 @@ class UserModel {
       uid: uid ?? this.uid,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       name: name ?? this.name,
-      email: email ?? this.email,
       bio: bio ?? this.bio,
       profileImage: profileImage ?? this.profileImage,
       coverImage: coverImage ?? this.coverImage,

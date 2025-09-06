@@ -1,4 +1,5 @@
-// lib/features/authentication/repositories/authentication_repository.dart (Updated with syncUserWithBackend)
+// lib/features/authentication/repositories/authentication_repository.dart
+// CLEAN VERSION: Firebase Auth + R2 Storage Only (NO Firebase Storage)
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,9 +10,9 @@ import '../../../features/users/models/user_model.dart';
 import '../../../constants.dart';
 import '../../../shared/services/http_client.dart';
 
-// Abstract repository interface (updated for Go backend)
+// Abstract repository interface (Firebase Auth + Go Backend via HTTP)
 abstract class AuthenticationRepository {
-  // Authentication operations (Firebase Auth only - unchanged)
+  // Firebase Authentication only (NO storage)
   Future<bool> checkAuthenticationState();
   Future<void> signInWithPhoneNumber({
     required String phoneNumber,
@@ -25,7 +26,7 @@ abstract class AuthenticationRepository {
   });
   Future<void> signOut();
 
-  // NEW: User sync and data operations (Go backend via HTTP)
+  // User operations (Go backend via HTTP)
   Future<UserModel?> syncUserWithBackend(String uid);
   Future<bool> checkUserExists(String uid);
   Future<UserModel?> getUserProfile(String uid);
@@ -40,13 +41,13 @@ abstract class AuthenticationRepository {
     File? coverImage,
   });
 
-  // Social operations (Go backend via HTTP)
+  // Social operations
   Future<void> followUser({required String followerId, required String userId});
   Future<void> unfollowUser({required String followerId, required String userId});
   Future<List<UserModel>> searchUsers({required String query});
   Future<List<UserModel>> getAllUsers({required String excludeUserId});
 
-  // Video operations (Go backend via HTTP)
+  // Video operations
   Future<List<VideoModel>> getVideos();
   Future<List<VideoModel>> getUserVideos(String userId);
   Future<VideoModel?> getVideoById(String videoId);
@@ -73,7 +74,7 @@ abstract class AuthenticationRepository {
   Future<List<String>> getLikedVideos(String userId);
   Future<void> incrementViewCount(String videoId);
 
-  // Comment operations (Go backend via HTTP)
+  // Comment operations
   Future<CommentModel> addComment({
     required String videoId,
     required String authorId,
@@ -88,19 +89,19 @@ abstract class AuthenticationRepository {
   Future<void> likeComment(String commentId, String userId);
   Future<void> unlikeComment(String commentId, String userId);
 
-  // File operations (R2 via Go backend)
+  // File operations (R2 via Go backend ONLY)
   Future<String> storeFileToStorage({
     required File file, 
     required String reference,
     Function(double)? onProgress,
   });
 
-  // Current user info (Firebase Auth - unchanged)
+  // Current user info (Firebase Auth only)
   String? get currentUserId;
   String? get currentUserPhoneNumber;
 }
 
-// Firebase Auth + Go Backend implementation
+// CLEAN IMPLEMENTATION: Firebase Auth + Go Backend (NO Firebase Storage)
 class FirebaseAuthenticationRepository implements AuthenticationRepository {
   final FirebaseAuth _auth;
   final HttpClientService _httpClient;
@@ -123,7 +124,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // FIREBASE AUTH METHODS (UNCHANGED)
+  // FIREBASE AUTH METHODS ONLY (NO STORAGE)
   // ===============================
 
   @override
@@ -188,61 +189,74 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // NEW: USER SYNC OPERATIONS (GO BACKEND VIA HTTP)
+  // USER SYNC OPERATIONS (GO BACKEND + R2 STORAGE)
   // ===============================
 
   @override
   Future<UserModel?> syncUserWithBackend(String uid) async {
     try {
+      debugPrint('🔄 Syncing user with backend: $uid');
+      
       // First check if user exists in backend
       final userExists = await checkUserExists(uid);
       
       if (userExists) {
-        // Get existing user data
+        debugPrint('✅ User exists in backend, fetching profile');
         return await getUserProfile(uid);
       } else {
-        // Create new minimal user with Firebase info
+        debugPrint('🆕 User does not exist, creating new user');
+        
+        // Get Firebase user info (PHONE ONLY - no storage access)
         final firebaseUser = _auth.currentUser;
         if (firebaseUser == null) {
           throw AuthRepositoryException('No Firebase user found');
         }
 
-        // Create minimal user model
+        // Create minimal user model (PHONE-ONLY, NO Firebase URLs)
         final newUser = UserModel.create(
           uid: uid,
-          name: firebaseUser.displayName ?? '', // Empty name - to be filled later
-          email: firebaseUser.email ?? '',
+          name: firebaseUser.displayName ?? 'User', // Default name if empty
           phoneNumber: firebaseUser.phoneNumber ?? '',
-          profileImage: firebaseUser.photoURL ?? '',
+          profileImage: '', // EMPTY - will be uploaded to R2 during profile setup
           bio: '', // Empty bio - to be filled later
         );
+
+        debugPrint('📤 Sending user data to backend: ${newUser.toMap()}');
 
         // Create user in backend (no auth middleware required for this endpoint)
         final response = await _httpClient.post('/auth/sync', body: newUser.toMap());
         
         if (response.statusCode == 200 || response.statusCode == 201) {
           final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-          return UserModel.fromMap(responseData['user'] ?? responseData);
+          final userData = responseData['user'] ?? responseData;
+          debugPrint('✅ User created successfully: $userData');
+          return UserModel.fromMap(userData);
         } else {
+          debugPrint('❌ Failed to create user: ${response.statusCode} - ${response.body}');
           throw AuthRepositoryException('Failed to create user in backend: ${response.body}');
         }
       }
     } catch (e) {
+      debugPrint('❌ syncUserWithBackend error: $e');
       throw AuthRepositoryException('Failed to sync user with backend: $e');
     }
   }
 
   // ===============================
-  // USER OPERATIONS (GO BACKEND VIA HTTP)
+  // USER OPERATIONS (GO BACKEND)
   // ===============================
 
   @override
   Future<bool> checkUserExists(String uid) async {
     try {
+      debugPrint('🔍 Checking if user exists: $uid');
       final response = await _httpClient.get('/users/$uid');
-      return response.statusCode == 200;
+      final exists = response.statusCode == 200;
+      debugPrint('👤 User exists: $exists');
+      return exists;
     } catch (e) {
       if (e is NotFoundException) return false;
+      debugPrint('❌ Error checking user existence: $e');
       throw AuthRepositoryException('Failed to check user existence: $e');
     }
   }
@@ -250,12 +264,15 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   @override
   Future<UserModel?> getUserProfile(String uid) async {
     try {
+      debugPrint('📥 Getting user profile: $uid');
       final response = await _httpClient.get('/users/$uid');
       
       if (response.statusCode == 200) {
         final userData = jsonDecode(response.body) as Map<String, dynamic>;
+        debugPrint('✅ User profile retrieved: ${userData['name']}');
         return UserModel.fromMap(userData);
       } else if (response.statusCode == 404) {
+        debugPrint('🚫 User not found: $uid');
         return null;
       } else {
         throw AuthRepositoryException('Failed to get user profile: ${response.body}');
@@ -273,27 +290,32 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     required File? coverImage,
   }) async {
     try {
+      debugPrint('🏗️ Creating user profile: ${user.name}');
       UserModel updatedUser = user;
 
-      // Upload profile image if provided
+      // Upload profile image to R2 (NOT Firebase)
       if (profileImage != null) {
+        debugPrint('📸 Uploading profile image to R2...');
         String profileImageUrl = await storeFileToStorage(
           file: profileImage,
           reference: 'profile/${user.uid}',
         );
         updatedUser = updatedUser.copyWith(profileImage: profileImageUrl);
+        debugPrint('✅ Profile image uploaded to R2: $profileImageUrl');
       }
 
-      // Upload cover image if provided
+      // Upload cover image to R2 (NOT Firebase)
       if (coverImage != null) {
+        debugPrint('🖼️ Uploading cover image to R2...');
         String coverImageUrl = await storeFileToStorage(
           file: coverImage,
           reference: 'cover/${user.uid}',
         );
         updatedUser = updatedUser.copyWith(coverImage: coverImageUrl);
+        debugPrint('✅ Cover image uploaded to R2: $coverImageUrl');
       }
 
-      // Set creation and update timestamps using proper RFC3339 format
+      // Set creation and update timestamps
       final timestamp = _createTimestamp();
       final finalUser = updatedUser.copyWith(
         createdAt: timestamp,
@@ -301,15 +323,17 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         lastSeen: timestamp,
       );
 
-      // Save to backend (this now works because user exists from sync)
+      debugPrint('📤 Updating user profile in backend...');
       final response = await _httpClient.put('/users/${finalUser.uid}', body: finalUser.toMap());
       
       if (response.statusCode == 200) {
+        debugPrint('✅ User profile created successfully');
         return finalUser;
       } else {
         throw AuthRepositoryException('Failed to create user profile: ${response.body}');
       }
     } catch (e) {
+      debugPrint('❌ Error creating user profile: $e');
       throw AuthRepositoryException('Failed to create user profile: $e');
     }
   }
@@ -323,22 +347,26 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     try {
       UserModel updatedUser = user;
 
-      // Upload new profile image if provided
+      // Upload new profile image to R2 (NOT Firebase)
       if (profileImage != null) {
+        debugPrint('📸 Uploading new profile image to R2...');
         String profileImageUrl = await storeFileToStorage(
           file: profileImage,
           reference: 'profile/${user.uid}',
         );
         updatedUser = updatedUser.copyWith(profileImage: profileImageUrl);
+        debugPrint('✅ New profile image uploaded to R2: $profileImageUrl');
       }
 
-      // Upload new cover image if provided
+      // Upload new cover image to R2 (NOT Firebase)
       if (coverImage != null) {
+        debugPrint('🖼️ Uploading new cover image to R2...');
         String coverImageUrl = await storeFileToStorage(
           file: coverImage,
           reference: 'cover/${user.uid}',
         );
         updatedUser = updatedUser.copyWith(coverImage: coverImageUrl);
+        debugPrint('✅ New cover image uploaded to R2: $coverImageUrl');
       }
 
       // Update timestamp
@@ -350,6 +378,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         body: userWithTimestamp.toMap());
 
       if (response.statusCode == 200) {
+        debugPrint('✅ User profile updated successfully');
         return userWithTimestamp;
       } else {
         throw AuthRepositoryException('Failed to update user profile: ${response.body}');
@@ -360,7 +389,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // SOCIAL OPERATIONS (GO BACKEND VIA HTTP)
+  // SOCIAL OPERATIONS
   // ===============================
 
   @override
@@ -430,7 +459,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // VIDEO OPERATIONS (GO BACKEND VIA HTTP) - Keep existing implementation
+  // VIDEO OPERATIONS
   // ===============================
 
   @override
@@ -527,7 +556,6 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        // Handle both direct video data and wrapped response
         final videoMap = responseData.containsKey('video') ? responseData['video'] : responseData;
         return VideoModel.fromMap(videoMap);
       } else {
@@ -654,7 +682,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // COMMENT OPERATIONS (GO BACKEND VIA HTTP) - Keep existing implementation
+  // COMMENT OPERATIONS
   // ===============================
 
   @override
@@ -757,7 +785,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
-  // FILE OPERATIONS (R2 VIA GO BACKEND)
+  // R2 STORAGE OPERATIONS (VIA GO BACKEND)
   // ===============================
 
   @override
@@ -767,6 +795,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     Function(double)? onProgress,
   }) async {
     try {
+      debugPrint('☁️ Uploading file to R2 via backend: $reference');
+      
       final response = await _httpClient.uploadFile(
         '/upload',
         file,
@@ -778,16 +808,19 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        return responseData['url'] as String;
+        final r2Url = responseData['url'] as String;
+        debugPrint('✅ File uploaded to R2 successfully: $r2Url');
+        return r2Url;
       } else {
-        throw AuthRepositoryException('Failed to upload file: ${response.body}');
+        throw AuthRepositoryException('Failed to upload file to R2: ${response.body}');
       }
     } catch (e) {
-      throw AuthRepositoryException('Failed to upload file: $e');
+      debugPrint('❌ R2 upload failed: $e');
+      throw AuthRepositoryException('Failed to upload file to R2: $e');
     }
   }
 
-  // Helper method to determine file type from reference
+  // Helper method to determine file type from reference for R2 storage
   String _getFileTypeFromReference(String reference) {
     if (reference.contains('profile') || reference.contains('userImages')) return 'profile';
     if (reference.contains('banner') || reference.contains('cover')) return 'banner';
@@ -797,7 +830,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 }
 
-// Exception class for repository errors (unchanged)
+// Exception class for repository errors
 class AuthRepositoryException implements Exception {
   final String message;
   const AuthRepositoryException(this.message);
@@ -806,24 +839,7 @@ class AuthRepositoryException implements Exception {
   String toString() => 'AuthRepositoryException: $message';
 }
 
-// Dummy classes for compatibility with existing code
-class DocumentSnapshot {
-  final bool exists = false;
-  final Map<String, dynamic>? data;
-  final String id;
-  
-  DocumentSnapshot({this.data, required this.id});
-}
-
-class QuerySnapshot {
-  final List<QueryDocumentSnapshot> docs = [];
-}
-
-class QueryDocumentSnapshot {
-  final Map<String, dynamic> _data;
-  final String id;
-  
-  QueryDocumentSnapshot(this._data, this.id);
-  
-  Map<String, dynamic> data() => _data;
+// HTTP exception classes for compatibility
+class NotFoundException extends AuthRepositoryException {
+  const NotFoundException(String message) : super(message);
 }
