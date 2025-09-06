@@ -9,19 +9,22 @@ class HttpClientService {
   // Updated base URL to work with Android emulator
   static String get _baseUrl {
     if (kDebugMode) {
-      // For Android emulator, use 10.0.2.2 instead of localhost
-      // For iOS simulator, localhost works fine
-      if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8080/api/v1';
-      } else {
-        return 'http://localhost:8080/api/v1';
-      }
+      // For development - check if we can reach localhost first
+      // If not, fall back to production server
+      return 'http://144.126.252.66:8080/api/v1'; // Use production for now
+      
+      // Alternative: Use localhost only for iOS simulator
+      // if (Platform.isIOS) {
+      //   return 'http://localhost:8080/api/v1';
+      // } else {
+      //   return 'http://64.227.142.38:8080/api/v1';
+      // }
     } else {
-      return 'https://your-production-domain.com/api/v1';
+      return 'http://144.126.252.66:8080/api/v1';
     }
   }
   
-  static const Duration _timeout = Duration(seconds: 30);
+  static const Duration _timeout = Duration(seconds: 45);
 
   // Singleton pattern
   static final HttpClientService _instance = HttpClientService._internal();
