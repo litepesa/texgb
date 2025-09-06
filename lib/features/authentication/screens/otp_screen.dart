@@ -1,4 +1,4 @@
-// lib/features/authentication/screens/otp_screen.dart (FIXED for Phone-Only Backend)
+// lib/features/authentication/screens/otp_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -119,9 +119,6 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
     required String otpCode,
   }) async {
     final authNotifier = ref.read(authenticationProvider.notifier);
-    
-    debugPrint('🔐 Starting OTP verification...');
-    
     authNotifier.verifyOTPCode(
       verificationId: verificationId,
       otpCode: otpCode,
@@ -129,91 +126,47 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
       onSuccess: () async {
         if (!mounted) return;
         
-        debugPrint('✅ OTP verification successful, checking user status...');
-        
         try {
-          // FIXED: Use the syncUserWithBackend method which handles the phone-only flow
-          final userProfile = await authNotifier.syncUserWithBackend();
+          // Get the current user and repository
+          final repository = ref.read(authenticationRepositoryProvider);
+          final currentUserId = repository.currentUserId;
           
-          if (userProfile != null) {
-            debugPrint('👤 User profile found: ${userProfile.name}');
-            
-            // Check if user has complete profile information
-            bool hasCompleteProfile = _hasCompleteProfile(userProfile);
-            
-            debugPrint('📋 Profile complete: $hasCompleteProfile');
-            
-            if (hasCompleteProfile) {
-              // User has complete profile, save to shared preferences
-              await authNotifier.saveUserDataToSharedPreferences();
-              debugPrint('💾 User data saved to shared preferences');
-            }
-            
-            // Navigate based on profile completeness
-            _navigate(hasCompleteProfile: hasCompleteProfile);
+          if (currentUserId != null) {
+            // Check if user already has a profile
+            final userExists = await repository.checkUserExists(currentUserId);
+            _navigate(hasProfile: userExists);
           } else {
-            debugPrint('❌ Failed to sync user with backend');
-            _showErrorMessage('Failed to create user profile. Please try again.');
+            // Something went wrong with authentication
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Authentication error. Please try again.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
           }
-          
         } catch (e) {
-          debugPrint('❌ Error during user sync: $e');
-          _showErrorMessage('An error occurred during setup. Please try again.');
+          debugPrint('Error during OTP verification: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('An error occurred. Please try again.'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
         }
       },
     );
   }
 
-  // FIXED: Check if user has complete profile (phone-only fields)
-  bool _hasCompleteProfile(dynamic userProfile) {
-    if (userProfile == null) return false;
-    
-    // Check essential fields for phone-only app
-    bool hasName = userProfile.name != null && 
-                   userProfile.name.toString().trim().isNotEmpty && 
-                   userProfile.name.toString().trim() != 'User';
-    
-    bool hasBio = userProfile.bio != null && 
-                  userProfile.bio.toString().trim().isNotEmpty;
-    
-    bool hasProfileImage = userProfile.profileImage != null && 
-                          userProfile.profileImage.toString().trim().isNotEmpty;
-    
-    debugPrint('📊 Profile completeness check:');
-    debugPrint('   - Name: $hasName (${userProfile.name})');
-    debugPrint('   - Bio: $hasBio (${userProfile.bio})');
-    debugPrint('   - Profile Image: $hasProfileImage (${userProfile.profileImage})');
-    
-    // For phone-only app, require at least name and bio
-    // Profile image can be added later
-    return hasName && hasBio;
-  }
-
-  void _navigate({required bool hasCompleteProfile}) {
+  void _navigate({required bool hasProfile}) {
     if (!mounted) return;
-    
-    final destination = hasCompleteProfile 
-        ? Constants.homeScreen 
-        : Constants.createProfileScreen; // FIXED: Use createProfileScreen instead of userInformationScreen
-    
-    debugPrint('🧭 Navigating to: $destination');
-    
     Navigator.of(context).pushNamedAndRemoveUntil(
-      destination,
+      hasProfile ? Constants.homeScreen : Constants.createProfileScreen,
       (route) => false,
     );
-  }
-
-  void _showErrorMessage(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: const Color(0xFFE53E3E),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
   }
 
   @override
@@ -276,7 +229,7 @@ class _OTPScreenState extends ConsumerState<OtpScreen> with SingleTickerProvider
                   ),
                   const SizedBox(height: 36),
                   
-                  // FIXED: Using correct convenience providers
+                  // Using Consumer for localized rebuilds
                   Consumer(
                     builder: (context, ref, _) {
                       final isLoading = ref.watch(isAuthLoadingProvider);
