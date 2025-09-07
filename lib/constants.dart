@@ -166,7 +166,7 @@ class Constants {
   static const int maxNameLength = 50;
   static const int minNameLength = 2;
   static const int maxAboutLength = 150;
-  static const int minAboutLength = 10;
+  static const int minAboutLength = 5;
   static const int maxTagsCount = 5;
   static const int maxUsernameLength = 30;
   static const int minUsernameLength = 3;

@@ -490,7 +490,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
 
-  // 🔧 FIXED: Enhanced profile header with better R2 image handling
+  // 🔧 FIXED: Enhanced profile header with better R2 image handling and curved bottom
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -503,6 +503,10 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
             modernTheme.primaryColor!.withOpacity(0.8),
             modernTheme.primaryColor!.withOpacity(0.6),
           ],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
       child: Column(

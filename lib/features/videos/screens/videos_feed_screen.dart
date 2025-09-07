@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart
+// lib/features/videos/screens/videos_feed_screen.dart (Fixed - No System UI Bleeding)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -64,9 +64,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   VideoPlayerController? _currentVideoController;
   Timer? _cacheCleanupTimer;
   
-  // Store original system UI for restoration
-  SystemUiOverlayStyle? _originalSystemUiStyle;
-  
   static const Duration _cacheCleanupInterval = Duration(minutes: 10);
 
   @override
@@ -88,23 +85,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Store original system UI after dependencies are available
-    if (_originalSystemUiStyle == null) {
-      _storeOriginalSystemUI();
-    }
-  }
-
-  void _storeOriginalSystemUI() {
-    // Store the current system UI style before making changes
-    final brightness = Theme.of(context).brightness;
-    _originalSystemUiStyle = SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-    );
   }
 
   @override
@@ -136,8 +116,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = true;
     _isNavigatingAway = false; // Reset navigation state
     
-    // Setup system UI when becoming active
-    _setupSystemUI();
+    // 🔧 FIXED: Only setup system UI when actually becoming active and visible
+    if (mounted) {
+      _setupSystemUI();
+    }
     
     if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startFreshPlayback();
@@ -153,27 +135,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = false;
     _stopPlayback();
     
-    // Restore original system UI when becoming inactive
-    _restoreOriginalSystemUI();
+    // 🔧 FIXED: Don't restore system UI here - let HomeScreen handle it
+    // The home screen will manage system UI for other tabs
     
     WakelockPlus.disable();
-  }
-
-  void _restoreOriginalSystemUI() {
-    if (_originalSystemUiStyle != null) {
-      SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle!);
-    } else {
-      // Fallback: restore based on current theme
-      final brightness = Theme.of(context).brightness;
-      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-      ));
-    }
   }
 
   // New method to handle navigation away from feed
@@ -246,12 +211,18 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     // Controllers initialization if needed in the future
   }
 
+  // 🔧 FIXED: Only apply system UI when screen is actually active and visible
   void _setupSystemUI() {
-    // Set both status bar and navigation bar to black for immersive TikTok-style experience
+    // Only apply black system UI if this screen is currently active and visible
+    if (!mounted || !_isScreenActive) return;
+    
+    debugPrint('VideosFeedScreen: Setting up system UI (black theme)');
+    
+    // Set immersive black theme only when this screen is active
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black, // Changed from transparent to black
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black, // Keep black for immersive experience
+      systemNavigationBarColor: Colors.transparent,
       systemNavigationBarIconBrightness: Brightness.light,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
@@ -711,9 +682,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _stopPlayback();
     _cacheService.dispose();
     
-    // Restore original system UI on dispose
-    _restoreOriginalSystemUI();
-    
     WakelockPlus.disable();
     
     super.dispose();
@@ -723,8 +691,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   Widget build(BuildContext context) {
     super.build(context);
     
-    // Setup system UI for current theme
-    _setupSystemUI();
+    // 🔧 FIXED: Only setup system UI if this screen is actually active
+    if (_isScreenActive && mounted) {
+      _setupSystemUI();
+    }
     
     // Watch videos from the new authentication provider
     final videos = ref.watch(videosProvider);

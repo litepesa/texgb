@@ -1171,11 +1171,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
           child: GestureDetector(
             onTap: _handleFollowToggle,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
               decoration: BoxDecoration(
                 color: Colors.transparent,
                 border: Border.all(color: Colors.white, width: 1),
-                borderRadius: BorderRadius.circular(5),
+                borderRadius: BorderRadius.circular(15),
               ),
               child: const Text(
                 'Follow',

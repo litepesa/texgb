@@ -6,10 +6,10 @@ import 'package:textgb/features/wallet/repositories/wallet_repository.dart';
 
 part 'wallet_providers.g.dart';
 
-// Repository provider
+// Repository provider - FIXED: Use HttpWalletRepository instead of FirebaseWalletRepository
 @riverpod
 WalletRepository walletRepository(WalletRepositoryRef ref) {
-  return FirebaseWalletRepository();
+  return HttpWalletRepository(); // ✅ Changed from FirebaseWalletRepository()
 }
 
 // Wallet state class

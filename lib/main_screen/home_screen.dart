@@ -1,4 +1,5 @@
-// lib/main_screen/home_screen.dart (Updated for TikTok-style authentication system)
+// lib/main_screen/home_screen.dart (Final Updated Version with Wallet Tab Switcher)
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,50 @@ import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+
+// Placeholder chat screen
+class PlaceholderChatsScreen extends StatelessWidget {
+  const PlaceholderChatsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final modernTheme = context.modernTheme;
+    
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              CupertinoIcons.bubble_left_bubble_right,
+              size: 80,
+              color: modernTheme.textSecondaryColor?.withOpacity(0.5),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Chats Coming Soon',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'We\'re working on bringing you an amazing\nchat experience. Stay tuned!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -26,11 +71,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // Video progress tracking
   final ValueNotifier<double> _videoProgressNotifier = ValueNotifier<double>(0.0);
   
+  // Wallet tab switcher state (for Chats/Wallet)
+  int _walletTabIndex = 0; // 0 for Chats, 1 for Wallet
+  final PageController _walletPageController = PageController();
+  
   final List<String> _tabNames = [
     'Home',      // Index 0 - Videos Feed (hidden app bar, black background)
     'Channels',  // Index 1 - Users List
     '',          // Index 2 - Post (no label, special design)
-    'Wallet',    // Index 3 - Wallet 
+    'Inbox',    // Index 3 - Wallet with Chats/Wallet switcher
     'Profile'    // Index 4 - Profile
   ];
   
@@ -38,7 +87,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Icons.home,                        // Home
     Icons.radio_button_checked_rounded, // Channels (now Users)
     Icons.add,                         // Post (will be styled specially)
-    Icons.account_balance_rounded,     // Wallet
+    CupertinoIcons.bubble_left_bubble_right,     // Wallet
     Icons.person_2_outlined            // Me/Profile
   ];
 
@@ -59,8 +108,202 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void dispose() {
     _pageController.dispose();
+    _walletPageController.dispose();
     _videoProgressNotifier.dispose();
     super.dispose();
+  }
+
+  // Wallet tab switcher method
+  void _onWalletTabChanged(int index) {
+    setState(() {
+      _walletTabIndex = index;
+    });
+    _walletPageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  // Build wallet content with Chats/Wallet switcher (exact same styling as inbox)
+  Widget _buildWalletContent(ModernThemeExtension modernTheme) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    return Container(
+      color: modernTheme.surfaceColor,
+      child: Column(
+        children: [
+          // Enhanced tab bar for Chats/Wallet switcher (exact same styling)
+          Container(
+            margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: modernTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: modernTheme.dividerColor!.withOpacity(0.15),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: modernTheme.primaryColor!.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                  spreadRadius: -4,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _onWalletTabChanged(0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: _walletTabIndex == 0 ? Border(
+                          bottom: BorderSide(
+                            color: modernTheme.primaryColor!,
+                            width: 3,
+                          ),
+                        ) : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: _walletTabIndex == 0 
+                                ? modernTheme.primaryColor!.withOpacity(0.15)
+                                : modernTheme.primaryColor!.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              _walletTabIndex == 0 
+                                ? CupertinoIcons.bubble_left
+                                : CupertinoIcons.bubble_left_fill,
+                              color: _walletTabIndex == 0 
+                                ? modernTheme.primaryColor 
+                                : modernTheme.textSecondaryColor,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style: TextStyle(
+                              color: _walletTabIndex == 0 
+                                ? modernTheme.primaryColor 
+                                : modernTheme.textSecondaryColor,
+                              fontWeight: _walletTabIndex == 0 
+                                ? FontWeight.w700 
+                                : FontWeight.w500,
+                              fontSize: 15,
+                              letterSpacing: 0.2,
+                            ),
+                            child: const Text('Chats'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _onWalletTabChanged(1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: _walletTabIndex == 1 ? Border(
+                          bottom: BorderSide(
+                            color: modernTheme.primaryColor!,
+                            width: 3,
+                          ),
+                        ) : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: _walletTabIndex == 1 
+                                ? modernTheme.primaryColor!.withOpacity(0.15)
+                                : modernTheme.primaryColor!.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              _walletTabIndex == 1 
+                                ? Icons.account_balance_wallet
+                                : Icons.account_balance_wallet_outlined,
+                              color: _walletTabIndex == 1 
+                                ? modernTheme.primaryColor 
+                                : modernTheme.textSecondaryColor,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style: TextStyle(
+                              color: _walletTabIndex == 1 
+                                ? modernTheme.primaryColor 
+                                : modernTheme.textSecondaryColor,
+                              fontWeight: _walletTabIndex == 1 
+                                ? FontWeight.w700 
+                                : FontWeight.w500,
+                              fontSize: 15,
+                              letterSpacing: 0.2,
+                            ),
+                            child: const Text('Wallet'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Content area
+          Expanded(
+            child: PageView(
+              controller: _walletPageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _walletTabIndex = index;
+                });
+              },
+              children: [
+                // Chats tab content (placeholder)
+                Container(
+                  color: modernTheme.surfaceColor,
+                  padding: EdgeInsets.only(bottom: bottomPadding),
+                  child: const PlaceholderChatsScreen(),
+                ),
+                // Wallet tab content
+                Container(
+                  color: modernTheme.surfaceColor,
+                  child: const WalletScreen(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Safe method to get modern theme with fallback
@@ -363,6 +606,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 4;
+    final isWalletTab = _currentIndex == 3;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -397,12 +641,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Text('Create Post'),
             ),
           ),
-          // Wallet tab (index 3) - Let WalletScreen handle its own authentication
-          Container(
-            color: modernTheme.backgroundColor,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const WalletScreen(),
-          ),
+          // Wallet tab (index 3) - Now with Chats/Wallet switcher
+          _buildWalletContent(modernTheme),
           // Profile tab (index 4) - Let MyProfileScreen handle its own authentication
           const MyProfileScreen(),
         ],
@@ -410,12 +650,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       
       bottomNavigationBar: _buildTikTokBottomNav(modernTheme),
       
-      // Remove FAB since we have dedicated post button
-      floatingActionButton: null,
+      // FAB for Chats tab only
+      floatingActionButton: isWalletTab && _walletTabIndex == 0 ? FloatingActionButton(
+        onPressed: () {
+          // Does nothing for now
+        },
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
+        child: const Icon(CupertinoIcons.bubble_left_bubble_right),
+      ) : null,
     );
   }
 
-  // TikTok-style bottom navigation with video progress indicator
+  // TikTok-style bottom navigation with video progress indicator and unread count
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
     final isHomeTab = _currentIndex == 0;
     
@@ -582,6 +829,121 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     final isSelected = _currentIndex == index;
     
+    // Wallet tab (index 3) - show unread count for chat sub-tab only
+    if (index == 3) {
+      // Only show unread count when on Chats sub-tab, not Wallet
+      final shouldShowBadge = _walletTabIndex == 0;
+      final chatUnreadCount = shouldShowBadge ? 8 : 0; // Dummy unread count
+      
+      return _buildNavItemWithBadge(
+        index, 
+        isSelected, 
+        modernTheme,
+        isHomeTab,
+        chatUnreadCount
+      );
+    }
+    
+    // For other tabs, no badge needed
+    return _buildDefaultNavItem(index, isSelected, modernTheme, isHomeTab);
+  }
+
+  Widget _buildNavItemWithBadge(
+    int index,
+    bool isSelected,
+    ModernThemeExtension modernTheme,
+    bool isHomeTab,
+    int unreadCount,
+  ) {
+    Color iconColor;
+    Color textColor;
+    
+    if (isHomeTab) {
+      // Home tab colors
+      iconColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
+      textColor = isSelected ? Colors.white : Colors.white.withOpacity(0.6);
+    } else {
+      // Other tabs - use current theme with safe fallbacks
+      iconColor = isSelected 
+          ? (modernTheme.primaryColor ?? Colors.blue) 
+          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+      textColor = isSelected 
+          ? (modernTheme.primaryColor ?? Colors.blue) 
+          : (modernTheme.textSecondaryColor ?? Colors.grey[600]!);
+    }
+
+    return GestureDetector(
+      onTap: () => _onTabTapped(index),
+      behavior: HitTestBehavior.translucent,
+      child: Container(
+        // Expand the tap area while keeping the content centered
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  _tabIcons[index],
+                  color: iconColor,
+                  size: 24,
+                ),
+                if (unreadCount > 0)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: modernTheme.primaryColor ?? Colors.blue,
+                        shape: unreadCount > 99 
+                            ? BoxShape.rectangle 
+                            : BoxShape.circle,
+                        borderRadius: unreadCount > 99 
+                            ? BorderRadius.circular(8) 
+                            : null,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Center(
+                        child: Text(
+                          unreadCount > 99 ? '99+' : unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (_tabNames[index].isNotEmpty)
+              Text(
+                _tabNames[index],
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDefaultNavItem(
+    int index,
+    bool isSelected,
+    ModernThemeExtension modernTheme,
+    bool isHomeTab,
+  ) {
     Color iconColor;
     Color textColor;
     
@@ -634,7 +996,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color textColor = modernTheme.textColor ?? (isDarkMode ? Colors.white : Colors.black);
     Color iconColor = modernTheme.primaryColor ?? Colors.blue;
 
-    // Always show the main WeiBao微宝 branding for all tabs with app bar
+    // Always show the main WeiBao branding for all tabs with app bar
     return AppBar(
       backgroundColor: appBarColor,
       elevation: 0,
@@ -683,5 +1045,4 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
-  }
-}
+  }}

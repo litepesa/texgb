@@ -337,8 +337,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please tell us about yourself';
                   }
-                  if (value.length < 10) {
-                    return 'About must be at least 10 characters';
+                  if (value.length < 5) {
+                    return 'About must be at least 5 characters';
                   }
                   if (value.length > Constants.maxAboutLength) {
                     return 'About cannot exceed ${Constants.maxAboutLength} characters';
