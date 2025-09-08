@@ -217,12 +217,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToContacts(),
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.chat),
-      ),
     );
   }
 
@@ -341,12 +335,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToContacts(),
-        backgroundColor: modernTheme.primaryColor,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.chat),
       ),
     );
   }

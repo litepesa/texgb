@@ -51,7 +51,7 @@ class ContactsRepositoryException implements Exception {
 
 // Permission related exceptions
 class ContactsPermissionException extends ContactsRepositoryException {
-  const ContactsPermissionException(String message) : super(message);
+  const ContactsPermissionException(super.message);
   
   @override
   String toString() => 'ContactsPermissionException: $message';
@@ -59,7 +59,7 @@ class ContactsPermissionException extends ContactsRepositoryException {
 
 // Sync related exceptions
 class ContactsSyncException extends ContactsRepositoryException {
-  const ContactsSyncException(String message) : super(message);
+  const ContactsSyncException(super.message);
   
   @override
   String toString() => 'ContactsSyncException: $message';
@@ -67,7 +67,7 @@ class ContactsSyncException extends ContactsRepositoryException {
 
 // Network related exceptions
 class ContactsNetworkException extends ContactsRepositoryException {
-  const ContactsNetworkException(String message) : super(message);
+  const ContactsNetworkException(super.message);
   
   @override
   String toString() => 'ContactsNetworkException: $message';
@@ -75,7 +75,7 @@ class ContactsNetworkException extends ContactsRepositoryException {
 
 // Cache related exceptions
 class ContactsCacheException extends ContactsRepositoryException {
-  const ContactsCacheException(String message) : super(message);
+  const ContactsCacheException(super.message);
   
   @override
   String toString() => 'ContactsCacheException: $message';
@@ -83,7 +83,7 @@ class ContactsCacheException extends ContactsRepositoryException {
 
 // Device contacts related exceptions
 class DeviceContactsException extends ContactsRepositoryException {
-  const DeviceContactsException(String message) : super(message);
+  const DeviceContactsException(super.message);
   
   @override
   String toString() => 'DeviceContactsException: $message';
@@ -91,7 +91,7 @@ class DeviceContactsException extends ContactsRepositoryException {
 
 // Search related exceptions
 class ContactsSearchException extends ContactsRepositoryException {
-  const ContactsSearchException(String message) : super(message);
+  const ContactsSearchException(super.message);
   
   @override
   String toString() => 'ContactsSearchException: $message';
@@ -99,7 +99,7 @@ class ContactsSearchException extends ContactsRepositoryException {
 
 // Block/Unblock related exceptions
 class ContactsBlockException extends ContactsRepositoryException {
-  const ContactsBlockException(String message) : super(message);
+  const ContactsBlockException(super.message);
   
   @override
   String toString() => 'ContactsBlockException: $message';

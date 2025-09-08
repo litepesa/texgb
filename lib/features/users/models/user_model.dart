@@ -1,6 +1,5 @@
 // lib/features/users/models/user_model.dart
 // FIXED: Resolved PostgreSQL array literal problem for tags field
-import 'package:flutter/material.dart';
 
 class UserModel {
   final String uid;  // Using uid to match Go backend

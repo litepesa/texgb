@@ -156,15 +156,24 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // 🔧 FIXED: Simple username retrieval from users provider (like users list screen)
-  String _getDisplayUsername() {
+  // 🔧 SIMPLIFIED: Only get user data when it's actually available
+  UserModel? _getUserDataIfAvailable() {
     final users = ref.read(usersProvider);
-    final videoUser = users.firstWhere(
-      (user) => user.uid == widget.video.userId,
-      orElse: () => throw Exception('User not found'),
-    );
+    final isUsersLoading = ref.read(isAuthLoadingProvider);
     
-    return videoUser.name;
+    // Don't try to find user if still loading or empty
+    if (isUsersLoading || users.isEmpty) {
+      return null;
+    }
+    
+    try {
+      return users.firstWhere(
+        (user) => user.uid == widget.video.userId,
+      );
+    } catch (e) {
+      // User not found in current list
+      return null;
+    }
   }
 
   // Helper method to require authentication before actions
@@ -880,7 +889,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final followedUsers = ref.watch(followedUsersProvider);
     final isFollowing = followedUsers.contains(widget.video.userId);
     final currentUser = ref.watch(currentUserProvider);
-    final isOwner = currentUser != null && currentUser.uid == widget.video.userId; // Changed from id to uid
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
     
     return Positioned(
       bottom: 8,
@@ -907,16 +916,17 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // 🔧 FIXED: User name with inline verification status using simplified username method
+  // 🔧 SIMPLIFIED: User name with verification - only show when data is ready
   Widget _buildUserNameWithVerification() {
     return Consumer(
       builder: (context, ref, child) {
-        // 🔧 Get username using our simplified method
-        final displayUsername = _getDisplayUsername();
+        final videoUser = _getUserDataIfAvailable();
         
-        // 🔧 Get user data for verification status
-        final users = ref.watch(usersProvider);
-        final videoUser = users.firstWhere((user) => user.uid == widget.video.userId);
+        // Only display user info when we actually have the data
+        if (videoUser == null) {
+          // Hide until data is ready - clean approach
+          return const SizedBox.shrink();
+        }
         
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -924,7 +934,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             // User name
             Flexible(
               child: Text(
-                displayUsername,
+                videoUser.name,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -942,7 +952,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             
             const SizedBox(width: 6),
             
-            // Verification status immediately after name
+            // Verification status - now we know user data is available
             if (widget.showVerificationBadge) ...[
               if (videoUser.isVerified)
                 // CUSTOM STYLING FOR VERIFIED USERS
@@ -973,7 +983,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
                       const Icon(
                         Icons.verified_rounded,
                         size: 12,
-                        color: Colors.white,
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -1163,15 +1172,22 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Follow Button positioned at top left corner
+  // 🔧 SIMPLIFIED: Follow button - only show when user data is ready
   Widget _buildTopLeftFollowButton() {
-    final followedUsers = ref.watch(followedUsersProvider);
-    final isFollowing = followedUsers.contains(widget.video.userId);
+    final videoUser = _getUserDataIfAvailable();
     final currentUser = ref.watch(currentUserProvider);
-    final isOwner = currentUser != null && currentUser.uid == widget.video.userId; // Changed from id to uid
+    
+    // Don't show anything if user data isn't ready
+    if (videoUser == null) {
+      return const SizedBox.shrink();
+    }
     
     // Don't show follow button if user owns this video
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
     if (isOwner) return const SizedBox.shrink();
+    
+    final followedUsers = ref.watch(followedUsersProvider);
+    final isFollowing = followedUsers.contains(widget.video.userId);
     
     return Positioned(
       top: 16,

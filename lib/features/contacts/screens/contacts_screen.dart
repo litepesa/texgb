@@ -1,6 +1,5 @@
 // lib/features/contacts/screens/contacts_screen.dart
 // Updated to use new contacts provider system with extracted widgets
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -12,7 +11,6 @@ import 'package:textgb/features/contacts/widgets/contact_item_widget.dart';
 import 'package:textgb/features/contacts/widgets/contacts_empty_states_widget.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/shared/utilities/global_methods.dart';
 
 class ContactsScreen extends ConsumerStatefulWidget {
   const ContactsScreen({super.key});

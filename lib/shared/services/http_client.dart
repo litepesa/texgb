@@ -276,35 +276,35 @@ class HttpException implements Exception {
 }
 
 class BadRequestException extends HttpException {
-  const BadRequestException(String message) : super(message);
+  const BadRequestException(super.message);
   @override
   String toString() => 'BadRequestException: $message';
 }
 
 class UnauthorizedException extends HttpException {
-  const UnauthorizedException(String message) : super(message);
+  const UnauthorizedException(super.message);
   @override
   String toString() => 'UnauthorizedException: $message';
 }
 
 class ForbiddenException extends HttpException {
-  const ForbiddenException(String message) : super(message);
+  const ForbiddenException(super.message);
   @override
   String toString() => 'ForbiddenException: $message';
 }
 
 class NotFoundException extends HttpException {
-  const NotFoundException(String message) : super(message);
+  const NotFoundException(super.message);
   @override
   String toString() => 'NotFoundException: $message';
 }
 
 class ConflictException extends HttpException {
-  const ConflictException(String message) : super(message);
+  const ConflictException(super.message);
 }
 
 class InternalServerException extends HttpException {
-  const InternalServerException(String message) : super(message);
+  const InternalServerException(super.message);
   @override
   String toString() => 'InternalServerException: $message';
 }

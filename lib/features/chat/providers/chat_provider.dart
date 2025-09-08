@@ -1,9 +1,7 @@
 // lib/features/chat/providers/chat_provider.dart
 // Updated chat provider using new authentication system and HTTP services
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
@@ -11,7 +9,6 @@ import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/users/models/user_model.dart';
 
 part 'chat_provider.g.dart';
 

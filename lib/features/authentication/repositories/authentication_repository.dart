@@ -841,5 +841,5 @@ class AuthRepositoryException implements Exception {
 
 // HTTP exception classes for compatibility
 class NotFoundException extends AuthRepositoryException {
-  const NotFoundException(String message) : super(message);
+  const NotFoundException(super.message);
 }

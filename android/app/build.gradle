@@ -11,7 +11,7 @@ plugins {
 android {
     namespace "com.example.textgb"
     compileSdk 35
-    ndkVersion flutter.ndkVersion
+    ndkVersion "27.3.13750724"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8

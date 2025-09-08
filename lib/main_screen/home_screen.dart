@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart (Final Updated Version with Wallet Tab Switcher)
+// lib/main_screen/home_screen.dart (Final Updated Version with ChatsTab and Contacts FAB)
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,51 +8,11 @@ import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/wallet/screens/wallet_screen.dart';
+import 'package:textgb/features/chat/screens/chats_tab.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-
-// Placeholder chat screen
-class PlaceholderChatsScreen extends StatelessWidget {
-  const PlaceholderChatsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final modernTheme = context.modernTheme;
-    
-    return Container(
-      color: modernTheme.surfaceColor,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              CupertinoIcons.bubble_left_bubble_right,
-              size: 80,
-              color: modernTheme.textSecondaryColor?.withOpacity(0.5),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Chats Coming Soon',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'We\'re working on bringing you an amazing\nchat experience. Stay tuned!',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -287,11 +247,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 });
               },
               children: [
-                // Chats tab content (placeholder)
+                // Chats tab content - Now returns the actual ChatsTab
                 Container(
                   color: modernTheme.surfaceColor,
                   padding: EdgeInsets.only(bottom: bottomPadding),
-                  child: const PlaceholderChatsScreen(),
+                  child: const ChatsTab(),
                 ),
                 // Wallet tab content
                 Container(
@@ -594,6 +554,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  // Navigate to contacts screen (for FAB)
+  void _navigateToContacts() async {
+    if (!mounted) return;
+    
+    HapticFeedback.lightImpact();
+    
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ContactsScreen(),
+      ),
+    );
+  }
+
+  // Get real unread chat count from chat provider
+  int _getUnreadChatCount() {
+    try {
+      // Watch the chat provider and get unread count
+      final chatState = ref.watch(chatListProvider);
+      return chatState.when(
+        data: (state) {
+          final currentUser = ref.read(currentUserProvider);
+          if (currentUser == null) return 0;
+          
+          return state.chats.where((chatItem) => 
+              chatItem.chat.getUnreadCount(currentUser.uid) > 0).length;
+        },
+        loading: () => 0,
+        error: (_, __) => 0,
+      );
+    } catch (e) {
+      debugPrint('Error getting unread chat count: $e');
+      return 0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!mounted) {
@@ -650,11 +646,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       
       bottomNavigationBar: _buildTikTokBottomNav(modernTheme),
       
-      // FAB for Chats tab only
+      // FAB for Chats tab only - now navigates to contacts screen
       floatingActionButton: isWalletTab && _walletTabIndex == 0 ? FloatingActionButton(
-        onPressed: () {
-          // Does nothing for now
-        },
+        onPressed: _navigateToContacts,
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
         child: const Icon(CupertinoIcons.bubble_left_bubble_right),
@@ -833,7 +827,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (index == 3) {
       // Only show unread count when on Chats sub-tab, not Wallet
       final shouldShowBadge = _walletTabIndex == 0;
-      final chatUnreadCount = shouldShowBadge ? 8 : 0; // Dummy unread count
+      // Get real unread count from chat provider
+      final chatUnreadCount = shouldShowBadge ? _getUnreadChatCount() : 0;
       
       return _buildNavItemWithBadge(
         index, 
@@ -1045,4 +1040,5 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
-  }}
+  }
+}

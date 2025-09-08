@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
-import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class BlockedContactsScreen extends ConsumerStatefulWidget {

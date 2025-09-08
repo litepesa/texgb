@@ -16,6 +16,7 @@ import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/videos/widgets/video_reaction_widget.dart';
+import 'package:textgb/features/users/models/user_model.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:share_plus/share_plus.dart';
@@ -372,6 +373,33 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     authNotifier.incrementViewCount(videos[index].id);
   }
 
+  // SIMPLIFIED: Only get user data when it's actually available
+  UserModel? _getUserDataIfAvailable() {
+    final users = ref.read(usersProvider);
+    final isUsersLoading = ref.read(isAuthLoadingProvider);
+    
+    // Don't try to find user if still loading or empty
+    if (isUsersLoading || users.isEmpty) {
+      return null;
+    }
+    
+    try {
+      final videos = ref.read(videosProvider);
+      final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
+          ? videos[_currentVideoIndex] 
+          : null;
+          
+      if (currentVideo == null) return null;
+      
+      return users.firstWhere(
+        (user) => user.uid == currentVideo.userId,
+      );
+    } catch (e) {
+      // User not found in current list
+      return null;
+    }
+  }
+
   // Add this method to build the small video window
   Widget _buildSmallVideoWindow() {
     final systemTopPadding = MediaQuery.of(context).padding.top;
@@ -723,46 +751,52 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       extendBodyBehindAppBar: true,
       extendBody: true,
       backgroundColor: Colors.black,
-      body: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
-        child: Stack(
-          children: [
-            // Main content - positioned to avoid covering status bar and system nav
-            Positioned(
-              top: systemTopPadding,
-              left: 0,
-              right: 0,
-              bottom: systemBottomPadding,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(12)),
-                child: _buildBody(videos),
-              ),
-            ),
-            
-            // Small video window when comments are open
-            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-          
-            // Top navigation - simplified header matching moments feed style
-            if (!_isCommentsSheetOpen) // Hide top bar when comments are open
+      body: Container(
+        color: Colors.black, // Ensure black background
+        child: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          child: Stack(
+            children: [
+              // Main content - positioned to avoid covering status bar and system nav
               Positioned(
                 top: systemTopPadding,
                 left: 0,
                 right: 0,
-                child: _buildSimplifiedHeader(),
+                bottom: systemBottomPadding,
+                child: Container(
+                  color: Colors.black, // Additional safety layer
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.all(Radius.circular(12)),
+                    child: _buildBody(videos),
+                  ),
+                ),
               ),
-          
-            // TikTok-style right side menu
-            if (!_isCommentsSheetOpen) // Hide right menu when comments are open
-              _buildRightSideMenu(),
-          
-            // Cache performance indicator (debug mode only)
-            if (kDebugMode && !_isCommentsSheetOpen)
-              Positioned(
-                top: systemTopPadding + 120,
-                left: 16,
-                child: _buildCacheDebugInfo(),
-              ),
-          ],
+              
+              // Small video window when comments are open
+              if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+            
+              // Top navigation - simplified header matching moments feed style
+              if (!_isCommentsSheetOpen) // Hide top bar when comments are open
+                Positioned(
+                  top: systemTopPadding,
+                  left: 0,
+                  right: 0,
+                  child: _buildSimplifiedHeader(),
+                ),
+            
+              // TikTok-style right side menu
+              if (!_isCommentsSheetOpen) // Hide right menu when comments are open
+                _buildRightSideMenu(),
+            
+              // Cache performance indicator (debug mode only)
+              if (kDebugMode && !_isCommentsSheetOpen)
+                Positioned(
+                  top: systemTopPadding + 120,
+                  left: 16,
+                  child: _buildCacheDebugInfo(),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -994,17 +1028,37 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Profile avatar with red border - moved to bottom and changed to rounded square
+          // Profile avatar with red border - FIXED: Only show when user data is ready
           _buildRightMenuItem(
             child: Consumer(
               builder: (context, ref, child) {
-                // Get user data from usersProvider like users list screen
-                final users = ref.watch(usersProvider);
-                final videoUser = users.firstWhere(
-                  (user) => user.uid == currentVideo?.userId,
-                  orElse: () => throw Exception('User not found'),
-                );
+                final videoUser = _getUserDataIfAvailable();
                 
+                // Only display profile avatar when we actually have the user data
+                if (videoUser == null) {
+                  // Show loading indicator while waiting for user data
+                  return Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white, width: 2),
+                      color: Colors.grey.withOpacity(0.3),
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                
+                // User data is available, safe to display
                 return Container(
                   width: 44,
                   height: 44,
@@ -1020,12 +1074,33 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                             width: 44,
                             height: 44,
                             fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 width: 44,
                                 height: 44,
                                 decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.15),
+                                  color: Colors.grey.withOpacity(0.3),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Center(
@@ -1045,7 +1120,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.15),
+                              color: Colors.grey.withOpacity(0.3),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Center(
