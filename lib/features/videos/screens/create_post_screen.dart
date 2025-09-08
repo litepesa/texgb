@@ -1028,19 +1028,17 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: (!_isProcessing && !_isUploading) ? _pickVideoFromGallery : null,
-              icon: const Icon(Icons.photo_library),
               label: const Text('Select from Gallery'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
               ),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: (!_isProcessing && !_isUploading) ? _showGoLiveMessage : null,
-              icon: const Icon(Icons.live_tv),
               label: const Text('Go Live'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
