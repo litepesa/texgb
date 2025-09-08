@@ -12,6 +12,16 @@ import 'package:textgb/features/users/screens/edit_profile_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/users/models/user_model.dart';
+
+// Chat screens
+import 'package:textgb/features/chat/screens/chat_screen.dart';
+
+// Contact screens
+import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
+import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
+import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
+import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+
 import 'package:textgb/features/users/screens/user_profile_screen.dart';
 import 'package:textgb/features/videos/screens/single_video_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
@@ -145,6 +155,24 @@ class AppRoot extends ConsumerWidget {
           
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
+
+          // Contact routes
+          Constants.contactsScreen: (context) => const ContactsScreen(),
+          Constants.addContactScreen: (context) => const AddContactScreen(),
+          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
+          Constants.contactProfileScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
+            return ContactProfileScreen(contact: args);
+          },
+
+          // Chat routes
+          Constants.chatScreen: (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+            return ChatScreen(
+              chatId: args['chatId'] as String,
+              contact: args['contact'] as UserModel,
+            );
+          },
           
           // User/Profile routes with enhanced navigation support
           Constants.createProfileScreen: (context) => const ProfileSetupScreen(),
@@ -232,6 +260,31 @@ class AppRoot extends ConsumerWidget {
         onGenerateRoute: (settings) {
           // Handle dynamic routes that need custom logic
           switch (settings.name) {
+
+            // Chat routes
+            case '/chat':
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('chatId') && args.containsKey('contact')) {
+                return MaterialPageRoute(
+                  builder: (context) => ChatScreen(
+                    chatId: args['chatId'] as String,
+                    contact: args['contact'] as UserModel,
+                  ),
+                  settings: settings,
+                );
+              }
+              break;
+              
+            case '/contact-profile':
+              final contact = settings.arguments as UserModel?;
+              if (contact != null) {
+                return MaterialPageRoute(
+                  builder: (context) => ContactProfileScreen(contact: contact),
+                  settings: settings,
+                );
+              }
+              break;
+              
             case '/user-profile':
               // Handle user profile route
               final userId = settings.arguments as String?;
