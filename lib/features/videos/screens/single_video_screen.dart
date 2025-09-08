@@ -862,33 +862,63 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           
           const SizedBox(height: 10),
           
-          // Profile avatar with red border - moved to bottom and changed to rounded square
+          // Profile avatar with red border - FIXED to use usersProvider like other screens
           _buildRightMenuItem(
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8), // Rounded square instead of circle
-                border: Border.all(color: Colors.red, width: 2),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6), // Slightly smaller radius for the image
-                child: currentVideo?.userImage.isNotEmpty == true
-                    ? Image.network(
-                        currentVideo!.userImage,
-                        width: 44,
-                        height: 44,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
+            child: Consumer(
+              builder: (context, ref, child) {
+                // Get user data from usersProvider like users list screen
+                final users = ref.watch(usersProvider);
+                final videoUser = users.firstWhere(
+                  (user) => user.uid == currentVideo?.userId,
+                  orElse: () => throw Exception('User not found'),
+                );
+                
+                return Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8), // Rounded square instead of circle
+                    border: Border.all(color: Colors.red, width: 2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6), // Slightly smaller radius for the image
+                    child: videoUser.profileImage.isNotEmpty
+                        ? Image.network(
+                            videoUser.profileImage,
                             width: 44,
                             height: 44,
-                            color: Colors.grey,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    videoUser.name.isNotEmpty ? videoUser.name[0].toUpperCase() : 'U',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                             child: Center(
                               child: Text(
-                                currentVideo.userName.isNotEmpty == true
-                                    ? currentVideo.userName[0].toUpperCase()
-                                    : "U",
+                                videoUser.name.isNotEmpty ? videoUser.name[0].toUpperCase() : 'U',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -896,27 +926,10 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                                 ),
                               ),
                             ),
-                          );
-                        },
-                      )
-                    : Container(
-                        width: 44,
-                        height: 44,
-                        color: Colors.grey,
-                        child: Center(
-                          child: Text(
-                            currentVideo?.userName.isNotEmpty == true
-                                ? currentVideo!.userName[0].toUpperCase()
-                                : "U",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
                           ),
-                        ),
-                      ),
-              ),
+                  ),
+                );
+              },
             ),
             onTap: () => _navigateToUserProfile(),
           ),
