@@ -1,4 +1,5 @@
-// lib/features/chat/screens/chat_screen.dart - Updated with Moment Reaction Support Only
+// lib/features/chat/screens/chat_screen.dart
+// Updated with new authentication system and removed moments functionality
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,15 +8,13 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
-import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/features/chat/providers/message_provider.dart';
 import 'package:textgb/features/chat/widgets/message_input.dart';
 import 'package:textgb/features/chat/widgets/swipe_to_wrapper.dart';
 import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
-import 'package:textgb/features/moments/widgets/moment_reaction_bubble.dart';
-import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 
@@ -144,8 +143,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final recentMessages = messages.take(20).where((msg) => 
       msg.type == MessageEnum.image || 
       msg.type == MessageEnum.video ||
-      (msg.mediaMetadata?['isVideoReaction'] == true) ||
-      (msg.mediaMetadata?['isMomentReaction'] == true)
+      (msg.mediaMetadata?['isVideoReaction'] == true)
     );
 
     for (final message in recentMessages) {
@@ -161,12 +159,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           final videoUrl = message.mediaMetadata?['videoReaction']?['videoUrl'];
           if (videoUrl?.isNotEmpty == true) {
             _videoCacheManager.getSingleFile(videoUrl!);
-          }
-        } else if (message.mediaMetadata?['isMomentReaction'] == true) {
-          // Preload moment reaction media
-          final mediaUrl = message.mediaMetadata?['momentReaction']?['mediaUrl'];
-          if (mediaUrl?.isNotEmpty == true) {
-            _videoCacheManager.getSingleFile(mediaUrl!);
           }
         }
       } catch (e) {
@@ -202,11 +194,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       final videoReactionData = message.mediaMetadata?['videoReaction'];
       if (videoReactionData != null) {
         videoUrl = videoReactionData['videoUrl'];
-      }
-    } else if (message.mediaMetadata?['isMomentReaction'] == true) {
-      final momentReactionData = message.mediaMetadata?['momentReaction'];
-      if (momentReactionData != null && momentReactionData['mediaType'] == 'video') {
-        videoUrl = momentReactionData['mediaUrl'];
       }
     }
     
@@ -259,25 +246,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     });
   }
 
-  // Handle moment tap - play video if it's a video moment, otherwise navigate to moments feed
-  void _handleMomentTap(MomentReactionModel momentReaction) {
-    // If it's a video moment, play it using the video player overlay
-    if (momentReaction.mediaType == 'video' && momentReaction.mediaUrl.isNotEmpty) {
-      // Directly show the video player with the moment's video URL
-      _showVideoPlayer(momentReaction.mediaUrl);
-    } else {
-      // For image moments, navigate to moments feed
-      Navigator.pushNamed(
-        context,
-        '/moments-feed',
-        arguments: {'startMomentId': momentReaction.momentId},
-      );
-    }
-  }
-
   // Method to get cached contact image
   Widget _buildContactAvatar({double radius = 18}) {
-    if (widget.contact.image.isEmpty) {
+    if (widget.contact.profileImage.isEmpty) {
       return CircleAvatar(
         radius: radius,
         backgroundColor: context.modernTheme.primaryColor?.withOpacity(0.2),
@@ -295,7 +266,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     }
 
     return CachedNetworkImage(
-      imageUrl: widget.contact.image,
+      imageUrl: widget.contact.profileImage,
       imageBuilder: (context, imageProvider) => CircleAvatar(
         radius: radius,
         backgroundImage: imageProvider,
@@ -667,43 +638,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         final isCurrentUser = message.senderId == currentUser.uid;
         final isLastInGroup = _isLastInGroup(state.messages, index);
         
-        // Check if this is a moment reaction and show MomentReactionBubble
-        if (message.mediaMetadata?['isMomentReaction'] == true) {
-          final momentReactionData = message.mediaMetadata!['momentReaction'] as Map<String, dynamic>;
-          final momentReaction = MomentReactionModel.fromMap(momentReactionData);
-          
-          return Container(
-            margin: EdgeInsets.only(
-              top: 4,
-              bottom: 4,
-              left: isCurrentUser ? 64 : 8,
-              right: isCurrentUser ? 8 : 64,
-            ),
-            child: Row(
-              mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-              children: [
-                if (!isCurrentUser) ...[
-                  _buildContactAvatar(radius: 12),
-                  const SizedBox(width: 8),
-                ],
-                Flexible(
-                  child: MomentReactionBubble(
-                    momentReaction: momentReaction,
-                    isCurrentUser: isCurrentUser,
-                    onMomentTap: () => _handleMomentTap(momentReaction),
-                    onLongPress: () => _showMessageOptions(message, isCurrentUser),
-                  ),
-                ),
-                if (isCurrentUser) ...[
-                  const SizedBox(width: 8),
-                  _buildContactAvatar(radius: 12),
-                ],
-              ],
-            ),
-          );
-        }
-        
-        // Use existing SwipeToWrapper for all other messages (including video reactions)
+        // Use SwipeToWrapper for all messages (including video reactions)
+        // Removed moment reactions handling
         return SwipeToWrapper(
           message: message,
           isCurrentUser: isCurrentUser,
@@ -845,8 +781,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               ),
               
               if (message.type == MessageEnum.text || 
-                  message.mediaMetadata?['isVideoReaction'] == true ||
-                  message.mediaMetadata?['isMomentReaction'] == true) ...[
+                  message.mediaMetadata?['isVideoReaction'] == true) ...[
                 _MessageActionTile(
                   icon: Icons.copy,
                   title: 'Copy',
@@ -926,15 +861,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         final reaction = videoReactionData['reaction'] ?? '';
         final channelName = videoReactionData['channelName'] ?? 'video';
         textToCopy = reaction.isNotEmpty ? reaction : 'Reacted to $channelName\'s video';
-      }
-    }
-    // For moment reactions, copy the reaction text
-    else if (message.mediaMetadata?['isMomentReaction'] == true) {
-      final momentReactionData = message.mediaMetadata?['momentReaction'];
-      if (momentReactionData != null) {
-        final reaction = momentReactionData['reaction'] ?? '';
-        final authorName = momentReactionData['authorName'] ?? 'someone';
-        textToCopy = reaction.isNotEmpty ? reaction : 'Reacted to $authorName\'s moment';
       }
     }
     

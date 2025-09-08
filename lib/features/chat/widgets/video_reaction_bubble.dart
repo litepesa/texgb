@@ -1,10 +1,10 @@
 // lib/features/chat/widgets/video_reaction_bubble.dart - Updated with thumbnail generation
 import 'package:flutter/material.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/chat/services/video_thumbnail_service.dart';
 import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class VideoReactionBubble extends StatelessWidget {
@@ -184,7 +184,7 @@ class VideoReactionBubble extends StatelessWidget {
 // Updated channels_feed_screen.dart method with thumbnail generation
 Future<void> _sendVideoReactionMessage({
   required String chatId,
-  required ChannelVideoModel video,
+  required VideoModel video,
   required String reaction,
   required String senderId,
 }) async {
@@ -224,8 +224,8 @@ Future<void> _sendVideoReactionMessage({
       videoId: video.id,
       videoUrl: video.videoUrl,
       thumbnailUrl: thumbnailUrl, // Will be generated URL, existing URL, or empty
-      channelName: video.channelName,
-      channelImage: video.channelImage,
+      channelName: video.userName,
+      channelImage: video.userImage,
       reaction: reaction,
       timestamp: DateTime.now(),
     );

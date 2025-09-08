@@ -1,16 +1,17 @@
 // lib/features/chat/providers/chat_provider.dart
+// Updated chat provider using new authentication system and HTTP services
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
+import 'package:textgb/features/chat/models/moment_reaction_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
-import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/users/models/user_model.dart';
 
 part 'chat_provider.g.dart';
 
@@ -81,6 +82,7 @@ class ChatList extends _$ChatList {
   
   @override
   FutureOr<ChatListState> build() async {
+    // Use new auth system instead of channels
     final currentUser = ref.watch(currentUserProvider);
     if (currentUser == null) {
       return const ChatListState(error: 'User not authenticated');
@@ -121,19 +123,21 @@ class ChatList extends _$ChatList {
 
   Future<List<ChatListItemModel>> _buildChatListItems(
       List<ChatModel> chats, String currentUserId) async {
+    // Use new auth provider instead of channels
     final authNotifier = ref.read(authenticationProvider.notifier);
     final chatItems = <ChatListItemModel>[];
 
     for (final chat in chats) {
       try {
         final otherUserId = chat.getOtherParticipant(currentUserId);
-        final contact = await authNotifier.getUserDataById(otherUserId);
+        // Use getUserById from new auth system
+        final contact = await authNotifier.getUserById(otherUserId);
         
         if (contact != null) {
           chatItems.add(ChatListItemModel(
             chat: chat,
             contactName: contact.name,
-            contactImage: contact.image,
+            contactImage: contact.profileImage, // Use profileImage instead of image
             contactPhone: contact.phoneNumber,
             isOnline: false,
             lastSeen: null,
@@ -272,10 +276,14 @@ class ChatList extends _$ChatList {
     }
   }
 
-  // Send video reaction from channel video
+  // Create chat with video reaction from video model (simplified)
   Future<String?> createChatWithVideoReaction({
     required String otherUserId,
-    required ChannelVideoModel video,
+    required String videoId,
+    required String videoUrl,
+    required String thumbnailUrl,
+    required String channelName,
+    required String channelImage,
     required String reaction,
   }) async {
     final currentUser = ref.read(currentUserProvider);
@@ -287,13 +295,11 @@ class ChatList extends _$ChatList {
       
       // Create video reaction data
       final videoReaction = VideoReactionModel(
-        videoId: video.id,
-        videoUrl: video.videoUrl,
-        thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
-            ? video.imageUrls.first 
-            : video.thumbnailUrl,
-        channelName: video.channelName,
-        channelImage: video.channelImage,
+        videoId: videoId,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        channelName: channelName,
+        channelImage: channelImage,
         reaction: reaction,
         timestamp: DateTime.now(),
       );
@@ -308,6 +314,32 @@ class ChatList extends _$ChatList {
       return chatId;
     } catch (e) {
       debugPrint('Error creating chat with video reaction: $e');
+      return null;
+    }
+  }
+
+  // Create chat with moment reaction
+  Future<String?> createChatWithMomentReaction({
+    required String otherUserId,
+    required MomentReactionModel momentReaction,
+  }) async {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return null;
+
+    try {
+      // Create or get existing chat
+      final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
+      
+      // Send moment reaction message
+      await _repository.sendMomentReactionMessage(
+        chatId: chatId,
+        senderId: currentUser.uid,
+        momentReaction: momentReaction,
+      );
+          
+      return chatId;
+    } catch (e) {
+      debugPrint('Error creating chat with moment reaction: $e');
       return null;
     }
   }
@@ -372,7 +404,7 @@ class ChatList extends _$ChatList {
     return _repository.getChatsStream(userId);
   }
 
-  // Helper method to get current user ID
+  // Helper method to get current user ID from new auth system
   String? get currentUserId => ref.read(currentUserProvider)?.uid;
 
   // Helper method to check if user is authenticated

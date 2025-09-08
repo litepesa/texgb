@@ -1,4 +1,5 @@
 // lib/features/chat/screens/chat_list_screen.dart
+// Updated to work with new authentication system and user model
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,14 +7,14 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart' hide messageNotifierProvider;
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
-import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/users/models/user_model.dart';
 
 class ChatListScreen extends ConsumerStatefulWidget {
   const ChatListScreen({super.key});
@@ -30,10 +31,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
   // Cache manager for profile images
   static final DefaultCacheManager _imageCacheManager = DefaultCacheManager();
-  
-  // Cache key for storing chat list data
-  static const String _chatListCacheKey = 'cached_chat_list_data';
-  static const String _lastUpdateCacheKey = 'chat_list_last_update';
   
   // In-memory cache for current session
   List<ChatListItemModel>? _cachedChats;
@@ -120,19 +117,20 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     super.build(context);
     final modernTheme = context.modernTheme;
     
-    // Watch the authentication state
+    // Watch the authentication state using new auth system
     final authState = ref.watch(authenticationProvider);
     
     return authState.when(
       loading: () => _buildLoadingAuthState(modernTheme),
       error: (error, stack) => _buildNotAuthenticatedState(modernTheme),
       data: (authenticationState) {
-        if (authenticationState.userModel == null) {
+        // Check for currentUser using new auth system
+        if (authenticationState.currentUser == null) {
           return _buildNotAuthenticatedState(modernTheme);
         }
         
         // User is authenticated, show the chat list
-        return _buildAuthenticatedChatList(authenticationState.userModel!, modernTheme);
+        return _buildAuthenticatedChatList(authenticationState.currentUser!, modernTheme);
       },
     );
   }
@@ -942,7 +940,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       await chatListNotifier.markChatAsRead(chatItem.chat.chatId, currentUser.uid);
     }
 
-    // Navigate to chat screen
+    // Navigate to chat screen using new UserModel
     if (mounted && currentUser != null) {
       final result = await Navigator.of(context).push(
         MaterialPageRoute(
@@ -950,15 +948,25 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             chatId: chatItem.chat.chatId,
             contact: UserModel(
               uid: chatItem.chat.getOtherParticipant(currentUser.uid),
-              name: chatItem.contactName,
               phoneNumber: chatItem.contactPhone,
-              image: chatItem.contactImage,
-              token: '',
-              aboutMe: '',
-              lastSeen: '',
-              createdAt: '',
-              contactsUIDs: [],
-              blockedUIDs: [],
+              name: chatItem.contactName,
+              bio: '', // Default empty bio
+              profileImage: chatItem.contactImage,
+              coverImage: '', // Default empty cover
+              followers: 0,
+              following: 0,
+              videosCount: 0,
+              likesCount: 0,
+              isVerified: false,
+              tags: [],
+              followerUIDs: [],
+              followingUIDs: [],
+              likedVideos: [],
+              createdAt: DateTime.now().toIso8601String(),
+              updatedAt: DateTime.now().toIso8601String(),
+              lastSeen: DateTime.now().toIso8601String(),
+              isActive: true,
+              isFeatured: false,
             ),
           ),
         ),

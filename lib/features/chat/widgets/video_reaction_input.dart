@@ -1,12 +1,12 @@
 // lib/features/chat/widgets/video_reaction_input.dart - Refined version
 import 'package:flutter/material.dart';
-import 'package:textgb/features/channels/models/channel_video_model.dart';
 import 'package:textgb/features/chat/services/video_thumbnail_service.dart';
 import 'package:textgb/features/chat/widgets/video_thumbnail_widget.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class VideoReactionInput extends StatefulWidget {
-  final ChannelVideoModel video;
+  final VideoModel video;
   final Function(String reaction) onSendReaction;
   final VoidCallback onCancel;
 
@@ -257,13 +257,13 @@ class _VideoReactionInputState extends State<VideoReactionInput> {
                                   child: CircleAvatar(
                                     radius: 12,
                                     backgroundColor: modernTheme.primaryColor?.withOpacity(0.1),
-                                    backgroundImage: widget.video.channelImage.isNotEmpty
-                                        ? NetworkImage(widget.video.channelImage)
+                                    backgroundImage: widget.video.userImage.isNotEmpty
+                                        ? NetworkImage(widget.video.userImage)
                                         : null,
-                                    child: widget.video.channelImage.isEmpty
+                                    child: widget.video.userImage.isEmpty
                                         ? Text(
-                                            widget.video.channelName.isNotEmpty 
-                                              ? widget.video.channelName[0].toUpperCase()
+                                            widget.video.userName.isNotEmpty 
+                                              ? widget.video.userName[0].toUpperCase()
                                               : 'C',
                                             style: TextStyle(
                                               fontSize: 10,
@@ -280,7 +280,7 @@ class _VideoReactionInputState extends State<VideoReactionInput> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        widget.video.channelName,
+                                        widget.video.userName,
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,

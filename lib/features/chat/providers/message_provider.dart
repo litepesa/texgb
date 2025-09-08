@@ -1,10 +1,11 @@
 // lib/features/chat/providers/message_provider.dart
+// Updated message provider using new authentication system and HTTP services
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:textgb/enums/enums.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 
@@ -64,6 +65,12 @@ class MessageNotifier extends _$MessageNotifier {
 
   @override
   FutureOr<MessageState> build(String chatId) async {
+    // Use new auth system instead of channels
+    final currentUser = ref.watch(currentUserProvider);
+    if (currentUser == null) {
+      return const MessageState(error: 'User not authenticated');
+    }
+
     // Start listening to messages stream
     _subscribeToMessages(chatId);
     
@@ -125,6 +132,7 @@ class MessageNotifier extends _$MessageNotifier {
 
   // Send text message
   Future<void> sendTextMessage(String chatId, String content) async {
+    // Use new auth system
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
       debugPrint('Cannot send message: user not authenticated');
@@ -256,7 +264,7 @@ class MessageNotifier extends _$MessageNotifier {
         clearError: true,
       ));
       
-      // Upload image
+      // Upload image via R2 through Go backend
       final imageUrl = await _repository.uploadMedia(imageFile, fileName, chatId);
       
       // Create final message with uploaded URL
@@ -355,7 +363,7 @@ class MessageNotifier extends _$MessageNotifier {
         clearError: true,
       ));
       
-      // Upload file
+      // Upload file via R2 through Go backend
       final fileUrl = await _repository.uploadMedia(file, fileName, chatId);
       
       // Create final message with uploaded URL

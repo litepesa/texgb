@@ -1,16 +1,20 @@
-// lib/features/chat/repositories/chat_repository.dart - Updated with moment reaction support
+// lib/features/chat/repositories/chat_repository.dart
+// Updated chat repository using HTTP client and R2 storage (no Firebase)
+import 'dart:convert';
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/constants.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/models/moment_reaction_model.dart';
+import 'package:textgb/shared/services/http_client.dart';
 import 'package:uuid/uuid.dart';
+
+// ========================================
+// ABSTRACT REPOSITORY INTERFACE
+// ========================================
 
 abstract class ChatRepository {
   // Chat operations
@@ -41,7 +45,6 @@ abstract class ChatRepository {
     required String senderId,
     required VideoReactionModel videoReaction,
   });
-  // NEW: Moment reaction message
   Future<String> sendMomentReactionMessage({
     required String chatId,
     required String senderId,
@@ -66,18 +69,24 @@ abstract class ChatRepository {
   Future<bool> chatHasMessages(String chatId);
 }
 
-class FirebaseChatRepository implements ChatRepository {
-  final FirebaseFirestore _firestore;
-  final FirebaseStorage _storage;
+// ========================================
+// HTTP IMPLEMENTATION
+// ========================================
+
+class HttpChatRepository implements ChatRepository {
+  final HttpClientService _httpClient;
   final Uuid _uuid;
 
-  FirebaseChatRepository({
-    FirebaseFirestore? firestore,
-    FirebaseStorage? storage,
+  HttpChatRepository({
+    HttpClientService? httpClient,
     Uuid? uuid,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _storage = storage ?? FirebaseStorage.instance,
+  }) : _httpClient = httpClient ?? HttpClientService(),
        _uuid = uuid ?? const Uuid();
+
+  // Helper method to create RFC3339 timestamps
+  String _createTimestamp() {
+    return DateTime.now().toUtc().toIso8601String();
+  }
 
   @override
   String generateChatId(String userId1, String userId2) {
@@ -89,90 +98,98 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<bool> chatHasMessages(String chatId) async {
     try {
-      final messagesSnapshot = await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .limit(1)
-          .get();
+      final response = await _httpClient.get('/chats/$chatId/has-messages');
       
-      return messagesSnapshot.docs.isNotEmpty;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['hasMessages'] ?? false;
+      }
+      return false;
     } catch (e) {
+      debugPrint('Error checking chat messages: $e');
       throw ChatRepositoryException('Failed to check chat messages: $e');
     }
   }
+
+  // ========================================
+  // CHAT OPERATIONS
+  // ========================================
 
   @override
   Future<String> createOrGetChat(String currentUserId, String otherUserId) async {
     try {
       final chatId = generateChatId(currentUserId, otherUserId);
-      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
+      
+      final response = await _httpClient.post('/chats', body: {
+        'chatId': chatId,
+        'participants': [currentUserId, otherUserId],
+        'createdAt': _createTimestamp(),
+      });
 
-      if (!chatDoc.exists) {
-        // Create new chat
-        final newChat = ChatModel(
-          chatId: chatId,
-          participants: [currentUserId, otherUserId],
-          lastMessage: '',
-          lastMessageType: MessageEnum.text,
-          lastMessageSender: '',
-          lastMessageTime: DateTime.now(),
-          unreadCounts: {currentUserId: 0, otherUserId: 0},
-          isArchived: {currentUserId: false, otherUserId: false},
-          isPinned: {currentUserId: false, otherUserId: false},
-          isMuted: {currentUserId: false, otherUserId: false},
-          createdAt: DateTime.now(),
-        );
-
-        await _firestore.collection(Constants.chats).doc(chatId).set(newChat.toMap());
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['chatId'] ?? chatId;
+      } else {
+        throw ChatRepositoryException('Failed to create or get chat: ${response.body}');
       }
-
-      return chatId;
     } catch (e) {
+      debugPrint('Error creating/getting chat: $e');
       throw ChatRepositoryException('Failed to create or get chat: $e');
     }
   }
 
   @override
   Stream<List<ChatModel>> getChatsStream(String userId) {
-    try {
-      return _firestore
-          .collection(Constants.chats)
-          .where('participants', arrayContains: userId)
-          .orderBy('lastMessageTime', descending: true)
-          .snapshots()
-          .asyncMap((snapshot) async {
-        final chats = <ChatModel>[];
+    // Since we're using HTTP instead of real-time Firebase, we'll implement polling
+    // In a production app, you might want to use WebSockets or Server-Sent Events
+    return Stream.periodic(const Duration(seconds: 5), (count) async {
+      try {
+        final response = await _httpClient.get('/chats?userId=$userId');
         
-        for (final doc in snapshot.docs) {
-          final chat = ChatModel.fromMap(doc.data());
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final List<dynamic> chatsData = data['chats'] ?? [];
           
-          // Only include chats that are not archived and have messages
-          if (!chat.isArchivedForUser(userId)) {
-            // Check if chat has any messages
+          final chats = chatsData
+              .map((chatData) => ChatModel.fromMap(chatData as Map<String, dynamic>))
+              .where((chat) => !chat.isArchivedForUser(userId))
+              .toList();
+          
+          // Filter chats that have messages
+          final chatsWithMessages = <ChatModel>[];
+          for (final chat in chats) {
             final hasMessages = await chatHasMessages(chat.chatId);
             if (hasMessages) {
-              chats.add(chat);
+              chatsWithMessages.add(chat);
             }
           }
+          
+          return chatsWithMessages;
+        } else {
+          throw ChatRepositoryException('Failed to get chats: ${response.body}');
         }
-        
-        return chats;
-      });
-    } catch (e) {
-      throw ChatRepositoryException('Failed to get chats stream: $e');
-    }
+      } catch (e) {
+        debugPrint('Error in chats stream: $e');
+        throw ChatRepositoryException('Failed to get chats stream: $e');
+      }
+    }).asyncMap((future) => future);
   }
 
   @override
   Future<ChatModel?> getChatById(String chatId) async {
     try {
-      final doc = await _firestore.collection(Constants.chats).doc(chatId).get();
-      if (doc.exists) {
-        return ChatModel.fromMap(doc.data()!);
+      final response = await _httpClient.get('/chats/$chatId');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return ChatModel.fromMap(data);
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        throw ChatRepositoryException('Failed to get chat by ID: ${response.body}');
       }
-      return null;
     } catch (e) {
+      if (e is NotFoundException) return null;
       throw ChatRepositoryException('Failed to get chat by ID: $e');
     }
   }
@@ -180,12 +197,16 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> updateChatLastMessage(ChatModel chat) async {
     try {
-      await _firestore.collection(Constants.chats).doc(chat.chatId).update({
+      final response = await _httpClient.put('/chats/${chat.chatId}/last-message', body: {
         'lastMessage': chat.lastMessage,
         'lastMessageType': chat.lastMessageType.name,
         'lastMessageSender': chat.lastMessageSender,
-        'lastMessageTime': chat.lastMessageTime.millisecondsSinceEpoch,
+        'lastMessageTime': chat.lastMessageTime.toIso8601String(),
       });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to update chat last message: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to update chat last message: $e');
     }
@@ -194,9 +215,13 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> markChatAsRead(String chatId, String userId) async {
     try {
-      await _firestore.collection(Constants.chats).doc(chatId).update({
-        'unreadCounts.$userId': 0,
+      final response = await _httpClient.post('/chats/$chatId/mark-read', body: {
+        'userId': userId,
       });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to mark chat as read: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to mark chat as read: $e');
     }
@@ -205,14 +230,12 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> toggleChatPin(String chatId, String userId) async {
     try {
-      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
-      if (chatDoc.exists) {
-        final chat = ChatModel.fromMap(chatDoc.data()!);
-        final currentPinStatus = chat.isPinnedForUser(userId);
-        
-        await _firestore.collection(Constants.chats).doc(chatId).update({
-          'isPinned.$userId': !currentPinStatus,
-        });
+      final response = await _httpClient.post('/chats/$chatId/toggle-pin', body: {
+        'userId': userId,
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to toggle chat pin: ${response.body}');
       }
     } catch (e) {
       throw ChatRepositoryException('Failed to toggle chat pin: $e');
@@ -222,14 +245,12 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> toggleChatArchive(String chatId, String userId) async {
     try {
-      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
-      if (chatDoc.exists) {
-        final chat = ChatModel.fromMap(chatDoc.data()!);
-        final currentArchiveStatus = chat.isArchivedForUser(userId);
-        
-        await _firestore.collection(Constants.chats).doc(chatId).update({
-          'isArchived.$userId': !currentArchiveStatus,
-        });
+      final response = await _httpClient.post('/chats/$chatId/toggle-archive', body: {
+        'userId': userId,
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to toggle chat archive: ${response.body}');
       }
     } catch (e) {
       throw ChatRepositoryException('Failed to toggle chat archive: $e');
@@ -239,14 +260,12 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> toggleChatMute(String chatId, String userId) async {
     try {
-      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
-      if (chatDoc.exists) {
-        final chat = ChatModel.fromMap(chatDoc.data()!);
-        final currentMuteStatus = chat.isMutedForUser(userId);
-        
-        await _firestore.collection(Constants.chats).doc(chatId).update({
-          'isMuted.$userId': !currentMuteStatus,
-        });
+      final response = await _httpClient.post('/chats/$chatId/toggle-mute', body: {
+        'userId': userId,
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to toggle chat mute: ${response.body}');
       }
     } catch (e) {
       throw ChatRepositoryException('Failed to toggle chat mute: $e');
@@ -256,43 +275,10 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> deleteChat(String chatId, String userId, {bool deleteForEveryone = false}) async {
     try {
-      if (deleteForEveryone) {
-        // Delete the entire chat document and all messages
-        final batch = _firestore.batch();
-        
-        // Delete all messages
-        final messagesSnapshot = await _firestore
-            .collection(Constants.chats)
-            .doc(chatId)
-            .collection(Constants.messages)
-            .get();
-        
-        for (final doc in messagesSnapshot.docs) {
-          batch.delete(doc.reference);
-        }
-        
-        // Delete the chat document
-        batch.delete(_firestore.collection(Constants.chats).doc(chatId));
-        
-        await batch.commit();
-        
-        // Delete associated media files
-        try {
-          final mediaRef = _storage.ref().child('${Constants.chatFiles}/$chatId');
-          final mediaItems = await mediaRef.listAll();
-          
-          for (final item in mediaItems.items) {
-            await item.delete();
-          }
-        } catch (e) {
-          // Media deletion failed, but continue
-          debugPrint('Failed to delete media for chat $chatId: $e');
-        }
-      } else {
-        // Archive the chat for this user only
-        await _firestore.collection(Constants.chats).doc(chatId).update({
-          'isArchived.$userId': true,
-        });
+      final response = await _httpClient.delete('/chats/$chatId?userId=$userId&deleteForEveryone=$deleteForEveryone');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to delete chat: ${response.body}');
       }
     } catch (e) {
       throw ChatRepositoryException('Failed to delete chat: $e');
@@ -302,29 +288,13 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> clearChatHistory(String chatId, String userId) async {
     try {
-      // Delete all messages in the chat
-      final batch = _firestore.batch();
-      
-      final messagesSnapshot = await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .get();
-      
-      for (final doc in messagesSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
-      
-      // Reset chat last message
-      batch.update(_firestore.collection(Constants.chats).doc(chatId), {
-        'lastMessage': '',
-        'lastMessageType': MessageEnum.text.name,
-        'lastMessageSender': '',
-        'lastMessageTime': DateTime.now().millisecondsSinceEpoch,
-        'unreadCounts.$userId': 0,
+      final response = await _httpClient.post('/chats/$chatId/clear-history', body: {
+        'userId': userId,
       });
-      
-      await batch.commit();
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to clear chat history: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to clear chat history: $e');
     }
@@ -333,9 +303,14 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> setChatWallpaper(String chatId, String userId, String? wallpaperUrl) async {
     try {
-      await _firestore.collection(Constants.chats).doc(chatId).update({
-        'chatWallpapers.$userId': wallpaperUrl,
+      final response = await _httpClient.post('/chats/$chatId/wallpaper', body: {
+        'userId': userId,
+        'wallpaperUrl': wallpaperUrl,
       });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to set chat wallpaper: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to set chat wallpaper: $e');
     }
@@ -344,13 +319,22 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> setChatFontSize(String chatId, String userId, double fontSize) async {
     try {
-      await _firestore.collection(Constants.chats).doc(chatId).update({
-        'fontSizes.$userId': fontSize,
+      final response = await _httpClient.post('/chats/$chatId/font-size', body: {
+        'userId': userId,
+        'fontSize': fontSize,
       });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to set chat font size: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to set chat font size: $e');
     }
   }
+
+  // ========================================
+  // MESSAGE OPERATIONS
+  // ========================================
 
   @override
   Future<String> sendMessage(MessageModel message) async {
@@ -358,46 +342,27 @@ class FirebaseChatRepository implements ChatRepository {
       final messageId = message.messageId.isEmpty ? _uuid.v4() : message.messageId;
       final finalMessage = message.copyWith(messageId: messageId);
 
-      // Add message to subcollection
-      await _firestore
-          .collection(Constants.chats)
-          .doc(message.chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .set(finalMessage.toMap());
-
-      // Update chat's last message
-      await _firestore.collection(Constants.chats).doc(message.chatId).update({
-        'lastMessage': message.getDisplayContent(),
-        'lastMessageType': message.type.name,
-        'lastMessageSender': message.senderId,
-        'lastMessageTime': message.timestamp.millisecondsSinceEpoch,
+      final response = await _httpClient.post('/chats/${message.chatId}/messages', body: {
+        'messageId': messageId,
+        'chatId': message.chatId,
+        'senderId': message.senderId,
+        'content': message.content,
+        'type': message.type.name,
+        'status': message.status.name,
+        'timestamp': message.timestamp.toIso8601String(),
+        'mediaUrl': message.mediaUrl,
+        'mediaMetadata': message.mediaMetadata,
+        'replyToMessageId': message.replyToMessageId,
+        'replyToContent': message.replyToContent,
+        'replyToSender': message.replyToSender,
       });
 
-      // Increment unread count for other participants and mark as delivered
-      final chatDoc = await _firestore.collection(Constants.chats).doc(message.chatId).get();
-      if (chatDoc.exists) {
-        final chat = ChatModel.fromMap(chatDoc.data()!);
-        final updates = <String, dynamic>{};
-        
-        for (final participantId in chat.participants) {
-          if (participantId != message.senderId) {
-            final currentUnread = chat.getUnreadCount(participantId);
-            updates['unreadCounts.$participantId'] = currentUnread + 1;
-            
-            // Automatically mark as delivered for other participants
-            Future.delayed(const Duration(seconds: 2), () {
-              markMessageAsDelivered(message.chatId, messageId, participantId);
-            });
-          }
-        }
-        
-        if (updates.isNotEmpty) {
-          await _firestore.collection(Constants.chats).doc(message.chatId).update(updates);
-        }
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['messageId'] ?? messageId;
+      } else {
+        throw ChatRepositoryException('Failed to send message: ${response.body}');
       }
-
-      return messageId;
     } catch (e) {
       throw ChatRepositoryException('Failed to send message: $e');
     }
@@ -414,66 +379,27 @@ class FirebaseChatRepository implements ChatRepository {
     try {
       final messageId = _uuid.v4();
       
-      // Create simple video message
-      final videoMessage = MessageModel(
-        messageId: messageId,
-        chatId: chatId,
-        senderId: senderId,
-        content: '', // No text content needed
-        type: MessageEnum.video, // Use existing video type
-        status: MessageStatus.sending,
-        timestamp: DateTime.now(),
-        mediaUrl: videoUrl,
-        mediaMetadata: {
+      final response = await _httpClient.post('/chats/$chatId/messages', body: {
+        'messageId': messageId,
+        'chatId': chatId,
+        'senderId': senderId,
+        'content': '',
+        'type': MessageEnum.video.name,
+        'status': MessageStatus.sending.name,
+        'timestamp': _createTimestamp(),
+        'mediaUrl': videoUrl,
+        'mediaMetadata': {
           'isSharedVideo': true,
           'videoId': videoId,
           'thumbnailUrl': thumbnailUrl,
         },
-      );
-
-      // Add message to subcollection
-      await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .set(videoMessage.toMap());
-
-      // Update chat's last message
-      await _firestore.collection(Constants.chats).doc(chatId).update({
-        'lastMessage': '📹 Shared a video',
-        'lastMessageType': MessageEnum.video.name,
-        'lastMessageSender': senderId,
-        'lastMessageTime': videoMessage.timestamp.millisecondsSinceEpoch,
       });
 
-      // Increment unread count for other participants
-      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
-      if (chatDoc.exists) {
-        final chat = ChatModel.fromMap(chatDoc.data()!);
-        final updates = <String, dynamic>{};
-        
-        for (final participantId in chat.participants) {
-          if (participantId != senderId) {
-            final currentUnread = chat.getUnreadCount(participantId);
-            updates['unreadCounts.$participantId'] = currentUnread + 1;
-            
-            // Automatically mark as delivered for other participants
-            Future.delayed(const Duration(seconds: 2), () {
-              markMessageAsDelivered(chatId, messageId, participantId);
-            });
-          }
-        }
-        
-        if (updates.isNotEmpty) {
-          await _firestore.collection(Constants.chats).doc(chatId).update(updates);
-        }
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return messageId;
+      } else {
+        throw ChatRepositoryException('Failed to send video message: ${response.body}');
       }
-
-      // Mark as sent
-      await updateMessageStatus(chatId, messageId, MessageStatus.sent);
-
-      return messageId;
     } catch (e) {
       throw ChatRepositoryException('Failed to send video message: $e');
     }
@@ -488,79 +414,35 @@ class FirebaseChatRepository implements ChatRepository {
     try {
       final messageId = _uuid.v4();
       
-      // Create video reaction message using text type with special metadata
-      final reactionMessage = MessageModel(
-        messageId: messageId,
-        chatId: chatId,
-        senderId: senderId,
-        content: videoReaction.reaction ?? '', // The reaction text/emoji
-        type: MessageEnum.text, // Use text type to avoid breaking existing message handling
-        status: MessageStatus.sending,
-        timestamp: DateTime.now(),
-        mediaUrl: videoReaction.videoUrl, // Original video URL for playing
-        mediaMetadata: {
-          'isVideoReaction': true, // Flag to identify video reactions
-          'videoReaction': videoReaction.toMap(), // Store full reaction data
+      final response = await _httpClient.post('/chats/$chatId/messages', body: {
+        'messageId': messageId,
+        'chatId': chatId,
+        'senderId': senderId,
+        'content': videoReaction.reaction ?? '',
+        'type': MessageEnum.text.name,
+        'status': MessageStatus.sending.name,
+        'timestamp': _createTimestamp(),
+        'mediaUrl': videoReaction.videoUrl,
+        'mediaMetadata': {
+          'isVideoReaction': true,
+          'videoReaction': videoReaction.toMap(),
           'thumbnailUrl': videoReaction.thumbnailUrl,
           'videoId': videoReaction.videoId,
           'channelName': videoReaction.channelName,
           'channelImage': videoReaction.channelImage,
         },
-      );
-
-      // Add message to subcollection
-      await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .set(reactionMessage.toMap());
-
-      // Update chat's last message
-      final lastMessagePreview = videoReaction.reaction?.isNotEmpty == true 
-          ? 'Reacted: ${videoReaction.reaction}'
-          : 'Reacted to a video';
-
-      await _firestore.collection(Constants.chats).doc(chatId).update({
-        'lastMessage': lastMessagePreview,
-        'lastMessageType': MessageEnum.text.name, // Keep as text to avoid breaking chat list
-        'lastMessageSender': senderId,
-        'lastMessageTime': reactionMessage.timestamp.millisecondsSinceEpoch,
       });
 
-      // Increment unread count for other participants
-      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
-      if (chatDoc.exists) {
-        final chat = ChatModel.fromMap(chatDoc.data()!);
-        final updates = <String, dynamic>{};
-        
-        for (final participantId in chat.participants) {
-          if (participantId != senderId) {
-            final currentUnread = chat.getUnreadCount(participantId);
-            updates['unreadCounts.$participantId'] = currentUnread + 1;
-            
-            // Automatically mark as delivered for other participants
-            Future.delayed(const Duration(seconds: 2), () {
-              markMessageAsDelivered(chatId, messageId, participantId);
-            });
-          }
-        }
-        
-        if (updates.isNotEmpty) {
-          await _firestore.collection(Constants.chats).doc(chatId).update(updates);
-        }
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return messageId;
+      } else {
+        throw ChatRepositoryException('Failed to send video reaction message: ${response.body}');
       }
-
-      // Mark as sent
-      await updateMessageStatus(chatId, messageId, MessageStatus.sent);
-
-      return messageId;
     } catch (e) {
       throw ChatRepositoryException('Failed to send video reaction message: $e');
     }
   }
 
-  // NEW: Send moment reaction message
   @override
   Future<String> sendMomentReactionMessage({
     required String chatId,
@@ -570,19 +452,18 @@ class FirebaseChatRepository implements ChatRepository {
     try {
       final messageId = _uuid.v4();
       
-      // Create moment reaction message using text type with special metadata
-      final reactionMessage = MessageModel(
-        messageId: messageId,
-        chatId: chatId,
-        senderId: senderId,
-        content: momentReaction.reaction, // The reaction text
-        type: MessageEnum.text, // Use text type to avoid breaking existing message handling
-        status: MessageStatus.sending,
-        timestamp: DateTime.now(),
-        mediaUrl: momentReaction.mediaUrl, // Original moment media URL
-        mediaMetadata: {
-          'isMomentReaction': true, // Flag to identify moment reactions
-          'momentReaction': momentReaction.toMap(), // Store full reaction data
+      final response = await _httpClient.post('/chats/$chatId/messages', body: {
+        'messageId': messageId,
+        'chatId': chatId,
+        'senderId': senderId,
+        'content': momentReaction.reaction,
+        'type': MessageEnum.text.name,
+        'status': MessageStatus.sending.name,
+        'timestamp': _createTimestamp(),
+        'mediaUrl': momentReaction.mediaUrl,
+        'mediaMetadata': {
+          'isMomentReaction': true,
+          'momentReaction': momentReaction.toMap(),
           'thumbnailUrl': momentReaction.thumbnailUrl,
           'momentId': momentReaction.momentId,
           'authorName': momentReaction.authorName,
@@ -590,55 +471,13 @@ class FirebaseChatRepository implements ChatRepository {
           'mediaType': momentReaction.mediaType,
           'momentContent': momentReaction.content,
         },
-      );
-
-      // Add message to subcollection
-      await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .set(reactionMessage.toMap());
-
-      // Update chat's last message
-      final lastMessagePreview = momentReaction.reaction.isNotEmpty 
-          ? 'Reacted: ${momentReaction.reaction}'
-          : 'Reacted to a moment';
-
-      await _firestore.collection(Constants.chats).doc(chatId).update({
-        'lastMessage': lastMessagePreview,
-        'lastMessageType': MessageEnum.text.name, // Keep as text to avoid breaking chat list
-        'lastMessageSender': senderId,
-        'lastMessageTime': reactionMessage.timestamp.millisecondsSinceEpoch,
       });
 
-      // Increment unread count for other participants
-      final chatDoc = await _firestore.collection(Constants.chats).doc(chatId).get();
-      if (chatDoc.exists) {
-        final chat = ChatModel.fromMap(chatDoc.data()!);
-        final updates = <String, dynamic>{};
-        
-        for (final participantId in chat.participants) {
-          if (participantId != senderId) {
-            final currentUnread = chat.getUnreadCount(participantId);
-            updates['unreadCounts.$participantId'] = currentUnread + 1;
-            
-            // Automatically mark as delivered for other participants
-            Future.delayed(const Duration(seconds: 2), () {
-              markMessageAsDelivered(chatId, messageId, participantId);
-            });
-          }
-        }
-        
-        if (updates.isNotEmpty) {
-          await _firestore.collection(Constants.chats).doc(chatId).update(updates);
-        }
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return messageId;
+      } else {
+        throw ChatRepositoryException('Failed to send moment reaction message: ${response.body}');
       }
-
-      // Mark as sent
-      await updateMessageStatus(chatId, messageId, MessageStatus.sent);
-
-      return messageId;
     } catch (e) {
       throw ChatRepositoryException('Failed to send moment reaction message: $e');
     }
@@ -646,33 +485,38 @@ class FirebaseChatRepository implements ChatRepository {
 
   @override
   Stream<List<MessageModel>> getMessagesStream(String chatId) {
-    try {
-      return _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .orderBy('timestamp', descending: true)
-          .limit(50) // Pagination can be added later
-          .snapshots()
-          .map((snapshot) {
-        return snapshot.docs
-            .map((doc) => MessageModel.fromMap(doc.data()))
-            .toList();
-      });
-    } catch (e) {
-      throw ChatRepositoryException('Failed to get messages stream: $e');
-    }
+    // Implement polling for messages since we're not using real-time Firebase
+    return Stream.periodic(const Duration(seconds: 2), (count) async {
+      try {
+        final response = await _httpClient.get('/chats/$chatId/messages?limit=50');
+        
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final List<dynamic> messagesData = data['messages'] ?? [];
+          
+          return messagesData
+              .map((messageData) => MessageModel.fromMap(messageData as Map<String, dynamic>))
+              .toList();
+        } else {
+          throw ChatRepositoryException('Failed to get messages: ${response.body}');
+        }
+      } catch (e) {
+        debugPrint('Error in messages stream: $e');
+        throw ChatRepositoryException('Failed to get messages stream: $e');
+      }
+    }).asyncMap((future) => future);
   }
 
   @override
   Future<void> updateMessageStatus(String chatId, String messageId, MessageStatus status) async {
     try {
-      await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .update({'status': status.name});
+      final response = await _httpClient.put('/chats/$chatId/messages/$messageId/status', body: {
+        'status': status.name,
+      });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to update message status: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to update message status: $e');
     }
@@ -681,15 +525,14 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> markMessageAsDelivered(String chatId, String messageId, String userId) async {
     try {
-      await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .update({
-        'deliveredTo.$userId': DateTime.now().millisecondsSinceEpoch,
-        'status': MessageStatus.delivered.name,
+      final response = await _httpClient.post('/chats/$chatId/messages/$messageId/delivered', body: {
+        'userId': userId,
+        'deliveredAt': _createTimestamp(),
       });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to mark message as delivered: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to mark message as delivered: $e');
     }
@@ -698,16 +541,15 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> editMessage(String chatId, String messageId, String newContent) async {
     try {
-      await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .update({
+      final response = await _httpClient.put('/chats/$chatId/messages/$messageId', body: {
         'content': newContent,
         'isEdited': true,
-        'editedAt': DateTime.now().millisecondsSinceEpoch,
+        'editedAt': _createTimestamp(),
       });
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to edit message: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to edit message: $e');
     }
@@ -716,27 +558,10 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> deleteMessage(String chatId, String messageId, bool deleteForEveryone) async {
     try {
-      if (deleteForEveryone) {
-        // Delete the message document entirely
-        await _firestore
-            .collection(Constants.chats)
-            .doc(chatId)
-            .collection(Constants.messages)
-            .doc(messageId)
-            .delete();
-      } else {
-        // Mark as deleted for sender only
-        await _firestore
-            .collection(Constants.chats)
-            .doc(chatId)
-            .collection(Constants.messages)
-            .doc(messageId)
-            .update({
-          'content': 'This message was deleted',
-          'type': MessageEnum.text.name,
-          'mediaUrl': null,
-          'mediaMetadata': null,
-        });
+      final response = await _httpClient.delete('/chats/$chatId/messages/$messageId?deleteForEveryone=$deleteForEveryone');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to delete message: ${response.body}');
       }
     } catch (e) {
       throw ChatRepositoryException('Failed to delete message: $e');
@@ -746,12 +571,11 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> pinMessage(String chatId, String messageId) async {
     try {
-      await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .update({'isPinned': true});
+      final response = await _httpClient.post('/chats/$chatId/messages/$messageId/pin', body: {});
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to pin message: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to pin message: $e');
     }
@@ -760,12 +584,11 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> unpinMessage(String chatId, String messageId) async {
     try {
-      await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .doc(messageId)
-          .update({'isPinned': false});
+      final response = await _httpClient.delete('/chats/$chatId/messages/$messageId/pin');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to unpin message: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to unpin message: $e');
     }
@@ -774,22 +597,18 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<List<MessageModel>> searchMessages(String chatId, String query) async {
     try {
-      final snapshot = await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .where('type', isEqualTo: MessageEnum.text.name)
-          .orderBy('timestamp', descending: true)
-          .limit(100)
-          .get();
+      final response = await _httpClient.get('/chats/$chatId/messages/search?q=${Uri.encodeComponent(query)}&limit=100');
 
-      final messages = snapshot.docs
-          .map((doc) => MessageModel.fromMap(doc.data()))
-          .where((message) => 
-              message.content.toLowerCase().contains(query.toLowerCase()))
-          .toList();
-
-      return messages;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> messagesData = data['messages'] ?? [];
+        
+        return messagesData
+            .map((messageData) => MessageModel.fromMap(messageData as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw ChatRepositoryException('Failed to search messages: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to search messages: $e');
     }
@@ -798,38 +617,53 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<List<MessageModel>> getPinnedMessages(String chatId) async {
     try {
-      final snapshot = await _firestore
-          .collection(Constants.chats)
-          .doc(chatId)
-          .collection(Constants.messages)
-          .where('isPinned', isEqualTo: true)
-          .orderBy('timestamp', descending: true)
-          .get();
+      final response = await _httpClient.get('/chats/$chatId/messages/pinned');
 
-      return snapshot.docs
-          .map((doc) => MessageModel.fromMap(doc.data()))
-          .toList();
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> messagesData = data['messages'] ?? [];
+        
+        return messagesData
+            .map((messageData) => MessageModel.fromMap(messageData as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw ChatRepositoryException('Failed to get pinned messages: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to get pinned messages: $e');
     }
   }
 
+  // ========================================
+  // MEDIA OPERATIONS (R2 via Go backend)
+  // ========================================
+
   @override
   Future<String> uploadMedia(File file, String fileName, String chatId) async {
     try {
-      // Validate file size (50MB limit)
+      // Check file size
       final fileSize = await file.length();
-      if (fileSize > Constants.maxFileSize) {
+      if (fileSize > 50 * 1024 * 1024) { // 50MB limit
         throw ChatRepositoryException('File size exceeds 50MB limit');
       }
 
-      final ref = _storage.ref().child('${Constants.chatFiles}/$chatId/$fileName');
-      final uploadTask = ref.putFile(file);
-      
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-      
-      return downloadUrl;
+      final response = await _httpClient.uploadFile(
+        '/upload',
+        file,
+        'file',
+        additionalFields: {
+          'type': 'chat',
+          'chatId': chatId,
+          'fileName': fileName,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['url'] as String;
+      } else {
+        throw ChatRepositoryException('Failed to upload media: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to upload media: $e');
     }
@@ -838,20 +672,29 @@ class FirebaseChatRepository implements ChatRepository {
   @override
   Future<void> deleteMedia(String mediaUrl) async {
     try {
-      final ref = _storage.refFromURL(mediaUrl);
-      await ref.delete();
+      final response = await _httpClient.delete('/media?url=${Uri.encodeComponent(mediaUrl)}');
+
+      if (response.statusCode != 200) {
+        throw ChatRepositoryException('Failed to delete media: ${response.body}');
+      }
     } catch (e) {
       throw ChatRepositoryException('Failed to delete media: $e');
     }
   }
 }
 
-// Repository provider
+// ========================================
+// REPOSITORY PROVIDER
+// ========================================
+
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
-  return FirebaseChatRepository();
+  return HttpChatRepository();
 });
 
-// Exception class
+// ========================================
+// EXCEPTION CLASS
+// ========================================
+
 class ChatRepositoryException implements Exception {
   final String message;
   const ChatRepositoryException(this.message);
