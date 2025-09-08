@@ -1,15 +1,16 @@
-// Enhanced contacts_provider.dart with better performance and caching
+// lib/features/contacts/providers/contacts_provider.dart
+// Consolidated contacts provider with all functionality
 import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/contacts/repositories/contacts_repository.dart';
-import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/users/models/user_model.dart';
 
 part 'contacts_provider.g.dart';
 
-// Enhanced state class with better organization
+// Enhanced state class with all functionality
 class ContactsState {
   final bool isLoading;
   final bool isSuccessful;
@@ -77,16 +78,11 @@ class ContactsState {
     );
   }
 
-  // Helper method to create contacts map from list
-  Map<String, UserModel> _createContactsMap(List<UserModel> contacts) {
-    return {for (var contact in contacts) contact.uid: contact};
-  }
-
   // Update registered contacts and rebuild map
   ContactsState withUpdatedRegisteredContacts(List<UserModel> contacts) {
     return copyWith(
       registeredContacts: contacts,
-      contactsMap: _createContactsMap(contacts),
+      contactsMap: {for (var contact in contacts) contact.uid: contact},
     );
   }
 }
@@ -209,13 +205,23 @@ class ContactsNotifier extends _$ContactsNotifier {
         isLoading: false,
         isSuccessful: true,
       ));
+    } on ContactsPermissionException catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.message,
+        syncStatus: SyncStatus.permissionDenied,
+      ));
+    } on ContactsRepositoryException catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.message,
+        syncStatus: SyncStatus.failed,
+      ));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         isLoading: false,
         error: e.toString(),
-        syncStatus: e.toString().contains('permission') 
-            ? SyncStatus.permissionDenied 
-            : SyncStatus.failed,
+        syncStatus: SyncStatus.failed,
       ));
     }
   }
@@ -249,9 +255,9 @@ class ContactsNotifier extends _$ContactsNotifier {
         ));
       }
 
-      // Get current user
-      final authState = await ref.read(authenticationProvider.future);
-      if (authState.userModel == null) {
+      // Get current user from new auth system
+      final authState = ref.read(authenticationProvider).value;
+      if (authState?.currentUser == null) {
         throw Exception('User not authenticated');
       }
 
@@ -278,10 +284,10 @@ class ContactsNotifier extends _$ContactsNotifier {
         return;
       }
 
-      // Sync contacts with Firebase
-      final result = await _contactsRepository.syncContactsWithFirebase(
+      // Sync contacts with backend
+      final result = await _contactsRepository.syncContactsWithBackend(
         deviceContacts: deviceContacts,
-        currentUser: authState.userModel!,
+        currentUser: authState!.currentUser!,
         forceSync: forceSync,
       );
 
@@ -303,6 +309,13 @@ class ContactsNotifier extends _$ContactsNotifier {
         contactsMap: contactsMap,
         backgroundSyncAvailable: false,
       ));
+    } on ContactsRepositoryException catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        syncInProgress: false,
+        syncStatus: SyncStatus.failed,
+        error: e.message,
+        backgroundSyncAvailable: true, // Allow retry
+      ));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         syncInProgress: false,
@@ -318,11 +331,11 @@ class ContactsNotifier extends _$ContactsNotifier {
     if (!state.hasValue || !state.value!.hasPermission) return;
     
     try {
-      final authState = await ref.read(authenticationProvider.future);
-      if (authState.userModel == null) return;
+      final authState = ref.read(authenticationProvider).value;
+      if (authState?.currentUser == null) return;
       
       final success = await _contactsRepository.performBackgroundSync(
-        currentUser: authState.userModel!,
+        currentUser: authState!.currentUser!,
       );
       
       if (success) {
@@ -392,7 +405,7 @@ class ContactsNotifier extends _$ContactsNotifier {
     }
   }
 
-  // Optimized contact operations with local state updates
+  // Updated contact operations using new backend repository
   Future<void> addContact(UserModel contactUser) async {
     if (!state.hasValue) return;
     
@@ -402,9 +415,8 @@ class ContactsNotifier extends _$ContactsNotifier {
     ));
 
     try {
-      await ref.read(authenticationProvider.notifier).addContact(
-        contactID: contactUser.uid,
-      );
+      // Use the authentication provider's follow user method instead
+      await ref.read(authenticationProvider.notifier).followUser(contactUser.uid);
 
       // Optimistic update - add to local state immediately
       final updatedContacts = List<UserModel>.from(state.value!.registeredContacts);
@@ -425,6 +437,11 @@ class ContactsNotifier extends _$ContactsNotifier {
       
       // Update local storage
       await _updateLocalStorage();
+    } on ContactsRepositoryException catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.message,
+      ));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         isLoading: false,
@@ -433,7 +450,7 @@ class ContactsNotifier extends _$ContactsNotifier {
     }
   }
 
-  // Optimized contact removal
+  // Updated contact removal
   Future<void> removeContact(UserModel contactUser) async {
     if (!state.hasValue) return;
     
@@ -443,9 +460,8 @@ class ContactsNotifier extends _$ContactsNotifier {
     ));
 
     try {
-      await ref.read(authenticationProvider.notifier).removeContact(
-        contactID: contactUser.uid,
-      );
+      // Use the authentication provider's unfollow user method
+      await ref.read(authenticationProvider.notifier).followUser(contactUser.uid);
 
       // Optimistic update - remove from local state immediately
       final updatedContacts = List<UserModel>.from(state.value!.registeredContacts)
@@ -462,6 +478,11 @@ class ContactsNotifier extends _$ContactsNotifier {
       ));
       
       await _updateLocalStorage();
+    } on ContactsRepositoryException catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.message,
+      ));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         isLoading: false,
@@ -480,9 +501,8 @@ class ContactsNotifier extends _$ContactsNotifier {
     ));
 
     try {
-      await ref.read(authenticationProvider.notifier).blockContact(
-        contactID: contactUser.uid,
-      );
+      // Block contact using the repository
+      await _contactsRepository.blockContact(contactUser.uid);
 
       // Update blocked contacts list
       final updatedBlockedContacts = List<UserModel>.from(state.value!.blockedContacts);
@@ -504,6 +524,11 @@ class ContactsNotifier extends _$ContactsNotifier {
         isLoading: false,
         isSuccessful: true,
       ));
+    } on ContactsRepositoryException catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.message,
+      ));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
         isLoading: false,
@@ -522,9 +547,8 @@ class ContactsNotifier extends _$ContactsNotifier {
     ));
 
     try {
-      await ref.read(authenticationProvider.notifier).unblockContact(
-        contactID: contactUser.uid,
-      );
+      // Unblock contact using the repository
+      await _contactsRepository.unblockContact(contactUser.uid);
 
       // Remove from blocked contacts
       final updatedBlockedContacts = List<UserModel>.from(state.value!.blockedContacts)
@@ -534,6 +558,11 @@ class ContactsNotifier extends _$ContactsNotifier {
         blockedContacts: updatedBlockedContacts,
         isLoading: false,
         isSuccessful: true,
+      ));
+    } on ContactsRepositoryException catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.message,
       ));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
@@ -553,18 +582,22 @@ class ContactsNotifier extends _$ContactsNotifier {
     ));
 
     try {
-      final authState = await ref.read(authenticationProvider.future);
-      if (authState.userModel == null) {
+      final authState = ref.read(authenticationProvider).value;
+      if (authState?.currentUser == null) {
         throw Exception('User not authenticated');
       }
 
-      final blockedContacts = await ref.read(authenticationProvider.notifier)
-          .getBlockedContactsList(uid: authState.userModel!.uid);
+      final blockedContacts = await _contactsRepository.getBlockedContacts();
 
       state = AsyncValue.data(state.value!.copyWith(
         blockedContacts: blockedContacts,
         isLoading: false,
         isSuccessful: true,
+      ));
+    } on ContactsRepositoryException catch (e) {
+      state = AsyncValue.data(state.value!.copyWith(
+        isLoading: false,
+        error: e.message,
       ));
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(
@@ -574,11 +607,13 @@ class ContactsNotifier extends _$ContactsNotifier {
     }
   }
 
-  // Enhanced user search with caching
+  // Enhanced user search with backend
   Future<UserModel?> searchUserByPhoneNumber(String phoneNumber) async {
     try {
-      return await ref.read(authenticationProvider.notifier)
-          .searchUserByPhoneNumber(phoneNumber: phoneNumber);
+      return await _contactsRepository.searchUserByPhoneNumber(phoneNumber);
+    } on ContactsRepositoryException catch (e) {
+      debugPrint('Error searching user: ${e.message}');
+      return null;
     } catch (e) {
       debugPrint('Error searching user: $e');
       return null;
@@ -665,6 +700,248 @@ class ContactsNotifier extends _$ContactsNotifier {
       'backgroundSyncAvailable': currentState.backgroundSyncAvailable,
       'totalContacts': currentState.registeredContacts.length,
       'unregisteredCount': currentState.unregisteredContacts.length,
+      'blockedCount': currentState.blockedContacts.length,
+      'hasPermission': currentState.hasPermission,
+      'isLoading': currentState.isLoading,
+      'error': currentState.error,
     };
   }
+}
+
+// ========================================
+// CONVENIENCE PROVIDERS (All in one file)
+// ========================================
+
+// Convenience provider to get registered contacts
+@riverpod
+List<UserModel> registeredContacts(RegisteredContactsRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.registeredContacts ?? [];
+}
+
+// Convenience provider to get unregistered contacts
+@riverpod
+List<Contact> unregisteredContacts(UnregisteredContactsRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.unregisteredContacts ?? [];
+}
+
+// Convenience provider to get blocked contacts
+@riverpod
+List<UserModel> blockedContacts(BlockedContactsRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.blockedContacts ?? [];
+}
+
+// Convenience provider to get device contacts
+@riverpod
+List<Contact> deviceContacts(DeviceContactsRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.deviceContacts ?? [];
+}
+
+// Convenience provider to check if contacts are loading
+@riverpod
+bool isContactsLoading(IsContactsLoadingRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.isLoading ?? false;
+}
+
+// Convenience provider to check if sync is in progress
+@riverpod
+bool isSyncInProgress(IsSyncInProgressRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.syncInProgress ?? false;
+}
+
+// Convenience provider to get sync status
+@riverpod
+SyncStatus contactsSyncStatus(ContactsSyncStatusRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.syncStatus ?? SyncStatus.unknown;
+}
+
+// Convenience provider to check if contacts permission is granted
+@riverpod
+bool hasContactsPermission(HasContactsPermissionRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.hasPermission ?? false;
+}
+
+// Convenience provider to get contacts error
+@riverpod
+String? contactsError(ContactsErrorRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.error;
+}
+
+// Convenience provider to get last sync time
+@riverpod
+DateTime? lastContactsSyncTime(LastContactsSyncTimeRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.lastSyncTime;
+}
+
+// Convenience provider to check if background sync is available
+@riverpod
+bool isBackgroundSyncAvailable(IsBackgroundSyncAvailableRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.backgroundSyncAvailable ?? false;
+}
+
+// Helper methods as providers
+@riverpod
+bool isContactRegistered(IsContactRegisteredRef ref, String uid) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.contactsMap.containsKey(uid) ?? false;
+}
+
+@riverpod
+UserModel? getContactByUid(GetContactByUidRef ref, String uid) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  return contactsState.value?.contactsMap[uid];
+}
+
+@riverpod
+bool isContactBlocked(IsContactBlockedRef ref, String uid) {
+  final blockedContacts = ref.watch(blockedContactsProvider);
+  return blockedContacts.any((contact) => contact.uid == uid);
+}
+
+// Filtered contacts provider for search
+@riverpod
+List<UserModel> filteredRegisteredContacts(FilteredRegisteredContactsRef ref, String query) {
+  final contacts = ref.watch(registeredContactsProvider);
+  
+  if (query.isEmpty) return contacts;
+  
+  final lowerQuery = query.toLowerCase();
+  return contacts.where((contact) =>
+    contact.name.toLowerCase().contains(lowerQuery) ||
+    contact.phoneNumber.toLowerCase().contains(lowerQuery)
+  ).toList();
+}
+
+@riverpod
+List<Contact> filteredUnregisteredContacts(FilteredUnregisteredContactsRef ref, String query) {
+  final contacts = ref.watch(unregisteredContactsProvider);
+  
+  if (query.isEmpty) return contacts;
+  
+  final lowerQuery = query.toLowerCase();
+  return contacts.where((contact) =>
+    contact.displayName.toLowerCase().contains(lowerQuery) ||
+    contact.phones.any((phone) => phone.number.toLowerCase().contains(lowerQuery))
+  ).toList();
+}
+
+// Counts providers
+@riverpod
+int registeredContactsCount(RegisteredContactsCountRef ref) {
+  final contacts = ref.watch(registeredContactsProvider);
+  return contacts.length;
+}
+
+@riverpod
+int unregisteredContactsCount(UnregisteredContactsCountRef ref) {
+  final contacts = ref.watch(unregisteredContactsProvider);
+  return contacts.length;
+}
+
+@riverpod
+int blockedContactsCount(BlockedContactsCountRef ref) {
+  final contacts = ref.watch(blockedContactsProvider);
+  return contacts.length;
+}
+
+// Sync info provider
+@riverpod
+Map<String, dynamic> contactsSyncInfo(ContactsSyncInfoRef ref) {
+  final contactsState = ref.watch(contactsNotifierProvider);
+  
+  if (contactsState.value == null) return {};
+  
+  final state = contactsState.value!;
+  return {
+    'lastSyncTime': state.lastSyncTime,
+    'syncStatus': state.syncStatus.name,
+    'isStale': state.syncStatus == SyncStatus.stale,
+    'canSync': state.hasPermission && !state.syncInProgress,
+    'backgroundSyncAvailable': state.backgroundSyncAvailable,
+    'totalContacts': state.registeredContacts.length,
+    'unregisteredCount': state.unregisteredContacts.length,
+    'blockedCount': state.blockedContacts.length,
+    'hasPermission': state.hasPermission,
+    'isLoading': state.isLoading,
+    'error': state.error,
+  };
+}
+
+// ========================================
+// EXCEPTIONS (All in one file)
+// ========================================
+
+// Base exception class for contacts operations
+class ContactsRepositoryException implements Exception {
+  final String message;
+  const ContactsRepositoryException(this.message);
+  
+  @override
+  String toString() => 'ContactsRepositoryException: $message';
+}
+
+// Permission related exceptions
+class ContactsPermissionException extends ContactsRepositoryException {
+  const ContactsPermissionException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsPermissionException: $message';
+}
+
+// Sync related exceptions
+class ContactsSyncException extends ContactsRepositoryException {
+  const ContactsSyncException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsSyncException: $message';
+}
+
+// Network related exceptions
+class ContactsNetworkException extends ContactsRepositoryException {
+  const ContactsNetworkException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsNetworkException: $message';
+}
+
+// Cache related exceptions
+class ContactsCacheException extends ContactsRepositoryException {
+  const ContactsCacheException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsCacheException: $message';
+}
+
+// Device contacts related exceptions
+class DeviceContactsException extends ContactsRepositoryException {
+  const DeviceContactsException(String message) : super(message);
+  
+  @override
+  String toString() => 'DeviceContactsException: $message';
+}
+
+// Search related exceptions
+class ContactsSearchException extends ContactsRepositoryException {
+  const ContactsSearchException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsSearchException: $message';
+}
+
+// Block/Unblock related exceptions
+class ContactsBlockException extends ContactsRepositoryException {
+  const ContactsBlockException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsBlockException: $message';
 }

@@ -1,15 +1,19 @@
-// Enhanced contacts_repository.dart with flutter_cache_manager integration
+// lib/features/contacts/repositories/contacts_repository.dart
+// Consolidated contacts repository with all functionality - no Firebase dependencies
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:textgb/constants.dart';
-import 'package:textgb/models/user_model.dart';
+import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/shared/services/http_client.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:crypto/crypto.dart';
+
+// ========================================
+// CACHE MANAGER
+// ========================================
 
 // Enhanced cache manager for contact-related data
 class ContactCacheManager extends CacheManager with ImageCacheManager {
@@ -31,6 +35,79 @@ class ContactCacheManager extends CacheManager with ImageCacheManager {
     ),
   );
 }
+
+// ========================================
+// EXCEPTIONS
+// ========================================
+
+// Base exception class for contacts operations
+class ContactsRepositoryException implements Exception {
+  final String message;
+  const ContactsRepositoryException(this.message);
+  
+  @override
+  String toString() => 'ContactsRepositoryException: $message';
+}
+
+// Permission related exceptions
+class ContactsPermissionException extends ContactsRepositoryException {
+  const ContactsPermissionException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsPermissionException: $message';
+}
+
+// Sync related exceptions
+class ContactsSyncException extends ContactsRepositoryException {
+  const ContactsSyncException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsSyncException: $message';
+}
+
+// Network related exceptions
+class ContactsNetworkException extends ContactsRepositoryException {
+  const ContactsNetworkException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsNetworkException: $message';
+}
+
+// Cache related exceptions
+class ContactsCacheException extends ContactsRepositoryException {
+  const ContactsCacheException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsCacheException: $message';
+}
+
+// Device contacts related exceptions
+class DeviceContactsException extends ContactsRepositoryException {
+  const DeviceContactsException(String message) : super(message);
+  
+  @override
+  String toString() => 'DeviceContactsException: $message';
+}
+
+// Search related exceptions
+class ContactsSearchException extends ContactsRepositoryException {
+  const ContactsSearchException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsSearchException: $message';
+}
+
+// Block/Unblock related exceptions
+class ContactsBlockException extends ContactsRepositoryException {
+  const ContactsBlockException(String message) : super(message);
+  
+  @override
+  String toString() => 'ContactsBlockException: $message';
+}
+
+// ========================================
+// MODELS
+// ========================================
 
 // Result class for contact synchronization with metadata
 class ContactSyncResult {
@@ -87,9 +164,13 @@ class ContactSyncResult {
   }
 }
 
-// Enhanced contacts repository with better caching and performance
+// ========================================
+// MAIN REPOSITORY CLASS
+// ========================================
+
+// Enhanced contacts repository with HTTP service - no Firebase dependencies
 class ContactsRepository {
-  final FirebaseFirestore _firestore;
+  final HttpClientService _httpClient;
   final ContactCacheManager _cacheManager;
   static const String _lastSyncTimeKey = 'last_contacts_sync_time';
   static const String _contactDataKey = 'contact_sync_data';
@@ -100,10 +181,14 @@ class ContactsRepository {
   static const Duration backgroundSyncThreshold = Duration(hours: 1);
   
   ContactsRepository({
-    required FirebaseFirestore firestore,
+    required HttpClientService httpClient,
     ContactCacheManager? cacheManager,
-  }) : _firestore = firestore,
+  }) : _httpClient = httpClient,
        _cacheManager = cacheManager ?? ContactCacheManager();
+
+  // ========================================
+  // DEVICE CONTACTS METHODS
+  // ========================================
 
   // Enhanced device contacts retrieval with change detection
   Future<List<Contact>> getDeviceContacts({bool useCache = true}) async {
@@ -111,7 +196,7 @@ class ContactsRepository {
       // Check permission first
       final status = await Permission.contacts.request();
       if (!status.isGranted) {
-        throw Exception('Contacts permission denied');
+        throw const ContactsPermissionException('Contacts permission denied');
       }
 
       // Generate hash of current device contacts for change detection
@@ -152,7 +237,10 @@ class ContactsRepository {
       return validContacts;
     } catch (e) {
       debugPrint('Error fetching contacts: $e');
-      throw Exception('Failed to fetch contacts: $e');
+      if (e is ContactsPermissionException) {
+        rethrow;
+      }
+      throw DeviceContactsException('Failed to fetch contacts: $e');
     }
   }
 
@@ -194,6 +282,7 @@ class ContactsRepository {
       await prefs.setString('cached_device_contacts', jsonEncode(contactData));
     } catch (e) {
       debugPrint('Error caching device contacts: $e');
+      throw ContactsCacheException('Failed to cache device contacts: $e');
     }
   }
 
@@ -226,9 +315,13 @@ class ContactsRepository {
       }).toList();
     } catch (e) {
       debugPrint('Error loading cached device contacts: $e');
-      return null;
+      throw ContactsCacheException('Failed to load cached device contacts: $e');
     }
   }
+
+  // ========================================
+  // SYNC MANAGEMENT METHODS
+  // ========================================
 
   // Enhanced sync checking with intelligent algorithms
   Future<bool> isSyncNeeded({bool isBackground = false}) async {
@@ -253,7 +346,7 @@ class ContactsRepository {
       return timeSyncNeeded || deviceContactsChanged;
     } catch (e) {
       debugPrint('Error checking sync status: $e');
-      return true;
+      throw ContactsSyncException('Failed to check sync status: $e');
     }
   }
 
@@ -271,6 +364,10 @@ class ContactsRepository {
       return true; // Assume changed if we can't determine
     }
   }
+
+  // ========================================
+  // CACHE MANAGEMENT METHODS
+  // ========================================
 
   // Enhanced contact loading with cache manager
   Future<ContactSyncResult?> loadContactsFromStorage() async {
@@ -297,7 +394,7 @@ class ContactsRepository {
       return null;
     } catch (e) {
       debugPrint('Error loading contacts from storage: $e');
-      return null;
+      throw ContactsCacheException('Failed to load contacts from storage: $e');
     }
   }
   
@@ -323,10 +420,31 @@ class ContactsRepository {
       debugPrint('Contacts saved to storage successfully');
     } catch (e) {
       debugPrint('Error saving contacts to storage: $e');
+      throw ContactsCacheException('Failed to save contacts to storage: $e');
     }
   }
 
-  // Enhanced user search with batching and caching
+  // Clear all contact cache
+  Future<void> clearCache() async {
+    try {
+      await _cacheManager.emptyCache();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_contactDataKey);
+      await prefs.remove(_lastSyncTimeKey);
+      await prefs.remove(_deviceContactsHashKey);
+      await prefs.remove('cached_device_contacts');
+      debugPrint('Contact cache cleared');
+    } catch (e) {
+      debugPrint('Error clearing cache: $e');
+      throw ContactsCacheException('Failed to clear contacts cache: $e');
+    }
+  }
+
+  // ========================================
+  // BACKEND SYNC METHODS
+  // ========================================
+
+  // Enhanced user search with batching and caching using HTTP service
   Future<List<UserModel>> findRegisteredUsers(List<String> phoneNumbers) async {
     try {
       if (phoneNumbers.isEmpty) return [];
@@ -353,16 +471,20 @@ class ContactsRepository {
       final chunks = _chunkList(phoneNumbers.toSet().toList(), 10);
       
       for (final chunk in chunks) {
-        final snapshot = await _firestore
-            .collection(Constants.users)
-            .where(Constants.phoneNumber, whereIn: chunk)
-            .get();
-            
-        final users = snapshot.docs
-            .map((doc) => UserModel.fromMap(doc.data()))
-            .toList();
-            
-        registeredUsers.addAll(users);
+        final response = await _httpClient.post('/contacts/search', body: {
+          'phoneNumbers': chunk,
+        });
+        
+        if (response.statusCode == 200) {
+          final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+          final List<dynamic> usersData = responseData['users'] ?? [];
+          final users = usersData
+              .map((userData) => UserModel.fromMap(userData as Map<String, dynamic>))
+              .toList();
+          registeredUsers.addAll(users);
+        } else {
+          throw ContactsNetworkException('Failed to search users: ${response.body}');
+        }
       }
       
       // Cache the results
@@ -377,12 +499,15 @@ class ContactsRepository {
       return registeredUsers;
     } catch (e) {
       debugPrint('Error finding registered users: $e');
-      throw Exception('Failed to find registered users: $e');
+      if (e is ContactsNetworkException) {
+        rethrow;
+      }
+      throw ContactsSearchException('Failed to find registered users: $e');
     }
   }
 
-  // Enhanced sync with better performance and change detection
-  Future<ContactSyncResult> syncContactsWithFirebase({
+  // Enhanced sync with better performance and change detection using HTTP service
+  Future<ContactSyncResult> syncContactsWithBackend({
     required List<Contact> deviceContacts,
     required UserModel currentUser,
     bool forceSync = false,
@@ -399,7 +524,7 @@ class ContactsRepository {
         }
       }
       
-      debugPrint('Performing full contacts sync with Firebase...');
+      debugPrint('Performing full contacts sync with backend...');
       
       // Extract and standardize phone numbers
       final phoneToContactMap = <String, Contact>{};
@@ -413,7 +538,7 @@ class ContactsRepository {
         }
       }
       
-      // Find registered users efficiently
+      // Find registered users efficiently using HTTP service
       final registeredUsers = await findRegisteredUsers(contactPhoneNumbers);
       
       // Filter out user's own number
@@ -455,9 +580,123 @@ class ContactsRepository {
       return result;
     } catch (e) {
       debugPrint('Error syncing contacts: $e');
-      throw Exception('Failed to sync contacts: $e');
+      if (e is ContactsNetworkException || e is ContactsSearchException) {
+        rethrow;
+      }
+      throw ContactsSyncException('Failed to sync contacts: $e');
     }
   }
+
+  // Background sync for better UX
+  Future<bool> performBackgroundSync({
+    required UserModel currentUser,
+  }) async {
+    try {
+      if (!await isSyncNeeded(isBackground: true)) {
+        return false; // No sync needed
+      }
+      
+      final deviceContacts = await getDeviceContacts();
+      await syncContactsWithBackend(
+        deviceContacts: deviceContacts,
+        currentUser: currentUser,
+        forceSync: false,
+      );
+      
+      return true;
+    } catch (e) {
+      debugPrint('Background sync failed: $e');
+      return false;
+    }
+  }
+
+  // ========================================
+  // USER SEARCH AND MANAGEMENT METHODS
+  // ========================================
+
+  // Search user by phone number using HTTP service
+  Future<UserModel?> searchUserByPhoneNumber(String phoneNumber) async {
+    try {
+      final standardized = standardizePhoneNumber(phoneNumber);
+      final response = await _httpClient.get('/users/search?phoneNumber=${Uri.encodeComponent(standardized)}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        if (responseData['user'] != null) {
+          return UserModel.fromMap(responseData['user'] as Map<String, dynamic>);
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error searching user by phone number: $e');
+      throw ContactsSearchException('Failed to search user by phone number: $e');
+    }
+  }
+
+  // Block contact using HTTP service
+  Future<void> blockContact(String contactUid) async {
+    try {
+      final response = await _httpClient.post('/contacts/block', body: {
+        'contactId': contactUid,
+      });
+      
+      if (response.statusCode != 200) {
+        throw ContactsNetworkException('Failed to block contact: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error blocking contact: $e');
+      if (e is ContactsNetworkException) {
+        rethrow;
+      }
+      throw ContactsBlockException('Failed to block contact: $e');
+    }
+  }
+
+  // Unblock contact using HTTP service
+  Future<void> unblockContact(String contactUid) async {
+    try {
+      final response = await _httpClient.post('/contacts/unblock', body: {
+        'contactId': contactUid,
+      });
+      
+      if (response.statusCode != 200) {
+        throw ContactsNetworkException('Failed to unblock contact: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error unblocking contact: $e');
+      if (e is ContactsNetworkException) {
+        rethrow;
+      }
+      throw ContactsBlockException('Failed to unblock contact: $e');
+    }
+  }
+
+  // Get blocked contacts using HTTP service
+  Future<List<UserModel>> getBlockedContacts() async {
+    try {
+      final response = await _httpClient.get('/contacts/blocked');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> blockedData = responseData['blockedContacts'] ?? [];
+        return blockedData
+            .map((contactData) => UserModel.fromMap(contactData as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw ContactsNetworkException('Failed to get blocked contacts: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error getting blocked contacts: $e');
+      if (e is ContactsNetworkException) {
+        rethrow;
+      }
+      throw ContactsSearchException('Failed to get blocked contacts: $e');
+    }
+  }
+
+  // ========================================
+  // UTILITY METHODS
+  // ========================================
 
   // Standardize phone number with better international support
   String standardizePhoneNumber(String phoneNumber) {
@@ -480,44 +719,6 @@ class ContactsRepository {
     return digits;
   }
 
-  // Clear all contact cache
-  Future<void> clearCache() async {
-    try {
-      await _cacheManager.emptyCache();
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_contactDataKey);
-      await prefs.remove(_lastSyncTimeKey);
-      await prefs.remove(_deviceContactsHashKey);
-      await prefs.remove('cached_device_contacts');
-      debugPrint('Contact cache cleared');
-    } catch (e) {
-      debugPrint('Error clearing cache: $e');
-    }
-  }
-
-  // Background sync for better UX
-  Future<bool> performBackgroundSync({
-    required UserModel currentUser,
-  }) async {
-    try {
-      if (!await isSyncNeeded(isBackground: true)) {
-        return false; // No sync needed
-      }
-      
-      final deviceContacts = await getDeviceContacts();
-      await syncContactsWithFirebase(
-        deviceContacts: deviceContacts,
-        currentUser: currentUser,
-        forceSync: false,
-      );
-      
-      return true;
-    } catch (e) {
-      debugPrint('Background sync failed: $e');
-      return false;
-    }
-  }
-  
   // Helper method to remove duplicate contacts (enhanced)
   List<Contact> _removeDuplicateContacts(List<Contact> contacts) {
     final seen = <String>{};
@@ -556,14 +757,18 @@ class ContactsRepository {
   }
 }
 
-// Enhanced provider with cache manager
+// ========================================
+// PROVIDERS
+// ========================================
+
+// Enhanced provider with HTTP service
 final contactCacheManagerProvider = Provider<ContactCacheManager>((ref) {
   return ContactCacheManager();
 });
 
 final contactsRepositoryProvider = Provider<ContactsRepository>((ref) {
   return ContactsRepository(
-    firestore: FirebaseFirestore.instance,
+    httpClient: HttpClientService(),
     cacheManager: ref.read(contactCacheManagerProvider),
   );
 });

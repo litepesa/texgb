@@ -14,6 +14,40 @@ class Constants {
   static const String trending = 'trending';
 
   // ===================== ROUTE NAMES =====================
+
+  // ===== CHAT MODEL FIELD NAMES =====
+  
+  static const String chatId = 'chatId';
+  static const String participants = 'participants';
+  static const String lastMessage = 'lastMessage';
+  static const String lastMessageType = 'lastMessageType';
+  static const String lastMessageSender = 'lastMessageSender';
+  static const String lastMessageTime = 'lastMessageTime';
+  static const String unreadCounts = 'unreadCounts';
+  static const String isArchived = 'isArchived';
+  static const String isPinned = 'isPinned';
+  static const String isMuted = 'isMuted';
+  static const String chatWallpapers = 'chatWallpapers';
+  static const String fontSizes = 'fontSizes';
+
+  // ===== MESSAGE MODEL FIELD NAMES =====
+  
+  static const String messageId = 'messageId';
+  static const String senderId = 'senderId';
+  static const String content = 'content';
+  static const String type = 'type';
+  static const String status = 'status';
+  static const String timestamp = 'timestamp';
+  static const String mediaUrl = 'mediaUrl';
+  static const String mediaMetadata = 'mediaMetadata';
+  static const String replyToMessageId = 'replyToMessageId';
+  static const String replyToContent = 'replyToContent';
+  static const String replyToSender = 'replyToSender';
+  static const String reactions = 'reactions';
+  static const String isEdited = 'isEdited';
+  static const String editedAt = 'editedAt';
+  static const String readBy = 'readBy';
+  static const String deliveredTo = 'deliveredTo';
   
   // Authentication Routes
   static const String landingScreen = '/landing';
@@ -72,6 +106,17 @@ class Constants {
   static const String coinsScreen = '/coins';
   static const String withdrawScreen = '/withdraw';
   static const String earningsScreen = '/earnings';
+
+  // Contacts Routes
+  static const String contactsScreen = '/contactsScreen';
+  static const String addContactScreen = '/addContactScreen';
+  static const String blockedContactsScreen = '/blockedContactsScreen';
+  static const String contactProfileScreen = '/contactProfileScreen';
+
+  // Chat Routes
+  static const String chatScreen = '/chatScreen';
+  
+
 
   // ===================== NAVIGATION ARGUMENTS =====================
   static const String verificationId = 'verificationId';

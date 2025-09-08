@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/video_item.dart
+// lib/features/videos/widgets/video_item.dart - FINAL FIXED VERSION
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
@@ -10,18 +10,19 @@ import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/users/models/user_model.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 
 class VideoItem extends ConsumerStatefulWidget {
   final VideoModel video;
   final bool isActive;
   final Function(VideoPlayerController)? onVideoControllerReady;
-  final Function(bool isPlaying)? onManualPlayPause; // New callback for manual play/pause
+  final Function(bool isPlaying)? onManualPlayPause;
   final VideoPlayerController? preloadedController;
   final bool isLoading;
   final bool hasFailed;
-  final bool isCommentsOpen; // New parameter to track comments state
-  final bool showVerificationBadge; // NEW: Control whether to show verification or timestamp
+  final bool isCommentsOpen;
+  final bool showVerificationBadge;
   
   const VideoItem({
     super.key,
@@ -32,8 +33,8 @@ class VideoItem extends ConsumerStatefulWidget {
     this.preloadedController,
     this.isLoading = false,
     this.hasFailed = false,
-    this.isCommentsOpen = false, // Default to false
-    this.showVerificationBadge = true, // Default to verification for main feed
+    this.isCommentsOpen = false,
+    this.showVerificationBadge = true,
   });
 
   @override
@@ -153,6 +154,36 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (!widget.isCommentsOpen && widget.isActive && _isInitialized && !_isPlaying) {
       _playVideo();
     }
+  }
+
+  // 🔧 FIXED: Helper method to get proper username with multiple fallback strategies
+  String _getDisplayUsername() {
+    // Strategy 1: Look up user from usersProvider
+    final users = ref.read(usersProvider);
+    final videoUser = users.where((user) => user.uid == widget.video.userId).firstOrNull;
+    
+    String displayName = 'User'; // Default fallback
+    
+    if (videoUser != null && videoUser.name.isNotEmpty && videoUser.name.trim() != 'User') {
+      displayName = videoUser.name;
+      debugPrint('🔧 VideoItem: Using user from usersProvider: "$displayName"');
+    } else if (widget.video.userName.isNotEmpty && widget.video.userName.trim() != 'User') {
+      displayName = widget.video.userName;
+      debugPrint('🔧 VideoItem: Using VideoModel userName: "$displayName"');
+    } else {
+      // Enhanced fallback with user identification
+      if (widget.video.userId.isNotEmpty) {
+        // Use last 4 characters of userId for identification
+        final userIdSuffix = widget.video.userId.length > 4 
+            ? widget.video.userId.substring(widget.video.userId.length - 4)
+            : widget.video.userId;
+        displayName = 'User $userIdSuffix';
+      }
+      debugPrint('🔧 VideoItem: Using fallback username: "$displayName"');
+    }
+    
+    debugPrint('🔧 VideoItem: Final display name for userId ${widget.video.userId}: "$displayName"');
+    return displayName;
   }
 
   // Helper method to require authentication before actions
@@ -895,128 +926,141 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // UPDATED: User name with inline verification status
+  // 🔧 COMPLETELY FIXED: User name with inline verification status
   Widget _buildUserNameWithVerification() {
-    return FutureBuilder(
-      future: ref.read(authenticationProvider.notifier).getUserById(widget.video.userId),
-      builder: (context, snapshot) {
-        final user = snapshot.data;
-        final isVerified = user?.isVerified ?? false;
+    return Consumer(
+      builder: (context, ref, child) {
+        // 🔧 Get username using our improved method
+        final displayUsername = _getDisplayUsername();
         
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // User name
-            Flexible(
-              child: Text(
-                widget.video.userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+        // 🔧 Get user data for verification status
+        final users = ref.watch(usersProvider);
+        final videoUser = users.where((user) => user.uid == widget.video.userId).firstOrNull;
+        
+        return FutureBuilder(
+          future: videoUser == null 
+              ? ref.read(authenticationProvider.notifier).getUserById(widget.video.userId)
+              : Future.value(videoUser),
+          builder: (context, snapshot) {
+            final user = snapshot.data ?? videoUser;
+            final isVerified = user?.isVerified ?? false;
             
-            const SizedBox(width: 6),
-            
-            // Verification status immediately after name
-            if (widget.showVerificationBadge) ...[
-              if (isVerified)
-                // CUSTOM STYLING FOR VERIFIED USERS
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF1DA1F2), // Twitter blue
-                        Color(0xFF0D8BD9), // Darker blue
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // User name - 🔧 FIXED: Use proper display username
+                Flexible(
+                  child: Text(
+                    displayUsername,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 2,
+                        ),
                       ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF1DA1F2).withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.verified_rounded,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Verified',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                // STYLING FOR NON-VERIFIED USERS
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.help_outline,
-                        size: 12,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Not Verified',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.7),
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.7),
-                              blurRadius: 3,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-            ],
-          ],
+                
+                const SizedBox(width: 6),
+                
+                // Verification status immediately after name
+                if (widget.showVerificationBadge) ...[
+                  if (isVerified)
+                    // CUSTOM STYLING FOR VERIFIED USERS
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF1DA1F2), // Twitter blue
+                            Color(0xFF0D8BD9), // Darker blue
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF1DA1F2).withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.verified_rounded,
+                            size: 12,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Verified',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    // STYLING FOR NON-VERIFIED USERS
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.help_outline,
+                            size: 12,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Not Verified',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withOpacity(0.7),
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.7),
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ],
+            );
+          },
         );
       },
     );
