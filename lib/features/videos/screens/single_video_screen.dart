@@ -14,6 +14,7 @@ import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/videos/widgets/video_reaction_widget.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:share_plus/share_plus.dart';
@@ -839,6 +840,34 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
                 await _shareCurrentVideo(currentVideo);
               }
             },
+          ),
+          
+          const SizedBox(height: 10),
+
+          // DM button - Using VideoReactionWidget (moved after Share)
+          VideoReactionWidget(
+            video: currentVideo,
+            onPause: _pauseForNavigation,
+            onResume: _resumeFromNavigation,
+            label: 'Inbox',
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Center(
+                child: Text(
+                  'DM',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
           ),
           
           const SizedBox(height: 10),

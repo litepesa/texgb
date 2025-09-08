@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart (Fixed - No System UI Bleeding)
+// lib/features/videos/screens/videos_feed_screen.dart (Updated with VideoReactionWidget)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -15,6 +15,7 @@ import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/constants.dart';
+import 'package:textgb/features/videos/widgets/video_reaction_widget.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:share_plus/share_plus.dart';
@@ -116,7 +117,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = true;
     _isNavigatingAway = false; // Reset navigation state
     
-    // 🔧 FIXED: Only setup system UI when actually becoming active and visible
+    // Setup system UI when actually becoming active and visible
     if (mounted) {
       _setupSystemUI();
     }
@@ -135,7 +136,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     _isScreenActive = false;
     _stopPlayback();
     
-    // 🔧 FIXED: Don't restore system UI here - let HomeScreen handle it
+    // Don't restore system UI here - let HomeScreen handle it
     // The home screen will manage system UI for other tabs
     
     WakelockPlus.disable();
@@ -211,7 +212,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     // Controllers initialization if needed in the future
   }
 
-  // 🔧 FIXED: Only apply system UI when screen is actually active and visible
+  // Only apply system UI when screen is actually active and visible
   void _setupSystemUI() {
     // Only apply black system UI if this screen is currently active and visible
     if (!mounted || !_isScreenActive) return;
@@ -501,7 +502,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // NEW: Show virtual gifts bottom sheet
+  // Show virtual gifts bottom sheet
   void _showVirtualGifts(VideoModel? video) async {
     if (video == null) {
       debugPrint('No video available for gifting');
@@ -514,9 +515,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     final currentUser = ref.read(currentUserProvider);
     
-    // At this point we know user is authenticated
-    // Check if user is trying to gift their own video - UPDATED to use uid
-    if (video.userId == currentUser!.uid) { // Changed from id to uid
+    // Check if user is trying to gift their own video
+    if (video.userId == currentUser!.uid) {
       _showCannotGiftOwnVideoMessage();
       return;
     }
@@ -589,19 +589,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   
   void _handleGiftSent(VideoModel video, VirtualGift gift) {
     // TODO: Implement actual gift sending logic
-    // This would typically involve:
-    // 1. Deducting the gift price from user's wallet
-    // 2. Adding the gift to the user owner's earnings
-    // 3. Recording the gift transaction
-    // 4. Optionally sending a notification to the user owner
-    
     debugPrint('Gift sent: ${gift.name} (KES ${gift.price}) to ${video.userName}');
     
     // Show success message
     _showSnackBar('${gift.emoji} ${gift.name} sent to ${video.userName}!');
-    
-    // TODO: You might want to also send this as a chat message like video reactions
-    // or create a separate gifts system
   }
 
   // Helper method to show cannot gift own video message
@@ -691,7 +682,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   Widget build(BuildContext context) {
     super.build(context);
     
-    // 🔧 FIXED: Only setup system UI if this screen is actually active
+    // Only setup system UI if this screen is actually active
     if (_isScreenActive && mounted) {
       _setupSystemUI();
     }
@@ -865,7 +856,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // TikTok-style right side menu (Douyin icons) - optimized positioning (without DM button)
+  // TikTok-style right side menu - now with VideoReactionWidget
   Widget _buildRightSideMenu() {
     final videos = ref.watch(videosProvider);
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
@@ -956,6 +947,34 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           
           const SizedBox(height: 10),
           
+          // DM button - Using VideoReactionWidget (moved after Share)
+          VideoReactionWidget(
+            video: currentVideo,
+            onPause: _pauseForNavigation,
+            onResume: _resumeFromNavigation,
+            label: 'Inbox',
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Center(
+                child: Text(
+                  'DM',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 10),
+          
           // Gift button - with exciting emoji
           _buildRightMenuItem(
             child: const Text(
@@ -975,7 +994,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           
           const SizedBox(height: 10),
           
-          // Profile avatar with red border - FIXED to use usersProvider like users list screen
+          // Profile avatar with red border - moved to bottom and changed to rounded square
           _buildRightMenuItem(
             child: Consumer(
               builder: (context, ref, child) {
@@ -1213,7 +1232,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     });
   }
 
-  // NEW: Share current video using share_plus package
+  // Share current video using share_plus package
   Future<void> _shareCurrentVideo(VideoModel? video) async {
     if (video == null) return;
     
@@ -1269,7 +1288,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  // NEW: Download current video functionality
+  // Download current video functionality
   Future<void> _downloadCurrentVideo(VideoModel? video) async {
     if (video == null) return;
     
