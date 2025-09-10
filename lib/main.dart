@@ -13,14 +13,13 @@ import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 
-// Chat screens
-import 'package:textgb/features/chat/screens/chat_screen.dart';
-
-// Contact screens
-import 'package:textgb/features/contacts/screens/add_contact_screen.dart';
-import 'package:textgb/features/contacts/screens/blocked_contacts_screen.dart';
-import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
-import 'package:textgb/features/contacts/screens/contacts_screen.dart';
+// Drama screens
+import 'package:textgb/features/dramas/screens/discover_screen.dart';
+import 'package:textgb/features/dramas/screens/drama_details_screen.dart';
+import 'package:textgb/features/dramas/screens/admin_dashboard_screen.dart';
+import 'package:textgb/features/dramas/screens/create_drama_screen.dart';
+import 'package:textgb/features/dramas/screens/manage_dramas_screen.dart';
+import 'package:textgb/features/dramas/screens/edit_drama_screen.dart';
 
 import 'package:textgb/features/users/screens/user_profile_screen.dart';
 import 'package:textgb/features/videos/screens/single_video_screen.dart';
@@ -156,23 +155,14 @@ class AppRoot extends ConsumerWidget {
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
 
-          // Contact routes
-          Constants.contactsScreen: (context) => const ContactsScreen(),
-          Constants.addContactScreen: (context) => const AddContactScreen(),
-          Constants.blockedContactsScreen: (context) => const BlockedContactsScreen(),
-          Constants.contactProfileScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as UserModel;
-            return ContactProfileScreen(contact: args);
-          },
-
-          // Chat routes
-          Constants.chatScreen: (context) {
-            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-            return ChatScreen(
-              chatId: args['chatId'] as String,
-              contact: args['contact'] as UserModel,
-            );
-          },
+          // Drama routes
+          Constants.favoritesScreen: (context) => const DiscoverScreen(), // You can create a specific favorites screen later
+          Constants.continueWatchingScreen: (context) => const DiscoverScreen(), // You can create a specific continue watching screen later
+          
+          // Admin routes (hidden for normal users, shown only when userType == admin)
+          Constants.adminDashboardScreen: (context) => const AdminDashboardScreen(),
+          Constants.createDramaScreen: (context) => const CreateDramaScreen(),
+          Constants.manageDramasScreen: (context) => const ManageDramasScreen(),
           
           // User/Profile routes with enhanced navigation support
           Constants.createProfileScreen: (context) => const ProfileSetupScreen(),
@@ -261,25 +251,25 @@ class AppRoot extends ConsumerWidget {
           // Handle dynamic routes that need custom logic
           switch (settings.name) {
 
-            // Chat routes
-            case '/chat':
+            case Constants.dramaDetailsScreen:
               final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null && args.containsKey('chatId') && args.containsKey('contact')) {
+              if (args != null && args.containsKey('dramaId')) {
                 return MaterialPageRoute(
-                  builder: (context) => ChatScreen(
-                    chatId: args['chatId'] as String,
-                    contact: args['contact'] as UserModel,
+                  builder: (context) => DramaDetailsScreen(
+                    dramaId: args['dramaId'] as String,
                   ),
                   settings: settings,
                 );
               }
               break;
               
-            case '/contact-profile':
-              final contact = settings.arguments as UserModel?;
-              if (contact != null) {
+            case Constants.editDramaScreen:
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('dramaId')) {
                 return MaterialPageRoute(
-                  builder: (context) => ContactProfileScreen(contact: contact),
+                  builder: (context) => EditDramaScreen(
+                    dramaId: args['dramaId'] as String,
+                  ),
                   settings: settings,
                 );
               }

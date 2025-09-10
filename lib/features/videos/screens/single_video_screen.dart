@@ -14,7 +14,7 @@ import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/constants.dart';
-import 'package:textgb/features/videos/widgets/video_reaction_widget.dart';
+//import 'package:textgb/features/videos/widgets/video_reaction_widget.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:share_plus/share_plus.dart';
@@ -845,7 +845,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           const SizedBox(height: 10),
 
           // DM button - Using VideoReactionWidget (moved after Share)
-          VideoReactionWidget(
+          /*VideoReactionWidget(
             video: currentVideo,
             onPause: _pauseForNavigation,
             onResume: _resumeFromNavigation,
@@ -870,7 +870,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             ),
           ),
           
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
           
           // Gift button - with exciting emoji
           _buildRightMenuItem(
