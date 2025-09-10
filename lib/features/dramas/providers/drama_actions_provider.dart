@@ -316,8 +316,8 @@ class AdminDramaActions extends _$AdminDramaActions {
 
   Future<void> toggleFeatured(String dramaId, bool isFeatured) async {
     final user = ref.read(currentUserProvider);
-    if (user == null || !user.isAdmin) {
-      state = state.copyWith(error: Constants.adminOnly);
+    if (user == null || !user.isVerified) {
+      state = state.copyWith(error: Constants.verifiedOnly);
       return;
     }
 
@@ -345,8 +345,8 @@ class AdminDramaActions extends _$AdminDramaActions {
 
   Future<void> toggleActive(String dramaId, bool isActive) async {
     final user = ref.read(currentUserProvider);
-    if (user == null || !user.isAdmin) {
-      state = state.copyWith(error: Constants.adminOnly);
+    if (user == null || !user.isVerified) {
+      state = state.copyWith(error: Constants.verifiedOnly);
       return;
     }
 

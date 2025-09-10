@@ -1,4 +1,5 @@
-// lib/features/authentication/providers/authentication_provider.dart (Updated TikTok provider with better user management)
+// lib/features/authentication/providers/authentication_provider.dart 
+// EXTENDED: Added drama support to video authentication provider
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -16,19 +17,21 @@ part 'authentication_provider.g.dart';
 enum AuthState {
   guest,           // Can browse videos only
   authenticated,   // Firebase user + profile exists
-  partial,         // Firebase authenticated but no backend profile (BORROWED from drama provider)
+  partial,         // Firebase authenticated but no backend profile
   loading,
   error
 }
 
-// State class for authentication
+// State class for authentication (extended with drama support)
 class AuthenticationState {
   final AuthState state;
   final bool isLoading;
-  final bool isSuccessful;    // BORROWED: Better success state logic
+  final bool isSuccessful;
   final UserModel? currentUser;
   final String? phoneNumber;
   final String? error;
+  
+  // Video-related state (preserved)
   final List<VideoModel> videos;
   final List<String> likedVideos;
   final List<UserModel> users;
@@ -93,15 +96,12 @@ class Authentication extends _$Authentication {
 
   @override
   FutureOr<AuthenticationState> build() async {
-    // BORROWED: Better initialization logic from drama provider
     final isFirebaseAuthenticated = await checkAuthenticationState();
     
     if (isFirebaseAuthenticated && _repository.currentUserId != null) {
-      // BORROWED: Check if backend user profile exists FIRST
       final userExists = await checkUserExists();
       
       if (userExists) {
-        // BORROWED: Get complete user profile from backend
         final userProfile = await getUserDataFromBackend();
         
         if (userProfile != null) {
@@ -115,7 +115,7 @@ class Authentication extends _$Authentication {
           
           return AuthenticationState(
             state: AuthState.authenticated,
-            isSuccessful: true,  // BORROWED: Only true when profile exists
+            isSuccessful: true,
             currentUser: userProfile,
             phoneNumber: _repository.currentUserPhoneNumber,
             videos: state.value?.videos ?? [],
@@ -125,13 +125,12 @@ class Authentication extends _$Authentication {
           );
         }
       } else {
-        // BORROWED: Firebase auth exists but no backend profile
         await loadVideos();
         await loadUsers();
         
         return AuthenticationState(
           state: AuthState.partial,
-          isSuccessful: false,  // BORROWED: Incomplete auth - needs profile creation
+          isSuccessful: false,
           phoneNumber: _repository.currentUserPhoneNumber,
           videos: state.value?.videos ?? [],
           users: state.value?.users ?? [],
@@ -150,7 +149,10 @@ class Authentication extends _$Authentication {
     );
   }
 
-  // BORROWED: Better user existence checking from drama provider
+  // ===============================
+  // EXISTING VIDEO AUTH METHODS (preserved)
+  // ===============================
+
   Future<bool> checkUserExists() async {
     final userId = _repository.currentUserId;
     if (userId == null) return false;
@@ -163,7 +165,6 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // BORROWED: Better user data retrieval from drama provider  
   Future<UserModel?> getUserDataFromBackend() async {
     final userId = _repository.currentUserId;
     if (userId == null) return null;
@@ -187,7 +188,19 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Authentication methods
+  // ADDED: getUserProfile method for profile screen compatibility
+  Future<UserModel?> getUserProfile() async {
+    final userId = _repository.currentUserId;
+    if (userId == null) return null;
+    
+    try {
+      return await _repository.getUserProfile(userId);
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      return null;
+    }
+  }
+
   Future<bool> checkAuthenticationState() async {
     try {
       return await _repository.checkAuthenticationState();
@@ -239,7 +252,6 @@ class Authentication extends _$Authentication {
         otpCode: otpCode,
         context: context,
         onSuccess: () async {
-          // BORROWED: Better post-OTP verification from drama provider
           await _handlePostOTPVerification();
           onSuccess();
         },
@@ -250,17 +262,14 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // BORROWED: Critical post-OTP verification logic from drama provider
   Future<void> _handlePostOTPVerification() async {
     final uid = _repository.currentUserId;
     if (uid == null) return;
 
     try {
-      // Step 1: Check if user profile exists in backend
       final userExists = await checkUserExists();
       
       if (userExists) {
-        // Step 2: User exists - get complete profile data
         final userModel = await getUserDataFromBackend();
         
         if (userModel != null) {
@@ -272,7 +281,7 @@ class Authentication extends _$Authentication {
           
           state = AsyncValue.data(AuthenticationState(
             state: AuthState.authenticated,
-            isSuccessful: true,  // Complete authentication
+            isSuccessful: true,
             currentUser: userModel,
             phoneNumber: _repository.currentUserPhoneNumber,
             videos: state.value?.videos ?? [],
@@ -282,13 +291,12 @@ class Authentication extends _$Authentication {
           ));
         }
       } else {
-        // Step 3: Firebase auth successful but no backend profile - needs profile creation
         await loadVideos();
         await loadUsers();
         
         state = AsyncValue.data(AuthenticationState(
           state: AuthState.partial,
-          isSuccessful: false,  // Incomplete - needs profile creation
+          isSuccessful: false,
           phoneNumber: _repository.currentUserPhoneNumber,
           videos: state.value?.videos ?? [],
           users: state.value?.users ?? [],
@@ -296,7 +304,6 @@ class Authentication extends _$Authentication {
       }
     } on AuthRepositoryException catch (e) {
       debugPrint('Failed to handle post-OTP verification: ${e.message}');
-      // Keep partial state for user to create profile
       await loadVideos();
       await loadUsers();
       
@@ -309,9 +316,6 @@ class Authentication extends _$Authentication {
       ));
     }
   }
-
-  // REMOVED: The problematic auto-sync method that created users without proper setup
-  // OLD: Future<UserModel?> syncUserWithBackend() - This was the problem!
 
   Future<void> createUserProfile({
     required UserModel user,
@@ -340,7 +344,7 @@ class Authentication extends _$Authentication {
       
       state = AsyncValue.data(AuthenticationState(
         state: AuthState.authenticated,
-        isSuccessful: true,  // BORROWED: Only true after successful profile creation
+        isSuccessful: true,
         currentUser: createdUser,
         phoneNumber: _repository.currentUserPhoneNumber,
         videos: state.value?.videos ?? [],
@@ -353,18 +357,6 @@ class Authentication extends _$Authentication {
     } on AuthRepositoryException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
       onFail();
-    }
-  }
-
-  Future<UserModel?> getUserProfile() async {
-    final userId = _repository.currentUserId;
-    if (userId == null) return null;
-    
-    try {
-      return await _repository.getUserProfile(userId);
-    } on AuthRepositoryException catch (e) {
-      state = AsyncValue.error(e.message, StackTrace.current);
-      return null;
     }
   }
 
@@ -382,7 +374,6 @@ class Authentication extends _$Authentication {
         coverImage: coverImage,
       );
 
-      // Update local state
       final currentState = state.value ?? const AuthenticationState();
       
       state = AsyncValue.data(currentState.copyWith(
@@ -399,6 +390,182 @@ class Authentication extends _$Authentication {
     }
   }
 
+  // ===============================
+  // NEW DRAMA-RELATED METHODS (added)
+  // ===============================
+
+  // Drama favorites management
+  Future<void> addToFavorites({required String dramaId}) async {
+    final currentState = state.value;
+    if (currentState?.currentUser == null) return;
+    
+    try {
+      await _repository.addToFavorites(
+        userUid: currentState!.currentUser!.uid,
+        dramaId: dramaId,
+      );
+      
+      final updatedUser = currentState.currentUser!.copyWith(
+        favoriteDramas: [...currentState.currentUser!.favoriteDramas, dramaId],
+      );
+      
+      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
+      await saveUserDataToSharedPreferences();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      debugPrint('Error adding to favorites: ${e.message}');
+    }
+  }
+
+  Future<void> removeFromFavorites({required String dramaId}) async {
+    final currentState = state.value;
+    if (currentState?.currentUser == null) return;
+    
+    try {
+      await _repository.removeFromFavorites(
+        userUid: currentState!.currentUser!.uid,
+        dramaId: dramaId,
+      );
+      
+      final updatedFavorites = List<String>.from(currentState.currentUser!.favoriteDramas)
+        ..remove(dramaId);
+      final updatedUser = currentState.currentUser!.copyWith(
+        favoriteDramas: updatedFavorites,
+      );
+      
+      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
+      await saveUserDataToSharedPreferences();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      debugPrint('Error removing from favorites: ${e.message}');
+    }
+  }
+
+  // Watch history management
+  Future<void> addToWatchHistory({required String episodeId}) async {
+    final currentState = state.value;
+    if (currentState?.currentUser == null) return;
+    
+    // Avoid duplicates
+    if (currentState!.currentUser!.hasWatched(episodeId)) return;
+    
+    try {
+      await _repository.addToWatchHistory(
+        userUid: currentState.currentUser!.uid,
+        episodeId: episodeId,
+      );
+      
+      final updatedUser = currentState.currentUser!.copyWith(
+        watchHistory: [...currentState.currentUser!.watchHistory, episodeId],
+      );
+      
+      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
+      await saveUserDataToSharedPreferences();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      debugPrint('Error adding to watch history: ${e.message}');
+    }
+  }
+
+  // Drama progress tracking
+  Future<void> updateDramaProgress({required String dramaId, required int episodeNumber}) async {
+    final currentState = state.value;
+    if (currentState?.currentUser == null) return;
+    
+    try {
+      await _repository.updateDramaProgress(
+        userUid: currentState!.currentUser!.uid,
+        dramaId: dramaId,
+        episodeNumber: episodeNumber,
+      );
+      
+      final updatedProgress = Map<String, int>.from(currentState.currentUser!.dramaProgress);
+      updatedProgress[dramaId] = episodeNumber;
+      final updatedUser = currentState.currentUser!.copyWith(
+        dramaProgress: updatedProgress,
+      );
+      
+      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
+      await saveUserDataToSharedPreferences();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      debugPrint('Error updating drama progress: ${e.message}');
+    }
+  }
+
+  // Drama unlock management
+  Future<void> unlockDrama({required String dramaId}) async {
+    final currentState = state.value;
+    if (currentState?.currentUser == null) return;
+    
+    // Avoid duplicates
+    if (currentState!.currentUser!.hasUnlocked(dramaId)) return;
+    
+    try {
+      await _repository.unlockDrama(
+        userUid: currentState.currentUser!.uid,
+        dramaId: dramaId,
+      );
+      
+      final updatedUser = currentState.currentUser!.copyWith(
+        unlockedDramas: [...currentState.currentUser!.unlockedDramas, dramaId],
+      );
+      
+      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
+      await saveUserDataToSharedPreferences();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      debugPrint('Error unlocking drama: ${e.message}');
+    }
+  }
+
+  // User preferences management
+  Future<void> updatePreferences({required UserPreferences preferences}) async {
+    final currentState = state.value;
+    if (currentState?.currentUser == null) return;
+    
+    try {
+      await _repository.updatePreferences(
+        userUid: currentState!.currentUser!.uid,
+        preferences: preferences,
+      );
+      
+      final updatedUser = currentState.currentUser!.copyWith(
+        preferences: preferences,
+      );
+      
+      state = AsyncValue.data(currentState.copyWith(currentUser: updatedUser));
+      await saveUserDataToSharedPreferences();
+    } on AuthRepositoryException catch (e) {
+      state = AsyncValue.error(e.message, StackTrace.current);
+      debugPrint('Error updating preferences: ${e.message}');
+    }
+  }
+
+  // Refresh user data (useful after drama operations)
+  Future<void> refreshCurrentUser() async {
+    final currentState = state.value;
+    if (currentState?.currentUser?.uid == null) return;
+
+    try {
+      final freshUserData = await _repository.getUserProfile(currentState!.currentUser!.uid);
+      
+      if (freshUserData != null) {
+        state = AsyncValue.data(currentState.copyWith(
+          currentUser: freshUserData,
+        ));
+        
+        await saveUserDataToSharedPreferences();
+      }
+    } catch (e) {
+      debugPrint('Error refreshing user data: $e');
+    }
+  }
+
+  // ===============================
+  // ALL EXISTING VIDEO METHODS (preserved)
+  // ===============================
+
   Future<void> signOut() async {
     state = AsyncValue.data(const AuthenticationState(
       state: AuthState.loading,
@@ -408,11 +575,9 @@ class Authentication extends _$Authentication {
     try {
       await _repository.signOut();
       
-      // Clear local user data
       SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
       await sharedPreferences.remove('userModel');
       
-      // Keep videos and users for guest browsing
       await loadVideos();
       await loadUsers();
       
@@ -427,13 +592,11 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // KEEP ALL ORIGINAL TIKTOK/SOCIAL MEDIA FUNCTIONALITY
-  // Video methods
+  // Video methods (all preserved)
   Future<void> loadVideos() async {
     try {
       final videos = await _repository.getVideos();
       
-      // Update liked status for videos if user is authenticated
       final currentState = state.value ?? const AuthenticationState();
       final videosWithLikedStatus = videos.map((video) {
         final isLiked = currentState.likedVideos.contains(video.id);
@@ -449,7 +612,6 @@ class Authentication extends _$Authentication {
   Future<void> loadUserVideos(String userId) async {
     try {
       final userVideos = await _repository.getUserVideos(userId);
-      // You can add this to a separate state if needed
     } on AuthRepositoryException catch (e) {
       debugPrint('Error loading user videos: ${e.message}');
     }
@@ -463,11 +625,9 @@ class Authentication extends _$Authentication {
     if (userId == null) return;
     
     try {
-      // Get current liked videos
       List<String> likedVideos = List.from(currentState.likedVideos);
       bool isCurrentlyLiked = likedVideos.contains(videoId);
       
-      // Update local state first (optimistic update)
       if (isCurrentlyLiked) {
         likedVideos.remove(videoId);
         await _repository.unlikeVideo(videoId, userId);
@@ -476,7 +636,6 @@ class Authentication extends _$Authentication {
         await _repository.likeVideo(videoId, userId);
       }
       
-      // Update videos list with new like status
       final updatedVideos = currentState.videos.map((video) {
         if (video.id == videoId) {
           return video.copyWith(
@@ -494,7 +653,6 @@ class Authentication extends _$Authentication {
       
     } on AuthRepositoryException catch (e) {
       debugPrint('Error toggling like: ${e.message}');
-      // Revert the optimistic update on error
       await loadVideos();
       await loadLikedVideos();
     }
@@ -513,7 +671,6 @@ class Authentication extends _$Authentication {
       return;
     }
     
-    // Set uploading state to true
     state = AsyncValue.data(currentState.copyWith(
       isUploading: true,
       uploadProgress: 0.0,
@@ -522,12 +679,10 @@ class Authentication extends _$Authentication {
     try {
       final user = currentState.currentUser!;
       
-      // Upload video to storage with progress tracking
       final videoUrl = await _repository.storeFileToStorage(
         file: videoFile,
         reference: 'videos/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.mp4',
         onProgress: (progress) {
-          // Update upload progress in real-time
           final currentState = state.value ?? const AuthenticationState();
           state = AsyncValue.data(currentState.copyWith(
             uploadProgress: progress,
@@ -535,10 +690,8 @@ class Authentication extends _$Authentication {
         },
       );
       
-      // Generate thumbnail (placeholder for now)
       const thumbnailUrl = '';
       
-      // Create video
       final videoData = await _repository.createVideo(
         userId: user.uid,
         userName: user.name,
@@ -549,9 +702,8 @@ class Authentication extends _$Authentication {
         tags: tags,
       );
       
-      // Update local state
       List<VideoModel> updatedVideos = [
-        videoData, // Add new video at the beginning
+        videoData,
         ...currentState.videos,
       ];
       
@@ -596,7 +748,6 @@ class Authentication extends _$Authentication {
       final user = currentState.currentUser!;
       final List<String> imageUrls = [];
       
-      // Upload each image
       for (int i = 0; i < imageFiles.length; i++) {
         final file = imageFiles[i];
         final imageUrl = await _repository.storeFileToStorage(
@@ -606,7 +757,6 @@ class Authentication extends _$Authentication {
         imageUrls.add(imageUrl);
       }
       
-      // Create image post
       final postData = await _repository.createImagePost(
         userId: user.uid,
         userName: user.name,
@@ -616,9 +766,8 @@ class Authentication extends _$Authentication {
         tags: tags,
       );
       
-      // Update local state
       List<VideoModel> updatedVideos = [
-        postData, // Add new post at the beginning
+        postData,
         ...currentState.videos,
       ];
       
@@ -651,7 +800,6 @@ class Authentication extends _$Authentication {
     try {
       await _repository.deleteVideo(videoId, userId);
       
-      // Update local state
       final updatedVideos = currentState.videos.where((video) => video.id != videoId).toList();
       state = AsyncValue.data(currentState.copyWith(videos: updatedVideos));
     } on AuthRepositoryException catch (e) {
@@ -664,7 +812,6 @@ class Authentication extends _$Authentication {
     try {
       await _repository.incrementViewCount(videoId);
       
-      // Update local state
       final currentState = state.value ?? const AuthenticationState();
       final updatedVideos = currentState.videos.map((video) {
         if (video.id == videoId) {
@@ -689,7 +836,6 @@ class Authentication extends _$Authentication {
       
       state = AsyncValue.data(currentState.copyWith(likedVideos: likedVideos));
       
-      // Update isLiked status for existing videos
       final updatedVideos = currentState.videos.map((video) {
         return video.copyWith(isLiked: likedVideos.contains(video.id));
       }).toList();
@@ -700,7 +846,7 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // User/Social methods
+  // User/Social methods (all preserved)
   Future<void> loadUsers() async {
     final currentUserId = _repository.currentUserId ?? '';
     
@@ -722,11 +868,9 @@ class Authentication extends _$Authentication {
     if (currentUserId == null) return;
     
     try {
-      // Get current followed users
       List<String> followedUsers = List.from(currentState.followedUsers);
       bool isCurrentlyFollowed = followedUsers.contains(userId);
       
-      // Update local state first (optimistic update)
       if (isCurrentlyFollowed) {
         followedUsers.remove(userId);
         await _repository.unfollowUser(followerId: currentUserId, userId: userId);
@@ -735,7 +879,6 @@ class Authentication extends _$Authentication {
         await _repository.followUser(followerId: currentUserId, userId: userId);
       }
       
-      // Update users list with new follow status
       final updatedUsers = currentState.users.map((user) {
         if (user.uid == userId) {
           return user.copyWith(
@@ -755,7 +898,6 @@ class Authentication extends _$Authentication {
       
     } on AuthRepositoryException catch (e) {
       debugPrint('Error toggling follow: ${e.message}');
-      // Revert the optimistic update on error
       await loadUsers();
       await loadFollowedUsers();
     }
@@ -791,7 +933,7 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Comment methods
+  // Comment methods (all preserved)
   Future<void> addComment({
     required String videoId,
     required String content,
@@ -884,7 +1026,10 @@ class Authentication extends _$Authentication {
     }
   }
 
-  // Utility methods
+  // ===============================
+  // UTILITY METHODS (preserved and enhanced)
+  // ===============================
+
   Future<void> saveUserDataToSharedPreferences() async {
     final currentState = state.value ?? const AuthenticationState();
     if (currentState.currentUser == null) return;
@@ -912,7 +1057,7 @@ class Authentication extends _$Authentication {
     ));
   }
 
-  // BORROWED: Helper methods for UI from drama provider
+  // Helper getters for UI (preserved and enhanced)
   bool get isAuthenticated {
     final currentState = state.value;
     return currentState?.state == AuthState.authenticated && currentState?.isSuccessful == true;
@@ -971,6 +1116,32 @@ class Authentication extends _$Authentication {
   bool isUserFollowed(String userId) {
     final currentState = state.value;
     return currentState?.followedUsers.contains(userId) ?? false;
+  }
+
+  // NEW: Drama-related getters for UI convenience
+  bool isDramaFavorited(String dramaId) {
+    final user = currentUser;
+    return user?.hasFavorited(dramaId) ?? false;
+  }
+
+  bool hasWatchedEpisode(String episodeId) {
+    final user = currentUser;
+    return user?.hasWatched(episodeId) ?? false;
+  }
+
+  bool isDramaUnlocked(String dramaId) {
+    final user = currentUser;
+    return user?.hasUnlocked(dramaId) ?? false;
+  }
+
+  int getDramaProgress(String dramaId) {
+    final user = currentUser;
+    return user?.getDramaProgress(dramaId) ?? 0;
+  }
+
+  UserPreferences get userPreferences {
+    final user = currentUser;
+    return user?.preferences ?? const UserPreferences();
   }
 
   // File operations

@@ -1,10 +1,10 @@
 // lib/features/dramas/providers/video_player_provider.dart - SIMPLIFIED FOR UNIFIED MODEL
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/dramas/models/drama_model.dart';
 import 'package:video_player/video_player.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/features/dramas/providers/drama_actions_provider.dart';
 import 'package:textgb/features/dramas/providers/drama_providers.dart';
 

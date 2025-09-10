@@ -1,11 +1,55 @@
 // lib/features/users/models/user_model.dart
-// FIXED: Resolved PostgreSQL array literal problem for tags field
+// EXTENDED: Added drama support while preserving video functionality
+
+// User preferences for both video and drama features
+class UserPreferences {
+  final bool autoPlay;
+  final bool receiveNotifications;
+  final bool darkMode;
+
+  const UserPreferences({
+    this.autoPlay = true,
+    this.receiveNotifications = true,
+    this.darkMode = false,
+  });
+
+  factory UserPreferences.fromMap(Map<String, dynamic> map) {
+    return UserPreferences(
+      autoPlay: map['autoPlay'] ?? true,
+      receiveNotifications: map['receiveNotifications'] ?? true,
+      darkMode: map['darkMode'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'autoPlay': autoPlay,
+      'receiveNotifications': receiveNotifications,
+      'darkMode': darkMode,
+    };
+  }
+
+  UserPreferences copyWith({
+    bool? autoPlay,
+    bool? receiveNotifications,
+    bool? darkMode,
+  }) {
+    return UserPreferences(
+      autoPlay: autoPlay ?? this.autoPlay,
+      receiveNotifications: receiveNotifications ?? this.receiveNotifications,
+      darkMode: darkMode ?? this.darkMode,
+    );
+  }
+}
 
 class UserModel {
-  final String uid;  // Using uid to match Go backend
+  // ===============================
+  // EXISTING VIDEO FIELDS (preserved)
+  // ===============================
+  final String uid;
   final String phoneNumber;
   final String name;
-  final String bio;  // Changed from 'about' to 'bio'
+  final String bio;
   final String profileImage;
   final String coverImage;
   final int followers;
@@ -16,14 +60,24 @@ class UserModel {
   final List<String> tags;
   final List<String> followerUIDs;
   final List<String> followingUIDs;
-  final List<String> likedVideos;  // Added for Go backend
-  final String createdAt;  // Changed to String for RFC3339 format
-  final String updatedAt;  // Added for Go backend
-  final String lastSeen;   // Added for Go backend
+  final List<String> likedVideos;
+  final String createdAt;
+  final String updatedAt;
+  final String lastSeen;
   final bool isActive;
   final bool isFeatured;
 
+  // ===============================
+  // NEW DRAMA FIELDS (added)
+  // ===============================
+  final List<String> favoriteDramas;
+  final List<String> watchHistory;
+  final Map<String, int> dramaProgress;
+  final List<String> unlockedDramas;
+  final UserPreferences preferences;
+
   UserModel({
+    // Existing video fields
     required this.uid,
     required this.phoneNumber,
     required this.name,
@@ -44,35 +98,50 @@ class UserModel {
     required this.lastSeen,
     required this.isActive,
     required this.isFeatured,
+    // New drama fields with defaults
+    this.favoriteDramas = const [],
+    this.watchHistory = const [],
+    this.dramaProgress = const {},
+    this.unlockedDramas = const [],
+    this.preferences = const UserPreferences(),
   });
 
-  // Factory constructor for creating user from Go backend data
+  // Factory constructor for creating user from backend data
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      uid: map['uid'] ?? map['id'] ?? '',  // Support both for compatibility
+      // Existing video field mappings (preserved)
+      uid: map['uid'] ?? map['id'] ?? '',
       phoneNumber: map['phoneNumber'] ?? '',
       name: map['name'] ?? '',
       bio: map['bio'] ?? '',
       profileImage: map['profileImage'] ?? '',
       coverImage: map['coverImage'] ?? '',
-      followers: map['followersCount'] ?? 0,  // Updated mapping
-      following: map['followingCount'] ?? 0,  // Updated mapping
+      followers: map['followersCount'] ?? 0,
+      following: map['followingCount'] ?? 0,
       videosCount: map['videosCount'] ?? 0,
       likesCount: map['likesCount'] ?? 0,
       isVerified: map['isVerified'] ?? false,
-      tags: _parseStringArray(map['tags']),  // 🔧 FIXED: Safe array parsing
-      followerUIDs: _parseStringArray(map['followerUIDs']),  // 🔧 FIXED: Safe array parsing
-      followingUIDs: _parseStringArray(map['followingUIDs']),  // 🔧 FIXED: Safe array parsing
-      likedVideos: _parseStringArray(map['likedVideos']),  // 🔧 FIXED: Safe array parsing
+      tags: _parseStringArray(map['tags']),
+      followerUIDs: _parseStringArray(map['followerUIDs']),
+      followingUIDs: _parseStringArray(map['followingUIDs']),
+      likedVideos: _parseStringArray(map['likedVideos']),
       createdAt: map['createdAt'] ?? '',
       updatedAt: map['updatedAt'] ?? '',
       lastSeen: map['lastSeen'] ?? '',
       isActive: map['isActive'] ?? true,
       isFeatured: map['isFeatured'] ?? false,
+      // New drama field mappings (added)
+      favoriteDramas: _parseStringArray(map['favoriteDramas']),
+      watchHistory: _parseStringArray(map['watchHistory']),
+      dramaProgress: _parseIntMap(map['dramaProgress']),
+      unlockedDramas: _parseStringArray(map['unlockedDramas']),
+      preferences: UserPreferences.fromMap(
+        map['preferences'] ?? <String, dynamic>{},
+      ),
     );
   }
 
-  // 🔧 FIXED: Helper method to safely parse string arrays from various formats
+  // Helper method to safely parse string arrays (existing)
   static List<String> _parseStringArray(dynamic value) {
     if (value == null) return [];
     
@@ -81,13 +150,9 @@ class UserModel {
     }
     
     if (value is String) {
-      // Handle PostgreSQL array format like '{tag1,tag2}' or '[]'
       if (value.isEmpty || value == '{}' || value == '[]') return [];
-      
-      // Remove curly braces and split by comma
       String cleaned = value.replaceAll(RegExp(r'[{}"\[\]]'), '');
       if (cleaned.isEmpty) return [];
-      
       return cleaned.split(',')
           .map((s) => s.trim())
           .where((s) => s.isNotEmpty)
@@ -97,7 +162,24 @@ class UserModel {
     return [];
   }
 
-  // Create method for new users (PHONE-ONLY)
+  // NEW: Helper method to safely parse int maps (for drama progress)
+  static Map<String, int> _parseIntMap(dynamic value) {
+    if (value == null) return {};
+    
+    if (value is Map) {
+      final Map<String, int> result = {};
+      value.forEach((key, val) {
+        if (key != null && val != null) {
+          result[key.toString()] = int.tryParse(val.toString()) ?? 0;
+        }
+      });
+      return result;
+    }
+    
+    return {};
+  }
+
+  // Create method for new users (PHONE-ONLY) - preserved with drama defaults
   factory UserModel.create({
     required String uid,
     required String name,
@@ -127,19 +209,26 @@ class UserModel {
       lastSeen: now,
       isActive: true,
       isFeatured: false,
+      // Drama defaults for new users
+      favoriteDramas: [],
+      watchHistory: [],
+      dramaProgress: {},
+      unlockedDramas: [],
+      preferences: const UserPreferences(),
     );
   }
 
-  // 🔧 CRITICAL FIX: Updated toMap method to handle PostgreSQL array format correctly
+  // Updated toMap method with drama fields
   Map<String, dynamic> toMap() {
     return {
+      // Existing video fields (preserved)
       'uid': uid,
       'name': name,
       'phoneNumber': phoneNumber,
       'profileImage': profileImage,
       'coverImage': coverImage,
       'bio': bio,
-      'userType': 'user', // Add this field that Go backend expects
+      'userType': 'user',
       'followersCount': followers,
       'followingCount': following,
       'videosCount': videosCount,
@@ -147,30 +236,28 @@ class UserModel {
       'isVerified': isVerified,
       'isActive': isActive,
       'isFeatured': isFeatured,
-      'tags': _formatArrayForPostgreSQL(tags), // 🔧 FIXED: PostgreSQL-compatible array format
+      'tags': _formatArrayForPostgreSQL(tags),
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'lastSeen': lastSeen,
-      // REMOVED these fields that don't exist in Go backend:
-      // 'followerUIDs': followerUIDs,
-      // 'followingUIDs': followingUIDs, 
-      // 'likedVideos': likedVideos,
+      // New drama fields (added)
+      'favoriteDramas': _formatArrayForPostgreSQL(favoriteDramas),
+      'watchHistory': _formatArrayForPostgreSQL(watchHistory),
+      'dramaProgress': dramaProgress,
+      'unlockedDramas': _formatArrayForPostgreSQL(unlockedDramas),
+      'preferences': preferences.toMap(),
     };
   }
 
-  // 🔧 CRITICAL FIX: Format arrays for PostgreSQL compatibility
+  // Format arrays for PostgreSQL compatibility (existing)
   static dynamic _formatArrayForPostgreSQL(List<String> array) {
     if (array.isEmpty) {
-      // Return empty list instead of empty PostgreSQL array literal
-      // Go backend will handle the conversion to PostgreSQL format
       return <String>[];
     }
-    
-    // For non-empty arrays, return as regular Dart list
-    // Go backend StringSlice.Value() will convert to PostgreSQL format
     return array;
   }
 
+  // Updated copyWith method to include drama fields
   UserModel copyWith({
     String? uid,
     String? phoneNumber,
@@ -192,6 +279,12 @@ class UserModel {
     String? lastSeen,
     bool? isActive,
     bool? isFeatured,
+    // New drama fields
+    List<String>? favoriteDramas,
+    List<String>? watchHistory,
+    Map<String, int>? dramaProgress,
+    List<String>? unlockedDramas,
+    UserPreferences? preferences,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -214,11 +307,19 @@ class UserModel {
       lastSeen: lastSeen ?? this.lastSeen,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
+      // New drama fields
+      favoriteDramas: favoriteDramas ?? List<String>.from(this.favoriteDramas),
+      watchHistory: watchHistory ?? List<String>.from(this.watchHistory),
+      dramaProgress: dramaProgress ?? Map<String, int>.from(this.dramaProgress),
+      unlockedDramas: unlockedDramas ?? List<String>.from(this.unlockedDramas),
+      preferences: preferences ?? this.preferences,
     );
   }
 
-  // Getter for backward compatibility
-  String get id => uid;
+  // ===============================
+  // EXISTING VIDEO HELPER METHODS (preserved)
+  // ===============================
+  String get id => uid; // Backward compatibility
 
   @override
   bool operator ==(Object other) {
@@ -229,14 +330,37 @@ class UserModel {
   @override
   int get hashCode => uid.hashCode;
 
-  get lastPostAt => null;
+  get lastPostAt => null; // Existing getter
 
   @override
   String toString() {
     return 'UserModel(uid: $uid, name: $name, phoneNumber: $phoneNumber)';
   }
 
-  // 🔧 ADDITIONAL FIX: Helper methods for debugging array formatting
+  // ===============================
+  // NEW DRAMA HELPER METHODS (added)
+  // ===============================
+  
+  // Drama favorites
+  bool hasFavorited(String dramaId) => favoriteDramas.contains(dramaId);
+  
+  // Watch history (for episodes)
+  bool hasWatched(String episodeId) => watchHistory.contains(episodeId);
+  
+  // Drama unlock status
+  bool hasUnlocked(String dramaId) => unlockedDramas.contains(dramaId);
+  
+  // Drama progress (episode number)
+  int getDramaProgress(String dramaId) => dramaProgress[dramaId] ?? 0;
+
+  // Timestamp helper methods
+  DateTime get lastSeenDateTime => DateTime.parse(lastSeen);
+  DateTime get createdAtDateTime => DateTime.parse(createdAt);
+  DateTime get updatedAtDateTime => DateTime.parse(updatedAt);
+
+  // ===============================
+  // EXISTING DEBUG/VALIDATION METHODS (preserved)
+  // ===============================
   Map<String, dynamic> toDebugMap() {
     return {
       ...toMap(),
@@ -245,11 +369,15 @@ class UserModel {
         'tags_type': tags.runtimeType.toString(),
         'tags_formatted': _formatArrayForPostgreSQL(tags),
         'formatted_type': _formatArrayForPostgreSQL(tags).runtimeType.toString(),
+        // Drama debug info
+        'favoriteDramas_length': favoriteDramas.length,
+        'watchHistory_length': watchHistory.length,
+        'dramaProgress_length': dramaProgress.length,
+        'unlockedDramas_length': unlockedDramas.length,
       },
     };
   }
 
-  // Helper to validate model before sending to backend
   List<String> validate() {
     List<String> errors = [];
     

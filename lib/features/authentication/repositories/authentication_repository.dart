@@ -1,5 +1,5 @@
 // lib/features/authentication/repositories/authentication_repository.dart
-// CLEAN VERSION: Firebase Auth + R2 Storage Only (NO Firebase Storage)
+// COMPLETE VERSION: Firebase Auth + R2 Storage + Video + Drama Support
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -89,6 +89,14 @@ abstract class AuthenticationRepository {
   Future<void> likeComment(String commentId, String userId);
   Future<void> unlikeComment(String commentId, String userId);
 
+  // Drama-specific user operations (Go backend via HTTP)
+  Future<void> addToFavorites({required String userUid, required String dramaId});
+  Future<void> removeFromFavorites({required String userUid, required String dramaId});
+  Future<void> addToWatchHistory({required String userUid, required String episodeId});
+  Future<void> updateDramaProgress({required String userUid, required String dramaId, required int episodeNumber});
+  Future<void> unlockDrama({required String userUid, required String dramaId});
+  Future<void> updatePreferences({required String userUid, required UserPreferences preferences});
+
   // File operations (R2 via Go backend ONLY)
   Future<String> storeFileToStorage({
     required File file, 
@@ -101,7 +109,7 @@ abstract class AuthenticationRepository {
   String? get currentUserPhoneNumber;
 }
 
-// CLEAN IMPLEMENTATION: Firebase Auth + Go Backend (NO Firebase Storage)
+// COMPLETE IMPLEMENTATION: Firebase Auth + Go Backend (Video + Drama Support)
 class FirebaseAuthenticationRepository implements AuthenticationRepository {
   final FirebaseAuth _auth;
   final HttpClientService _httpClient;
@@ -785,6 +793,121 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   // ===============================
+  // DRAMA-SPECIFIC USER OPERATIONS (GO BACKEND VIA HTTP)
+  // ===============================
+
+  @override
+  Future<void> addToFavorites({required String userUid, required String dramaId}) async {
+    try {
+      final response = await _httpClient.post('/users/$userUid/favorites', body: {
+        'dramaId': dramaId,
+        'action': 'add',
+      });
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to add to favorites: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to add to favorites: $e');
+    }
+  }
+
+  @override
+  Future<void> removeFromFavorites({required String userUid, required String dramaId}) async {
+    try {
+      final response = await _httpClient.post('/users/$userUid/favorites', body: {
+        'dramaId': dramaId,
+        'action': 'remove',
+      });
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to remove from favorites: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to remove from favorites: $e');
+    }
+  }
+
+  @override
+  Future<void> addToWatchHistory({required String userUid, required String episodeId}) async {
+    try {
+      final response = await _httpClient.post('/users/$userUid/watch-history', body: {
+        'episodeId': episodeId,
+      });
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to add to watch history: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to add to watch history: $e');
+    }
+  }
+
+  @override
+  Future<void> updateDramaProgress({required String userUid, required String dramaId, required int episodeNumber}) async {
+    try {
+      final response = await _httpClient.post('/users/$userUid/drama-progress', body: {
+        'dramaId': dramaId,
+        'episodeNumber': episodeNumber,
+      });
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to update drama progress: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to update drama progress: $e');
+    }
+  }
+
+  @override
+  Future<void> unlockDrama({required String userUid, required String dramaId}) async {
+    try {
+      final response = await _httpClient.post('/unlock-drama', body: {
+        'dramaId': dramaId,
+      });
+
+      if (response.statusCode != 200) {
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        final errorMessage = errorData['error'] ?? 'Failed to unlock drama';
+        
+        // Map backend errors to known exceptions for drama actions provider
+        switch (errorMessage) {
+          case 'Insufficient coins':
+          case 'insufficient_funds':
+            throw AuthRepositoryException('INSUFFICIENT_FUNDS');
+          case 'Drama already unlocked':
+          case 'already_unlocked':
+            throw AuthRepositoryException('ALREADY_UNLOCKED');
+          case 'Drama not found':
+          case 'drama_not_found':
+            throw AuthRepositoryException('DRAMA_NOT_FOUND');
+          case 'This drama is free to watch':
+          case 'drama_free':
+            throw AuthRepositoryException('DRAMA_FREE');
+          default:
+            throw AuthRepositoryException('Failed to unlock drama: $errorMessage');
+        }
+      }
+    } catch (e) {
+      if (e is AuthRepositoryException) rethrow;
+      throw AuthRepositoryException('Failed to unlock drama: $e');
+    }
+  }
+
+  @override
+  Future<void> updatePreferences({required String userUid, required UserPreferences preferences}) async {
+    try {
+      final response = await _httpClient.post('/users/$userUid/preferences', body: preferences.toMap());
+
+      if (response.statusCode != 200) {
+        throw AuthRepositoryException('Failed to update preferences: ${response.body}');
+      }
+    } catch (e) {
+      throw AuthRepositoryException('Failed to update preferences: $e');
+    }
+  }
+
+  // ===============================
   // R2 STORAGE OPERATIONS (VIA GO BACKEND)
   // ===============================
 
@@ -828,6 +951,63 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     if (reference.contains('video')) return 'video';
     return 'profile'; // Default to profile
   }
+
+  // ===============================
+  // ADDITIONAL HELPER METHODS
+  // ===============================
+
+  // Test backend connection
+  Future<bool> testBackendConnection() async {
+    try {
+      return await _httpClient.testConnection();
+    } catch (e) {
+      debugPrint('Backend connection test failed: $e');
+      return false;
+    }
+  }
+
+  // Get current user's Firebase token
+  Future<String?> getCurrentUserToken() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        return await user.getIdToken();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Failed to get current user token: $e');
+      return null;
+    }
+  }
+
+  // Refresh user token
+  Future<String?> refreshUserToken() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        return await user.getIdToken(true); // Force refresh
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Failed to refresh user token: $e');
+      return null;
+    }
+  }
+
+  // Check if current user is authenticated
+  bool get isUserAuthenticated => _auth.currentUser != null;
+
+  // Get current user's email
+  String? get currentUserEmail => _auth.currentUser?.email;
+
+  // Get current user's display name
+  String? get currentUserDisplayName => _auth.currentUser?.displayName;
+
+  // Listen to auth state changes
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Listen to user changes
+  Stream<User?> get userChanges => _auth.userChanges();
 }
 
 // Exception class for repository errors

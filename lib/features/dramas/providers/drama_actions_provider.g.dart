@@ -1146,7 +1146,7 @@ final dramaActionsProvider =
 );
 
 typedef _$DramaActions = AutoDisposeNotifier<DramaActionState>;
-String _$adminDramaActionsHash() => r'f396508797c7562a5f1546a713892f9394e2ba38';
+String _$adminDramaActionsHash() => r'940c1f2906e2dffd4ab8750370b214b90ac32c18';
 
 /// See also [AdminDramaActions].
 @ProviderFor(AdminDramaActions)

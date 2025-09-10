@@ -337,6 +337,16 @@ class Constants {
   static const String reportSubmitted = 'Report submitted successfully!';
   static const String settingsSaved = 'Settings saved successfully!';
 
+  // Success messages (updated for coins system)
+  static const String dramaCreated = 'Drama created successfully!';
+  static const String episodeAdded = 'Episode added successfully!';
+  static const String dramaUnlocked = 'Drama unlocked! You can now watch all premium episodes.';
+  static const String episodeUnlocked = 'Episode unlocked successfully! Enjoy watching.';
+  static const String favoriteAdded = 'Added to favorites';
+  static const String favoriteRemoved = 'Removed from favorites';
+  static const String coinsPurchased = 'Coins added to your wallet successfully!';
+  static const String paymentPending = 'Payment received. Coins will be added within 30 minutes.';
+
   // ===================== GUEST MODE MESSAGES =====================
   static const String guestModeRestriction = 'Sign in to access this feature';
   static const String guestModePrompt = 'Create an account to like, comment, and share videos';
