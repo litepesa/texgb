@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/constants.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/dramas/screens/discover_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
@@ -352,6 +354,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  Widget _buildAdminFab(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10), // Above bottom nav
+      child: FloatingActionButton.extended(
+        onPressed: () => Navigator.pushNamed(context, Constants.adminDashboardScreen),
+        backgroundColor: const Color(0xFFFE2C55),
+        foregroundColor: Colors.white,
+        elevation: 4,
+        icon: const Icon(Icons.admin_panel_settings, size: 20),
+        label: const Text(
+          'Admin',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+        heroTag: "admin_fab",
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!mounted) {
@@ -365,6 +388,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 4;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final isVerified = ref.read(isAuthenticatedProvider);
 
     return Scaffold(
       extendBody: true,
@@ -398,7 +422,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Text('Create Post'),
             ),
           ),
-          // Wallet tab (index 3) - Let WalletScreen handle its own authentication
+          // Dramas tab (index 3) - Let DiscoverScreen handle its own authentication
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
@@ -411,8 +435,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       
       bottomNavigationBar: _buildTikTokBottomNav(modernTheme),
       
-      // Remove FAB since we have dedicated post button
-      floatingActionButton: null,
+      // Admin FAB - only show on Dramas tab (index 3) for verified users
+      floatingActionButton: (_currentIndex == 3 && isVerified) ? _buildAdminFab(modernTheme) : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
