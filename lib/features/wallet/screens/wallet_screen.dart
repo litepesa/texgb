@@ -24,18 +24,43 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            await ref.read(walletProvider.notifier).refresh();
-          },
-          child: walletState.when(
-            loading: () => const Center(
-              child: CircularProgressIndicator(),
-            ),
-            error: (error, stackTrace) => _buildErrorState(error.toString(), modernTheme),
-            data: (state) => _buildWalletContent(state, modernTheme),
+      appBar: AppBar(
+        backgroundColor: modernTheme.surfaceColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: modernTheme.textColor,
           ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'My Wallet',
+          style: TextStyle(
+            color: modernTheme.textColor,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          Icon(
+            CupertinoIcons.chart_bar,
+            color: modernTheme.primaryColor,
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(walletProvider.notifier).refresh();
+        },
+        child: walletState.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          error: (error, stackTrace) => _buildErrorState(error.toString(), modernTheme),
+          data: (state) => _buildWalletContent(state, modernTheme),
         ),
       ),
     );
