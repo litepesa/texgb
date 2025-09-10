@@ -421,7 +421,7 @@ bool isDramaUnlockedEnhanced(IsDramaUnlockedEnhancedRef ref, String dramaId) {
   
   // Then check the actual user state
   final authState = ref.watch(authenticationProvider);
-  final user = authState.valueOrNull?.userModel;
+  final user = authState.value?.currentUser;
   return user?.hasUnlocked(dramaId) ?? false;
 }
 

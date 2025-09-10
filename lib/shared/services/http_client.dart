@@ -12,9 +12,9 @@ class HttpClientService {
       // For Android emulator, use 10.0.2.2 instead of localhost
       // For iOS simulator, localhost works fine
       if (Platform.isAndroid) {
-        return 'http://10.0.2.2:4000/api/v1';
+        return 'http://10.0.2.2:8080/api/v1';
       } else {
-        return 'http://localhost:4000/api/v1';
+        return 'http://localhost:8080/api/v1';
       }
     } else {
       return 'https://your-production-domain.com/api/v1';

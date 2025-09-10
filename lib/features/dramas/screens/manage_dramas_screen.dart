@@ -31,7 +31,7 @@ class _ManageDramasScreenState extends ConsumerState<ManageDramasScreen>
     
     // Check verification
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final isVerified = ref.read(isVerifiedProvider);
+      final isVerified = ref.read(isAuthenticatedProvider);
       if (!isVerified) {
         showSnackBar(context, Constants.verifiedOnly);
         Navigator.of(context).pop();

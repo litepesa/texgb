@@ -40,7 +40,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final isVerified = ref.read(isVerifiedProvider);
+      final isVerified = ref.read(isAuthenticatedProvider);
       if (!isVerified) {
         showSnackBar(context, Constants.verifiedOnly);
         Navigator.of(context).pop();

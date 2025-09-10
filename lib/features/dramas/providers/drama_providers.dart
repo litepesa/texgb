@@ -232,7 +232,7 @@ class SearchDramas extends _$SearchDramas {
 @riverpod
 Future<List<DramaModel>> userFavoriteDramas(UserFavoriteDramasRef ref) async {
   final authState = ref.watch(authenticationProvider);
-  final user = authState.valueOrNull?.userModel;
+  final user = authState.value?.currentUser;
   
   if (user == null || user.favoriteDramas.isEmpty) return [];
 
@@ -256,7 +256,7 @@ Future<List<DramaModel>> userFavoriteDramas(UserFavoriteDramasRef ref) async {
 @riverpod
 Future<List<DramaModel>> continueWatchingDramas(ContinueWatchingDramasRef ref) async {
   final authState = ref.watch(authenticationProvider);
-  final user = authState.valueOrNull?.userModel;
+  final user = authState.value?.currentUser;
   
   if (user == null || user.dramaProgress.isEmpty) return [];
 
@@ -282,9 +282,9 @@ class AdminDramas extends _$AdminDramas {
   @override
   Future<List<DramaModel>> build() async {
     final authState = ref.watch(authenticationProvider);
-    final user = authState.valueOrNull?.userModel;
+    final user = authState.value?.currentUser;
     
-    if (user == null || !user.isAdmin) return [];
+    if (user == null || !user.isVerified) return [];
 
     final repository = ref.read(dramaRepositoryProvider);
     return await repository.getDramasByAdmin(user.uid);
@@ -294,9 +294,9 @@ class AdminDramas extends _$AdminDramas {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final authState = ref.read(authenticationProvider);
-      final user = authState.valueOrNull?.userModel;
+      final user = authState.value?.currentUser;
       
-      if (user == null || !user.isAdmin) return <DramaModel>[];
+      if (user == null || !user.isVerified) return <DramaModel>[];
 
       final repository = ref.read(dramaRepositoryProvider);
       return await repository.getDramasByAdmin(user.uid);
@@ -311,21 +311,21 @@ class AdminDramas extends _$AdminDramas {
 @riverpod
 bool isDramaFavorited(IsDramaFavoritedRef ref, String dramaId) {
   final authState = ref.watch(authenticationProvider);
-  final user = authState.valueOrNull?.userModel;
+  final user = authState.value?.currentUser;
   return user?.hasFavorited(dramaId) ?? false;
 }
 
 @riverpod
 bool isDramaUnlocked(IsDramaUnlockedRef ref, String dramaId) {
   final authState = ref.watch(authenticationProvider);
-  final user = authState.valueOrNull?.userModel;
+  final user = authState.value?.currentUser;
   return user?.hasUnlocked(dramaId) ?? false;
 }
 
 @riverpod
 int dramaUserProgress(DramaUserProgressRef ref, String dramaId) {
   final authState = ref.watch(authenticationProvider);
-  final user = authState.valueOrNull?.userModel;
+  final user = authState.value?.currentUser;
   return user?.getDramaProgress(dramaId) ?? 0;
 }
 
@@ -334,7 +334,7 @@ int dramaUserProgress(DramaUserProgressRef ref, String dramaId) {
 bool canWatchEpisode(CanWatchEpisodeRef ref, String dramaId, int episodeNumber) {
   final drama = ref.watch(dramaProvider(dramaId));
   final authState = ref.watch(authenticationProvider);
-  final user = authState.valueOrNull?.userModel;
+  final user = authState.value?.currentUser;
   
   return drama.when(
     data: (dramaModel) {
@@ -391,7 +391,7 @@ List<Episode> dramaEpisodeList(DramaEpisodeListRef ref, String dramaId) {
 @riverpod
 int nextEpisodeToWatch(NextEpisodeToWatchRef ref, String dramaId) {
   final authState = ref.watch(authenticationProvider);
-  final user = authState.valueOrNull?.userModel;
+  final user = authState.value?.currentUser;
   
   if (user == null) return 1;
   
@@ -404,7 +404,7 @@ int nextEpisodeToWatch(NextEpisodeToWatchRef ref, String dramaId) {
 bool episodeRequiresUnlock(EpisodeRequiresUnlockRef ref, String dramaId, int episodeNumber) {
   final drama = ref.watch(dramaProvider(dramaId));
   final authState = ref.watch(authenticationProvider);
-  final user = authState.valueOrNull?.userModel;
+  final user = authState.value?.currentUser;
   
   return drama.when(
     data: (dramaModel) {

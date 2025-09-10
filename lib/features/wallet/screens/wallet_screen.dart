@@ -386,12 +386,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '• Use coins to send virtual gifts to friends and creators\n'
-                  '• Each gift has a different coin cost based on its rarity\n'
-                  '• Some coin purchases are processed manually by admin\n'
-                  '• Balance updates within 10 minutes after payment\n'
-                  '• Choose from 3 coin packages: 99, 495, or 990 coins\n'
-                  '• Show appreciation with everything from hearts to luxury items',
+                  '• Use coins to unlock premium episodes or sending virtual gifts\n'
+                  '• Some coin purchases are processed manually by admin. Updated within 10 minutes\n'
+                  '• Choose from 3 coin packages: 99, 495, or 990 coins',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.blue[700],
