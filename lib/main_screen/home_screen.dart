@@ -1,4 +1,4 @@
-// lib/main_screen/home_screen.dart (Updated for TikTok-style authentication system)
+// lib/main_screen/home_screen.dart (FIXED - Correct verification check)
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,7 +33,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Home',      // Index 0 - Videos Feed (hidden app bar, black background)
     'Channels',  // Index 1 - Users List
     '',          // Index 2 - Post (no label, special design)
-    'Dramas',    // Index 3 - Wallet 
+    'Dramas',    // Index 3 - Dramas 
     'Profile'    // Index 4 - Profile
   ];
   
@@ -388,7 +388,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isHomeTab = _currentIndex == 0;
     final isProfileTab = _currentIndex == 4;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final isVerified = ref.read(isAuthenticatedProvider);
+    
+    // 🔧 FIXED: Check the actual user's verification status instead of just authentication
+    // Get the current user data and check isVerified field
+    final currentUser = ref.watch(currentUserProvider);
+    final isUserVerified = currentUser?.isVerified ?? false;
 
     return Scaffold(
       extendBody: true,
@@ -435,12 +439,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       
       bottomNavigationBar: _buildTikTokBottomNav(modernTheme),
       
-      // Admin FAB - only show on Dramas tab (index 3) for verified users
-      floatingActionButton: (_currentIndex == 3 && isVerified) ? _buildAdminFab(modernTheme) : null,
+      // 🔧 FIXED: Admin FAB - only show on Dramas tab (index 3) for VERIFIED users
+      floatingActionButton: (_currentIndex == 3 && isUserVerified) 
+          ? _buildAdminFab(modernTheme) 
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
+  // Rest of the code remains the same...
+  // [Include all other methods: _buildTikTokBottomNav, _buildVideoProgressIndicator, 
+  //  _buildPostButton, _buildNavItem, _buildAppBar]
+  
   // TikTok-style bottom navigation with video progress indicator
   Widget _buildTikTokBottomNav(ModernThemeExtension modernTheme) {
     final isHomeTab = _currentIndex == 0;

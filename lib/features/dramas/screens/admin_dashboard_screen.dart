@@ -22,7 +22,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     super.initState();
     // Check verification
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final isVerified = ref.read(isAuthenticatedProvider);
+      final currentUser = ref.read(currentUserProvider);
+      final isVerified = currentUser?.isVerified ?? false;
       if (!isVerified) {
         showSnackBar(context, Constants.verifiedOnly);
         Navigator.of(context).pop();
