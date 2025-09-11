@@ -84,9 +84,9 @@ class VerificationInfoWidget extends StatelessWidget {
                     child: Column(
                       children: [
                         _buildBenefitItem(
-                          icon: Icons.live_tv,
-                          title: 'Go Live',
-                          description: 'Only verified qualifying accounts can go live and stream to followers',
+                          icon: Icons.movie_creation,
+                          title: 'Create Premium Dramas',
+                          description: 'Monetize your storytelling by creating exclusive premium drama/series content for subscribers',
                           color: Colors.purple,
                         ),
                         const SizedBox(height: 16),
