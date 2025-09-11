@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/video_item.dart - FINAL FIXED VERSION
+// lib/features/videos/widgets/video_item.dart - UNIVERSAL CROSS-DEVICE VERSION
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
@@ -156,7 +156,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // 🔧 SIMPLIFIED: Only get user data when it's actually available
+  // SIMPLIFIED: Only get user data when it's actually available
   UserModel? _getUserDataIfAvailable() {
     final users = ref.read(usersProvider);
     final isUsersLoading = ref.read(isAuthLoadingProvider);
@@ -292,8 +292,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
       ),
     );
     
+    // Universal timeout that works for all devices
     await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 10),
+      const Duration(seconds: 12),
     );
   }
 
@@ -304,10 +305,16 @@ class _VideoItemState extends ConsumerState<VideoItem>
         allowBackgroundPlayback: false,
         mixWithOthers: false,
       ),
+      // Universal headers that improve compatibility
+      httpHeaders: {
+        'User-Agent': 'Flutter VideoPlayer',
+        'Connection': 'keep-alive',
+      },
     );
     
+    // Universal timeout that works for all devices
     await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 10),
+      const Duration(seconds: 12),
     );
   }
 
@@ -465,7 +472,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Media content with proper full-screen coverage
+                // Media content with universal cross-device rendering
                 _buildMediaContent(),
                 
                 // Loading indicator
@@ -626,7 +633,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
       color: Colors.black,
       child: Image.network(
         imageUrl,
-        fit: BoxFit.cover, // Changed to cover for full screen like video feed
+        fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
         loadingBuilder: (context, child, loadingProgress) {
@@ -652,20 +659,34 @@ class _VideoItemState extends ConsumerState<VideoItem>
       );
     }
     
-    return _buildFullScreenVideo();
+    return _buildUniversalVideo();
   }
 
-  // Full screen video like video feed screen - using cover fit
-  Widget _buildFullScreenVideo() {
+  // UNIVERSAL CROSS-DEVICE VIDEO RENDERING - FULL SCREEN
+  Widget _buildUniversalVideo() {
     final controller = _videoPlayerController!;
+    final videoSize = controller.value.size;
+    final screenSize = MediaQuery.of(context).size;
     
-    return SizedBox.expand(
-      child: FittedBox(
-        fit: BoxFit.cover, // Changed to cover for full screen like video feed
-        child: SizedBox(
-          width: controller.value.size.width,
-          height: controller.value.size.height,
-          child: VideoPlayer(controller),
+    // Calculate if we need to scale to fill screen
+    final videoAspectRatio = videoSize.width / videoSize.height;
+    final screenAspectRatio = screenSize.width / screenSize.height;
+    
+    // Universal full-screen approach that works on all devices
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.black,
+      child: OverflowBox(
+        alignment: Alignment.center,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge, // Key: Use hardEdge instead of antiAlias
+          child: SizedBox(
+            width: videoSize.width,
+            height: videoSize.height,
+            child: VideoPlayer(controller),
+          ),
         ),
       ),
     );
@@ -916,7 +937,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // 🔧 SIMPLIFIED: User name with verification - only show when data is ready
+  // SIMPLIFIED: User name with verification - only show when data is ready
   Widget _buildUserNameWithVerification() {
     return Consumer(
       builder: (context, ref, child) {
@@ -983,6 +1004,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
                       const Icon(
                         Icons.verified_rounded,
                         size: 12,
+                        color: Colors.white,
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -1046,10 +1068,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Helper method to format timestamp as relative time with better formatting - UPDATED
+  // Helper method to format timestamp as relative time with better formatting
   String _getRelativeTime() {
     final now = DateTime.now();
-    final videoTime = _parseVideoTimestamp(); // Use helper method to parse RFC3339
+    final videoTime = _parseVideoTimestamp();
     final difference = now.difference(videoTime);
 
     if (difference.inSeconds < 30) {
@@ -1077,46 +1099,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // Helper method to format timestamp as absolute date/time - UPDATED
-  String _getFormattedDateTime() {
-    final videoTime = _parseVideoTimestamp(); // Use helper method to parse RFC3339
-    final now = DateTime.now();
-    final difference = now.difference(videoTime);
-
-    if (difference.inDays == 0) {
-      // Today - show just time
-      return 'Today ${_formatTime(videoTime)}';
-    } else if (difference.inDays == 1) {
-      // Yesterday
-      return 'Yesterday ${_formatTime(videoTime)}';
-    } else if (difference.inDays < 7) {
-      // This week - show day and time
-      return '${_formatDayOfWeek(videoTime)} ${_formatTime(videoTime)}';
-    } else {
-      // Older - show date and time
-      return '${_formatDate(videoTime)} ${_formatTime(videoTime)}';
-    }
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final hour = dateTime.hour == 0 ? 12 : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
-  }
-
-  String _formatDayOfWeek(DateTime dateTime) {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return days[dateTime.weekday % 7];
-  }
-
-  String _formatDate(DateTime dateTime) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${months[dateTime.month - 1]} ${dateTime.day}';
-  }
-
-  // Method to build timestamp display (kept for other screens)
+  // Method to build timestamp display
   Widget _buildTimestampDisplay() {
     final timestampStyle = TextStyle(
       color: Colors.white.withOpacity(0.7),
@@ -1172,7 +1155,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // 🔧 SIMPLIFIED: Follow button - only show when user data is ready
+  // SIMPLIFIED: Follow button - only show when user data is ready
   Widget _buildTopLeftFollowButton() {
     final videoUser = _getUserDataIfAvailable();
     final currentUser = ref.watch(currentUserProvider);
