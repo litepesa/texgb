@@ -479,7 +479,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         final List<dynamic> videosData = responseData['videos'] ?? [];
         return videosData
-            .map((videoData) => VideoModel.fromMap(videoData as Map<String, dynamic>))
+            .map((videoData) => VideoModel.fromJson(videoData as Map<String, dynamic>))
             .toList();
       } else {
         throw AuthRepositoryException('Failed to get videos: ${response.body}');
@@ -498,7 +498,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         final List<dynamic> videosData = responseData['videos'] ?? [];
         return videosData
-            .map((videoData) => VideoModel.fromMap(videoData as Map<String, dynamic>))
+            .map((videoData) => VideoModel.fromJson(videoData as Map<String, dynamic>))
             .toList();
       } else {
         throw AuthRepositoryException('Failed to get user videos: ${response.body}');
@@ -515,7 +515,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       
       if (response.statusCode == 200) {
         final videoData = jsonDecode(response.body) as Map<String, dynamic>;
-        return VideoModel.fromMap(videoData);
+        return VideoModel.fromJson(videoData);
       } else if (response.statusCode == 404) {
         return null;
       } else {
@@ -565,7 +565,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
         final videoMap = responseData.containsKey('video') ? responseData['video'] : responseData;
-        return VideoModel.fromMap(videoMap);
+        return VideoModel.fromJson(videoMap);
       } else {
         throw AuthRepositoryException('Failed to create video: ${response.body}');
       }
@@ -611,7 +611,7 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
         final videoMap = responseData.containsKey('video') ? responseData['video'] : responseData;
-        return VideoModel.fromMap(videoMap);
+        return VideoModel.fromJson(videoMap);
       } else {
         throw AuthRepositoryException('Failed to create image post: ${response.body}');
       }
