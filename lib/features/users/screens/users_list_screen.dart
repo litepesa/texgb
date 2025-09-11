@@ -71,8 +71,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       if (!a.isVerified && b.isVerified) return 1;
       
       // Then sort by last activity
-      final aLastPost = a.lastPostAt?.toDate();
-      final bLastPost = b.lastPostAt?.toDate();
+      final aLastPost = a.lastPostAtDateTime;
+      final bLastPost = b.lastPostAtDateTime;
       
       // Users with recent posts come first
       if (aLastPost != null && bLastPost != null) {
@@ -734,8 +734,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                             Flexible(
                               child: Text(
                                 user.lastPostAt != null 
-                                  ? 'Active ${_getTimeAgo(user.lastPostAt!.toDate())}'
-                                  : 'New user',
+                                  ? 'Active ${user.lastPostTimeAgo}'
+                                  : 'No posts',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: theme.primaryColor,

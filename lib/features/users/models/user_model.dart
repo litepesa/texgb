@@ -1,5 +1,5 @@
 // lib/features/users/models/user_model.dart
-// EXTENDED: Added drama support while preserving video functionality
+// EXTENDED: Added drama support while preserving video functionality + lastPostAt
 
 // User preferences for both video and drama features
 class UserPreferences {
@@ -66,6 +66,7 @@ class UserModel {
   final String lastSeen;
   final bool isActive;
   final bool isFeatured;
+  final String? lastPostAt; // UPDATED: Now a proper field instead of getter
 
   // ===============================
   // NEW DRAMA FIELDS (added)
@@ -98,6 +99,7 @@ class UserModel {
     required this.lastSeen,
     required this.isActive,
     required this.isFeatured,
+    this.lastPostAt, // UPDATED: Now a constructor parameter
     // New drama fields with defaults
     this.favoriteDramas = const [],
     this.watchHistory = const [],
@@ -130,6 +132,7 @@ class UserModel {
       lastSeen: map['lastSeen'] ?? '',
       isActive: map['isActive'] ?? true,
       isFeatured: map['isFeatured'] ?? false,
+      lastPostAt: map['lastPostAt'] ?? map['last_post_at'], // UPDATED: Added mapping
       // New drama field mappings (added)
       favoriteDramas: _parseStringArray(map['favoriteDramas']),
       watchHistory: _parseStringArray(map['watchHistory']),
@@ -209,6 +212,7 @@ class UserModel {
       lastSeen: now,
       isActive: true,
       isFeatured: false,
+      lastPostAt: null, // UPDATED: New users haven't posted yet
       // Drama defaults for new users
       favoriteDramas: [],
       watchHistory: [],
@@ -240,6 +244,7 @@ class UserModel {
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'lastSeen': lastSeen,
+      'lastPostAt': lastPostAt, // UPDATED: Added to serialization
       // New drama fields (added)
       'favoriteDramas': _formatArrayForPostgreSQL(favoriteDramas),
       'watchHistory': _formatArrayForPostgreSQL(watchHistory),
@@ -279,6 +284,7 @@ class UserModel {
     String? lastSeen,
     bool? isActive,
     bool? isFeatured,
+    String? lastPostAt, // UPDATED: Added to copyWith
     // New drama fields
     List<String>? favoriteDramas,
     List<String>? watchHistory,
@@ -307,6 +313,7 @@ class UserModel {
       lastSeen: lastSeen ?? this.lastSeen,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
+      lastPostAt: lastPostAt ?? this.lastPostAt, // UPDATED: Added to copyWith
       // New drama fields
       favoriteDramas: favoriteDramas ?? List<String>.from(this.favoriteDramas),
       watchHistory: watchHistory ?? List<String>.from(this.watchHistory),
@@ -329,8 +336,6 @@ class UserModel {
 
   @override
   int get hashCode => uid.hashCode;
-
-  get lastPostAt => null; // Existing getter
 
   @override
   String toString() {
@@ -357,6 +362,40 @@ class UserModel {
   DateTime get lastSeenDateTime => DateTime.parse(lastSeen);
   DateTime get createdAtDateTime => DateTime.parse(createdAt);
   DateTime get updatedAtDateTime => DateTime.parse(updatedAt);
+  
+  // UPDATED: lastPostAt helper methods
+  DateTime? get lastPostAtDateTime {
+    if (lastPostAt == null || lastPostAt!.isEmpty) return null;
+    try {
+      return DateTime.parse(lastPostAt!);
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  bool get hasPostedVideos => lastPostAt != null && lastPostAt!.isNotEmpty;
+  
+  String get lastPostTimeAgo {
+    final lastPost = lastPostAtDateTime;
+    if (lastPost == null) return 'Never posted';
+    
+    final now = DateTime.now();
+    final difference = now.difference(lastPost);
+    
+    if (difference.inDays > 365) {
+      return '${(difference.inDays / 365).floor()}y ago';
+    } else if (difference.inDays > 30) {
+      return '${(difference.inDays / 30).floor()}mo ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
+  }
 
   // ===============================
   // EXISTING DEBUG/VALIDATION METHODS (preserved)
@@ -374,6 +413,10 @@ class UserModel {
         'watchHistory_length': watchHistory.length,
         'dramaProgress_length': dramaProgress.length,
         'unlockedDramas_length': unlockedDramas.length,
+        // lastPostAt debug info
+        'lastPostAt_value': lastPostAt,
+        'hasPostedVideos': hasPostedVideos,
+        'lastPostTimeAgo': lastPostTimeAgo,
       },
     };
   }

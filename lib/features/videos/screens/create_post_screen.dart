@@ -70,6 +70,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   bool _isProcessing = false;
   double _processingProgress = 0.0;
   
+  // Upload simulation state
+  bool _isSimulatingUpload = false;
+  double _simulatedUploadProgress = 0.0;
+  Timer? _uploadSimulationTimer;
+  
   // Wakelock state tracking
   bool _wakelockActive = false;
   
@@ -87,6 +92,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     _captionController.dispose();
     _tagsController.dispose();
     _cacheManager.emptyCache();
+    _uploadSimulationTimer?.cancel();
     _disableWakelock();
     super.dispose();
   }
@@ -270,7 +276,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     return filters.join(',');
   }
 
-  // Full video and audio processing
+  // Modified video processing - audio only for videos under 20MB
   Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
@@ -283,38 +289,53 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         _processingProgress = 0.0;
       });
 
-      // Get optimal encoding parameters
-      final crf = _getFixedCRF();
-      final preset = _getOptimalPreset(info);
-      final profile = _getOptimalProfile(info);
-      final videoFilters = _buildVideoFilters(info);
+      String command;
+      
+      // Check if video is under 20MB - only process audio
+      if (info.fileSizeMB < 20.0) {
+        // Audio-only processing for videos under 20MB
+        command = '-y -i "${inputFile.path}" ';
+        command += '-c:v copy '; // Copy video stream without re-encoding
+        command += '-c:a aac ';
+        command += '-b:a 128k ';
+        command += '-ar 48000 ';
+        command += '-ac 2 ';
+        command += '-af "volume=2.2,equalizer=f=60:width_type=h:width=2:g=3,equalizer=f=150:width_type=h:width=2:g=2,equalizer=f=8000:width_type=h:width=2:g=1,compand=attacks=0.2:decays=0.4:points=-80/-80|-50/-20|-30/-15|-20/-10|-5/-5|0/-2|20/-2,highpass=f=40,lowpass=f=15000,loudnorm=I=-10:TP=-1.5:LRA=7:linear=true" ';
+        command += '-movflags +faststart ';
+        command += '-f mp4 "$outputPath"';
+      } else {
+        // Full video and audio processing for larger files
+        final crf = _getFixedCRF();
+        final preset = _getOptimalPreset(info);
+        final profile = _getOptimalProfile(info);
+        final videoFilters = _buildVideoFilters(info);
 
-      // Build comprehensive FFmpeg command for video and audio optimization
-      String command = '-y -i "${inputFile.path}" ';
-      
-      // Video encoding with enhancement
-      command += '-c:v libx264 ';
-      command += '-crf $crf ';
-      command += '-preset $preset ';
-      command += '-profile:v $profile ';
-      command += '-level 4.1 ';
-      command += '-pix_fmt yuv420p ';
-      
-      // Add video filters if available
-      if (videoFilters.isNotEmpty) {
-        command += '-vf "$videoFilters" ';
+        command = '-y -i "${inputFile.path}" ';
+        
+        // Video encoding with enhancement
+        command += '-c:v libx264 ';
+        command += '-crf $crf ';
+        command += '-preset $preset ';
+        command += '-profile:v $profile ';
+        command += '-level 4.1 ';
+        command += '-pix_fmt yuv420p ';
+        
+        // Add video filters if available
+        if (videoFilters.isNotEmpty) {
+          command += '-vf "$videoFilters" ';
+        }
+        
+        // Audio processing - premium loud audio enhancement
+        command += '-c:a aac ';
+        command += '-b:a 128k ';
+        command += '-ar 48000 ';
+        command += '-ac 2 ';
+        command += '-af "volume=2.2,equalizer=f=60:width_type=h:width=2:g=3,equalizer=f=150:width_type=h:width=2:g=2,equalizer=f=8000:width_type=h:width=2:g=1,compand=attacks=0.2:decays=0.4:points=-80/-80|-50/-20|-30/-15|-20/-10|-5/-5|0/-2|20/-2,highpass=f=40,lowpass=f=15000,loudnorm=I=-10:TP=-1.5:LRA=7:linear=true" ';
+        
+        // Output optimization
+        command += '-movflags +faststart ';
+        command += '-f mp4 "$outputPath"';
       }
-      
-      // Audio processing - premium loud audio enhancement
-      command += '-c:a aac ';
-      command += '-b:a 128k ';
-      command += '-ar 48000 ';
-      command += '-ac 2 ';
-      command += '-af "volume=2.2,equalizer=f=60:width_type=h:width=2:g=3,equalizer=f=150:width_type=h:width=2:g=2,equalizer=f=8000:width_type=h:width=2:g=1,compand=attacks=0.2:decays=0.4:points=-80/-80|-50/-20|-30/-15|-20/-10|-5/-5|0/-2|20/-2,highpass=f=40,lowpass=f=15000,loudnorm=I=-10:TP=-1.5:LRA=7:linear=true" ';
-      
-      // Output optimization
-      command += '-movflags +faststart ';
-      command += '-f mp4 "$outputPath"';
 
       final videoDurationMs = info.duration.inMilliseconds;
       final Completer<void> processingCompleter = Completer<void>();
@@ -374,6 +395,53 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       await _disableWakelock();
       return null;
     }
+  }
+
+  // Simulate upload progress
+  void _startUploadSimulation() {
+    _uploadSimulationTimer?.cancel();
+    
+    setState(() {
+      _isSimulatingUpload = true;
+      _simulatedUploadProgress = 0.0;
+    });
+    
+    // Simulate varying upload speeds
+    const updateInterval = Duration(milliseconds: 200);
+    const totalDuration = Duration(seconds: 120); // Total simulated upload time
+    final totalSteps = totalDuration.inMilliseconds / updateInterval.inMilliseconds;
+    
+    int currentStep = 0;
+    
+    _uploadSimulationTimer = Timer.periodic(updateInterval, (timer) {
+      currentStep++;
+      
+      if (currentStep >= totalSteps) {
+        timer.cancel();
+        setState(() {
+          _simulatedUploadProgress = 1.0;
+          _isSimulatingUpload = false;
+        });
+        return;
+      }
+      
+      // Create realistic upload progress with some variation
+      double baseProgress = currentStep / totalSteps;
+      
+      // Add some realistic upload behavior (slower start, faster middle, slower end)
+      double adjustedProgress;
+      if (baseProgress < 0.1) {
+        adjustedProgress = baseProgress * 0.5; // Slower start
+      } else if (baseProgress < 0.8) {
+        adjustedProgress = 0.05 + (baseProgress - 0.1) * 1.2; // Faster middle
+      } else {
+        adjustedProgress = 0.05 + 0.7 * 1.2 + (baseProgress - 0.8) * 0.6; // Slower end
+      }
+      
+      setState(() {
+        _simulatedUploadProgress = adjustedProgress.clamp(0.0, 1.0);
+      });
+    });
   }
 
   void _clearVideo() {
@@ -651,15 +719,28 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         }
       }
       
+      // Start upload simulation
+      _startUploadSimulation();
+      
       authProvider.createVideo(
         videoFile: videoToUpload,
         caption: _captionController.text,
         tags: tags,
         onSuccess: (message) {
+          _uploadSimulationTimer?.cancel();
+          setState(() {
+            _isSimulatingUpload = false;
+            _simulatedUploadProgress = 1.0;
+          });
           _showSuccess(message);
           _navigateBack();
         },
         onError: (error) {
+          _uploadSimulationTimer?.cancel();
+          setState(() {
+            _isSimulatingUpload = false;
+            _simulatedUploadProgress = 0.0;
+          });
           _showError(error);
           _disableWakelock();
         },
@@ -695,11 +776,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Helper method to get upload state
   bool get _isUploading {
     final authState = ref.read(authenticationProvider).value ?? const AuthenticationState();
-    return authState.isUploading;
+    return authState.isUploading || _isSimulatingUpload;
   }
 
   // Helper method to get upload progress
   double get _uploadProgress {
+    if (_isSimulatingUpload) {
+      return _simulatedUploadProgress;
+    }
     final authState = ref.read(authenticationProvider).value ?? const AuthenticationState();
     return authState.uploadProgress;
   }
@@ -709,8 +793,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     final authProvider = ref.watch(authenticationProvider);
     final isLoading = ref.watch(isAuthLoadingProvider);
     final authState = authProvider.value ?? const AuthenticationState();
-    final isUploading = authState.isUploading; // Direct access instead of provider
-    final uploadProgress = authState.uploadProgress; // Direct access instead of provider
+    final isUploading = _isUploading; // Use our custom getter that includes simulation
+    final uploadProgress = _uploadProgress; // Use our custom getter that includes simulation
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final modernTheme = context.modernTheme;
     
@@ -770,11 +854,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         actions: [
           if (_videoFile != null)
             TextButton(
-              onPressed: (isLoading || _isProcessing || _isUploading) ? null : _submitForm,
+              onPressed: (isLoading || _isProcessing || isUploading) ? null : _submitForm,
               child: Text(
-                _isProcessing ? 'Processing...' : (_isUploading ? 'Uploading...' : 'Post'),
+                _isProcessing ? 'Processing...' : (isUploading ? 'Uploading...' : 'Post'),
                 style: TextStyle(
-                  color: (isLoading || _isProcessing || _isUploading) 
+                  color: (isLoading || _isProcessing || isUploading) 
                       ? modernTheme.textSecondaryColor 
                       : modernTheme.primaryColor,
                   fontWeight: FontWeight.bold,
@@ -821,10 +905,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
-                                  'Processing...',
-                                  style: TextStyle(
+                                  _videoInfo != null && _videoInfo!.fileSizeMB < 20.0 
+                                      ? 'Processing...'
+                                      : 'Processing...',
+                                  style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -853,8 +939,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ],
                 ),
               
-              // Upload progress indicator with real percentage
-              if (_isUploading)
+              // Upload progress indicator with simulated percentage
+              if (isUploading)
                 Column(
                   children: [
                     Container(
@@ -886,7 +972,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                                 ),
                               ),
                               Text(
-                                '${(_uploadProgress * 100).toStringAsFixed(1)}%',
+                                '${(uploadProgress * 100).toStringAsFixed(1)}%',
                                 style: TextStyle(
                                   color: modernTheme.primaryColor,
                                   fontSize: 12,
@@ -897,7 +983,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           ),
                           const SizedBox(height: 12),
                           LinearProgressIndicator(
-                            value: _uploadProgress, // Real progress value!
+                            value: uploadProgress,
                             backgroundColor: modernTheme.borderColor,
                             valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
                           ),
@@ -934,7 +1020,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   }
                   return null;
                 },
-                enabled: !isLoading && !_isProcessing && !_isUploading,
+                enabled: !isLoading && !_isProcessing && !isUploading,
               ),
               
               const SizedBox(height: 16),
@@ -956,7 +1042,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   hintText: 'e.g. sports, travel, music',
                 ),
                 style: TextStyle(color: modernTheme.textColor),
-                enabled: !isLoading && !_isProcessing && !_isUploading,
+                enabled: !isLoading && !_isProcessing && !isUploading,
               ),
               
               const SizedBox(height: 24),
@@ -965,7 +1051,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: (!isLoading && !_isProcessing && !_isUploading) ? _submitForm : null,
+                  onPressed: (!isLoading && !_isProcessing && !isUploading) ? _submitForm : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: modernTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -976,8 +1062,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     ),
                   ),
                   child: _isProcessing
-                      ? const Text('Processing...')
-                      : (_isUploading
+                      ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 20.0 
+                          ? 'Processing...' 
+                          : 'Processing...')
+                      : (isUploading
                           ? const Text('Uploading...')
                           : const Text('Post Video')),
                 ),
