@@ -1,4 +1,4 @@
-// lib/features/dramas/screens/episode_feed_screen.dart - ENHANCED VERSION
+// lib/features/dramas/screens/episode_feed_screen.dart - UNIVERSAL FIXED VERSION
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,9 +49,22 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     
     // Listen for unlock success messages to refresh video access
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupSystemUI();
       _setupUnlockListener();
       _findInitialEpisodeIndex();
     });
+  }
+
+  // Setup system UI to match feed screen
+  void _setupSystemUI() {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ));
   }
 
   void _setupUnlockListener() {
@@ -124,16 +137,38 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     final videoUrl = _drama!.getEpisodeVideo(episodeNumber);
     if (videoUrl == null || videoUrl.isEmpty) {
       const fallbackUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-      final controller = VideoPlayerController.networkUrl(Uri.parse(fallbackUrl));
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(fallbackUrl),
+        videoPlayerOptions: VideoPlayerOptions(
+          allowBackgroundPlayback: false,
+          mixWithOthers: false,
+        ),
+        httpHeaders: {
+          'User-Agent': 'Flutter VideoPlayer',
+          'Connection': 'keep-alive',
+        },
+      );
       _videoControllers[episodeNumber] = controller;
     } else {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(videoUrl),
+        videoPlayerOptions: VideoPlayerOptions(
+          allowBackgroundPlayback: false,
+          mixWithOthers: false,
+        ),
+        httpHeaders: {
+          'User-Agent': 'Flutter VideoPlayer',
+          'Connection': 'keep-alive',
+        },
+      );
       _videoControllers[episodeNumber] = controller;
     }
 
     final controller = _videoControllers[episodeNumber]!;
 
-    controller.initialize().then((_) {
+    controller.initialize().timeout(
+      const Duration(seconds: 12),
+    ).then((_) {
       if (mounted) {
         setState(() {
           _videoInitialized[episodeNumber] = true;
@@ -287,23 +322,47 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   }
 
   Widget _buildFeedScreen(DramaModel drama) {
-    return PageView.builder(
-      controller: _pageController,
-      scrollDirection: Axis.vertical,
-      onPageChanged: _onPageChanged,
-      itemCount: drama.totalEpisodes,
-      itemBuilder: (context, index) {
-        final episodeNumber = index + 1;
-        
-        // Use enhanced provider for real-time unlock status
-        final canWatch = ref.watch(canWatchDramaEpisodeEnhancedProvider(drama.dramaId, episodeNumber));
-        
-        if (canWatch) {
-          _initializeVideoController(episodeNumber);
-        }
+    final systemTopPadding = MediaQuery.of(context).padding.top;
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    return Container(
+      color: Colors.black,
+      child: Stack(
+        children: [
+          // Videos positioned within safe area (like feed screen)
+          Positioned(
+            top: systemTopPadding,
+            left: 0,
+            right: 0,
+            bottom: systemBottomPadding,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: PageView.builder(
+                controller: _pageController,
+                scrollDirection: Axis.vertical,
+                onPageChanged: _onPageChanged,
+                itemCount: drama.totalEpisodes,
+                itemBuilder: (context, index) {
+                  final episodeNumber = index + 1;
+                  
+                  // Use enhanced provider for real-time unlock status
+                  final canWatch = ref.watch(canWatchDramaEpisodeEnhancedProvider(drama.dramaId, episodeNumber));
+                  
+                  if (canWatch) {
+                    _initializeVideoController(episodeNumber);
+                  }
 
-        return _buildEpisodeItem(drama, episodeNumber, canWatch);
-      },
+                  return _buildEpisodeItem(drama, episodeNumber, canWatch);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -327,6 +386,7 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
     );
   }
 
+  // UNIVERSAL VIDEO PLAYER - Samsung compatible with full-screen coverage
   Widget _buildVideoPlayer(VideoPlayerController controller) {
     return GestureDetector(
       onTap: () {
@@ -336,13 +396,20 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
           controller.play();
         }
       },
-      child: SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: controller.value.size.width,
-            height: controller.value.size.height,
-            child: VideoPlayer(controller),
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.black,
+        child: OverflowBox(
+          alignment: Alignment.center,
+          child: FittedBox(
+            fit: BoxFit.cover,
+            clipBehavior: Clip.hardEdge, // Samsung-safe clipping
+            child: SizedBox(
+              width: controller.value.size.width,
+              height: controller.value.size.height,
+              child: VideoPlayer(controller),
+            ),
           ),
         ),
       ),
@@ -548,51 +615,55 @@ class _EpisodeFeedScreenState extends ConsumerState<EpisodeFeedScreen> {
   }
 
   Widget _buildUIOverlays(DramaModel drama, int episodeNumber, VideoPlayerController? controller, bool canWatch) {
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 16, top: 8),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.white,
-                  size: 28,
+    return Stack(
+      children: [
+        // Back arrow positioned exactly like feed screen follow button
+        Positioned(
+          top: 8, 
+          left: 8,
+          child: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(
+              Icons.arrow_back,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+        ),
+        
+        // Bottom content in SafeArea
+        SafeArea(
+          child: Column(
+            children: [
+              const Spacer(),
+
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Ep $episodeNumber',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+
+              if (canWatch && controller != null)
+                _buildVideoControls(controller),
+            ],
           ),
-
-          const Spacer(),
-
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Ep $episodeNumber',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          if (canWatch && controller != null)
-            _buildVideoControls(controller),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

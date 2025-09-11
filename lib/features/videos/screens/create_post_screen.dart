@@ -1125,7 +1125,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
+            /*ElevatedButton.icon(
               onPressed: (!_isProcessing && !_isUploading) ? _showGoLiveMessage : null,
               label: const Text('Go Live'),
               style: ElevatedButton.styleFrom(
@@ -1134,7 +1134,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
               ),
-            ),
+            ),*/
           ],
         ),
       ),
