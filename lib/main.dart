@@ -8,6 +8,8 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/screens/profile_setup_screen.dart';
+import 'package:textgb/features/dramas/screens/episode_feed_screen.dart';
+import 'package:textgb/features/dramas/screens/my_drama_details_screen.dart';
 import 'package:textgb/features/users/screens/edit_profile_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
@@ -262,6 +264,31 @@ class AppRoot extends ConsumerWidget {
                 );
               }
               break;
+
+             case Constants.myDramaDetailsScreen:
+              final args = settings.arguments as Map<String, dynamic>?;
+              if (args != null && args.containsKey('dramaId')) {
+                return MaterialPageRoute(
+                  builder: (context) => MyDramaDetailsScreen(
+                    dramaId: args['dramaId'] as String,
+                  ),
+                  settings: settings,
+                );
+              }
+              break; 
+
+            case Constants.episodeFeedScreen:
+            final args = settings.arguments as Map<String, dynamic>?;
+            if (args != null && args.containsKey('dramaId')) {
+                 return MaterialPageRoute(
+                   builder: (context) => EpisodeFeedScreen(
+                      dramaId: args['dramaId'] as String,
+                initialEpisodeId: args['initialEpisodeId'] as String?,
+               ),
+                settings: settings,
+             );
+            }
+            break;  
               
             case Constants.editDramaScreen:
               final args = settings.arguments as Map<String, dynamic>?;

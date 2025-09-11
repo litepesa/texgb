@@ -24,7 +24,7 @@ final dramaRepositoryProvider = AutoDisposeProvider<DramaRepository>.internal(
 // ignore: unused_element
 typedef DramaRepositoryRef = AutoDisposeProviderRef<DramaRepository>;
 String _$userFavoriteDramasHash() =>
-    r'026077b94af1de7488d5d691f75e5dc63265c128';
+    r'2b34fd6898b615b5a3c0049997a306e37e59548d';
 
 /// See also [userFavoriteDramas].
 @ProviderFor(userFavoriteDramas)
@@ -43,7 +43,7 @@ final userFavoriteDramasProvider =
 // ignore: unused_element
 typedef UserFavoriteDramasRef = AutoDisposeFutureProviderRef<List<DramaModel>>;
 String _$continueWatchingDramasHash() =>
-    r'468707cc825ae22384fc6a19c722f1d3b6b797c3';
+    r'1f8c6afd31df6bc5022e865dec7dd11538b4646f';
 
 /// See also [continueWatchingDramas].
 @ProviderFor(continueWatchingDramas)
@@ -62,7 +62,7 @@ final continueWatchingDramasProvider =
 // ignore: unused_element
 typedef ContinueWatchingDramasRef
     = AutoDisposeFutureProviderRef<List<DramaModel>>;
-String _$isDramaFavoritedHash() => r'4f0a6d138f242368ab07bc1f17db67e07eb1a20a';
+String _$isDramaFavoritedHash() => r'a6690cf69c394a6b9d72ce89d916cab3740ef4b9';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -213,7 +213,7 @@ class _IsDramaFavoritedProviderElement extends AutoDisposeProviderElement<bool>
   String get dramaId => (origin as IsDramaFavoritedProvider).dramaId;
 }
 
-String _$isDramaUnlockedHash() => r'ba87a6b558b4cbc7c9038dc5e62fbcad2cfb09d0';
+String _$isDramaUnlockedHash() => r'2ebdc224e023490dc7bd99ff84f5d324d51a3f4a';
 
 /// See also [isDramaUnlocked].
 @ProviderFor(isDramaUnlocked)
@@ -343,7 +343,7 @@ class _IsDramaUnlockedProviderElement extends AutoDisposeProviderElement<bool>
   String get dramaId => (origin as IsDramaUnlockedProvider).dramaId;
 }
 
-String _$dramaUserProgressHash() => r'27397d8d9e59cc04e73cd815a028c554f33658e4';
+String _$dramaUserProgressHash() => r'94a268eb1bb3b9c76fe7775395a61c7e587c51da';
 
 /// See also [dramaUserProgress].
 @ProviderFor(dramaUserProgress)
@@ -473,7 +473,7 @@ class _DramaUserProgressProviderElement extends AutoDisposeProviderElement<int>
   String get dramaId => (origin as DramaUserProgressProvider).dramaId;
 }
 
-String _$canWatchEpisodeHash() => r'093029327ce7e69d2dc355c14c3219609a557181';
+String _$canWatchEpisodeHash() => r'672ec81c5667fa3b96b8c753484f9e280749dbf0';
 
 /// See also [canWatchEpisode].
 @ProviderFor(canWatchEpisode)
@@ -898,7 +898,7 @@ class _DramaEpisodeListProviderElement
 }
 
 String _$nextEpisodeToWatchHash() =>
-    r'4dc37b113fa0e6f744c661a11616b1b1bee9af38';
+    r'c3110144a8e7e5c2153527ae9ff56ef8ff12bdc7';
 
 /// See also [nextEpisodeToWatch].
 @ProviderFor(nextEpisodeToWatch)
@@ -1029,7 +1029,7 @@ class _NextEpisodeToWatchProviderElement extends AutoDisposeProviderElement<int>
 }
 
 String _$episodeRequiresUnlockHash() =>
-    r'7b548fbb4cadd397d1f393fbfb0bbb057f1caab1';
+    r'2c943a5b892a27a74000e4527ab72895fd347b6e';
 
 /// See also [episodeRequiresUnlock].
 @ProviderFor(episodeRequiresUnlock)
@@ -1544,20 +1544,20 @@ class _SearchDramasProviderElement
   String get query => (origin as SearchDramasProvider).query;
 }
 
-String _$adminDramasHash() => r'7b3c2cf913b3510713705ca548541851fec6ffe4';
+String _$userDramasHash() => r'eea1426549b0ee5c34b42a3fa2a6efad7af3c696';
 
-/// See also [AdminDramas].
-@ProviderFor(AdminDramas)
-final adminDramasProvider =
-    AutoDisposeAsyncNotifierProvider<AdminDramas, List<DramaModel>>.internal(
-  AdminDramas.new,
-  name: r'adminDramasProvider',
+/// See also [UserDramas].
+@ProviderFor(UserDramas)
+final userDramasProvider =
+    AutoDisposeAsyncNotifierProvider<UserDramas, List<DramaModel>>.internal(
+  UserDramas.new,
+  name: r'userDramasProvider',
   debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$adminDramasHash,
+      const bool.fromEnvironment('dart.vm.product') ? null : _$userDramasHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$AdminDramas = AutoDisposeAsyncNotifier<List<DramaModel>>;
+typedef _$UserDramas = AutoDisposeAsyncNotifier<List<DramaModel>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

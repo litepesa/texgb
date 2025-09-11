@@ -7,7 +7,7 @@ part of 'drama_actions_provider.dart';
 // **************************************************************************
 
 String _$isDramaUnlockedEnhancedHash() =>
-    r'91a498a46dea9cb7408d2b68af387e166b3c5225';
+    r'da940919eec4033ebe877603aa8fe991f6ea811b';
 
 /// Copied from Dart SDK
 class _SystemHash {

@@ -1,4 +1,4 @@
-// lib/features/dramas/repositories/drama_repository.dart - SEQUENTIAL UPLOAD VERSION
+// lib/features/dramas/repositories/drama_repository.dart - FIXED ENDPOINTS VERSION
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -29,10 +29,10 @@ abstract class DramaRepository {
     required String dramaTitle,
   });
   
-  // Admin operations
+  // Verified user operations (formerly admin operations)
   Future<void> updateDrama(DramaModel drama, {File? bannerImage});
   Future<void> deleteDrama(String dramaId);
-  Future<List<DramaModel>> getDramasByAdmin(String adminId);
+  Future<List<DramaModel>> getUserDramas();
   Future<void> toggleDramaFeatured(String dramaId, bool isFeatured);
   Future<void> toggleDramaActive(String dramaId, bool isActive);
   
@@ -45,7 +45,7 @@ abstract class DramaRepository {
   Future<String> uploadVideo(File videoFile, String episodeId, {Function(double)? onProgress});
 }
 
-// HTTP implementation with improved upload handling
+// HTTP implementation with improved upload handling and fixed endpoints
 class HttpDramaRepository implements DramaRepository {
   final HttpClientService _httpClient;
 
@@ -137,7 +137,7 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // UNIFIED DRAMA CREATION WITH EPISODES
+  // UNIFIED DRAMA CREATION WITH EPISODES - FIXED ENDPOINT
   // ===============================
 
   @override
@@ -159,7 +159,8 @@ class HttpDramaRepository implements DramaRepository {
       
       debugPrint('Creating drama with data: ${jsonEncode(dramaData)}');
       
-      final response = await _httpClient.post('/admin/dramas/create-with-episodes', body: dramaData);
+      // FIXED: Use verified user endpoint instead of admin endpoint
+      final response = await _httpClient.post('/dramas', body: dramaData);
 
       debugPrint('Response: ${response.statusCode} - ${response.body}');
 
@@ -178,7 +179,7 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // DRAMA UNLOCK (unchanged)
+  // DRAMA UNLOCK - FIXED ENDPOINT
   // ===============================
 
   @override
@@ -189,7 +190,8 @@ class HttpDramaRepository implements DramaRepository {
     required String dramaTitle,
   }) async {
     try {
-      final response = await _httpClient.post('/unlock-drama', body: {
+      // FIXED: Use correct unlock endpoint
+      final response = await _httpClient.post('/dramas/unlock', body: {
         'dramaId': dramaId,
       });
 
@@ -226,7 +228,7 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // ADMIN OPERATIONS (simplified)
+  // VERIFIED USER OPERATIONS - FIXED ENDPOINTS
   // ===============================
 
   @override
@@ -238,7 +240,9 @@ class HttpDramaRepository implements DramaRepository {
       }
 
       final dramaData = drama.copyWith(bannerImage: bannerUrl).toMap();
-      final response = await _httpClient.put('/admin/dramas/${drama.dramaId}', body: dramaData);
+      
+      // FIXED: Use verified user endpoint instead of admin endpoint
+      final response = await _httpClient.put('/dramas/${drama.dramaId}', body: dramaData);
 
       if (response.statusCode != 200) {
         throw DramaRepositoryException('Failed to update drama: ${response.body}');
@@ -251,7 +255,8 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<void> deleteDrama(String dramaId) async {
     try {
-      final response = await _httpClient.delete('/admin/dramas/$dramaId');
+      // FIXED: Use verified user endpoint instead of admin endpoint
+      final response = await _httpClient.delete('/dramas/$dramaId');
       if (response.statusCode != 200) {
         throw DramaRepositoryException('Failed to delete drama: ${response.body}');
       }
@@ -261,19 +266,21 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   @override
-  Future<List<DramaModel>> getDramasByAdmin(String adminId) async {
+  Future<List<DramaModel>> getUserDramas() async {
     try {
-      final response = await _httpClient.get('/admin/dramas');
+      // FIXED: Use verified user endpoint to get user's own dramas
+      final response = await _httpClient.get('/my/dramas');
       return _handleDramaListResponse(response);
     } catch (e) {
-      throw DramaRepositoryException('Failed to get admin dramas: $e');
+      throw DramaRepositoryException('Failed to get user dramas: $e');
     }
   }
 
   @override
   Future<void> toggleDramaFeatured(String dramaId, bool isFeatured) async {
     try {
-      final response = await _httpClient.post('/admin/dramas/$dramaId/featured', body: {
+      // FIXED: Use verified user endpoint instead of admin endpoint
+      final response = await _httpClient.post('/dramas/$dramaId/featured', body: {
         'isFeatured': isFeatured,
       });
       if (response.statusCode != 200) {
@@ -287,7 +294,8 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<void> toggleDramaActive(String dramaId, bool isActive) async {
     try {
-      final response = await _httpClient.post('/admin/dramas/$dramaId/active', body: {
+      // FIXED: Use verified user endpoint instead of admin endpoint
+      final response = await _httpClient.post('/dramas/$dramaId/active', body: {
         'isActive': isActive,
       });
       if (response.statusCode != 200) {
@@ -299,7 +307,7 @@ class HttpDramaRepository implements DramaRepository {
   }
 
   // ===============================
-  // USER INTERACTIONS (simplified)
+  // USER INTERACTIONS - FIXED ENDPOINTS
   // ===============================
 
   @override
@@ -314,7 +322,8 @@ class HttpDramaRepository implements DramaRepository {
   @override
   Future<void> incrementDramaFavorites(String dramaId, bool isAdding) async {
     try {
-      await _httpClient.post('/dramas/$dramaId/favorites', body: {
+      // FIXED: Use correct endpoint for drama favorites
+      await _httpClient.post('/dramas/$dramaId/favorite', body: {
         'isAdding': isAdding,
       });
     } catch (e) {

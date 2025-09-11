@@ -911,7 +911,7 @@ class _EditDramaScreenState extends ConsumerState<EditDramaScreen> {
       if (mounted) {
         // Refresh drama data
         ref.invalidate(dramaProvider(widget.dramaId));
-        ref.invalidate(adminDramasProvider);
+        ref.invalidate(userDramasProvider);
         
         showSnackBar(context, 'Drama updated successfully');
         Navigator.of(context).pop();

@@ -971,7 +971,7 @@ class _CreateDramaScreenState extends ConsumerState<CreateDramaScreen> {
 
       if (mounted) {
         // Refresh providers
-        ref.invalidate(adminDramasProvider);
+        ref.invalidate(userDramasProvider);
         ref.invalidate(allDramasProvider);
         if (_isFeatured) ref.invalidate(featuredDramasProvider);
         

@@ -278,7 +278,7 @@ Future<List<DramaModel>> continueWatchingDramas(ContinueWatchingDramasRef ref) a
 }
 
 @riverpod
-class AdminDramas extends _$AdminDramas {
+class UserDramas extends _$UserDramas {
   @override
   Future<List<DramaModel>> build() async {
     final authState = ref.watch(authenticationProvider);
@@ -287,7 +287,7 @@ class AdminDramas extends _$AdminDramas {
     if (user == null || !user.isVerified) return [];
 
     final repository = ref.read(dramaRepositoryProvider);
-    return await repository.getDramasByAdmin(user.uid);
+    return await repository.getUserDramas();
   }
 
   Future<void> refresh() async {
@@ -299,7 +299,7 @@ class AdminDramas extends _$AdminDramas {
       if (user == null || !user.isVerified) return <DramaModel>[];
 
       final repository = ref.read(dramaRepositoryProvider);
-      return await repository.getDramasByAdmin(user.uid);
+      return await repository.getUserDramas();
     });
   }
 }

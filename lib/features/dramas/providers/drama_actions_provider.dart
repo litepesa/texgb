@@ -332,7 +332,7 @@ class AdminDramaActions extends _$AdminDramaActions {
         successMessage: isFeatured ? 'Drama featured' : 'Drama unfeatured',
       );
 
-      ref.invalidate(adminDramasProvider);
+      ref.invalidate(userDramasProvider);
       ref.invalidate(featuredDramasProvider);
       
     } catch (e) {
@@ -361,7 +361,7 @@ class AdminDramaActions extends _$AdminDramaActions {
         successMessage: isActive ? 'Drama activated' : 'Drama deactivated',
       );
 
-      ref.invalidate(adminDramasProvider);
+      ref.invalidate(userDramasProvider);
       ref.invalidate(allDramasProvider);
       
     } catch (e) {
@@ -390,7 +390,7 @@ class AdminDramaActions extends _$AdminDramaActions {
         successMessage: 'Drama deleted successfully',
       );
 
-      ref.invalidate(adminDramasProvider);
+      ref.invalidate(userDramasProvider);
       ref.invalidate(allDramasProvider);
       ref.invalidate(featuredDramasProvider);
       ref.invalidate(trendingDramasProvider);

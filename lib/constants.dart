@@ -107,6 +107,7 @@ class Constants {
   static const String editDramaScreen = '/editDramaScreen';
   static const String addEpisodeScreen = '/addEpisodeScreen';
   static const String episodeFeedScreen = '/episode-feed';
+  static const String myDramaDetailsScreen = '/my-drama-details';
 
   // ===== DRAMA MODEL FIELD NAMES =====
   
@@ -125,6 +126,7 @@ class Constants {
   static const String createdBy = 'createdBy'; // Admin UID who created
   static const String createdAt = 'createdAt';
   static const String updatedAt = 'updatedAt';
+  static const String unlockCount = 'unlockCount';
 
   // File storage paths
   static const String userImages = 'userImages';

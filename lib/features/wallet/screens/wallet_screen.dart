@@ -2,10 +2,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/users/widgets/verification_widget.dart';
 import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 import 'package:textgb/features/wallet/widgets/coin_packages_widget.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
+//import 'package:textgb/features/authentication/providers/auth_providers.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+//import 'package:textgb/shared/widgets/creator_application_widget.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -21,46 +25,22 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
     final walletState = ref.watch(walletProvider);
+    final currentUser = ref.watch(currentUserProvider);
 
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
-      appBar: AppBar(
-        backgroundColor: modernTheme.surfaceColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: modernTheme.textColor,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await ref.read(walletProvider.notifier).refresh();
+          },
+          child: walletState.when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            error: (error, stackTrace) => _buildErrorState(error.toString(), modernTheme),
+            data: (state) => _buildWalletContent(state, modernTheme, currentUser),
           ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'My Wallet',
-          style: TextStyle(
-            color: modernTheme.textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          Icon(
-            CupertinoIcons.chart_bar,
-            color: modernTheme.primaryColor,
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await ref.read(walletProvider.notifier).refresh();
-        },
-        child: walletState.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(),
-          ),
-          error: (error, stackTrace) => _buildErrorState(error.toString(), modernTheme),
-          data: (state) => _buildWalletContent(state, modernTheme),
         ),
       ),
     );
@@ -111,7 +91,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildWalletContent(WalletState walletState, ModernThemeExtension modernTheme) {
+  Widget _buildWalletContent(WalletState walletState, ModernThemeExtension modernTheme, currentUser) {
     final wallet = walletState.wallet;
     final transactions = walletState.transactions;
 
@@ -152,7 +132,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     const Row(
                       children: [
                         Icon(
-                          Icons.stars,
+                          Icons.monetization_on,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -238,8 +218,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     const SizedBox(width: 4),
                     Text(
                       wallet?.hasBalance == true 
-                        ? 'Ready to send amazing gifts'
-                        : 'Buy coins to send gifts to friends',
+                        ? 'Ready to unlock episodes'
+                        : 'Buy coins to unlock premium episodes',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.7),
                         fontSize: 14,
@@ -253,14 +233,20 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
           const SizedBox(height: 24),
 
+          // Creator Application Tile (Eye-catching)
+          if (currentUser != null && !currentUser.isVerified) ...[
+            _buildCreatorApplicationBanner(modernTheme),
+            const SizedBox(height: 24),
+          ],
+
           // Quick Actions
           Row(
             children: [
               Expanded(
                 child: _buildQuickActionCard(
-                  icon: Icons.card_giftcard,
+                  icon: Icons.add_shopping_cart,
                   title: 'Buy Coins',
-                  subtitle: 'Get coins for gifts',
+                  subtitle: 'Get coins for episodes',
                   color: Colors.green,
                   onTap: () => CoinPackagesWidget.show(context),
                   modernTheme: modernTheme,
@@ -343,7 +329,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               child: Column(
                 children: [
                   Icon(
-                    Icons.card_giftcard_outlined,
+                    Icons.stars_outlined,
                     size: 48,
                     color: modernTheme.textSecondaryColor,
                   ),
@@ -358,7 +344,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Buy coins to start sending amazing gifts',
+                    'Buy coins to unlock premium episodes',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -411,8 +397,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '• Use coins to unlock premium episodes or sending virtual gifts\n'
-                  '• Some coin purchases are processed manually by admin. Updated within 10 minutes\n'
+                  '• Use coins to unlock premium episodes\n'
+                  '• Some coin purchases are processed manually by admin\n'
+                  '• Balance updates within 10 minutes after payment\n'
                   '• Choose from 3 coin packages: 99, 495, or 990 coins',
                   style: TextStyle(
                     fontSize: 14,
@@ -426,6 +413,268 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCreatorApplicationBanner(ModernThemeExtension modernTheme) {
+    return GestureDetector(
+      onTap: () => VerificationInfoWidget.show(context),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFFFE2C55),
+              const Color(0xFFFF6B35),
+              const Color(0xFFFFD23F),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFE2C55).withOpacity(0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+              spreadRadius: 0,
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.movie_creation,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'EARN MONEY',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'HOT',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Become a Creator',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          height: 1.1,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black26,
+                              offset: Offset(0, 2),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.monetization_on,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Earn 70% Revenue Share',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Create premium dramas and get paid for every unlock',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.upload, color: Colors.white, size: 14),
+                        SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            'Upload Content',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.admin_panel_settings, color: Colors.white, size: 14),
+                        SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            'Admin Access',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.trending_up, color: Colors.white, size: 14),
+                        SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            'Grow Revenue',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -497,9 +746,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         icon = Icons.add_shopping_cart;
         iconColor = Colors.green;
         break;
-      case 'gift_sent':
-        icon = Icons.card_giftcard;
-        iconColor = Colors.pink;
+      case 'episode_unlock':
+        icon = Icons.play_circle_outline;
+        iconColor = Colors.blue;
         break;
       case 'admin_credit':
         icon = Icons.admin_panel_settings;
@@ -645,7 +894,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.card_giftcard_outlined,
+                            Icons.stars_outlined,
                             size: 64,
                             color: modernTheme.textSecondaryColor,
                           ),
@@ -693,6 +942,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       ),
     );
   }
+
+
 
   String _formatTransactionDate(String timestamp) {
     try {

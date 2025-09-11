@@ -1,4 +1,4 @@
-// lib/models/drama_model.dart - SIMPLIFIED UNIFIED MODEL
+// lib/models/drama_model.dart - UPDATED WITH UNLOCK COUNT AND REVENUE TRACKING
 import 'package:textgb/constants.dart';
 
 class DramaModel {
@@ -11,6 +11,7 @@ class DramaModel {
   final int freeEpisodesCount;        // How many episodes are free (for premium dramas)
   final int viewCount;
   final int favoriteCount;
+  final int unlockCount;              // NEW: Track how many times drama was unlocked
   final bool isFeatured;
   final bool isActive;
   
@@ -29,6 +30,7 @@ class DramaModel {
     this.freeEpisodesCount = 0,
     this.viewCount = 0,
     this.favoriteCount = 0,
+    this.unlockCount = 0,              // NEW: Default to 0
     this.isFeatured = false,
     this.isActive = true,
     required this.createdBy,
@@ -62,6 +64,9 @@ class DramaModel {
       createdBy: createdBy,
       createdAt: now,
       updatedAt: now,
+      viewCount: 0,
+      favoriteCount: 0,
+      unlockCount: 0,               // NEW: Initialize to 0
     );
   }
 
@@ -85,6 +90,7 @@ class DramaModel {
       freeEpisodesCount: map[Constants.freeEpisodesCount]?.toInt() ?? 0,
       viewCount: map[Constants.viewCount]?.toInt() ?? 0,
       favoriteCount: map[Constants.favoriteCount]?.toInt() ?? 0,
+      unlockCount: map[Constants.unlockCount]?.toInt() ?? 0,  // NEW: Parse unlock count
       isFeatured: map[Constants.isFeatured] ?? false,
       isActive: map[Constants.isActive] ?? true,
       createdBy: map[Constants.createdBy]?.toString() ?? '',
@@ -103,6 +109,7 @@ class DramaModel {
       Constants.freeEpisodesCount: freeEpisodesCount,
       Constants.viewCount: viewCount,
       Constants.favoriteCount: favoriteCount,
+      Constants.unlockCount: unlockCount,        // NEW: Include in serialization
       Constants.isFeatured: isFeatured,
       Constants.isActive: isActive,
       Constants.createdBy: createdBy,
@@ -130,6 +137,7 @@ class DramaModel {
     int? freeEpisodesCount,
     int? viewCount,
     int? favoriteCount,
+    int? unlockCount,               // NEW: Include in copyWith
     bool? isFeatured,
     bool? isActive,
     String? createdBy,
@@ -146,6 +154,7 @@ class DramaModel {
       freeEpisodesCount: freeEpisodesCount ?? this.freeEpisodesCount,
       viewCount: viewCount ?? this.viewCount,
       favoriteCount: favoriteCount ?? this.favoriteCount,
+      unlockCount: unlockCount ?? this.unlockCount,  // NEW: Include in copyWith
       isFeatured: isFeatured ?? this.isFeatured,
       isActive: isActive ?? this.isActive,
       createdBy: createdBy ?? this.createdBy,
@@ -158,6 +167,36 @@ class DramaModel {
   int get totalEpisodes => episodeVideos.length;
   bool get hasEpisodes => episodeVideos.isNotEmpty;
   bool get isFree => !isPremium;
+  
+  // NEW: Revenue calculation methods
+  int get totalRevenue => isPremium ? unlockCount * Constants.dramaUnlockCost : 0;
+  
+  // NEW: Conversion rate calculation (views to unlocks)
+  double get conversionRate {
+    if (viewCount == 0) return 0.0;
+    return (unlockCount / viewCount) * 100.0;
+  }
+  
+  // NEW: Performance indicators
+  bool get isProfitable => isPremium && unlockCount > 0;
+  bool get isPopular => viewCount > 1000;
+  bool get isHighConverting => conversionRate > 5.0; // 5% conversion rate threshold
+  
+  // NEW: Performance level based on metrics
+  String get performanceLevel {
+    if (!isPremium) return 'Free Content';
+    if (unlockCount == 0) return 'No Sales';
+    if (conversionRate > 10) return 'Excellent';
+    if (conversionRate > 5) return 'Good';
+    if (conversionRate > 2) return 'Average';
+    return 'Needs Improvement';
+  }
+  
+  // NEW: Revenue per view (for premium content)
+  double get revenuePerView {
+    if (viewCount == 0) return 0.0;
+    return totalRevenue / viewCount;
+  }
   
   // Get video URL for specific episode (1-indexed)
   String? getEpisodeVideo(int episodeNumber) {
@@ -202,7 +241,7 @@ class DramaModel {
     return errors;
   }
 
-  // Get premium info for display
+  // Get premium info for display (updated with revenue info for admin)
   String get premiumInfo {
     if (!isPremium) return 'Free Drama - All episodes included';
     if (freeEpisodesCount == 0) return 'Premium Drama - Unlock required for all episodes';
@@ -210,13 +249,52 @@ class DramaModel {
     return 'First $freeEpisodesCount episodes free, unlock for remaining ${totalEpisodes - freeEpisodesCount}';
   }
 
+  // NEW: Get detailed performance stats for admin
+  Map<String, dynamic> get performanceStats {
+    return {
+      'totalViews': viewCount,
+      'totalFavorites': favoriteCount,
+      'totalUnlocks': unlockCount,
+      'totalRevenue': totalRevenue,
+      'conversionRate': conversionRate,
+      'revenuePerView': revenuePerView,
+      'performanceLevel': performanceLevel,
+      'isProfitable': isProfitable,
+      'isPopular': isPopular,
+      'isHighConverting': isHighConverting,
+    };
+  }
+
+  // NEW: Get engagement metrics
+  Map<String, dynamic> get engagementMetrics {
+    return {
+      'viewToFavoriteRate': viewCount > 0 ? (favoriteCount / viewCount) * 100 : 0.0,
+      'favoriteToUnlockRate': favoriteCount > 0 ? (unlockCount / favoriteCount) * 100 : 0.0,
+      'totalEngagementScore': _calculateEngagementScore(),
+    };
+  }
+
+  double _calculateEngagementScore() {
+    if (viewCount == 0) return 0.0;
+    
+    // Weighted score based on different engagement metrics
+    final viewScore = viewCount * 1.0;
+    final favoriteScore = favoriteCount * 5.0; // Favorites are worth more
+    final unlockScore = unlockCount * 20.0; // Unlocks are worth the most
+    
+    final totalScore = viewScore + favoriteScore + unlockScore;
+    final maxPossibleScore = viewCount * 26.0; // If everyone favorited and unlocked
+    
+    return maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0.0;
+  }
+
   @override
   String toString() {
-    return 'DramaModel(dramaId: $dramaId, title: $title, episodes: ${episodeVideos.length})';
+    return 'DramaModel(dramaId: $dramaId, title: $title, episodes: ${episodeVideos.length}, unlocks: $unlockCount, revenue: $totalRevenue)';
   }
 }
 
-// SIMPLIFIED EPISODE CLASS (for UI convenience only)
+// SIMPLIFIED EPISODE CLASS (for UI convenience only) - unchanged
 class Episode {
   final int number;
   final String videoUrl;
