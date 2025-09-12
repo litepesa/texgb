@@ -8,21 +8,10 @@ import 'package:textgb/features/authentication/screens/login_screen.dart';
 import 'package:textgb/features/authentication/screens/otp_screen.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/screens/profile_setup_screen.dart';
-import 'package:textgb/features/dramas/screens/episode_feed_screen.dart';
-import 'package:textgb/features/dramas/screens/my_drama_details_screen.dart';
 import 'package:textgb/features/users/screens/edit_profile_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/users/models/user_model.dart';
-
-// Drama screens
-import 'package:textgb/features/dramas/screens/discover_screen.dart';
-import 'package:textgb/features/dramas/screens/drama_details_screen.dart';
-import 'package:textgb/features/dramas/screens/admin_dashboard_screen.dart';
-import 'package:textgb/features/dramas/screens/create_drama_screen.dart';
-import 'package:textgb/features/dramas/screens/manage_dramas_screen.dart';
-import 'package:textgb/features/dramas/screens/edit_drama_screen.dart';
-
 import 'package:textgb/features/users/screens/user_profile_screen.dart';
 import 'package:textgb/features/videos/screens/single_video_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
@@ -156,15 +145,6 @@ class AppRoot extends ConsumerWidget {
           
           // Main app routes
           Constants.homeScreen: (context) => const HomeScreen(),
-
-          // Drama routes
-          Constants.favoritesScreen: (context) => const DiscoverScreen(), // You can create a specific favorites screen later
-          Constants.continueWatchingScreen: (context) => const DiscoverScreen(), // You can create a specific continue watching screen later
-          
-          // Admin routes (hidden for normal users, shown only when userType == admin)
-          Constants.adminDashboardScreen: (context) => const AdminDashboardScreen(),
-          Constants.createDramaScreen: (context) => const CreateDramaScreen(),
-          Constants.manageDramasScreen: (context) => const ManageDramasScreen(),
           
           // User/Profile routes with enhanced navigation support
           Constants.createProfileScreen: (context) => const ProfileSetupScreen(),
@@ -252,56 +232,6 @@ class AppRoot extends ConsumerWidget {
         onGenerateRoute: (settings) {
           // Handle dynamic routes that need custom logic
           switch (settings.name) {
-
-            case Constants.dramaDetailsScreen:
-              final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null && args.containsKey('dramaId')) {
-                return MaterialPageRoute(
-                  builder: (context) => DramaDetailsScreen(
-                    dramaId: args['dramaId'] as String,
-                  ),
-                  settings: settings,
-                );
-              }
-              break;
-
-             case Constants.myDramaDetailsScreen:
-              final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null && args.containsKey('dramaId')) {
-                return MaterialPageRoute(
-                  builder: (context) => MyDramaDetailsScreen(
-                    dramaId: args['dramaId'] as String,
-                  ),
-                  settings: settings,
-                );
-              }
-              break; 
-
-            case Constants.episodeFeedScreen:
-            final args = settings.arguments as Map<String, dynamic>?;
-            if (args != null && args.containsKey('dramaId')) {
-                 return MaterialPageRoute(
-                   builder: (context) => EpisodeFeedScreen(
-                      dramaId: args['dramaId'] as String,
-                initialEpisodeId: args['initialEpisodeId'] as String?,
-               ),
-                settings: settings,
-             );
-            }
-            break;  
-              
-            case Constants.editDramaScreen:
-              final args = settings.arguments as Map<String, dynamic>?;
-              if (args != null && args.containsKey('dramaId')) {
-                return MaterialPageRoute(
-                  builder: (context) => EditDramaScreen(
-                    dramaId: args['dramaId'] as String,
-                  ),
-                  settings: settings,
-                );
-              }
-              break;
-              
             case '/user-profile':
               // Handle user profile route
               final userId = settings.arguments as String?;

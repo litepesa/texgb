@@ -1,10 +1,8 @@
-// lib/features/videos/widgets/video_item.dart - UNIVERSAL CROSS-DEVICE VERSION
+// lib/features/videos/widgets/video_item.dart - NETWORK ONLY VERSION
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
-import 'package:textgb/features/videos/services/video_cache_service.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,8 +55,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
   late AnimationController _heartScaleController;
   late Animation<double> _heartScaleAnimation;
   bool _showLikeAnimation = false;
-  
-  final VideoCacheService _cacheService = VideoCacheService();
 
   @override
   bool get wantKeepAlive => widget.isActive;
@@ -156,7 +152,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // SIMPLIFIED: Only get user data when it's actually available
+  // 🔧 SIMPLIFIED: Only get user data when it's actually available
   UserModel? _getUserDataIfAvailable() {
     final users = ref.read(usersProvider);
     final isUsersLoading = ref.read(isAuthLoadingProvider);
@@ -221,10 +217,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
       return;
     }
     
-    await _initializeVideoWithCache();
+    await _initializeVideoFromNetwork();
   }
 
-  Future<void> _initializeVideoWithCache() async {
+  Future<void> _initializeVideoFromNetwork() async {
     if (_isInitializing) return;
     
     try {
@@ -232,33 +228,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
         _isInitializing = true;
       });
 
-      debugPrint('Initializing video with cache: ${widget.video.videoUrl}');
+      debugPrint('Initializing video from network: ${widget.video.videoUrl}');
 
       // Use preloaded controller if available
       if (widget.preloadedController != null) {
         await _usePreloadedController();
       } else {
-        // Try to get cached video first
-        File? cachedFile;
-        try {
-          if (await _cacheService.isVideoCached(widget.video.videoUrl)) {
-            cachedFile = await _cacheService.getCachedVideo(widget.video.videoUrl);
-            debugPrint('Using cached video: ${cachedFile.path}');
-          } else {
-            debugPrint('Video not cached, downloading: ${widget.video.videoUrl}');
-            cachedFile = await _cacheService.preloadVideo(widget.video.videoUrl);
-          }
-        } catch (e) {
-          debugPrint('Cache error, falling back to network: $e');
-        }
-
-        // Initialize video player with cached file or network URL
-        if (cachedFile != null && await cachedFile.exists()) {
-          await _createControllerFromFile(cachedFile);
-        } else {
-          debugPrint('Fallback to network video');
-          await _createControllerFromNetwork();
-        }
+        // Always use network URL directly
+        await _createControllerFromNetwork();
       }
       
       if (_videoPlayerController != null && mounted) {
@@ -283,21 +260,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  Future<void> _createControllerFromFile(File videoFile) async {
-    _videoPlayerController = VideoPlayerController.file(
-      videoFile,
-      videoPlayerOptions: VideoPlayerOptions(
-        allowBackgroundPlayback: false,
-        mixWithOthers: false,
-      ),
-    );
-    
-    // Universal timeout that works for all devices
-    await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 12),
-    );
-  }
-
   Future<void> _createControllerFromNetwork() async {
     _videoPlayerController = VideoPlayerController.networkUrl(
       Uri.parse(widget.video.videoUrl),
@@ -305,16 +267,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
         allowBackgroundPlayback: false,
         mixWithOthers: false,
       ),
-      // Universal headers that improve compatibility
-      httpHeaders: {
-        'User-Agent': 'Flutter VideoPlayer',
-        'Connection': 'keep-alive',
-      },
     );
     
-    // Universal timeout that works for all devices
     await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 12),
+      const Duration(seconds: 15), // Increased timeout for network videos
     );
   }
 
@@ -472,7 +428,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Media content with universal cross-device rendering
+                // Media content with proper full-screen coverage
                 _buildMediaContent(),
                 
                 // Loading indicator
@@ -633,7 +589,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
       color: Colors.black,
       child: Image.network(
         imageUrl,
-        fit: BoxFit.cover,
+        fit: BoxFit.cover, // Changed to cover for full screen like video feed
         width: double.infinity,
         height: double.infinity,
         loadingBuilder: (context, child, loadingProgress) {
@@ -659,34 +615,20 @@ class _VideoItemState extends ConsumerState<VideoItem>
       );
     }
     
-    return _buildUniversalVideo();
+    return _buildFullScreenVideo();
   }
 
-  // UNIVERSAL CROSS-DEVICE VIDEO RENDERING - FULL SCREEN
-  Widget _buildUniversalVideo() {
+  // Full screen video like video feed screen - using cover fit
+  Widget _buildFullScreenVideo() {
     final controller = _videoPlayerController!;
-    final videoSize = controller.value.size;
-    final screenSize = MediaQuery.of(context).size;
     
-    // Calculate if we need to scale to fill screen
-    final videoAspectRatio = videoSize.width / videoSize.height;
-    final screenAspectRatio = screenSize.width / screenSize.height;
-    
-    // Universal full-screen approach that works on all devices
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Colors.black,
-      child: OverflowBox(
-        alignment: Alignment.center,
-        child: FittedBox(
-          fit: BoxFit.cover,
-          clipBehavior: Clip.hardEdge, // Key: Use hardEdge instead of antiAlias
-          child: SizedBox(
-            width: videoSize.width,
-            height: videoSize.height,
-            child: VideoPlayer(controller),
-          ),
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover, // Changed to cover for full screen like video feed
+        child: SizedBox(
+          width: controller.value.size.width,
+          height: controller.value.size.height,
+          child: VideoPlayer(controller),
         ),
       ),
     );
@@ -937,7 +879,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // SIMPLIFIED: User name with verification - only show when data is ready
+  // 🔧 SIMPLIFIED: User name with verification - only show when data is ready
   Widget _buildUserNameWithVerification() {
     return Consumer(
       builder: (context, ref, child) {
@@ -1004,7 +946,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
                       const Icon(
                         Icons.verified_rounded,
                         size: 12,
-                        color: Colors.white,
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -1068,10 +1009,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Helper method to format timestamp as relative time with better formatting
+  // Helper method to format timestamp as relative time with better formatting - UPDATED
   String _getRelativeTime() {
     final now = DateTime.now();
-    final videoTime = _parseVideoTimestamp();
+    final videoTime = _parseVideoTimestamp(); // Use helper method to parse RFC3339
     final difference = now.difference(videoTime);
 
     if (difference.inSeconds < 30) {
@@ -1099,7 +1040,46 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // Method to build timestamp display
+  // Helper method to format timestamp as absolute date/time - UPDATED
+  String _getFormattedDateTime() {
+    final videoTime = _parseVideoTimestamp(); // Use helper method to parse RFC3339
+    final now = DateTime.now();
+    final difference = now.difference(videoTime);
+
+    if (difference.inDays == 0) {
+      // Today - show just time
+      return 'Today ${_formatTime(videoTime)}';
+    } else if (difference.inDays == 1) {
+      // Yesterday
+      return 'Yesterday ${_formatTime(videoTime)}';
+    } else if (difference.inDays < 7) {
+      // This week - show day and time
+      return '${_formatDayOfWeek(videoTime)} ${_formatTime(videoTime)}';
+    } else {
+      // Older - show date and time
+      return '${_formatDate(videoTime)} ${_formatTime(videoTime)}';
+    }
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour == 0 ? 12 : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  String _formatDayOfWeek(DateTime dateTime) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[dateTime.weekday % 7];
+  }
+
+  String _formatDate(DateTime dateTime) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[dateTime.month - 1]} ${dateTime.day}';
+  }
+
+  // Method to build timestamp display (kept for other screens)
   Widget _buildTimestampDisplay() {
     final timestampStyle = TextStyle(
       color: Colors.white.withOpacity(0.7),
@@ -1155,7 +1135,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // SIMPLIFIED: Follow button - only show when user data is ready
+  // 🔧 SIMPLIFIED: Follow button - only show when user data is ready
   Widget _buildTopLeftFollowButton() {
     final videoUser = _getUserDataIfAvailable();
     final currentUser = ref.watch(currentUserProvider);

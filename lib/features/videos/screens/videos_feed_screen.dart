@@ -10,7 +10,6 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
-import 'package:textgb/features/videos/services/video_cache_service.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -46,9 +45,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // Core controllers
   final PageController _pageController = PageController();
   
-  // Cache service
-  final VideoCacheService _cacheService = VideoCacheService();
-  
   // State management
   bool _isFirstLoad = true;
   int _currentVideoIndex = 0;
@@ -64,9 +60,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   final Map<String, double> _downloadProgress = {}; // Track download progress for each video
   
   VideoPlayerController? _currentVideoController;
-  Timer? _cacheCleanupTimer;
-  
-  static const Duration _cacheCleanupInterval = Duration(minutes: 10);
 
   @override
   bool get wantKeepAlive => true;
@@ -80,7 +73,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVideos();
     });
-    _setupCacheCleanup();
     _hasInitialized = true;
   }
 
@@ -125,7 +117,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     
     if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startFreshPlayback();
-      _startIntelligentPreloading();
       WakelockPlus.enable();
     }
   }
@@ -182,8 +173,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       }
     }
     
-    _startIntelligentPreloading();
-    
     WakelockPlus.enable();
   }
 
@@ -231,12 +220,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     ));
   }
 
-  void _setupCacheCleanup() {
-    _cacheCleanupTimer = Timer.periodic(_cacheCleanupInterval, (timer) {
-      _cacheService.cleanupOldCache();
-    });
-  }
-
   // Load videos from the new authentication provider
   Future<void> _loadVideos() async {
     if (_isFirstLoad) {
@@ -254,14 +237,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         // If a specific video ID was provided, jump to it
         if (widget.startVideoId != null) {
           _jumpToVideo(widget.startVideoId!);
-        }
-        
-        if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isCommentsSheetOpen) {
-          Timer(const Duration(milliseconds: 500), () {
-            if (mounted && _isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isCommentsSheetOpen) {
-              _startIntelligentPreloading();
-            }
-          });
         }
       }
     }
@@ -293,23 +268,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  void _startIntelligentPreloading() {
-    if (!_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
-    
-    final videos = ref.read(videosProvider);
-    if (videos.isEmpty) return;
-    
-    debugPrint('Starting intelligent preloading for index: $_currentVideoIndex');
-    _cacheService.preloadVideosIntelligently(videos, _currentVideoIndex);
-  }
-
-  void _preloadNextBatch() {
-    final videos = ref.read(videosProvider);
-    if (videos.isEmpty) return;
-    
-    _cacheService.preloadNextBatch(videos, _currentVideoIndex);
-  }
-
   void _onVideoControllerReady(VideoPlayerController controller) {
     if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
     
@@ -323,10 +281,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     controller.seekTo(Duration.zero);
     
     WakelockPlus.enable();
-    
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
-      _startIntelligentPreloading();
-    }
   }
 
   // Separate method for starting fresh video (seeks to beginning)
@@ -364,7 +318,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     });
 
     if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
-      _startIntelligentPreloading();
       WakelockPlus.enable();
     }
     
@@ -694,12 +647,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     
     WidgetsBinding.instance.removeObserver(this);
     
-    _cacheCleanupTimer?.cancel();
-    
     _pageController.dispose();
     
     _stopPlayback();
-    _cacheService.dispose();
     
     WakelockPlus.disable();
     
@@ -787,14 +737,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
               // TikTok-style right side menu
               if (!_isCommentsSheetOpen) // Hide right menu when comments are open
                 _buildRightSideMenu(),
-            
-              // Cache performance indicator (debug mode only)
-              if (kDebugMode && !_isCommentsSheetOpen)
-                Positioned(
-                  top: systemTopPadding + 120,
-                  left: 16,
-                  child: _buildCacheDebugInfo(),
-                ),
             ],
           ),
         ),
@@ -1177,43 +1119,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildCacheDebugInfo() {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _cacheService.getCacheStats(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-        
-        final stats = snapshot.data!;
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.7),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Cache: ${stats['fileCount']} files (${stats['totalSizeMB']}MB)',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                ),
-              ),
-              Text(
-                'Queue: ${stats['queueLength']} | Loading: ${stats['preloadingCount']}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
