@@ -746,11 +746,10 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     final currentVideo = _videos.isNotEmpty && _currentVideoIndex < _videos.length 
         ? _videos[_currentVideoIndex] 
         : null;
-    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom: systemBottomPadding + 8, // Respect system nav bar for bottom menu item
+      bottom: 8, // Removed systemBottomPadding for full screen
       child: Column(
         children: [
           // Like button
