@@ -14,7 +14,6 @@ import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/constants.dart';
-//import 'package:textgb/features/videos/widgets/video_reaction_widget.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:share_plus/share_plus.dart';
@@ -632,6 +631,77 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     );
   }
 
+  // Follow button positioned at top left (same level as back button)
+  Widget _buildTopLeftFollowButton() {
+    final systemTopPadding = MediaQuery.of(context).padding.top;
+    
+    return Positioned(
+      top: systemTopPadding + 16,
+      left: 8,
+      child: Consumer(
+        builder: (context, ref, child) {
+          final currentUser = ref.watch(currentUserProvider);
+          final followedUsers = ref.watch(followedUsersProvider);
+          
+          // Don't show follow button if no video author or user owns this video
+          if (_videoAuthor == null || (currentUser != null && currentUser.uid == _videoAuthor!.uid)) {
+            return const SizedBox.shrink();
+          }
+          
+          final isFollowing = followedUsers.contains(_videoAuthor!.uid);
+          
+          return AnimatedScale(
+            scale: isFollowing ? 0.0 : 1.0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: AnimatedOpacity(
+              opacity: isFollowing ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 300),
+              child: GestureDetector(
+                onTap: _handleFollowToggle,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    border: Border.all(color: Colors.white, width: 1),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: const Text(
+                    'Follow',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _handleFollowToggle() async {
+    if (_videoAuthor == null) return;
+    
+    // Check if user is authenticated before allowing follow
+    final canInteract = await _checkUserAuthentication('follow users');
+    if (!canInteract) return;
+    
+    // Follow the user using the authentication provider
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    authNotifier.followUser(_videoAuthor!.uid);
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -684,7 +754,7 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         body: _buildErrorState(),
       );
     }
-    
+
     return WillPopScope(
       onWillPop: () async {
         _handleBackNavigation();
@@ -700,18 +770,24 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             Positioned.fill(
               child: _buildVideoFeed(),
             ),
-              
-              // Small video window when comments are open
-              if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-              
-              // Custom back button - positioned to match follow button alignment
-              if (!_isCommentsSheetOpen) _buildTopRightBackButton(),
-              
-              // TikTok-style right side menu - matching original design (hide when comments open)
-              if (!_isCommentsSheetOpen) _buildRightSideMenu(),
-            ],
-          ),
+            
+            // Small video window when comments are open
+            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+            
+            // Follow button - positioned at top left
+            if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
+            
+            // Custom back button - positioned to match follow button alignment
+            if (!_isCommentsSheetOpen) _buildTopRightBackButton(),
+            
+            // Bottom content overlay - positioned above system nav bar
+            if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
+            
+            // TikTok-style right side menu - matching original design (hide when comments open)
+            if (!_isCommentsSheetOpen) _buildRightSideMenu(),
+          ],
         ),
+      ),
     );
   }
 
@@ -741,15 +817,275 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     );
   }
 
+  // Bottom content overlay positioned above system navigation bar
+  Widget _buildBottomContentOverlay() {
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    return Positioned(
+      left: 8,
+      right: 60, // Leave space for right side menu
+      bottom: systemBottomPadding, // Position above system nav bar
+      child: Consumer(
+        builder: (context, ref, child) {
+          if (_videos.isEmpty || _currentVideoIndex >= _videos.length) {
+            return const SizedBox.shrink();
+          }
+          
+          final currentVideo = _videos[_currentVideoIndex];
+          
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // User name with verified badge immediately after name
+              _buildUserNameWithVerification(currentVideo),
+              
+              const SizedBox(height: 3),
+              
+              // Smart caption with hashtags (combined)
+              _buildSmartCaption(currentVideo),
+              
+              const SizedBox(height: 4),
+              
+              // Always show timestamp at the bottom for consistency
+              _buildTimestampDisplay(currentVideo),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // User name with verification - only show when data is ready
+  Widget _buildUserNameWithVerification(VideoModel video) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final users = ref.watch(usersProvider);
+        
+        try {
+          final videoUser = users.firstWhere(
+            (user) => user.uid == video.userId,
+          );
+          
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // User name
+              Flexible(
+                child: Text(
+                  videoUser.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              
+              const SizedBox(width: 6),
+              
+              // Verification status - now we know user data is available
+              if (videoUser.isVerified)
+                // CUSTOM STYLING FOR VERIFIED USERS
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF1DA1F2), // Twitter blue
+                        Color(0xFF0D8BD9), // Darker blue
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1DA1F2).withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.verified_rounded,
+                        size: 12,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Verified',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                // STYLING FOR NON-VERIFIED USERS
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.help_outline,
+                        size: 12,
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Not Verified',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.7),
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.7),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        } catch (e) {
+          return const SizedBox.shrink();
+        }
+      },
+    );
+  }
+
+  // Smart caption widget that shows truncated or full text with hashtags
+  Widget _buildSmartCaption(VideoModel video) {
+    if (video.caption.isEmpty) return const SizedBox.shrink();
+
+    final captionStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 14,
+      height: 1.3,
+      shadows: [
+        Shadow(
+          color: Colors.black.withOpacity(0.7),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    );
+
+    // Combine caption with hashtags on new line
+    String fullText = video.caption;
+    if (video.tags.isNotEmpty) {
+      final hashtags = video.tags.map((tag) => '#$tag').join(' ');
+      fullText += '\n$hashtags';
+    }
+
+    return Text(
+      fullText,
+      style: captionStyle,
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildTimestampDisplay(VideoModel video) {
+    final timestampStyle = TextStyle(
+      color: Colors.white.withOpacity(0.7),
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      height: 1.3,
+      shadows: [
+        Shadow(
+          color: Colors.black.withOpacity(0.7),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    );
+
+    return Text(
+      _getRelativeTime(video),
+      style: timestampStyle,
+    );
+  }
+
+  String _getRelativeTime(VideoModel video) {
+    final now = DateTime.now();
+    DateTime videoTime;
+    
+    try {
+      videoTime = DateTime.parse(video.createdAt);
+    } catch (e) {
+      return 'Just now'; // Fallback if parsing fails
+    }
+    
+    final difference = now.difference(videoTime);
+
+    if (difference.inSeconds < 30) {
+      return 'Just now';
+    } else if (difference.inSeconds < 60) {
+      return 'Less than a minute ago';
+    } else if (difference.inMinutes < 60) {
+      final minutes = difference.inMinutes;
+      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
+    } else if (difference.inHours < 24) {
+      final hours = difference.inHours;
+      return hours == 1 ? '1 hour ago' : '$hours hours ago';
+    } else if (difference.inDays < 7) {
+      final days = difference.inDays;
+      return days == 1 ? 'Yesterday' : '$days days ago';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return months == 1 ? '1 month ago' : '$months months ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return years == 1 ? '1 year ago' : '$years years ago';
+    }
+  }
+
   // TikTok-style right side menu (matching original design exactly) with authentication requirements
   Widget _buildRightSideMenu() {
+    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
     final currentVideo = _videos.isNotEmpty && _currentVideoIndex < _videos.length 
         ? _videos[_currentVideoIndex] 
         : null;
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom: 8, // Removed systemBottomPadding for full screen
+      bottom: systemBottomPadding, // Position above system nav bar
       child: Column(
         children: [
           // Like button
@@ -829,34 +1165,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           ),
           
           const SizedBox(height: 10),
-
-          // DM button - Using VideoReactionWidget (moved after Share)
-          /*VideoReactionWidget(
-            video: currentVideo,
-            onPause: _pauseForNavigation,
-            onResume: _resumeFromNavigation,
-            label: 'Inbox',
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Center(
-                child: Text(
-                  'DM',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 10),*/
           
           // Gift button - with exciting emoji
           _buildRightMenuItem(
