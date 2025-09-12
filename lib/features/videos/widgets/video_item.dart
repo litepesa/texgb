@@ -620,22 +620,19 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
   // Full screen video like video feed screen - using cover fit
   Widget _buildFullScreenVideo() {
-  final controller = _videoPlayerController!;
-  final screenWidth = MediaQuery.of(context).size.width;
-  
-  return Container(
-    width: double.infinity,
-    height: double.infinity,
-    color: Colors.black,
-    child: Center(
-      child: SizedBox(
-        width: screenWidth, // Always fill screen width (no side bars)
-        height: screenWidth / controller.value.aspectRatio, // Maintain aspect ratio
-        child: VideoPlayer(controller), // Direct video player, no wrapper scaling
+    final controller = _videoPlayerController!;
+    
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover, // Changed to cover for full screen like video feed
+        child: SizedBox(
+          width: controller.value.size.width,
+          height: controller.value.size.height,
+          child: VideoPlayer(controller),
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildLoadingIndicator() {
     return Container(
