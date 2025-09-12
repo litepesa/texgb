@@ -164,7 +164,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   }
 
   void _showGoLiveMessage() {
-    _showMessage('Not available for you');
+    _showMessage('Unavailable');
   }
 
   Future<void> _processAndSetVideo(File videoFile) async {
@@ -276,7 +276,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     return filters.join(',');
   }
 
-  // Modified video processing - audio only for videos under 20MB
+  // Pure audio normalization/boosting without frequency manipulation
+  String _buildEnhancedAudioFilters() {
+    return 'loudnorm=I=-6:TP=-0.5:LRA=11:linear=true';
+  }
+
+  // Modified video processing - enhanced audio for all videos
   Future<File?> _optimizeVideoQualitySize(File inputFile, VideoInfo info) async {
     try {
       final tempDir = Directory.systemTemp;
@@ -293,14 +298,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       
       // Check if video is under 20MB - only process audio
       if (info.fileSizeMB < 20.0) {
-        // Audio-only processing for videos under 20MB
+        // Audio-only processing for videos under 20MB with enhanced audio chain
         command = '-y -i "${inputFile.path}" ';
         command += '-c:v copy '; // Copy video stream without re-encoding
-        command += '-c:a aac ';
-        command += '-b:a 128k ';
-        command += '-ar 48000 ';
-        command += '-ac 2 ';
-        command += '-af "volume=2.2,equalizer=f=60:width_type=h:width=2:g=3,equalizer=f=150:width_type=h:width=2:g=2,equalizer=f=8000:width_type=h:width=2:g=1,compand=attacks=0.2:decays=0.4:points=-80/-80|-50/-20|-30/-15|-20/-10|-5/-5|0/-2|20/-2,highpass=f=40,lowpass=f=15000,loudnorm=I=-10:TP=-1.5:LRA=7:linear=true" ';
+        command += '-af "${_buildEnhancedAudioFilters()}" ';
         command += '-movflags +faststart ';
         command += '-f mp4 "$outputPath"';
       } else {
@@ -325,12 +326,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           command += '-vf "$videoFilters" ';
         }
         
-        // Audio processing - premium loud audio enhancement
-        command += '-c:a aac ';
-        command += '-b:a 128k ';
-        command += '-ar 48000 ';
-        command += '-ac 2 ';
-        command += '-af "volume=2.2,equalizer=f=60:width_type=h:width=2:g=3,equalizer=f=150:width_type=h:width=2:g=2,equalizer=f=8000:width_type=h:width=2:g=1,compand=attacks=0.2:decays=0.4:points=-80/-80|-50/-20|-30/-15|-20/-10|-5/-5|0/-2|20/-2,highpass=f=40,lowpass=f=15000,loudnorm=I=-10:TP=-1.5:LRA=7:linear=true" ';
+        // Enhanced audio processing with fuller sound
+        command += '-af "${_buildEnhancedAudioFilters()}" ';
         
         // Output optimization
         command += '-movflags +faststart ';
@@ -908,8 +905,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                               Expanded(
                                 child: Text(
                                   _videoInfo != null && _videoInfo!.fileSizeMB < 20.0 
-                                      ? 'Processing...'
-                                      : 'Processing...',
+                                      ? 'Processing audio...'
+                                      : 'Processing video & audio...',
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -1063,8 +1060,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ),
                   child: _isProcessing
                       ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 20.0 
-                          ? 'Processing...' 
-                          : 'Processing...')
+                          ? 'Processing Audio...' 
+                          : 'Processing Video & Audio...')
                       : (isUploading
                           ? const Text('Uploading...')
                           : const Text('Post Video')),
@@ -1116,7 +1113,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: (!_isProcessing && !_isUploading) ? _pickVideoFromGallery : null,
-              label: const Text('Select from Gallery'),
+              label: const Text('Select Video'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
@@ -1125,16 +1122,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            /*ElevatedButton.icon(
+            ElevatedButton.icon(
               onPressed: (!_isProcessing && !_isUploading) ? _showGoLiveMessage : null,
-              label: const Text('Go Live'),
+              label: const Text('Photos'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 disabledBackgroundColor: modernTheme.primaryColor!.withOpacity(0.5),
               ),
-            ),*/
+            ),
           ],
         ),
       ),
