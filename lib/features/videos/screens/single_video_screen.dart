@@ -103,11 +103,11 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
   }
 
   void _setupSystemUI() {
-    // Set both status bar and navigation bar to black for immersive experience
+    // Set transparent status bar and navigation bar for full immersive experience
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black,
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black,
+      systemNavigationBarColor: Colors.transparent,
       systemNavigationBarIconBrightness: Brightness.light,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarContrastEnforced: false,
@@ -685,9 +685,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
       );
     }
     
-    final systemTopPadding = MediaQuery.of(context).padding.top;
-    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
-    
     return WillPopScope(
       onWillPop: () async {
         _handleBackNavigation();
@@ -697,21 +694,12 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
         backgroundColor: Colors.black,
         extendBodyBehindAppBar: true,
         extendBody: true,
-        body: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(12)), // Add rounded corners
-          child: Stack(
-            children: [
-              // Main video content - positioned to avoid covering status bar and system nav
-              Positioned(
-                top: systemTopPadding, // Start below status bar
-                left: 0,
-                right: 0,
-                bottom: systemBottomPadding, // Reserve space above system nav
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(12)), // Match parent corners
-                  child: _buildVideoFeed(),
-                ),
-              ),
+        body: Stack(
+          children: [
+            // Main video content - full screen without any padding
+            Positioned.fill(
+              child: _buildVideoFeed(),
+            ),
               
               // Small video window when comments are open
               if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
@@ -724,7 +712,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -759,11 +746,10 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
     final currentVideo = _videos.isNotEmpty && _currentVideoIndex < _videos.length 
         ? _videos[_currentVideoIndex] 
         : null;
-    final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
+      bottom: 8, // Removed systemBottomPadding for full screen
       child: Column(
         children: [
           // Like button
