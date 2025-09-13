@@ -297,8 +297,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       String command;
       
       // Check if video is under 20MB - only process audio
-      if (info.fileSizeMB < 20.0) {
-        // Audio-only processing for videos under 20MB with enhanced audio chain
+      if (info.fileSizeMB < 50.0) {
+        // Audio-only processing for videos under 50MB with enhanced audio chain
         command = '-y -i "${inputFile.path}" ';
         command += '-c:v copy '; // Copy video stream without re-encoding
         command += '-af "${_buildEnhancedAudioFilters()}" ';
@@ -404,8 +404,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     });
     
     // Simulate varying upload speeds
-    const updateInterval = Duration(milliseconds: 200);
-    const totalDuration = Duration(seconds: 120); // Total simulated upload time
+    const updateInterval = Duration(milliseconds: 100);
+    const totalDuration = Duration(seconds: 180); // Total simulated upload time
     final totalSteps = totalDuration.inMilliseconds / updateInterval.inMilliseconds;
     
     int currentStep = 0;
@@ -904,9 +904,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  _videoInfo != null && _videoInfo!.fileSizeMB < 20.0 
-                                      ? 'Processing audio...'
-                                      : 'Processing video & audio...',
+                                  _videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
+                                      ? 'Processing...'
+                                      : 'Processing...',
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -1059,9 +1059,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     ),
                   ),
                   child: _isProcessing
-                      ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 20.0 
-                          ? 'Processing Audio...' 
-                          : 'Processing Video & Audio...')
+                      ? Text(_videoInfo != null && _videoInfo!.fileSizeMB < 50.0 
+                          ? 'Processing...' 
+                          : 'Processing...')
                       : (isUploading
                           ? const Text('Uploading...')
                           : const Text('Post Video')),
@@ -1103,7 +1103,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Max 5 minutes • Videos under 1 minute perform better',
+              'Max 5 minutes • Videos under 30 seconds perform better',
               style: TextStyle(
                 color: modernTheme.textSecondaryColor,
                 fontSize: 12,

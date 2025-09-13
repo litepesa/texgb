@@ -84,10 +84,17 @@ class VerificationInfoWidget extends StatelessWidget {
                     child: Column(
                       children: [
                         _buildBenefitItem(
-                          icon: Icons.live_tv,
-                          title: 'Go Live',
-                          description: 'Only verified qualifying accounts can go live and stream to followers',
-                          color: Colors.purple,
+                          icon: Icons.security,
+                          title: 'Enhanced Trust',
+                          description: 'Build business credibility with the verified badge',
+                          color: Colors.blue,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildBenefitItem(
+                          icon: Icons.attach_money,
+                          title: 'Creator Awards Eligibility',
+                          description: 'Eligibility for monthly top creator cash award programs',
+                          color: Colors.orange,
                         ),
                         const SizedBox(height: 16),
                         _buildBenefitItem(
@@ -102,20 +109,6 @@ class VerificationInfoWidget extends StatelessWidget {
                           title: 'Better Content Visibility',
                           description: 'Your posts get priority in feeds and recommendations',
                           color: Colors.green,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildBenefitItem(
-                          icon: Icons.attach_money,
-                          title: 'Creator Awards Eligibility',
-                          description: 'Eligibility for monthly top creator awards programs and rewards',
-                          color: Colors.orange,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildBenefitItem(
-                          icon: Icons.security,
-                          title: 'Enhanced Trust',
-                          description: 'Build business credibility with the verified badge',
-                          color: Colors.blue,
                         ),
                         const SizedBox(height: 24),
                       ],

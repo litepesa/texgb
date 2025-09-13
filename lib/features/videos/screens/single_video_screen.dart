@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lottie/lottie.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -831,33 +832,18 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
           
           const SizedBox(height: 10),
 
-          // DM button - Using VideoReactionWidget (moved after Share)
-          /*VideoReactionWidget(
-            video: currentVideo,
-            onPause: _pauseForNavigation,
-            onResume: _resumeFromNavigation,
-            label: 'Inbox',
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Center(
-                child: Text(
-                  'DM',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+          // WhatsApp button - NEW
+          _buildRightMenuItem(
+            child: Lottie.asset(
+              'assets/lottie/chat_bubble.json',
+              width: 48,
+              height: 48,
+              fit: BoxFit.contain,
             ),
+            onTap: () {},
           ),
           
-          const SizedBox(height: 10),*/
+          const SizedBox(height: 10),
           
           // Gift button - with exciting emoji
           _buildRightMenuItem(
