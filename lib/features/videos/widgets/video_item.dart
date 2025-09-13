@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/video_item.dart - NETWORK ONLY VERSION WITH SERVICES
+// lib/features/videos/widgets/video_item.dart - NETWORK ONLY VERSION
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -10,12 +10,6 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-
-// Import new services
-import '../services/video_controller_manager.dart';
-import '../services/video_initialization_handler.dart';
-import '../services/video_error_handler.dart';
-import '../widgets/video_state_indicator.dart';
 
 class VideoItem extends ConsumerStatefulWidget {
   final VideoModel video;
@@ -55,13 +49,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
   bool _isInitializing = false;
   bool _showFullCaption = false;
   bool _isCommentsSheetOpen = false;
-  
-  // New service properties
-  VideoControllerManager? _controllerManager;
-  VideoInitializationHandler? _initHandler;
-  VideoErrorHandler? _errorHandler;
-  VideoState _videoState = VideoState.loading;
-  String? _lastErrorMessage;
   
   // Animation controllers for like effect
   late AnimationController _likeAnimationController;
@@ -227,9 +214,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
     
     if (widget.video.videoUrl.isEmpty) {
-      setState(() {
-        _videoState = VideoState.empty;
-      });
       return;
     }
     
@@ -242,37 +226,16 @@ class _VideoItemState extends ConsumerState<VideoItem>
     try {
       setState(() {
         _isInitializing = true;
-        _videoState = VideoState.loading;
-        _lastErrorMessage = null;
       });
 
       debugPrint('Initializing video from network: ${widget.video.videoUrl}');
-
-      // Initialize services if not already done
-      _controllerManager ??= VideoControllerManager();
-      _initHandler ??= VideoInitializationHandler();
-      _errorHandler ??= VideoErrorHandler();
 
       // Use preloaded controller if available
       if (widget.preloadedController != null) {
         await _usePreloadedController();
       } else {
-        // Use services for robust initialization
-        final result = await _initHandler!.initializeVideo(
-          manager: _controllerManager!,
-          videoUrl: widget.video.videoUrl,
-          onProgress: () {
-            if (mounted) {
-              setState(() {});
-            }
-          },
-        );
-
-        if (result.isSuccess && result.controller != null) {
-          _videoPlayerController = result.controller;
-        } else {
-          throw Exception(result.error ?? 'Failed to initialize video');
-        }
+        // Always use network URL directly
+        await _createControllerFromNetwork();
       }
       
       if (_videoPlayerController != null && mounted) {
@@ -280,25 +243,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
       }
     } catch (e) {
       debugPrint('Video initialization failed: $e');
-      if (mounted) {
-        setState(() {
-          _lastErrorMessage = e.toString();
-          
-          // Classify error type for better UI
-          final errorMsg = e.toString().toLowerCase();
-          if (errorMsg.contains('network') || 
-              errorMsg.contains('connection') ||
-              errorMsg.contains('timeout')) {
-            _videoState = VideoState.networkError;
-          } else if (errorMsg.contains('format') || 
-                     errorMsg.contains('codec') ||
-                     errorMsg.contains('unsupported')) {
-            _videoState = VideoState.formatError;
-          } else {
-            _videoState = VideoState.error;
-          }
-        });
-      }
     } finally {
       if (mounted) {
         setState(() {
@@ -314,6 +258,20 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (!_videoPlayerController!.value.isInitialized) {
       await _videoPlayerController!.initialize();
     }
+  }
+
+  Future<void> _createControllerFromNetwork() async {
+    _videoPlayerController = VideoPlayerController.networkUrl(
+      Uri.parse(widget.video.videoUrl),
+      videoPlayerOptions: VideoPlayerOptions(
+        allowBackgroundPlayback: false,
+        mixWithOthers: false,
+      ),
+    );
+    
+    await _videoPlayerController!.initialize().timeout(
+      const Duration(seconds: 15), // Increased timeout for network videos
+    );
   }
 
   Future<void> _setupVideoController() async {
@@ -427,10 +385,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     });
   }
 
-  void _retryVideoInitialization() {
-    _initializeVideoFromNetwork();
-  }
-
   // Helper method to parse RFC3339 timestamp to DateTime
   DateTime _parseVideoTimestamp() {
     try {
@@ -446,11 +400,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
   void dispose() {
     _likeAnimationController.dispose();
     _heartScaleController.dispose();
-    
-    // Dispose services
-    _errorHandler?.dispose();
-    _initHandler?.dispose();
-    _controllerManager?.disposeController();
     
     if (_isInitialized && 
         _videoPlayerController != null && 
@@ -487,11 +436,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
                   _buildLoadingIndicator(),
                 
                 // Error state
-                if (widget.hasFailed || _shouldShowErrorState())
+                if (widget.hasFailed)
                   _buildErrorState(),
                 
                 // Play indicator for paused videos (TikTok style)
-                if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying && !_isCommentsSheetOpen && !_shouldShowErrorState())
+                if (!widget.video.isMultipleImages && _isInitialized && !_isPlaying && !_isCommentsSheetOpen)
                   _buildTikTokPlayIndicator(),
                 
                 // Like animation overlay
@@ -515,13 +464,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
         ],
       ),
     );
-  }
-
-  bool _shouldShowErrorState() {
-    return _videoState == VideoState.error ||
-           _videoState == VideoState.networkError ||
-           _videoState == VideoState.formatError ||
-           _videoState == VideoState.empty;
   }
 
   Widget _buildLikeAnimation() {
@@ -693,33 +635,74 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   Widget _buildLoadingIndicator() {
-    return const VideoStateIndicator(
-      state: VideoState.loading,
+    return Container(
+      color: Colors.black.withOpacity(0.3),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Loading...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildErrorState() {
-    switch (_videoState) {
-      case VideoState.networkError:
-        return VideoStateIndicator(
-          state: VideoState.networkError,
-          onRetry: _retryVideoInitialization,
-        );
-      case VideoState.formatError:
-        return const VideoStateIndicator(
-          state: VideoState.formatError,
-        );
-      case VideoState.empty:
-        return const VideoStateIndicator(
-          state: VideoState.empty,
-        );
-      default:
-        return VideoStateIndicator(
-          state: VideoState.error,
-          errorMessage: _lastErrorMessage ?? 'Failed to load video',
-          onRetry: _retryVideoInitialization,
-        );
-    }
+    return Container(
+      color: Colors.black.withOpacity(0.8),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: Colors.white,
+              size: 48,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Failed to load video',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isInitialized = false;
+                });
+                _initializeMedia();
+              },
+              child: const Text(
+                'Retry',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildPlaceholder(IconData icon) {
@@ -1182,6 +1165,12 @@ class _VideoItemState extends ConsumerState<VideoItem>
           child: GestureDetector(
             onTap: _handleFollowToggle,
             child: Container(
+              /*padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(color: Colors.white, width: 1),
+                borderRadius: BorderRadius.circular(15),
+              ),*/
               child: const Text(
                 'Follow',
                 style: TextStyle(
