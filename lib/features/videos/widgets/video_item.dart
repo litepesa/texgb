@@ -21,8 +21,6 @@ class VideoItem extends ConsumerStatefulWidget {
   final bool hasFailed;
   final bool isCommentsOpen;
   final bool showVerificationBadge;
-  final Widget Function()? buildFollowButton;
-  final Widget Function()? buildBottomOverlay;
   
   const VideoItem({
     super.key,
@@ -35,8 +33,6 @@ class VideoItem extends ConsumerStatefulWidget {
     this.hasFailed = false,
     this.isCommentsOpen = false,
     this.showVerificationBadge = true,
-    this.buildFollowButton,
-    this.buildBottomOverlay,
   });
 
   @override
@@ -400,77 +396,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // Public methods for screen to call
-  Widget buildFollowButton() {
-    final videoUser = _getUserDataIfAvailable();
-    final currentUser = ref.watch(currentUserProvider);
-    
-    // Don't show anything if user data isn't ready
-    if (videoUser == null) {
-      return const SizedBox.shrink();
-    }
-    
-    // Don't show follow button if user owns this video
-    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
-    if (isOwner) return const SizedBox.shrink();
-    
-    final followedUsers = ref.watch(followedUsersProvider);
-    final isFollowing = followedUsers.contains(widget.video.userId);
-    
-    return AnimatedScale(
-      scale: isFollowing ? 0.0 : 1.0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      child: AnimatedOpacity(
-        opacity: isFollowing ? 0.0 : 1.0,
-        duration: const Duration(milliseconds: 300),
-        child: GestureDetector(
-          onTap: _handleFollowToggle,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              border: Border.all(color: Colors.white, width: 1),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: const Text(
-              'Follow',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildBottomOverlay() {
-    // Hide all overlay content when comments are open
-    if (_isCommentsSheetOpen) return const SizedBox.shrink();
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // User name with verified badge immediately after name
-        _buildUserNameWithVerification(),
-        
-        const SizedBox(height: 6),
-        
-        // Smart caption with hashtags (combined)
-        _buildSmartCaption(),
-        
-        const SizedBox(height: 8),
-        
-        // Always show timestamp at the bottom for consistency
-        _buildTimestampDisplay(),
-      ],
-    );
-  }
-
   @override
   void dispose() {
     _likeAnimationController.dispose();
@@ -528,6 +453,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
               ],
             ),
           ),
+          
+          // Bottom content overlay (TikTok style) - positioned relative to screen safe area
+          if (!_isCommentsSheetOpen)
+            _buildBottomContentOverlay(),
+          
+          // Follow Button - positioned relative to screen safe area
+          if (!_isCommentsSheetOpen)
+            _buildTopLeftFollowButton(),
         ],
       ),
     );
@@ -911,6 +844,41 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
+  // TikTok-style bottom content overlay - positioned relative to screen safe area
+  Widget _buildBottomContentOverlay() {
+    // Hide all overlay content when comments are open
+    if (_isCommentsSheetOpen) return const SizedBox.shrink();
+    
+    final followedUsers = ref.watch(followedUsersProvider);
+    final isFollowing = followedUsers.contains(widget.video.userId);
+    final currentUser = ref.watch(currentUserProvider);
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
+    
+    return Positioned(
+      bottom: MediaQuery.of(context).padding.bottom, // Account for safe area bottom
+      left: 16,
+      right: 80, // Leave space for right side menu
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // User name with verified badge immediately after name
+          _buildUserNameWithVerification(),
+          
+          const SizedBox(height: 6),
+          
+          // Smart caption with hashtags (combined)
+          _buildSmartCaption(),
+          
+          const SizedBox(height: 8),
+          
+          // Always show timestamp at the bottom for consistency
+          _buildTimestampDisplay(),
+        ],
+      ),
+    );
+  }
+
   // 🔧 SIMPLIFIED: User name with verification - only show when data is ready
   Widget _buildUserNameWithVerification() {
     return Consumer(
@@ -1138,7 +1106,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
     
     return Positioned(
-      top: 120, // Below top floating icons
+      top: MediaQuery.of(context).padding.top + 120, // Account for safe area top + offset
       left: 0,
       right: 0,
       child: Row(
@@ -1163,6 +1131,57 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ),
           );
         }),
+      ),
+    );
+  }
+
+  // 🔧 SIMPLIFIED: Follow button - positioned relative to screen safe area
+  Widget _buildTopLeftFollowButton() {
+    final videoUser = _getUserDataIfAvailable();
+    final currentUser = ref.watch(currentUserProvider);
+    
+    // Don't show anything if user data isn't ready
+    if (videoUser == null) {
+      return const SizedBox.shrink();
+    }
+    
+    // Don't show follow button if user owns this video
+    final isOwner = currentUser != null && currentUser.uid == widget.video.userId;
+    if (isOwner) return const SizedBox.shrink();
+    
+    final followedUsers = ref.watch(followedUsersProvider);
+    final isFollowing = followedUsers.contains(widget.video.userId);
+    
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 16, // Account for safe area top
+      left: 16,
+      child: AnimatedScale(
+        scale: isFollowing ? 0.0 : 1.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        child: AnimatedOpacity(
+          opacity: isFollowing ? 0.0 : 1.0,
+          duration: const Duration(milliseconds: 300),
+          child: GestureDetector(
+            onTap: _handleFollowToggle,
+            child: Container(
+              /*padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(color: Colors.white, width: 1),
+                borderRadius: BorderRadius.circular(15),
+              ),*/
+              child: const Text(
+                'Follow',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -703,42 +703,27 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       backgroundColor: Colors.black,
       body: Container(
         color: Colors.black, // Ensure black background
-        child: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-          child: Stack(
-            children: [
-              // Main content - positioned to avoid covering status bar and system nav
+        child: Stack(
+          children: [
+            // Main content area
+            _buildBody(videos),
+            
+            // Small video window when comments are open
+            if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
+          
+            // Top navigation - simplified header matching moments feed style
+            if (!_isCommentsSheetOpen) // Hide top bar when comments are open
               Positioned(
                 top: systemTopPadding,
                 left: 0,
                 right: 0,
-                bottom: systemBottomPadding,
-                child: Container(
-                  color: Colors.black, // Additional safety layer
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.all(Radius.circular(12)),
-                    child: _buildBody(videos),
-                  ),
-                ),
+                child: _buildSimplifiedHeader(),
               ),
-              
-              // Small video window when comments are open
-              if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-            
-              // Top navigation - simplified header matching moments feed style
-              if (!_isCommentsSheetOpen) // Hide top bar when comments are open
-                Positioned(
-                  top: systemTopPadding,
-                  left: 0,
-                  right: 0,
-                  child: _buildSimplifiedHeader(),
-                ),
-            
-              // TikTok-style right side menu
-              if (!_isCommentsSheetOpen) // Hide right menu when comments are open
-                _buildRightSideMenu(),
-            ],
-          ),
+          
+            // TikTok-style right side menu
+            if (!_isCommentsSheetOpen) // Hide right menu when comments are open
+              _buildRightSideMenu(),
+          ],
         ),
       ),
     );
@@ -842,7 +827,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom: systemBottomPadding + 8, // Closer to system nav for better screen utilization
+      bottom: systemBottomPadding , // Closer to system nav for better screen utilization
       child: Column(
         children: [
           // Like button
