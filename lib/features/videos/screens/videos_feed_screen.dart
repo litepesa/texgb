@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart (Updated with WhatsApp button)
+// lib/features/videos/screens/videos_feed_screen.dart (Updated with navigation improvements)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -15,7 +15,6 @@ import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
 import 'package:textgb/features/gifts/widgets/virtual_gifts_bottom_sheet.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
 import 'package:textgb/constants.dart';
-//import 'package:textgb/features/videos/widgets/video_reaction_widget.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -25,6 +24,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
+
+// Import navigation mixin
+import '../mixins/video_navigation_mixin.dart';
 
 class VideosFeedScreen extends ConsumerStatefulWidget {
   final String? startVideoId; // For direct video navigation
@@ -41,7 +43,7 @@ class VideosFeedScreen extends ConsumerStatefulWidget {
 }
 
 class VideosFeedScreenState extends ConsumerState<VideosFeedScreen> 
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver, RouteAware {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver, RouteAware, VideoNavigationMixin {
   
   // Core controllers
   final PageController _pageController = PageController();
@@ -49,10 +51,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // State management
   bool _isFirstLoad = true;
   int _currentVideoIndex = 0;
-  bool _isScreenActive = true;
-  bool _isAppInForeground = true;
-  bool _hasInitialized = false;
-  bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
   bool _isCommentsSheetOpen = false; // Track comments sheet state
   
@@ -68,13 +66,11 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
     // Use post-frame callback to avoid provider modification during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVideos();
     });
-    _hasInitialized = true;
   }
 
   @override
@@ -82,51 +78,25 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     super.didChangeDependencies();
   }
 
+  // VideoNavigationMixin implementations - enhanced versions of existing methods
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    
-    switch (state) {
-      case AppLifecycleState.resumed:
-        _isAppInForeground = true;
-        if (_isScreenActive && !_isNavigatingAway && !_isCommentsSheetOpen) {
-          _startFreshPlayback();
-        }
-        break;
-      case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-        _isAppInForeground = false;
-        _stopPlayback();
-        break;
-      case AppLifecycleState.hidden:
-        break;
-    }
-  }
-
   void onScreenBecameActive() {
-    if (!_hasInitialized) return;
-    
     debugPrint('VideosFeedScreen: Screen became active');
-    _isScreenActive = true;
-    _isNavigatingAway = false; // Reset navigation state
     
     // Setup system UI when actually becoming active and visible
     if (mounted) {
       _setupSystemUI();
     }
     
-    if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
+    if (!_isManuallyPaused && !_isCommentsSheetOpen) {
       _startFreshPlayback();
       WakelockPlus.enable();
     }
   }
 
+  @override
   void onScreenBecameInactive() {
-    if (!_hasInitialized) return;
-    
     debugPrint('VideosFeedScreen: Screen became inactive');
-    _isScreenActive = false;
     _stopPlayback();
     
     // Don't restore system UI here - let HomeScreen handle it
@@ -135,41 +105,47 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     WakelockPlus.disable();
   }
 
-  // New method to handle navigation away from feed
-  void _pauseForNavigation() {
-    debugPrint('VideosFeedScreen: Pausing for navigation');
-    _isNavigatingAway = true;
+  @override
+  void onNavigatingAway() {
+    debugPrint('VideosFeedScreen: Navigating away');
     _stopPlayback();
   }
 
-  // New method to handle returning from navigation
-  void _resumeFromNavigation() {
-    debugPrint('VideosFeedScreen: Resuming from navigation');
-    _isNavigatingAway = false;
-    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
+  @override
+  void onNavigatingBack() {
+    debugPrint('VideosFeedScreen: Navigating back');
+    if (!_isManuallyPaused && !_isCommentsSheetOpen) {
       // Add a small delay to ensure the screen is fully visible before starting playback
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
+        if (mounted && shouldAllowVideoPlayback() && !_isManuallyPaused && !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
       });
     }
   }
 
-  void _startFreshPlayback() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) return;
+  void _startFreshPlayback() async {
+    if (!shouldAllowVideoPlayback() || _isManuallyPaused || _isCommentsSheetOpen) return;
     
     debugPrint('VideosFeedScreen: Starting fresh playback');
     
     if (_currentVideoController?.value.isInitialized == true) {
-      _currentVideoController!.play();
+      await _currentVideoController!.play();
       debugPrint('VideosFeedScreen: Video controller playing');
     } else {
-      // If video controller isn't ready, trigger a re-initialization
-      debugPrint('VideosFeedScreen: Video controller not ready, attempting initialization');
-      final videos = ref.read(videosProvider);
-      if (videos.isNotEmpty && _currentVideoIndex < videos.length) {
-        // This will trigger the video item to reinitialize if needed
+      // Wait for controller initialization with timeout
+      debugPrint('VideosFeedScreen: Waiting for controller initialization');
+      int attempts = 0;
+      while (attempts < 10 && _currentVideoController?.value.isInitialized != true) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        attempts++;
+        if (!mounted || !shouldAllowVideoPlayback()) return;
+      }
+      
+      if (_currentVideoController?.value.isInitialized == true) {
+        await _currentVideoController!.play();
+      } else {
+        // Force rebuild to reinitialize video
         setState(() {});
       }
     }
@@ -206,7 +182,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // Only apply system UI when screen is actually active and visible
   void _setupSystemUI() {
     // Only apply black system UI if this screen is currently active and visible
-    if (!mounted || !_isScreenActive) return;
+    if (!mounted || !shouldAllowVideoPlayback()) return;
     
     debugPrint('VideosFeedScreen: Setting up system UI (black theme)');
     
@@ -269,8 +245,8 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
   }
 
-  void _onVideoControllerReady(VideoPlayerController controller) {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
+  void _onVideoControllerReady(VideoPlayerController controller) async {
+    if (!shouldAllowVideoPlayback() || _isCommentsSheetOpen) return;
     
     debugPrint('Video controller ready, setting up fresh playback');
     
@@ -278,24 +254,16 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       _currentVideoController = controller;
     });
 
-    // Always start fresh from the beginning for NEW videos
-    controller.seekTo(Duration.zero);
-    
-    WakelockPlus.enable();
-  }
-
-  // Separate method for starting fresh video (seeks to beginning)
-  void _startFreshVideo() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) return;
-    
-    debugPrint('VideosFeedScreen: Starting fresh video from beginning');
-    
-    if (_currentVideoController?.value.isInitialized == true) {
-      _currentVideoController!.seekTo(Duration.zero);
-      _currentVideoController!.play();
+    // Wait for controller to be fully ready
+    if (controller.value.isInitialized) {
+      await controller.seekTo(Duration.zero);
+      
+      // Only start playing if conditions are right
+      if (shouldAllowVideoPlayback() && !_isManuallyPaused && !_isCommentsSheetOpen) {
+        await controller.play();
+        WakelockPlus.enable();
+      }
     }
-    
-    _startFreshPlayback();
   }
 
   // Method to handle manual play/pause from video item
@@ -308,7 +276,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
   void _onPageChanged(int index) {
     final videos = ref.read(videosProvider);
-    if (index >= videos.length || !_isScreenActive) return;
+    if (index >= videos.length || !shouldAllowVideoPlayback()) return;
 
     debugPrint('Page changed to: $index');
 
@@ -318,7 +286,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       _isManuallyPaused = false; // Reset manual pause state for new video
     });
 
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
+    if (shouldAllowVideoPlayback() && !_isManuallyPaused && !_isCommentsSheetOpen) {
       WakelockPlus.enable();
     }
     
@@ -504,7 +472,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     }
 
     // Pause video before showing gifts
-    _pauseForNavigation();
+    onNavigatingAway();
 
     showModalBottomSheet(
       context: context,
@@ -518,12 +486,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         },
         onClose: () {
           // Resume video when gifts sheet is closed
-          _resumeFromNavigation();
+          onNavigatingBack();
         },
       ),
     ).whenComplete(() {
       // Ensure video resumes if sheet is dismissed
-      _resumeFromNavigation();
+      onNavigatingBack();
     });
   }
 
@@ -790,8 +758,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   void dispose() {
     debugPrint('VideosFeedScreen: Disposing');
     
-    WidgetsBinding.instance.removeObserver(this);
-    
     _pageController.dispose();
     
     _stopPlayback();
@@ -806,7 +772,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     super.build(context);
     
     // Only setup system UI if this screen is actually active
-    if (_isScreenActive && mounted) {
+    if (shouldAllowVideoPlayback() && mounted) {
       _setupSystemUI();
     }
     
@@ -886,13 +852,13 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       scrollDirection: Axis.vertical,
       itemCount: videos.length,
       onPageChanged: _onPageChanged,
-      physics: _isScreenActive && !_isCommentsSheetOpen ? null : const NeverScrollableScrollPhysics(),
+      physics: shouldAllowVideoPlayback() && !_isCommentsSheetOpen ? null : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final video = videos[index];
         
         return VideoItem(
           video: video,
-          isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
+          isActive: index == _currentVideoIndex && shouldAllowVideoPlayback(),
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
           isCommentsOpen: _isCommentsSheetOpen, // Pass comments state to video item
@@ -973,7 +939,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       bottom: systemBottomPadding, // Closer to system nav for better screen utilization
       child: Column(
         children: [
-          // Like button
           _buildRightMenuItem(
             child: Icon(
               currentVideo?.isLiked == true ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
@@ -1195,7 +1160,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             ),
             onTap: () => _navigateToUserProfile(),
           ),
-        ],
+      ],
       ),
     );
   }
@@ -1210,16 +1175,16 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(4), // Reduced padding
+            padding: const EdgeInsets.all(4),
             child: child,
           ),
           if (label != null) ...[
-            const SizedBox(height: 2), // Reduced spacing
+            const SizedBox(height: 2),
             Text(
               label,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 11, // Slightly smaller text
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
                 shadows: [
                   Shadow(
@@ -1273,7 +1238,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     final videos = ref.read(videosProvider);
     if (_currentVideoIndex < videos.length) {
       // Pause video before navigation
-      _pauseForNavigation();
+      onNavigatingAway();
       
       final result = await Navigator.of(context).pushNamed(
         Constants.userProfileScreen,
@@ -1281,7 +1246,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       );
       
       // Resume video after returning from navigation
-      _resumeFromNavigation();
+      onNavigatingBack();
     }
   }
 
@@ -1574,9 +1539,9 @@ extension VideosFeedScreenExtension on VideosFeedScreenState {
     final state = feedScreenKey.currentState;
     if (state != null) {
       if (isActive) {
-        state.onScreenBecameActive();
+        state.forceActivate();
       } else {
-        state.onScreenBecameInactive();
+        state.forceDeactivate();
       }
     }
   }
