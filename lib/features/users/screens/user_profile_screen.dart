@@ -32,7 +32,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   List<VideoModel> _userVideos = [];
   String? _error;
   bool _isFollowing = false;
-  bool _isCurrentUser = false;
   final ScrollController _scrollController = ScrollController();
   final Map<String, String> _videoThumbnails = {};
   
@@ -77,13 +76,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       final allVideos = ref.read(videosProvider);
       final userVideos = allVideos.where((video) => video.userId == widget.userId).toList();
       
-      // Check if this is the current user
-      final currentUserId = ref.read(currentUserIdProvider);
-      final isCurrentUser = currentUserId == widget.userId;
-      
       // Check if current user is following this user
+      final currentUserId = ref.read(currentUserIdProvider);
       bool isFollowing = false;
-      if (!isCurrentUser && currentUserId != null) {
+      if (currentUserId != null && currentUserId != widget.userId) {
         isFollowing = ref.read(isUserFollowedProvider(widget.userId));
       }
       
@@ -91,7 +87,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         setState(() {
           _user = user;
           _userVideos = userVideos;
-          _isCurrentUser = isCurrentUser;
           _isFollowing = isFollowing;
           _isLoading = false;
         });
@@ -204,38 +199,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     }
   }
 
-  void _editProfile() {
-    // Navigate to EditProfileScreen
-    Navigator.pushNamed(
-      context, 
-      Constants.editProfileScreen,
-      arguments: _user,
-    ).then((_) => _loadUserData());
-  }
-
-  void _createPost() {
-    // Check if user is authenticated
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
-    if (!isAuthenticated) {
-      requireLogin(
-        context,
-        ref,
-        customTitle: 'Create Content',
-        customSubtitle: 'Sign in to create and share your own videos.',
-        customIcon: Icons.video_call,
-      );
-      return;
-    }
-    
-    // Navigate to CreatePostScreen
-    Navigator.pushNamed(context, Constants.createPostScreen)
-        .then((result) {
-      if (result == true) {
-        _loadUserData();
-      }
-    });
-  }
-
   void _openVideoDetails(VideoModel video) {
     // Navigate to SingleVideoScreen
     Navigator.pushNamed(
@@ -245,10 +208,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         Constants.startVideoId: video.id,
       },
     ).then((_) => _loadUserData());
-  }
-
-  void _showSettings() {
-    Navigator.pushNamed(context, Constants.settingsScreen);
   }
 
   String _formatCount(int count) {
@@ -396,7 +355,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
             pinned: true,
             floating: false,
             snap: false,
-            expandedHeight: 380,
+            expandedHeight: 340,
             leading: IconButton(
               icon: Icon(
                 Icons.arrow_back_ios,
@@ -414,16 +373,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
               ),
             ),
             centerTitle: true,
-            actions: [
-              if (_isCurrentUser)
-                IconButton(
-                  icon: Icon(
-                    Icons.settings,
-                    color: theme.textColor,
-                  ),
-                  onPressed: _showSettings,
-                ),
-            ],
             flexibleSpace: FlexibleSpaceBar(
               background: SafeArea(
                 child: SingleChildScrollView(
@@ -533,20 +482,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                           ],
                         ),
                         
-                        const SizedBox(height: 4),
-                        
-                        // Phone Number (for current user only)
-                        if (_isCurrentUser)
-                          Text(
-                            _user!.phoneNumber,
-                            style: TextStyle(
-                              color: theme.textSecondaryColor,
-                              fontSize: 14,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        
                         const SizedBox(height: 16),
                         
                         // Stats Row
@@ -573,71 +508,35 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                         
                         const SizedBox(height: 20),
                         
-                        // Action Buttons
+                        // Follow Button
                         Container(
                           width: double.infinity,
                           constraints: const BoxConstraints(maxWidth: 300),
-                          child: _isCurrentUser
-                              ? Row(
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton.icon(
-                                        onPressed: _editProfile,
-                                        icon: const Icon(Icons.edit, size: 18),
-                                        label: const Text('Edit Profile'),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: theme.primaryColor,
-                                          side: BorderSide(color: theme.primaryColor!),
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: OutlinedButton.icon(
-                                        onPressed: _createPost,
-                                        icon: const Icon(Icons.add, size: 18),
-                                        label: const Text('Create'),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: theme.primaryColor,
-                                          side: BorderSide(color: theme.primaryColor!),
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : ElevatedButton(
-                                  onPressed: _toggleFollow,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _isFollowing
-                                        ? theme.surfaceColor
-                                        : theme.primaryColor,
-                                    foregroundColor: _isFollowing
-                                        ? theme.textColor
-                                        : Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      side: _isFollowing 
-                                          ? BorderSide(color: theme.dividerColor!)
-                                          : BorderSide.none,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _isFollowing ? 'Following' : 'Follow',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
+                          child: ElevatedButton(
+                            onPressed: _toggleFollow,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _isFollowing
+                                  ? theme.surfaceColor
+                                  : theme.primaryColor,
+                              foregroundColor: _isFollowing
+                                  ? theme.textColor
+                                  : Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: _isFollowing 
+                                    ? BorderSide(color: theme.dividerColor!)
+                                    : BorderSide.none,
+                              ),
+                            ),
+                            child: Text(
+                              _isFollowing ? 'Following' : 'Follow',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -650,68 +549,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       },
       body: Column(
         children: [
-          // About Section (if available)
-          if (_user!.bio.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: theme.backgroundColor,
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.dividerColor!,
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: Text(
-                _user!.bio,
-                style: TextStyle(
-                  color: theme.textColor,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          
-          // Tags Section (if available)
-          if (_user!.tags.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: theme.backgroundColor,
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.dividerColor!,
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _user!.tags.map((tag) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: theme.primaryColor?.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: theme.primaryColor?.withOpacity(0.3) ?? Colors.grey,
-                    ),
-                  ),
-                  child: Text(
-                    '#$tag',
-                    style: TextStyle(
-                      color: theme.primaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                )).toList(),
-              ),
-            ),
-          
           // Content Section
           Expanded(
             child: _userVideos.isEmpty
@@ -892,9 +729,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _isCurrentUser
-                ? 'Start creating content to share with your followers'
-                : 'This user hasn\'t shared any videos yet',
+            'This user hasn\'t shared any videos yet',
             style: TextStyle(
               color: theme.textSecondaryColor,
               fontSize: 14,
@@ -902,26 +737,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
             textAlign: TextAlign.center,
           ),
           
-          // Show create button for current user
-          if (_isCurrentUser) ...[
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _createPost,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Your First Video'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-          
-          // Show sign-in prompt for guests viewing other profiles
-          if (!isAuthenticated && !_isCurrentUser) ...[
+          // Show sign-in prompt for guests
+          if (!isAuthenticated) ...[
             const SizedBox(height: 24),
             const InlineLoginRequiredWidget(
               title: 'Join the Community',

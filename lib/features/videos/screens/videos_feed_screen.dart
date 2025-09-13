@@ -1,4 +1,4 @@
-// lib/features/videos/screens/videos_feed_screen.dart (Updated with VideoReactionWidget)
+// lib/features/videos/screens/videos_feed_screen.dart (Updated with WhatsApp button)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lottie/lottie.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
@@ -563,6 +564,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       case 'share videos':
       case 'share':
         return Icons.share;
+      case 'message on whatsapp':
+      case 'whatsapp':
+        return Icons.message;
       default:
         return Icons.video_call;
     }
@@ -639,6 +643,147 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         ),
       );
     }
+  }
+
+  // WhatsApp navigation method (dummy implementation for now)
+  void _openWhatsApp(VideoModel? video) async {
+    if (video == null) return;
+    
+    // Check if user is authenticated before allowing WhatsApp messaging
+    final canInteract = await _requireAuthentication('message on whatsapp');
+    if (!canInteract) return;
+    
+    final currentUser = ref.read(currentUserProvider);
+    
+    // Check if user is trying to message their own video
+    if (video.userId == currentUser!.uid) {
+      _showCannotMessageOwnVideoMessage();
+      return;
+    }
+    
+    // TODO: Implement actual WhatsApp navigation logic
+    // For now, just show a message that this will be implemented
+    _showWhatsAppComingSoonMessage(video);
+  }
+
+  // Helper method to show cannot message own video
+  void _showCannotMessageOwnVideoMessage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.message,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Cannot Message Yourself',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You cannot send a WhatsApp message to your own video.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to show WhatsApp coming soon message
+  void _showWhatsAppComingSoonMessage(VideoModel video) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.message,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'WhatsApp Integration',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'WhatsApp messaging with ${video.userName} will be available soon!',
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -789,9 +934,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         
         // Search button
         IconButton(
-          onPressed: () {
-            Navigator.pushNamed(context, Constants.searchScreen);
-          },
+          onPressed: () {},
           icon: const Icon(
             CupertinoIcons.search,
             color: Colors.white,
@@ -817,7 +960,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     );
   }
 
-  // TikTok-style right side menu - now with VideoReactionWidget
+  // TikTok-style right side menu - now with WhatsApp button
   Widget _buildRightSideMenu() {
     final videos = ref.watch(videosProvider);
     final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
@@ -827,7 +970,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom: systemBottomPadding , // Closer to system nav for better screen utilization
+      bottom: systemBottomPadding, // Closer to system nav for better screen utilization
       child: Column(
         children: [
           // Like button
@@ -908,33 +1051,18 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           
           const SizedBox(height: 10),
           
-          // DM button - Using VideoReactionWidget (moved after Share)
-          /*VideoReactionWidget(
-            video: currentVideo,
-            onPause: _pauseForNavigation,
-            onResume: _resumeFromNavigation,
-            label: 'Inbox',
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Center(
-                child: Text(
-                  'DM',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+          // WhatsApp button - NEW
+          _buildRightMenuItem(
+            child: Lottie.asset(
+              'assets/lottie/chat_bubble.json',
+              width: 48,
+              height: 48,
+              fit: BoxFit.contain,
             ),
+            onTap: () {},
           ),
           
-          const SizedBox(height: 10),*/
+          const SizedBox(height: 10),
           
           // Gift button - with exciting emoji
           _buildRightMenuItem(
