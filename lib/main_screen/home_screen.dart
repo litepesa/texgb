@@ -31,7 +31,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Home',      // Index 0 - Videos Feed (hidden app bar, black background)
     'Channels',  // Index 1 - Users List
     '',          // Index 2 - Post (no label, special design)
-    'Inbix',     // Index 3 - Inbox 
+    'Inbox',     // Index 3 - Inbox 
     'Profile'    // Index 4 - Profile
   ];
   

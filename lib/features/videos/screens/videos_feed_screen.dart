@@ -40,12 +40,15 @@ class VideosFeedScreen extends ConsumerStatefulWidget {
   ConsumerState<VideosFeedScreen> createState() => VideosFeedScreenState();
 }
 
-class VideosFeedScreenState extends ConsumerState<VideosFeedScreen> 
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver, RouteAware {
-  
+class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
+    with
+        TickerProviderStateMixin,
+        AutomaticKeepAliveClientMixin,
+        WidgetsBindingObserver,
+        RouteAware {
   // Core controllers
   final PageController _pageController = PageController();
-  
+
   // State management
   bool _isFirstLoad = true;
   int _currentVideoIndex = 0;
@@ -55,11 +58,13 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   bool _isNavigatingAway = false; // Track navigation state
   bool _isManuallyPaused = false; // Track if user manually paused the video
   bool _isCommentsSheetOpen = false; // Track comments sheet state
-  
+
   // Download state management
-  final Map<String, bool> _downloadingVideos = {}; // Track which videos are downloading
-  final Map<String, double> _downloadProgress = {}; // Track download progress for each video
-  
+  final Map<String, bool> _downloadingVideos =
+      {}; // Track which videos are downloading
+  final Map<String, double> _downloadProgress =
+      {}; // Track download progress for each video
+
   VideoPlayerController? _currentVideoController;
 
   @override
@@ -85,7 +90,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     switch (state) {
       case AppLifecycleState.resumed:
         _isAppInForeground = true;
@@ -106,16 +111,16 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
   void onScreenBecameActive() {
     if (!_hasInitialized) return;
-    
+
     debugPrint('VideosFeedScreen: Screen became active');
     _isScreenActive = true;
     _isNavigatingAway = false; // Reset navigation state
-    
+
     // Setup system UI when actually becoming active and visible
     if (mounted) {
       _setupSystemUI();
     }
-    
+
     if (_isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
       _startFreshPlayback();
       WakelockPlus.enable();
@@ -124,14 +129,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
   void onScreenBecameInactive() {
     if (!_hasInitialized) return;
-    
+
     debugPrint('VideosFeedScreen: Screen became inactive');
     _isScreenActive = false;
     _stopPlayback();
-    
+
     // Don't restore system UI here - let HomeScreen handle it
     // The home screen will manage system UI for other tabs
-    
+
     WakelockPlus.disable();
   }
 
@@ -146,10 +151,18 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   void _resumeFromNavigation() {
     debugPrint('VideosFeedScreen: Resuming from navigation');
     _isNavigatingAway = false;
-    if (_isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
+    if (_isScreenActive &&
+        _isAppInForeground &&
+        !_isManuallyPaused &&
+        !_isCommentsSheetOpen) {
       // Add a small delay to ensure the screen is fully visible before starting playback
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted && !_isNavigatingAway && _isScreenActive && _isAppInForeground && !_isManuallyPaused && !_isCommentsSheetOpen) {
+        if (mounted &&
+            !_isNavigatingAway &&
+            _isScreenActive &&
+            _isAppInForeground &&
+            !_isManuallyPaused &&
+            !_isCommentsSheetOpen) {
           _startFreshPlayback();
         }
       });
@@ -157,29 +170,35 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   void _startFreshPlayback() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) return;
-    
+    if (!mounted ||
+        !_isScreenActive ||
+        !_isAppInForeground ||
+        _isNavigatingAway ||
+        _isManuallyPaused ||
+        _isCommentsSheetOpen) return;
+
     debugPrint('VideosFeedScreen: Starting fresh playback');
-    
+
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.play();
       debugPrint('VideosFeedScreen: Video controller playing');
     } else {
       // If video controller isn't ready, trigger a re-initialization
-      debugPrint('VideosFeedScreen: Video controller not ready, attempting initialization');
+      debugPrint(
+          'VideosFeedScreen: Video controller not ready, attempting initialization');
       final videos = ref.read(videosProvider);
       if (videos.isNotEmpty && _currentVideoIndex < videos.length) {
         // This will trigger the video item to reinitialize if needed
         setState(() {});
       }
     }
-    
+
     WakelockPlus.enable();
   }
 
   void _stopPlayback() {
     debugPrint('VideosFeedScreen: Stopping playback');
-    
+
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.pause();
       // Only seek to beginning if not in comments mode
@@ -194,7 +213,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     setState(() {
       _isCommentsSheetOpen = isSmallWindow;
     });
-    
+
     // Don't pause the video controller here - let it continue playing in small window
     // The video item will handle the display logic based on isCommentsOpen state
   }
@@ -207,9 +226,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   void _setupSystemUI() {
     // Only apply black system UI if this screen is currently active and visible
     if (!mounted || !_isScreenActive) return;
-    
+
     debugPrint('VideosFeedScreen: Setting up system UI (black theme)');
-    
+
     // Set immersive black theme only when this screen is active
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -225,16 +244,16 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   Future<void> _loadVideos() async {
     if (_isFirstLoad) {
       debugPrint('VideosFeedScreen: Loading initial videos');
-      
+
       // Load videos from the authentication provider
       final authNotifier = ref.read(authenticationProvider.notifier);
       await authNotifier.loadVideos();
-      
+
       if (mounted) {
         setState(() {
           _isFirstLoad = false;
         });
-        
+
         // If a specific video ID was provided, jump to it
         if (widget.startVideoId != null) {
           _jumpToVideo(widget.startVideoId!);
@@ -247,21 +266,22 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   void _jumpToVideo(String videoId) {
     final videos = ref.read(videosProvider);
     final videoIndex = videos.indexWhere((video) => video.id == videoId);
-    
+
     if (videoIndex != -1) {
       debugPrint('VideosFeedScreen: Jumping to video at index $videoIndex');
-      
+
       // Use a delay to ensure the PageView is ready and videos are loaded
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted && _pageController.hasClients) {
           _pageController.jumpToPage(videoIndex);
-          
+
           // Update the current video index
           setState(() {
             _currentVideoIndex = videoIndex;
           });
-          
-          debugPrint('VideosFeedScreen: Successfully jumped to video $videoId at index $videoIndex');
+
+          debugPrint(
+              'VideosFeedScreen: Successfully jumped to video $videoId at index $videoIndex');
         }
       });
     } else {
@@ -270,31 +290,40 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 
   void _onVideoControllerReady(VideoPlayerController controller) {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isCommentsSheetOpen) return;
-    
+    if (!mounted ||
+        !_isScreenActive ||
+        !_isAppInForeground ||
+        _isNavigatingAway ||
+        _isCommentsSheetOpen) return;
+
     debugPrint('Video controller ready, setting up fresh playback');
-    
+
     setState(() {
       _currentVideoController = controller;
     });
 
     // Always start fresh from the beginning for NEW videos
     controller.seekTo(Duration.zero);
-    
+
     WakelockPlus.enable();
   }
 
   // Separate method for starting fresh video (seeks to beginning)
   void _startFreshVideo() {
-    if (!mounted || !_isScreenActive || !_isAppInForeground || _isNavigatingAway || _isManuallyPaused || _isCommentsSheetOpen) return;
-    
+    if (!mounted ||
+        !_isScreenActive ||
+        !_isAppInForeground ||
+        _isNavigatingAway ||
+        _isManuallyPaused ||
+        _isCommentsSheetOpen) return;
+
     debugPrint('VideosFeedScreen: Starting fresh video from beginning');
-    
+
     if (_currentVideoController?.value.isInitialized == true) {
       _currentVideoController!.seekTo(Duration.zero);
       _currentVideoController!.play();
     }
-    
+
     _startFreshPlayback();
   }
 
@@ -318,10 +347,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       _isManuallyPaused = false; // Reset manual pause state for new video
     });
 
-    if (_isScreenActive && _isAppInForeground && !_isNavigatingAway && !_isManuallyPaused && !_isCommentsSheetOpen) {
+    if (_isScreenActive &&
+        _isAppInForeground &&
+        !_isNavigatingAway &&
+        !_isManuallyPaused &&
+        !_isCommentsSheetOpen) {
       WakelockPlus.enable();
     }
-    
+
     // Increment view count using the new authentication provider
     final authNotifier = ref.read(authenticationProvider.notifier);
     authNotifier.incrementViewCount(videos[index].id);
@@ -331,20 +364,21 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   UserModel? _getUserDataIfAvailable() {
     final users = ref.read(usersProvider);
     final isUsersLoading = ref.read(isAuthLoadingProvider);
-    
+
     // Don't try to find user if still loading or empty
     if (isUsersLoading || users.isEmpty) {
       return null;
     }
-    
+
     try {
       final videos = ref.read(videosProvider);
-      final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
-          ? videos[_currentVideoIndex] 
-          : null;
-          
+      final currentVideo =
+          videos.isNotEmpty && _currentVideoIndex < videos.length
+              ? videos[_currentVideoIndex]
+              : null;
+
       if (currentVideo == null) return null;
-      
+
       return users.firstWhere(
         (user) => user.uid == currentVideo.userId,
       );
@@ -357,7 +391,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // Add this method to build the small video window
   Widget _buildSmallVideoWindow() {
     final systemTopPadding = MediaQuery.of(context).padding.top;
-    
+
     return Positioned(
       top: systemTopPadding + 20,
       right: 20,
@@ -388,7 +422,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                 Positioned.fill(
                   child: _buildVideoContentOnly(),
                 ),
-                
+
                 // Close button overlay
                 Positioned(
                   top: 8,
@@ -416,13 +450,13 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
   Widget _buildVideoContentOnly() {
     final videos = ref.read(videosProvider);
-    
+
     if (videos.isEmpty || _currentVideoIndex >= videos.length) {
       return Container(color: Colors.black);
     }
-    
+
     final currentVideo = videos[_currentVideoIndex];
-    
+
     // Return only the media content without any overlays
     if (currentVideo.isMultipleImages) {
       return _buildImageCarouselOnly(currentVideo.imageUrls);
@@ -440,7 +474,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         ),
       );
     }
-    
+
     return SizedBox.expand(
       child: FittedBox(
         fit: BoxFit.cover,
@@ -462,7 +496,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         ),
       );
     }
-    
+
     return PageView.builder(
       itemCount: imageUrls.length,
       itemBuilder: (context, index) {
@@ -496,7 +530,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     if (!canInteract) return;
 
     final currentUser = ref.read(currentUserProvider);
-    
+
     // Check if user is trying to gift their own video
     if (video.userId == currentUser!.uid) {
       _showCannotGiftOwnVideoMessage();
@@ -530,7 +564,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // Helper method to require authentication before actions
   Future<bool> _requireAuthentication(String actionName) async {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
-    
+
     if (!isAuthenticated) {
       final result = await requireLogin(
         context,
@@ -571,11 +605,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         return Icons.video_call;
     }
   }
-  
+
   void _handleGiftSent(VideoModel video, VirtualGift gift) {
     // TODO: Implement actual gift sending logic
-    debugPrint('Gift sent: ${gift.name} (KES ${gift.price}) to ${video.userName}');
-    
+    debugPrint(
+        'Gift sent: ${gift.name} (KES ${gift.price}) to ${video.userName}');
+
     // Show success message
     _showSnackBar('${gift.emoji} ${gift.name} sent to ${video.userName}!');
   }
@@ -648,19 +683,19 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // WhatsApp navigation method (dummy implementation for now)
   void _openWhatsApp(VideoModel? video) async {
     if (video == null) return;
-    
+
     // Check if user is authenticated before allowing WhatsApp messaging
     final canInteract = await _requireAuthentication('message on whatsapp');
     if (!canInteract) return;
-    
+
     final currentUser = ref.read(currentUserProvider);
-    
+
     // Check if user is trying to message their own video
     if (video.userId == currentUser!.uid) {
       _showCannotMessageOwnVideoMessage();
       return;
     }
-    
+
     // TODO: Implement actual WhatsApp navigation logic
     // For now, just show a message that this will be implemented
     _showWhatsAppComingSoonMessage(video);
@@ -789,33 +824,33 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   @override
   void dispose() {
     debugPrint('VideosFeedScreen: Disposing');
-    
+
     WidgetsBinding.instance.removeObserver(this);
-    
+
     _pageController.dispose();
-    
+
     _stopPlayback();
-    
+
     WakelockPlus.disable();
-    
+
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+
     // Only setup system UI if this screen is actually active
     if (_isScreenActive && mounted) {
       _setupSystemUI();
     }
-    
+
     // Watch videos from the new authentication provider
     final videos = ref.watch(videosProvider);
     final isLoading = ref.watch(isAuthLoadingProvider);
     final systemTopPadding = MediaQuery.of(context).padding.top;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     // Show loading screen during initial video loading
     if (_isFirstLoad && isLoading) {
       return Scaffold(
@@ -841,7 +876,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         ),
       );
     }
-    
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       extendBody: true,
@@ -852,10 +887,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           children: [
             // Main content area
             _buildBody(videos),
-            
+
             // Small video window when comments are open
             if (_isCommentsSheetOpen) _buildSmallVideoWindow(),
-          
+
             // Top navigation - simplified header matching moments feed style
             if (!_isCommentsSheetOpen) // Hide top bar when comments are open
               Positioned(
@@ -864,7 +899,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                 right: 0,
                 child: _buildSimplifiedHeader(),
               ),
-          
+
             // TikTok-style right side menu
             if (!_isCommentsSheetOpen) // Hide right menu when comments are open
               _buildRightSideMenu(),
@@ -876,7 +911,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
   Widget _buildBody(List<VideoModel> videos) {
     final isLoading = ref.watch(isAuthLoadingProvider);
-    
+
     if (!isLoading && videos.isEmpty) {
       return _buildEmptyState();
     }
@@ -886,16 +921,22 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       scrollDirection: Axis.vertical,
       itemCount: videos.length,
       onPageChanged: _onPageChanged,
-      physics: _isScreenActive && !_isCommentsSheetOpen ? null : const NeverScrollableScrollPhysics(),
+      physics: _isScreenActive && !_isCommentsSheetOpen
+          ? null
+          : const NeverScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final video = videos[index];
-        
+
         return VideoItem(
           video: video,
-          isActive: index == _currentVideoIndex && _isScreenActive && _isAppInForeground && !_isNavigatingAway,
+          isActive: index == _currentVideoIndex &&
+              _isScreenActive &&
+              _isAppInForeground &&
+              !_isNavigatingAway,
           onVideoControllerReady: _onVideoControllerReady,
           onManualPlayPause: onManualPlayPause,
-          isCommentsOpen: _isCommentsSheetOpen, // Pass comments state to video item
+          isCommentsOpen:
+              _isCommentsSheetOpen, // Pass comments state to video item
         );
       },
     );
@@ -907,7 +948,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       children: [
         // Empty space for alignment
         const SizedBox(width: 56), // Same width as an IconButton
-        
+
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -931,7 +972,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             ],
           ),
         ),
-        
+
         // Search button
         IconButton(
           onPressed: () {},
@@ -963,29 +1004,32 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // TikTok-style right side menu - now with WhatsApp button
   Widget _buildRightSideMenu() {
     final videos = ref.watch(videosProvider);
-    final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length 
-        ? videos[_currentVideoIndex] 
+    final currentVideo = videos.isNotEmpty && _currentVideoIndex < videos.length
+        ? videos[_currentVideoIndex]
         : null;
     final systemBottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
       right: 4, // Much closer to edge
-      bottom: systemBottomPadding, // Closer to system nav for better screen utilization
+      bottom:
+          systemBottomPadding, // Closer to system nav for better screen utilization
       child: Column(
         children: [
           // Like button
           _buildRightMenuItem(
             child: Icon(
-              currentVideo?.isLiked == true ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+              currentVideo?.isLiked == true
+                  ? CupertinoIcons.heart_fill
+                  : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
             ),
             label: _formatCount(currentVideo?.likes ?? 0),
             onTap: () => _likeCurrentVideo(currentVideo),
           ),
-          
+
           const SizedBox(height: 10),
-          
+
           // Comment button
           _buildRightMenuItem(
             child: const Icon(
@@ -996,9 +1040,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             label: _formatCount(currentVideo?.comments ?? 0),
             onTap: () => _showCommentsForCurrentVideo(currentVideo),
           ),
-          
+
           const SizedBox(height: 10),
-          
+
           // Download button (replaced star/bookmark)
           _buildRightMenuItem(
             child: Stack(
@@ -1024,14 +1068,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                   ),
               ],
             ),
-            label: _downloadingVideos[currentVideo?.id] == true 
+            label: _downloadingVideos[currentVideo?.id] == true
                 ? '${((_downloadProgress[currentVideo?.id] ?? 0.0) * 100).toInt()}%'
                 : 'Save',
             onTap: () => _downloadCurrentVideo(currentVideo),
           ),
-          
+
           const SizedBox(height: 10),
-          
+
           // Share button - UPDATED with share_plus functionality
           _buildRightMenuItem(
             child: const Icon(
@@ -1048,9 +1092,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
               }
             },
           ),
-          
+
           const SizedBox(height: 10),
-          
+
           // WhatsApp button - NEW
           _buildRightMenuItem(
             child: Lottie.asset(
@@ -1061,9 +1105,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             ),
             onTap: () {},
           ),
-          
+
           const SizedBox(height: 10),
-          
+
           // Gift button - with exciting emoji
           _buildRightMenuItem(
             child: const Text(
@@ -1080,98 +1124,51 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             ),
             onTap: () => _showVirtualGifts(currentVideo),
           ),
-          
+
           const SizedBox(height: 10),
-          
+
           // Profile avatar with red border - FIXED: Only show when user data is ready
           _buildRightMenuItem(
-            child: Consumer(
-              builder: (context, ref, child) {
-                final videoUser = _getUserDataIfAvailable();
-                
-                // Only display profile avatar when we actually have the user data
-                if (videoUser == null) {
-                  // Show loading indicator while waiting for user data
-                  return Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white, width: 2),
-                      color: Colors.grey.withOpacity(0.3),
-                    ),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                
-                // User data is available, safe to display
-                return Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8), // Rounded square instead of circle
-                    border: Border.all(color: Colors.red, width: 2),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(6), // Slightly smaller radius for the image
-                    child: videoUser.profileImage.isNotEmpty
-                        ? Image.network(
-                            videoUser.profileImage,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(
+                    8), // Rounded square instead of circle
+                border: Border.all(color: Colors.red, width: 2),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(
+                    6), // Slightly smaller radius for the image
+                child: currentVideo?.userImage.isNotEmpty == true
+                    ? Image.network(
+                        currentVideo!.userImage,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
                             width: 44,
                             height: 44,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
                                 ),
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    videoUser.name.isNotEmpty ? videoUser.name[0].toUpperCase() : 'U',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          )
-                        : Container(
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
@@ -1180,7 +1177,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                             ),
                             child: Center(
                               child: Text(
-                                videoUser.name.isNotEmpty ? videoUser.name[0].toUpperCase() : 'U',
+                                currentVideo?.userName.isNotEmpty == true
+                                    ? currentVideo!.userName[0].toUpperCase()
+                                    : 'U',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -1188,10 +1187,30 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
                                 ),
                               ),
                             ),
+                          );
+                        },
+                      )
+                    : Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Center(
+                          child: Text(
+                            currentVideo?.userName.isNotEmpty == true
+                                ? currentVideo!.userName[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
-                  ),
-                );
-              },
+                        ),
+                      ),
+              ),
             ),
             onTap: () => _navigateToUserProfile(),
           ),
@@ -1274,12 +1293,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
     if (_currentVideoIndex < videos.length) {
       // Pause video before navigation
       _pauseForNavigation();
-      
+
       final result = await Navigator.of(context).pushNamed(
         Constants.userProfileScreen,
         arguments: videos[_currentVideoIndex].userId,
       );
-      
+
       // Resume video after returning from navigation
       _resumeFromNavigation();
     }
@@ -1287,11 +1306,11 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
   void _likeCurrentVideo(VideoModel? video) async {
     if (video == null) return;
-    
+
     // Check if user is authenticated before allowing like
     final canInteract = await _requireAuthentication('like videos');
     if (!canInteract) return;
-    
+
     // Use the authentication provider to like the video
     final authNotifier = ref.read(authenticationProvider.notifier);
     authNotifier.likeVideo(video.id);
@@ -1299,14 +1318,14 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
   void _showCommentsForCurrentVideo(VideoModel? video) async {
     if (video == null || _isCommentsSheetOpen) return;
-    
+
     // Check if user is authenticated before allowing comments
     final canInteract = await _requireAuthentication('comment on videos');
     if (!canInteract) return;
-    
+
     // Set video to small window mode
     _setVideoWindowMode(true);
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1328,44 +1347,43 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // Share current video using share_plus package
   Future<void> _shareCurrentVideo(VideoModel? video) async {
     if (video == null) return;
-    
+
     try {
       // Create share content
       String shareText = '';
-      
+
       // Add video caption if available
       if (video.caption.isNotEmpty) {
         shareText += video.caption;
       }
-      
+
       // Add creator credit
       if (shareText.isNotEmpty) {
         shareText += '\n\n';
       }
       shareText += 'Check out this video by ${video.userName}!';
-      
+
       // Add hashtags if available
       if (video.tags.isNotEmpty) {
         shareText += '\n\n${video.tags.map((tag) => '#$tag').join(' ')}';
       }
-      
+
       // Add app promotion
       shareText += '\n\nShared via TextGB';
-      
+
       // Get the render box for share position (required for iPad)
       final RenderBox? box = context.findRenderObject() as RenderBox?;
-      
+
       // Share using share_plus
       final result = await SharePlus.instance.share(
         ShareParams(
           text: shareText,
           subject: 'Check out this video!',
-          sharePositionOrigin: box != null 
-              ? box.localToGlobal(Offset.zero) & box.size 
-              : null,
+          sharePositionOrigin:
+              box != null ? box.localToGlobal(Offset.zero) & box.size : null,
         ),
       );
-      
+
       // Show feedback based on share result
       if (result.status == ShareResultStatus.success) {
         _showSnackBar('Video shared successfully!');
@@ -1374,7 +1392,6 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       } else {
         _showSnackBar('Failed to share video');
       }
-      
     } catch (e) {
       debugPrint('Error sharing video: $e');
       _showSnackBar('Failed to share video');
@@ -1384,29 +1401,29 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   // Download current video functionality
   Future<void> _downloadCurrentVideo(VideoModel? video) async {
     if (video == null) return;
-    
+
     // Check if user is authenticated before allowing download
     final canInteract = await _requireAuthentication('download videos');
     if (!canInteract) return;
-    
+
     // Check if already downloading
     if (_downloadingVideos[video.id] == true) {
       _showSnackBar('Video is already downloading...');
       return;
     }
-    
+
     // For image posts, we can't download videos
     if (video.isMultipleImages) {
       _showSnackBar('Cannot download image posts');
       return;
     }
-    
+
     // Check if video URL is valid
     if (video.videoUrl.isEmpty) {
       _showSnackBar('Invalid video URL');
       return;
     }
-    
+
     try {
       // Request storage permission
       bool hasPermission = await _requestStoragePermission();
@@ -1414,10 +1431,9 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         _showSnackBar('Storage permission required to download videos');
         return;
       }
-      
+
       // Start download
       await _downloadVideo(video);
-      
     } catch (e) {
       debugPrint('Error downloading video: $e');
       _showSnackBar('Failed to download video');
@@ -1427,7 +1443,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       });
     }
   }
-  
+
   // Request storage permission based on Android version
   Future<bool> _requestStoragePermission() async {
     // For Android 13+ (API 33+), we need different permissions
@@ -1439,7 +1455,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           Permission.videos,
           Permission.photos,
         ].request();
-        
+
         return status.values.every((status) => status.isGranted);
       } else {
         // Android 12 and below - request storage permission
@@ -1451,24 +1467,25 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       final status = await Permission.photos.request();
       return status.isGranted;
     }
-    
+
     return true; // For other platforms
   }
-  
+
   // Download video with progress tracking
   Future<void> _downloadVideo(VideoModel video) async {
     setState(() {
       _downloadingVideos[video.id] = true;
       _downloadProgress[video.id] = 0.0;
     });
-    
+
     try {
       final dio = Dio();
-      
+
       // Get download directory
       Directory? directory;
-      String fileName = 'textgb_${video.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
-      
+      String fileName =
+          'textgb_${video.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
       if (Platform.isAndroid) {
         // Try to save to Downloads folder
         directory = Directory('/storage/emulated/0/Download');
@@ -1481,11 +1498,12 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
         directory = await getApplicationDocumentsDirectory();
       } else {
         // For other platforms
-        directory = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+        directory = await getDownloadsDirectory() ??
+            await getApplicationDocumentsDirectory();
       }
-      
+
       final savePath = '${directory.path}/$fileName';
-      
+
       // Download with progress tracking
       await dio.download(
         video.videoUrl,
@@ -1506,27 +1524,26 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           },
         ),
       );
-      
+
       // Download completed successfully
       setState(() {
         _downloadingVideos[video.id] = false;
         _downloadProgress.remove(video.id);
       });
-      
+
       _showSnackBar('Video saved successfully!');
-      
+
       // Optionally, add to device gallery (Android only)
       if (Platform.isAndroid) {
         await _addToGallery(savePath);
       }
-      
     } catch (e) {
       debugPrint('Download error: $e');
       setState(() {
         _downloadingVideos[video.id] = false;
         _downloadProgress.remove(video.id);
       });
-      
+
       if (e is DioException) {
         switch (e.type) {
           case DioExceptionType.connectionTimeout:
@@ -1544,7 +1561,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
       }
     }
   }
-  
+
   // Add video to Android gallery (optional)
   Future<void> _addToGallery(String filePath) async {
     try {
@@ -1568,9 +1585,10 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
   }
 }
 
-// Extension for tab management 
+// Extension for tab management
 extension VideosFeedScreenExtension on VideosFeedScreenState {
-  static void handleTabChanged(GlobalKey<VideosFeedScreenState> feedScreenKey, bool isActive) {
+  static void handleTabChanged(
+      GlobalKey<VideosFeedScreenState> feedScreenKey, bool isActive) {
     final state = feedScreenKey.currentState;
     if (state != null) {
       if (isActive) {
@@ -1584,13 +1602,13 @@ extension VideosFeedScreenExtension on VideosFeedScreenState {
 
 class VideosFeedController {
   final GlobalKey<VideosFeedScreenState> _key;
-  
+
   VideosFeedController(this._key);
-  
+
   void setActive(bool isActive) {
     VideosFeedScreenExtension.handleTabChanged(_key, isActive);
   }
-  
+
   void pause() => setActive(false);
   void resume() => setActive(true);
 }
