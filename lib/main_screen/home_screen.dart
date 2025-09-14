@@ -302,20 +302,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
       // FAB for each tab with different functionality
       floatingActionButton: _buildFab(modernTheme),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
   Widget _buildFab(ModernThemeExtension modernTheme) {
     if (_currentIndex == 0) {
-      // Index 0 - Videos Feed FAB
-      return FloatingActionButton(
-        heroTag: "videos_fab",
-        backgroundColor: modernTheme.backgroundColor,
-        foregroundColor: modernTheme.primaryColor,
-        elevation: 4,
-        onPressed: () => _navigateToVideosFeed(),
-        child: const Icon(Icons.video_library_outlined),
-      );
+      // Index 0 - Custom Discover FAB (same styling as Admin button)
+      return _buildDiscoverFab(modernTheme);
     } else if (_currentIndex == 1) {
       // Index 1 - Contacts FAB
       return FloatingActionButton(
@@ -339,6 +333,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     return const SizedBox.shrink();
+  }
+
+  Widget _buildDiscoverFab(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 60), // Above bottom nav
+      child: FloatingActionButton.extended(
+        onPressed: () => _navigateToVideosFeed(),
+        backgroundColor: const Color(0xFFFE2C55),
+        foregroundColor: Colors.white,
+        elevation: 4,
+        icon: const Icon(Icons.explore_rounded, size: 20),
+        label: const Text(
+          'Discover',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+        heroTag: "discover_fab",
+      ),
+    );
   }
 
   // Navigation methods for FABs
