@@ -1,12 +1,13 @@
 // lib/main_screen/home_screen.dart (Updated for TikTok-style authentication system)
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
-import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -30,7 +31,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'Home',      // Index 0 - Videos Feed (hidden app bar, black background)
     'Channels',  // Index 1 - Users List
     '',          // Index 2 - Post (no label, special design)
-    'Wallet',    // Index 3 - Wallet 
+    'Inbix',     // Index 3 - Inbox 
     'Profile'    // Index 4 - Profile
   ];
   
@@ -38,7 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Icons.home,                        // Home
     Icons.radio_button_checked_rounded, // Channels (now Users)
     Icons.add,                         // Post (will be styled specially)
-    Icons.account_balance_rounded,     // Wallet
+    CupertinoIcons.bubble_left_bubble_right,     // Inbox
     Icons.person_2_outlined            // Me/Profile
   ];
 
@@ -401,7 +402,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Container(
             color: modernTheme.backgroundColor,
             padding: EdgeInsets.only(bottom: bottomPadding),
-            child: const WalletScreen(),
+            child: const ChatsTab(),
           ),
           // Profile tab (index 4) - Let MyProfileScreen handle its own authentication
           const MyProfileScreen(),

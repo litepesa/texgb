@@ -30,10 +30,24 @@ class Constants {
   static const String chatWallpapers = 'chatWallpapers';
   static const String fontSizes = 'fontSizes';
 
-  // Core collections
-
-  static const String dramas = 'dramas';
-  static const String episodes = 'episodes';
+  // ===== MESSAGE MODEL FIELD NAMES =====
+  
+  static const String messageId = 'messageId';
+  static const String senderId = 'senderId';
+  static const String content = 'content';
+  static const String type = 'type';
+  static const String status = 'status';
+  static const String timestamp = 'timestamp';
+  static const String mediaUrl = 'mediaUrl';
+  static const String mediaMetadata = 'mediaMetadata';
+  static const String replyToMessageId = 'replyToMessageId';
+  static const String replyToContent = 'replyToContent';
+  static const String replyToSender = 'replyToSender';
+  static const String reactions = 'reactions';
+  static const String isEdited = 'isEdited';
+  static const String editedAt = 'editedAt';
+  static const String readBy = 'readBy';
+  static const String deliveredTo = 'deliveredTo';
   
   // Authentication Routes
   static const String landingScreen = '/landing';
@@ -93,46 +107,14 @@ class Constants {
   static const String withdrawScreen = '/withdraw';
   static const String earningsScreen = '/earnings';
 
-  // Drama viewer routes
-  static const String dramaDetailsScreen = '/dramaDetailsScreen';
-  static const String episodePlayerScreen = '/episodePlayerScreen';
-  static const String favoritesScreen = '/favoritesScreen';
-  static const String continueWatchingScreen = '/continueWatchingScreen';
+  // Contacts Routes
+  static const String contactsScreen = '/contactsScreen';
+  static const String addContactScreen = '/addContactScreen';
+  static const String blockedContactsScreen = '/blockedContactsScreen';
+  static const String contactProfileScreen = '/contactProfileScreen';
 
-
-  // Admin routes (hidden for normal users, shown only when userType == admin)
-  static const String adminDashboardScreen = '/adminDashboardScreen';
-  static const String createDramaScreen = '/createDramaScreen';
-  static const String manageDramasScreen = '/manageDramasScreen';
-  static const String editDramaScreen = '/editDramaScreen';
-  static const String addEpisodeScreen = '/addEpisodeScreen';
-  static const String episodeFeedScreen = '/episode-feed';
-  static const String myDramaDetailsScreen = '/my-drama-details';
-
-  // ===== DRAMA MODEL FIELD NAMES =====
-  
-  static const String dramaId = 'dramaId';
-  static const String title = 'title';
-  static const String description = 'description';
-  static const String bannerImage = 'bannerImage';
-  static const String totalEpisodes = 'totalEpisodes';
-  static const String isPremium = 'isPremium';
-  static const String freeEpisodesCount = 'freeEpisodesCount'; // Admin sets per drama
-  static const String viewCount = 'viewCount';
-  static const String favoriteCount = 'favoriteCount';
-  static const String isFeatured = 'isFeatured';
-  static const String publishedAt = 'publishedAt';
-  static const String isActive = 'isActive'; // Admin can activate/deactivate
-  static const String createdBy = 'createdBy'; // Admin UID who created
-  static const String createdAt = 'createdAt';
-  static const String updatedAt = 'updatedAt';
-  static const String unlockCount = 'unlockCount';
-
-  // File storage paths
-  static const String userImages = 'userImages';
-  static const String dramaBanners = 'dramaBanners';
-  static const String episodeVideos = 'episodeVideos';
-  static const String episodeThumbnails = 'episodeThumbnails';
+  // Chat Routes
+  static const String chatScreen = '/chatScreen';
   
 
 
@@ -225,42 +207,6 @@ class Constants {
   static const int thumbnailHeight = 568; // 9:16 aspect ratio
   static const double videoAspectRatio = 9/16; // TikTok aspect ratio
 
-  // Error messages (updated for coins system)
-  static const String networkError = 'Network connection failed. Please try again.';
-  static const String unknownError = 'Something went wrong. Please try again.';
-  static const String dramaLocked = 'This drama is locked. Pay coins to unlock all premium episodes.';
-  static const String episodeLocked = 'This episode is locked. Pay coins to unlock and watch.';
-  static const String insufficientCoins = 'Not enough coins. Please buy more coins to continue.';
-  static const String paymentFailed = 'Payment failed. Please try again or contact support.';
-  static const String verifiedOnly = 'Admin access required.'; // Won't be shown to users since screens are hidden
-  static const String accessDenied = 'Access denied. This feature is not available.'; // Fallback if somehow accessed
-  
-
-
-  // Empty states
-  static const String noDramasFound = 'No dramas found';
-  static const String noEpisodesFound = 'No episodes available';
-  static const String noTransactionsFound = 'No transactions yet';
-  static const String noFavoritesFound = 'No favorites yet. Start exploring!';
-
-  // ===== ADMIN FEATURES =====
-  
-  // Note: Admin screens/features are hidden in UI based on userType
-  // Only users with userType == 'admin' (set in backend) will see admin functionality
-  static const int maxEpisodesPerUpload = 100; // Max episodes admin can add at once
-  static const int maxDramaDescriptionLength = 500;
-  static const int maxEpisodeTitleLength = 100;
-  static const int maxFreeEpisodes = 30; // Max free episodes admin can set for premium drama
-  
-  // Premium routes
-  static const String premiumScreen = '/premiumScreen';
-  static const String topUpScreen = '/topUpScreen';
-  static const String coinPackagesScreen = '/coinPackagesScreen';
-
-  // Drama/Episode unlock costs (in coins)
-  static const int dramaUnlockCost = 99; // 99 coins to unlock entire premium drama
-  static const int episodeUnlockCost = 5; // 5 coins to unlock single premium episode
-
   // ===================== USER PROFILE CONSTANTS =====================
   static const int maxNameLength = 50;
   static const int minNameLength = 2;
@@ -312,6 +258,7 @@ class Constants {
 
   // ===================== ERROR MESSAGES =====================
   static const String genericError = 'Something went wrong. Please try again.';
+  static const String networkError = 'Please check your internet connection.';
   static const String authenticationError = 'Authentication failed. Please try again.';
   static const String permissionError = 'Permission denied. Please grant required permissions.';
   static const String videoUploadError = 'Failed to upload video. Please try again.';
@@ -338,16 +285,6 @@ class Constants {
   static const String videoShared = 'Video shared successfully!';
   static const String reportSubmitted = 'Report submitted successfully!';
   static const String settingsSaved = 'Settings saved successfully!';
-
-  // Success messages (updated for coins system)
-  static const String dramaCreated = 'Drama created successfully!';
-  static const String episodeAdded = 'Episode added successfully!';
-  static const String dramaUnlocked = 'Drama unlocked! You can now watch all premium episodes.';
-  static const String episodeUnlocked = 'Episode unlocked successfully! Enjoy watching.';
-  static const String favoriteAdded = 'Added to favorites';
-  static const String favoriteRemoved = 'Removed from favorites';
-  static const String coinsPurchased = 'Coins added to your wallet successfully!';
-  static const String paymentPending = 'Payment received. Coins will be added within 30 minutes.';
 
   // ===================== GUEST MODE MESSAGES =====================
   static const String guestModeRestriction = 'Sign in to access this feature';
