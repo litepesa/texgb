@@ -276,9 +276,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            modernTheme.primaryColor!,
-            modernTheme.primaryColor!.withOpacity(0.8),
-            modernTheme.primaryColor!.withOpacity(0.6),
+          Color(0xFFFE2C55).withOpacity(0.4),
+          Color(0xFFFE2C55).withOpacity(0.8),
+          Color(0xFFFE2C55).withOpacity(0.6),
           ],
         ),
         borderRadius: const BorderRadius.only(
@@ -605,18 +605,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            modernTheme.primaryColor!.withOpacity(0.08),
-            modernTheme.primaryColor!.withOpacity(0.03),
+            Color(0xFFFE2C55).withOpacity(0.08),
+            Color(0xFFFE2C55).withOpacity(0.03),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: modernTheme.primaryColor!.withOpacity(0.15),
+          color: Color(0xFFFE2C55).withOpacity(0.15),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: modernTheme.primaryColor!.withOpacity(0.08),
+            color: Color(0xFFFE2C55).withOpacity(0.08),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -652,14 +652,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            modernTheme.primaryColor!,
-                            modernTheme.primaryColor!.withOpacity(0.9),
+                            Color(0xFFFE2C55),
+                            Color(0xFFFE2C55).withOpacity(0.9),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: modernTheme.primaryColor!.withOpacity(0.3),
+                            color: Color(0xFFFE2C55).withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
