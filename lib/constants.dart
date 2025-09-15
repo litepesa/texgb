@@ -67,6 +67,10 @@ class Constants {
   static const String usersListScreen = '/usersList';               // was channelsListScreen
   static const String followingScreen = '/following';
   static const String followersScreen = '/followers';
+
+  static const String privacyPolicyScreen = '/privacyPolicyScreen';
+  static const String privacySettingsScreen = '/privacySettingsScreen';
+  static const String termsAndConditionsScreen = '/termsAndConditionsScreen';
   
   // Video/Content Routes
   static const String createPostScreen = '/createPost';             // was createChannelPostScreen

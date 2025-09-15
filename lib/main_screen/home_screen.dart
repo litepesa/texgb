@@ -8,7 +8,6 @@ import 'package:textgb/features/chat/screens/chats_tab.dart';
 import 'package:textgb/features/users/screens/users_list_screen.dart';
 import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
-import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -307,10 +306,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildFab(ModernThemeExtension modernTheme) {
-    if (_currentIndex == 0) {
-      // Index 0 - Custom Discover FAB (same styling as Admin button)
-      return _buildDiscoverFab(modernTheme);
-    } else if (_currentIndex == 1) {
+    if (_currentIndex == 1) {
       // Index 1 - Contacts FAB
       return FloatingActionButton(
         heroTag: "contacts_fab",
@@ -335,37 +331,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return const SizedBox.shrink();
   }
 
-  Widget _buildDiscoverFab(ModernThemeExtension modernTheme) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 60), // Above bottom nav
-      child: FloatingActionButton.extended(
-        onPressed: () => _navigateToVideosFeed(),
-        backgroundColor: const Color(0xFFFE2C55),
-        foregroundColor: Colors.white,
-        elevation: 4,
-        icon: const Icon(Icons.explore_rounded, size: 20),
-        label: const Text(
-          'Discover',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
-        ),
-        heroTag: "discover_fab",
-      ),
-    );
-  }
-
   // Navigation methods for FABs
-  void _navigateToVideosFeed() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const VideosFeedScreen(),
-      ),
-    );
-  }
-
   void _navigateToContacts() {
     Navigator.pushNamed(context, Constants.contactsScreen);
   }

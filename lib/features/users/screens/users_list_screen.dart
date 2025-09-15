@@ -7,8 +7,8 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:textgb/features/users/screens/my_profile_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
+import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class UsersListScreen extends ConsumerStatefulWidget {
@@ -182,7 +182,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const MyProfileScreen(),
+                            builder: (context) => const WalletScreen(),
                           ),
                         );
                       },
@@ -194,7 +194,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          Icons.person_rounded,
+                          Icons.account_balance_wallet_rounded,
                           color: theme.primaryColor,
                           size: 20,
                         ),
