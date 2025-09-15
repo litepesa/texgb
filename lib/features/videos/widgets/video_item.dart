@@ -1,4 +1,4 @@
-// lib/features/videos/widgets/video_item.dart - NETWORK ONLY VERSION
+// lib/features/videos/widgets/video_item.dart - FIXED VERSION
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -48,6 +48,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
   bool _isInitializing = false;
   bool _showFullCaption = false;
   bool _isCommentsSheetOpen = false;
+  bool _hasInitializationFailed = false;
+  Timer? _retryTimer;
 
   // Animation controllers for like effect
   late AnimationController _likeAnimationController;
@@ -56,7 +58,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   bool _showLikeAnimation = false;
 
   @override
-  bool get wantKeepAlive => widget.isActive;
+  bool get wantKeepAlive => true; // CHANGED: Always keep alive to prevent disposal
 
   @override
   void initState() {
@@ -66,13 +68,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   void _initializeAnimations() {
-    // Animation for the floating hearts
     _likeAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
 
-    // Animation for the heart scale effect
     _heartScaleController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -91,49 +91,65 @@ class _VideoItemState extends ConsumerState<VideoItem>
   void didUpdateWidget(VideoItem oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // Handle active state changes
     if (widget.isActive != oldWidget.isActive) {
       _handleActiveStateChange();
     }
 
+    // Handle comments state changes
     if (widget.isCommentsOpen != oldWidget.isCommentsOpen) {
       _handleCommentsStateChange();
     }
 
-    if (_shouldReinitializeMedia(oldWidget)) {
-      _cleanupCurrentController(oldWidget);
-      _initializeMedia();
-    }
-
-    // Reset caption state if video changes
+    // FIXED: Only reinitialize if it's a completely different video
     if (widget.video.id != oldWidget.video.id) {
+      debugPrint('Video changed from ${oldWidget.video.id} to ${widget.video.id}');
+      _cleanupCurrentController();
+      _initializeMedia();
       _showFullCaption = false;
     }
+    // FIXED: If same video but controller was lost, reinitialize
+    else if (_videoPlayerController == null && 
+             !widget.video.isMultipleImages && 
+             widget.video.videoUrl.isNotEmpty) {
+      debugPrint('Controller lost for video ${widget.video.id}, reinitializing');
+      _initializeMedia();
+    }
   }
 
-  bool _shouldReinitializeMedia(VideoItem oldWidget) {
-    return widget.video.videoUrl != oldWidget.video.videoUrl ||
-        widget.video.isMultipleImages != oldWidget.video.isMultipleImages ||
-        widget.preloadedController != oldWidget.preloadedController;
-  }
-
-  void _cleanupCurrentController(VideoItem oldWidget) {
-    if (_isInitialized &&
-        _videoPlayerController != null &&
-        oldWidget.preloadedController == null) {
+  void _cleanupCurrentController() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    
+    if (_videoPlayerController != null && widget.preloadedController == null) {
       _videoPlayerController!.dispose();
     }
-
+    
     _videoPlayerController = null;
     _isInitialized = false;
+    _hasInitializationFailed = false;
   }
 
   void _handleActiveStateChange() {
     if (widget.video.isMultipleImages) return;
 
-    if (widget.isActive && _isInitialized && !_isPlaying) {
-      _playVideo();
-    } else if (!widget.isActive && _isInitialized && _isPlaying) {
-      _pauseVideo();
+    debugPrint('Video ${widget.video.id} active state changed to: ${widget.isActive}');
+
+    if (widget.isActive) {
+      // FIXED: If controller doesn't exist, reinitialize
+      if (_videoPlayerController == null && !_isInitializing) {
+        debugPrint('No controller when becoming active, reinitializing');
+        _initializeMedia();
+        return;
+      }
+      
+      if (_isInitialized && !_isPlaying) {
+        _playVideo();
+      }
+    } else {
+      if (_isInitialized && _isPlaying) {
+        _pauseVideo();
+      }
     }
   }
 
@@ -142,10 +158,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
       _isCommentsSheetOpen = widget.isCommentsOpen;
     });
 
-    // Don't pause video when comments open - video should continue playing
-    // The small window will show the same video stream
-
-    // Only manage play state based on isActive, not comments state
     if (!widget.isCommentsOpen &&
         widget.isActive &&
         _isInitialized &&
@@ -154,12 +166,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // 🔧 SIMPLIFIED: Only get user data when it's actually available
   UserModel? _getUserDataIfAvailable() {
     final users = ref.read(usersProvider);
     final isUsersLoading = ref.read(isAuthLoadingProvider);
 
-    // Don't try to find user if still loading or empty
     if (isUsersLoading || users.isEmpty) {
       return null;
     }
@@ -169,12 +179,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
         (user) => user.uid == widget.video.userId,
       );
     } catch (e) {
-      // User not found in current list
       return null;
     }
   }
 
-  // Helper method to require authentication before actions
   Future<bool> _requireAuthentication(String actionName) async {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
 
@@ -190,10 +198,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
       return result;
     }
 
-    return true; // User is authenticated
+    return true;
   }
 
-  // Helper method to get appropriate icon for different actions
   IconData _getIconForAction(String actionName) {
     switch (actionName.toLowerCase()) {
       case 'like videos':
@@ -216,6 +223,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
 
     if (widget.video.videoUrl.isEmpty) {
+      debugPrint('Empty video URL for ${widget.video.id}');
       return;
     }
 
@@ -223,20 +231,22 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   Future<void> _initializeVideoFromNetwork() async {
-    if (_isInitializing) return;
+    if (_isInitializing) {
+      debugPrint('Already initializing video ${widget.video.id}');
+      return;
+    }
 
     try {
       setState(() {
         _isInitializing = true;
+        _hasInitializationFailed = false;
       });
 
-      debugPrint('Initializing video from network: ${widget.video.videoUrl}');
+      debugPrint('Initializing video ${widget.video.id} from network: ${widget.video.videoUrl}');
 
-      // Use preloaded controller if available
       if (widget.preloadedController != null) {
         await _usePreloadedController();
       } else {
-        // Always use network URL directly
         await _createControllerFromNetwork();
       }
 
@@ -244,7 +254,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
         await _setupVideoController();
       }
     } catch (e) {
-      debugPrint('Video initialization failed: $e');
+      debugPrint('Video initialization failed for ${widget.video.id}: $e');
+      setState(() {
+        _hasInitializationFailed = true;
+      });
+      _scheduleRetry();
     } finally {
       if (mounted) {
         setState(() {
@@ -252,6 +266,16 @@ class _VideoItemState extends ConsumerState<VideoItem>
         });
       }
     }
+  }
+
+  void _scheduleRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && !_isInitialized) {
+        debugPrint('Retrying video initialization for ${widget.video.id}');
+        _initializeMedia();
+      }
+    });
   }
 
   Future<void> _usePreloadedController() async {
@@ -272,20 +296,24 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
 
     await _videoPlayerController!.initialize().timeout(
-          const Duration(seconds: 15), // Increased timeout for network videos
-        );
+      const Duration(seconds: 15),
+    );
   }
 
   Future<void> _setupVideoController() async {
+    if (_videoPlayerController == null) return;
+    
     _videoPlayerController!.setLooping(true);
 
     setState(() {
       _isInitialized = true;
+      _hasInitializationFailed = false;
     });
 
-    // Only start playing if active and comments are not open
+    debugPrint('Video controller initialized for ${widget.video.id}');
+
+    // FIXED: Only auto-play if this video is currently active
     if (widget.isActive && !widget.isCommentsOpen) {
-      // Only seek to beginning for truly new videos, not when resuming
       _videoPlayerController!.seekTo(Duration.zero);
       _playVideo();
     }
@@ -296,39 +324,45 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   void _playVideo() {
-    if (_isInitialized && _videoPlayerController != null) {
+    if (_isInitialized && _videoPlayerController != null && mounted) {
       _videoPlayerController!.play();
       setState(() {
         _isPlaying = true;
       });
+      debugPrint('Playing video ${widget.video.id}');
     }
   }
 
   void _pauseVideo() {
-    if (_isInitialized && _videoPlayerController != null) {
+    if (_isInitialized && _videoPlayerController != null && mounted) {
       _videoPlayerController!.pause();
       setState(() {
         _isPlaying = false;
       });
+      debugPrint('Pausing video ${widget.video.id}');
     }
   }
 
   void _togglePlayPause() {
     if (widget.video.isMultipleImages || _isCommentsSheetOpen) return;
 
-    if (!_isInitialized) return;
+    if (!_isInitialized) {
+      // FIXED: If not initialized, try to initialize
+      if (!_isInitializing) {
+        _initializeMedia();
+      }
+      return;
+    }
 
     bool willBePlaying;
     if (_isPlaying) {
       _pauseVideo();
       willBePlaying = false;
     } else {
-      // Resume from current position, don't seek to beginning
       _playVideo();
       willBePlaying = true;
     }
 
-    // Notify parent about manual play/pause
     if (widget.onManualPlayPause != null) {
       widget.onManualPlayPause!(willBePlaying);
     }
@@ -337,11 +371,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
   void _handleDoubleTap() async {
     if (_isCommentsSheetOpen) return;
 
-    // Check if user is authenticated before allowing like
     final canInteract = await _requireAuthentication('like videos');
     if (!canInteract) return;
 
-    // Trigger like animation
     _showLikeAnimation = true;
     _heartScaleController.forward().then((_) {
       _heartScaleController.reverse();
@@ -356,26 +388,21 @@ class _VideoItemState extends ConsumerState<VideoItem>
       }
     });
 
-    // Like the video using the authentication provider
     final authNotifier = ref.read(authenticationProvider.notifier);
     authNotifier.likeVideo(widget.video.id);
 
-    // Haptic feedback
     if (mounted) {
       setState(() {});
     }
   }
 
   void _handleFollowToggle() async {
-    // Check if user is authenticated before allowing follow
     final canInteract = await _requireAuthentication('follow users');
     if (!canInteract) return;
 
-    // Follow the user using the authentication provider
     final authNotifier = ref.read(authenticationProvider.notifier);
     authNotifier.followUser(widget.video.userId);
 
-    // Optional: Add haptic feedback
     if (mounted) {
       setState(() {});
     }
@@ -387,28 +414,28 @@ class _VideoItemState extends ConsumerState<VideoItem>
     });
   }
 
-  // Helper method to parse RFC3339 timestamp to DateTime
   DateTime _parseVideoTimestamp() {
     try {
       return DateTime.parse(widget.video.createdAt);
     } catch (e) {
       debugPrint('Error parsing video timestamp: $e');
-      // Fallback to current time if parsing fails
       return DateTime.now();
     }
   }
 
   @override
   void dispose() {
+    debugPrint('Disposing video item for ${widget.video.id}');
+    
+    _retryTimer?.cancel();
     _likeAnimationController.dispose();
     _heartScaleController.dispose();
 
-    if (_isInitialized &&
-        _videoPlayerController != null &&
-        widget.preloadedController == null) {
+    // FIXED: Only dispose if we created the controller (not preloaded)
+    if (_videoPlayerController != null && widget.preloadedController == null) {
       _videoPlayerController!.dispose();
     }
-    _videoPlayerController = null;
+    
     super.dispose();
   }
 
@@ -423,35 +450,29 @@ class _VideoItemState extends ConsumerState<VideoItem>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Main content area
           GestureDetector(
             onTap: _togglePlayPause,
             onDoubleTap: _handleDoubleTap,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Media content with proper full-screen coverage
                 _buildMediaContent(),
 
-                // Loading indicator
                 if (widget.isLoading || _isInitializing)
                   _buildLoadingIndicator(),
 
-                // Error state
-                if (widget.hasFailed) _buildErrorState(),
+                if (_hasInitializationFailed && !_isInitializing)
+                  _buildErrorState(),
 
-                // Play indicator for paused videos (TikTok style)
                 if (!widget.video.isMultipleImages &&
                     _isInitialized &&
                     !_isPlaying &&
                     !_isCommentsSheetOpen)
                   _buildTikTokPlayIndicator(),
 
-                // Like animation overlay
                 if (_showLikeAnimation && !_isCommentsSheetOpen)
                   _buildLikeAnimation(),
 
-                // Image carousel indicators
                 if (widget.video.isMultipleImages &&
                     widget.video.imageUrls.length > 1 &&
                     !_isCommentsSheetOpen)
@@ -460,16 +481,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
             ),
           ),
 
-          // Bottom content overlay (TikTok style) - positioned relative to screen safe area
           if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
-
-          // Follow Button - positioned relative to screen safe area
           if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
         ],
       ),
     );
   }
 
+  // Rest of the methods remain the same...
   Widget _buildLikeAnimation() {
     return Positioned.fill(
       child: AnimatedBuilder(
@@ -477,7 +496,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
         builder: (context, child) {
           return Stack(
             children: [
-              // Center heart that scales
               Center(
                 child: AnimatedBuilder(
                   animation: _heartScaleAnimation,
@@ -499,8 +517,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
                   },
                 ),
               ),
-
-              // Floating hearts
               ..._buildFloatingHearts(),
             ],
           );
@@ -595,7 +611,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
       color: Colors.black,
       child: Image.network(
         imageUrl,
-        fit: BoxFit.cover, // Changed to cover for full screen like video feed
+        fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
         loadingBuilder: (context, child, loadingProgress) {
@@ -615,22 +631,23 @@ class _VideoItemState extends ConsumerState<VideoItem>
         width: double.infinity,
         height: double.infinity,
         color: Colors.black,
-        child: widget.isLoading || _isInitializing
-            ? _buildLoadingIndicator()
-            : null,
+        child: (widget.isLoading || _isInitializing) 
+            ? _buildLoadingIndicator() 
+            : (_hasInitializationFailed 
+                ? _buildErrorState() 
+                : null),
       );
     }
 
     return _buildFullScreenVideo();
   }
 
-  // Full screen video like video feed screen - using cover fit
   Widget _buildFullScreenVideo() {
     final controller = _videoPlayerController!;
 
     return SizedBox.expand(
       child: FittedBox(
-        fit: BoxFit.cover, // Changed to cover for full screen like video feed
+        fit: BoxFit.cover,
         child: SizedBox(
           width: controller.value.size.width,
           height: controller.value.size.height,
@@ -692,9 +709,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
             const SizedBox(height: 8),
             TextButton(
               onPressed: () {
-                setState(() {
-                  _isInitialized = false;
-                });
                 _initializeMedia();
               },
               child: const Text(
@@ -734,7 +748,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Smart caption widget that shows truncated or full text with hashtags
   Widget _buildSmartCaption() {
     if (widget.video.caption.isEmpty) return const SizedBox.shrink();
 
@@ -756,7 +769,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
       fontWeight: FontWeight.w500,
     );
 
-    // Combine caption with hashtags on new line
     String fullText = widget.video.caption;
     if (widget.video.tags.isNotEmpty) {
       final hashtags = widget.video.tags.map((tag) => '#$tag').join(' ');
@@ -806,12 +818,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
         );
         textPainter.layout(maxWidth: maxWidth);
 
-        // If text doesn't exceed 2 lines, show it fully
         if (!textPainter.didExceedMaxLines) {
           return Text(fullText, style: captionStyle);
         }
 
-        // Find where the text should be cut for 1.5 lines
         final firstLineHeight = textPainter.preferredLineHeight;
         final oneAndHalfLineHeight = firstLineHeight * 1.5;
 
@@ -820,12 +830,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
         var cutIndex = cutPosition.offset;
 
-        // Find the last space before cut position to avoid cutting words
         while (cutIndex > 0 && fullText[cutIndex] != ' ') {
           cutIndex--;
         }
 
-        // Ensure we have some text to show
         if (cutIndex < 10) {
           cutIndex = fullText.indexOf(' ', 10);
           if (cutIndex == -1) cutIndex = fullText.length ~/ 3;
@@ -851,9 +859,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // TikTok-style bottom content overlay - positioned relative to screen safe area
   Widget _buildBottomContentOverlay() {
-    // Hide all overlay content when comments are open
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
     final followedUsers = ref.watch(followedUsersProvider);
@@ -863,32 +869,23 @@ class _VideoItemState extends ConsumerState<VideoItem>
         currentUser != null && currentUser.uid == widget.video.userId;
 
     return Positioned(
-      bottom:
-          MediaQuery.of(context).padding.bottom, // Account for safe area bottom
+      bottom: MediaQuery.of(context).padding.bottom,
       left: 16,
-      right: 80, // Leave space for right side menu
+      right: 80,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // User name with verified badge immediately after name
           _buildUserNameWithVerification(),
-
           const SizedBox(height: 6),
-
-          // Smart caption with hashtags (combined)
           _buildSmartCaption(),
-
           const SizedBox(height: 8),
-
-          // Always show timestamp at the bottom for consistency
           _buildTimestampDisplay(),
         ],
       ),
     );
   }
 
-  // 🔧 SIMPLIFIED: User name with verification - only show when data is ready
   Widget _buildUserNameWithVerification() {
     return Consumer(
       builder: (context, ref, child) {
@@ -897,7 +894,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // User name directly from video metadata
             Flexible(
               child: Text(
                 widget.video.userName,
@@ -915,13 +911,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-
             const SizedBox(width: 6),
-
-            // Keep original verification logic
             if (widget.showVerificationBadge && videoUser != null) ...[
               if (videoUser.isVerified)
-                // CUSTOM STYLING FOR VERIFIED USERS
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   padding:
@@ -929,8 +921,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [
-                        Color(0xFF1DA1F2), // Twitter blue
-                        Color(0xFF0D8BD9), // Darker blue
+                        Color(0xFF1DA1F2),
+                        Color(0xFF0D8BD9),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -972,7 +964,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
                   ),
                 )
               else
-                // STYLING FOR NON-VERIFIED USERS
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1014,11 +1005,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // Helper method to format timestamp as relative time with better formatting - UPDATED
   String _getRelativeTime() {
     final now = DateTime.now();
-    final videoTime =
-        _parseVideoTimestamp(); // Use helper method to parse RFC3339
+    final videoTime = _parseVideoTimestamp();
     final difference = now.difference(videoTime);
 
     if (difference.inSeconds < 30) {
@@ -1046,24 +1035,18 @@ class _VideoItemState extends ConsumerState<VideoItem>
     }
   }
 
-  // Helper method to format timestamp as absolute date/time - UPDATED
   String _getFormattedDateTime() {
-    final videoTime =
-        _parseVideoTimestamp(); // Use helper method to parse RFC3339
+    final videoTime = _parseVideoTimestamp();
     final now = DateTime.now();
     final difference = now.difference(videoTime);
 
     if (difference.inDays == 0) {
-      // Today - show just time
       return 'Today ${_formatTime(videoTime)}';
     } else if (difference.inDays == 1) {
-      // Yesterday
       return 'Yesterday ${_formatTime(videoTime)}';
     } else if (difference.inDays < 7) {
-      // This week - show day and time
       return '${_formatDayOfWeek(videoTime)} ${_formatTime(videoTime)}';
     } else {
-      // Older - show date and time
       return '${_formatDate(videoTime)} ${_formatTime(videoTime)}';
     }
   }
@@ -1084,23 +1067,12 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
   String _formatDate(DateTime dateTime) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${months[dateTime.month - 1]} ${dateTime.day}';
   }
 
-  // Method to build timestamp display (kept for other screens)
   Widget _buildTimestampDisplay() {
     final timestampStyle = TextStyle(
       color: Colors.white.withOpacity(0.7),
@@ -1123,12 +1095,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   Widget _buildCarouselIndicators() {
-    // Hide indicators when comments are open
     if (_isCommentsSheetOpen) return const SizedBox.shrink();
 
     return Positioned(
-      top: MediaQuery.of(context).padding.top +
-          120, // Account for safe area top + offset
+      top: MediaQuery.of(context).padding.top + 120,
       left: 0,
       right: 0,
       child: Row(
@@ -1157,17 +1127,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
   }
 
-  // 🔧 SIMPLIFIED: Follow button - positioned relative to screen safe area
   Widget _buildTopLeftFollowButton() {
     final videoUser = _getUserDataIfAvailable();
     final currentUser = ref.watch(currentUserProvider);
 
-    // Don't show anything if user data isn't ready
     if (videoUser == null) {
       return const SizedBox.shrink();
     }
 
-    // Don't show follow button if user owns this video
     final isOwner =
         currentUser != null && currentUser.uid == widget.video.userId;
     if (isOwner) return const SizedBox.shrink();
@@ -1176,7 +1143,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     final isFollowing = followedUsers.contains(widget.video.userId);
 
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 16, // Account for safe area top
+      top: MediaQuery.of(context).padding.top + 16,
       left: 16,
       child: AnimatedScale(
         scale: isFollowing ? 0.0 : 1.0,

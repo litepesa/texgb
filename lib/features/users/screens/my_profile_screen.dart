@@ -24,17 +24,37 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   UserModel? _user;
   String? _error;
   bool _hasNoProfile = false;
+  DateTime? _lastDataFetch;
+  
+  // 🚀 PERFORMANCE: Custom cache manager for user data with longer cache duration
+  static final CacheManager _userDataCacheManager = CacheManager(
+    Config(
+      'user_data_cache',
+      stalePeriod: const Duration(minutes: 30), // Cache for 30 minutes
+      maxNrOfCacheObjects: 100,
+      repo: JsonCacheInfoRepository(databaseName: 'user_data_cache'),
+      fileService: HttpFileService(),
+    ),
+  );
+
+  // 🚀 PERFORMANCE: Cache duration - only fetch fresh data if older than this
+  static const Duration _cacheValidDuration = Duration(minutes: 15);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserData();
+      _loadUserDataSmart();
     });
   }
 
-  // 🔧 CRITICAL FIX: Load fresh user data from backend instead of cached data
-  Future<void> _loadUserData() async {
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  // 🚀 PERFORMANCE: Smart loading - use cached data when available and valid
+  Future<void> _loadUserDataSmart({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -42,12 +62,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     });
 
     try {
-      // Check if user is authenticated
+      // Check if user is authenticated first (this is usually cached in Riverpod)
       final currentUser = ref.read(currentUserProvider);
       final isAuthenticated = ref.read(isAuthenticatedProvider);
 
       if (!isAuthenticated || currentUser == null) {
-        // User is not authenticated
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
@@ -57,17 +76,32 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
 
-      // 🔧 CRITICAL FIX: Fetch fresh user data from backend instead of using cached data
-      final authNotifier = ref.read(authenticationProvider.notifier);
+      // 🚀 PERFORMANCE: Check if we have valid cached data first
+      final now = DateTime.now();
+      final shouldUseCachedData = !forceRefresh && 
+          _user != null && 
+          _lastDataFetch != null &&
+          now.difference(_lastDataFetch!) < _cacheValidDuration;
+
+      if (shouldUseCachedData) {
+        debugPrint('📦 Using cached user profile data (${_lastDataFetch})');
+        setState(() {
+          _isLoading = false;
+        });
+        
+        // 🚀 PERFORMANCE: Preload profile image in background if needed
+        _preloadProfileImageIfNeeded();
+        return;
+      }
 
       debugPrint('🔄 Loading fresh user profile data...');
-
-      // Get fresh user profile from backend (includes latest R2 image URLs)
+      
+      // Fetch fresh user data from backend
+      final authNotifier = ref.read(authenticationProvider.notifier);
       final freshUserProfile = await authNotifier.getUserProfile();
 
       if (freshUserProfile == null) {
         debugPrint('❌ User profile not found in backend');
-        // User profile not found in backend
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
@@ -82,10 +116,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
       if (mounted) {
         setState(() {
-          _user = freshUserProfile; // ✅ Using fresh data with latest R2 URLs
+          _user = freshUserProfile;
+          _lastDataFetch = now;
           _isLoading = false;
         });
       }
+
+      // 🚀 PERFORMANCE: Preload profile image after setting user data
+      _preloadProfileImageIfNeeded();
+
     } catch (e) {
       debugPrint('❌ Error loading user data: $e');
       if (mounted) {
@@ -97,6 +136,40 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     }
   }
 
+  // 🚀 PERFORMANCE: Preload profile image for instant display
+  Future<void> _preloadProfileImageIfNeeded() async {
+    if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
+      try {
+        // Preload the image silently in the background
+        await precacheImage(
+          CachedNetworkImageProvider(
+            _user!.profileImage,
+            cacheManager: DefaultCacheManager(),
+            cacheKey: 'profile_${_user!.id}_${_user!.profileImage.hashCode}',
+          ), 
+          context,
+        );
+        debugPrint('✅ Profile image preloaded successfully');
+      } catch (e) {
+        debugPrint('⚠️ Could not preload profile image: $e');
+        // Not a critical error, just means image will load when displayed
+      }
+    }
+  }
+
+  // 🚀 PERFORMANCE: Force refresh method for pull-to-refresh or manual refresh
+  Future<void> _forceRefresh() async {
+    // Clear image cache for this user to ensure fresh image
+    if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
+      await CachedNetworkImage.evictFromCache(
+        _user!.profileImage,
+        cacheKey: 'profile_${_user!.id}_${_user!.profileImage.hashCode}',
+      );
+    }
+    
+    await _loadUserDataSmart(forceRefresh: true);
+  }
+
   void _editProfile() {
     if (_user == null) return;
 
@@ -104,25 +177,29 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       context,
       Constants.editProfileScreen,
       arguments: _user,
-    ).then((_) => _loadUserData());
+    ).then((_) => _forceRefresh()); // Force refresh after editing
   }
 
-  // 🔧 FIXED: Enhanced profile creation callback with cache clearing
+  // 🚀 PERFORMANCE: Optimized profile creation callback
   void _onProfileCreated() async {
     debugPrint('🔄 Profile created, refreshing data...');
 
-    // 🔧 FIX: Clear any cached network images
+    // Clear cached data to ensure fresh load
+    _lastDataFetch = null;
+    
+    // Clear image cache
     if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
-      await CachedNetworkImage.evictFromCache(_user!.profileImage);
+      await CachedNetworkImage.evictFromCache(
+        _user!.profileImage,
+        cacheKey: 'profile_${_user!.id}_${_user!.profileImage.hashCode}',
+      );
     }
 
-    // 🔧 FIX: Force refresh authentication state to get latest user data
+    // Force refresh authentication state and reload
     final authNotifier = ref.read(authenticationProvider.notifier);
     await authNotifier.loadUserDataFromSharedPreferences();
 
-    // Reload the screen data after profile creation
-    await _loadUserData();
-
+    await _forceRefresh();
     debugPrint('✅ Profile data refreshed');
   }
 
@@ -132,13 +209,18 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
-      body: _isLoading
-          ? _buildLoadingView(modernTheme)
-          : _hasNoProfile
-              ? _buildProfileRequiredView(modernTheme)
-              : _error != null
-                  ? _buildErrorView(modernTheme)
-                  : _buildProfileView(modernTheme),
+      body: RefreshIndicator(
+        // 🚀 PERFORMANCE: Add pull-to-refresh functionality
+        onRefresh: _forceRefresh,
+        color: modernTheme.primaryColor,
+        child: _isLoading
+            ? _buildLoadingView(modernTheme)
+            : _hasNoProfile
+                ? _buildProfileRequiredView(modernTheme)
+                : _error != null
+                    ? _buildErrorView(modernTheme)
+                    : _buildProfileView(modernTheme),
+      ),
     );
   }
 
@@ -216,7 +298,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _loadUserData,
+              onPressed: () => _loadUserDataSmart(forceRefresh: true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
@@ -255,6 +337,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 80),
+            physics: const AlwaysScrollableScrollPhysics(), // Enable refresh indicator
             child: Column(
               children: [
                 // Become Seller tile
@@ -267,7 +350,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  // 🔧 FIXED: Enhanced profile header with better R2 image handling and curved bottom
+  // 🚀 PERFORMANCE: Optimized profile header with smart image caching
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -276,9 +359,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-          Color(0xFFFE2C55).withOpacity(0.4),
-          Color(0xFFFE2C55).withOpacity(0.8),
-          Color(0xFFFE2C55).withOpacity(0.6),
+            Color(0xFFFE2C55).withOpacity(0.4),
+            Color(0xFFFE2C55).withOpacity(0.8),
+            Color(0xFFFE2C55).withOpacity(0.6),
           ],
         ),
         borderRadius: const BorderRadius.only(
@@ -341,7 +424,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             child: Column(
               children: [
-                // 🔧 ENHANCED: Profile Image with better R2 handling
+                // 🚀 PERFORMANCE: Optimized profile image with smart caching
                 Stack(
                   alignment: Alignment.center,
                   children: [
@@ -380,20 +463,33 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                         child: _user!.profileImage.isNotEmpty
                             ? CachedNetworkImage(
                                 imageUrl: _user!.profileImage,
+                                // 🚀 PERFORMANCE: Use unique cache key with user ID and URL hash
+                                cacheKey: 'profile_${_user!.id}_${_user!.profileImage.hashCode}',
                                 fit: BoxFit.cover,
+                                // 🚀 PERFORMANCE: Optimize cache sizes
+                                memCacheWidth: 220, // 2x for high DPI
+                                memCacheHeight: 220,
+                                maxWidthDiskCache: 440, // 4x for future use
+                                maxHeightDiskCache: 440,
+                                // 🚀 PERFORMANCE: Use default cache manager with optimized settings
+                                cacheManager: DefaultCacheManager(),
+                                // 🚀 PERFORMANCE: Optimize placeholder
                                 placeholder: (context, url) => Container(
                                   color: Colors.grey[300],
                                   child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
                                     ),
                                   ),
                                 ),
+                                // 🚀 PERFORMANCE: Improved error handling with retry mechanism
                                 errorWidget: (context, error, stackTrace) {
-                                  // 🔧 DEBUG: Print R2 URL for debugging
-                                  debugPrint(
-                                      '❌ Failed to load profile image: ${_user!.profileImage}');
+                                  debugPrint('❌ Failed to load profile image: ${_user!.profileImage}');
                                   debugPrint('Error: $error');
                                   return Container(
                                     color: Colors.grey[300],
@@ -404,21 +500,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                                     ),
                                   );
                                 },
-                                // Enhanced cache options for R2 images
-                                memCacheWidth: 110,
-                                memCacheHeight: 110,
-                                maxWidthDiskCache: 220,
-                                maxHeightDiskCache: 220,
-                                // 🔧 FIX: Add headers for R2 images if needed
+                                // 🚀 PERFORMANCE: Add headers for better caching
                                 httpHeaders: const {
                                   'User-Agent': 'WeiBao-App/1.0',
+                                  'Cache-Control': 'max-age=86400', // Cache for 24 hours
                                 },
-                                // 🔧 FIX: Force reload if cached version fails
-                                cacheKey: _user!.profileImage,
-                                // Add loading success callback for debugging
+                                // 🚀 PERFORMANCE: Success callback for debugging
                                 imageBuilder: (context, imageProvider) {
-                                  debugPrint(
-                                      '✅ Profile image loaded successfully: ${_user!.profileImage}');
+                                  debugPrint('✅ Profile image loaded from cache/network: ${_user!.profileImage}');
                                   return Container(
                                     decoration: BoxDecoration(
                                       image: DecorationImage(
@@ -428,6 +517,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                                     ),
                                   );
                                 },
+                                // 🚀 PERFORMANCE: Configure cache duration
+                                fadeInDuration: const Duration(milliseconds: 300),
+                                fadeOutDuration: const Duration(milliseconds: 300),
                               )
                             : Container(
                                 color: Colors.grey[300],
