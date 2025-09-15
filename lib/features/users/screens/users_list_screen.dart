@@ -7,6 +7,8 @@ import 'package:textgb/features/authentication/providers/authentication_provider
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:textgb/features/users/screens/my_profile_screen.dart';
+import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class UsersListScreen extends ConsumerStatefulWidget {
@@ -142,6 +144,153 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // Enhanced Custom App Bar - EXACT SAME DESIGN
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.surfaceColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: theme.dividerColor!.withOpacity(0.15),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.primaryColor!.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // Enhanced Back Button - Navigate to My Profile
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MyProfileScreen(),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor!.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.person_rounded,
+                          color: theme.primaryColor,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  Expanded(
+                    child: Center(
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const VideosFeedScreen(),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFE2C55).withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFFE2C55).withOpacity(0.1),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.radio_button_checked,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Explore',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Enhanced Search Button
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        showSearch(
+                          context: context,
+                          delegate: UserSearchDelegate(ref: ref),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor!.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.search_rounded,
+                          color: theme.primaryColor,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
             // Category Filter Tabs - Enhanced Design
             Container(
               margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),

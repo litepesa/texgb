@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/chat/widgets/video_reaction_widget.dart';
 import 'package:textgb/features/videos/widgets/video_item.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/comments/widgets/comments_bottom_sheet.dart';
@@ -1062,11 +1063,26 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
           systemBottomPadding, // Closer to system nav for better screen utilization
       child: Column(
         children: [
+          // DM button - Using VideoReactionWidget (moved after Share)
+          VideoReactionWidget(
+            video: currentVideo,
+            onPause: _pauseForNavigation,
+            onResume: _resumeFromNavigation,
+            child: Lottie.asset(
+              'assets/lottie/chat_bubble.json',
+              width: 58,
+              height: 58,
+              fit: BoxFit.contain,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
           // Like button
           _buildRightMenuItem(
             child: Icon(
               currentVideo?.isLiked == true
-                  ? CupertinoIcons.heart_fill
+                  ? CupertinoIcons.heart
                   : CupertinoIcons.heart,
               color: currentVideo?.isLiked == true ? Colors.red : Colors.white,
               size: 26,
@@ -1090,7 +1106,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
 
           const SizedBox(height: 10),
 
-          // Download button (replaced star/bookmark)
+          /*// Download button (replaced star/bookmark)
           _buildRightMenuItem(
             child: Stack(
               alignment: Alignment.center,
@@ -1172,7 +1188,7 @@ class VideosFeedScreenState extends ConsumerState<VideosFeedScreen>
             onTap: () => _showVirtualGifts(currentVideo),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),*/
 
           // Profile avatar with red border - FIXED: Only show when user data is ready
           _buildRightMenuItem(
