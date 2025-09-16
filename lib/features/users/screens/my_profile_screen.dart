@@ -385,7 +385,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             _buildQuickActionsSection(modernTheme),
 
             // Single Latest Post Thumbnail
-            _buildLatestPostThumbnail(modernTheme),
+           // _buildLatestPostThumbnail(modernTheme),
 
             // Bottom padding for navigation
             const SizedBox(height: 80),
@@ -912,7 +912,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  Widget _buildLatestPostThumbnail(ModernThemeExtension modernTheme) {
+  /*Widget _buildLatestPostThumbnail(ModernThemeExtension modernTheme) {
     if (_userVideos.isEmpty) {
       return _buildEmptyState(modernTheme);
     }
@@ -1106,9 +1106,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       return '${(views / 1000).toStringAsFixed(1)}K';
     }
     return views.toString();
-  }
+  }*/
 
-  Widget _buildEmptyState(ModernThemeExtension modernTheme) {
+  /*Widget _buildEmptyState(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(32),
@@ -1181,7 +1181,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         ],
       ),
     );
-  }
+  }*/
 
   // Helper method for time ago formatting
   String _getTimeAgo(DateTime dateTime) {
