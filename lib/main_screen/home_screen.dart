@@ -320,24 +320,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  // Handle FAB onPressed based on current tab
-  void _onFabPressed() {
-    switch (_currentIndex) {
-      case 0: // Inbox tab
-        _navigateToContacts();
-        break;
-      case 1: // Wallet tab
-        // Does nothing for now
-        break;
-      case 2: // Channels tab
-        _navigateToCreatePost();
-        break;
-      case 3: // Profile tab
-        // No FAB
-        break;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (!mounted) {
@@ -387,18 +369,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       
       bottomNavigationBar: _buildBottomNav(modernTheme),
       
-      // FAB for tabs 0, 1, and 2 only
-      floatingActionButton: _currentIndex != 3 ? FloatingActionButton(
-        onPressed: _onFabPressed,
+      // Independent FAB implementation
+      floatingActionButton: _buildFab(modernTheme),
+    );
+  }
+
+  // Independent FAB implementation matching the pattern from the first document
+  Widget? _buildFab(ModernThemeExtension modernTheme) {
+    if (_currentIndex == 0) {
+      // Inbox tab - New chat FAB
+      return FloatingActionButton(
+        heroTag: "chat_fab",
         backgroundColor: modernTheme.backgroundColor,
         foregroundColor: modernTheme.primaryColor,
-        child: Icon(
-          _currentIndex == 0 ? CupertinoIcons.bubble_left_bubble_right :
-          _currentIndex == 1 ? Icons.account_balance_wallet :
-          _currentIndex == 2 ? Icons.add : Icons.add,
-        ),
-      ) : null,
-    );
+        elevation: 4,
+        onPressed: _navigateToContacts,
+        child: const Icon(CupertinoIcons.bubble_left_bubble_right_fill),
+      );
+    } else if (_currentIndex == 1) {
+      // Wallet tab - Wallet specific FAB
+      return FloatingActionButton(
+        heroTag: "wallet_fab",
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
+        elevation: 4,
+        onPressed: () {
+          // Wallet specific action - currently does nothing
+          HapticFeedback.lightImpact();
+        },
+        child: const Icon(Icons.account_balance_wallet),
+      );
+    } else if (_currentIndex == 2) {
+      // Channels tab - Create Post FAB
+      return FloatingActionButton(
+        heroTag: "channels_fab",
+        backgroundColor: modernTheme.backgroundColor,
+        foregroundColor: modernTheme.primaryColor,
+        elevation: 4,
+        onPressed: _navigateToCreatePost,
+        child: const Icon(Icons.camera_alt_rounded),
+      );
+    }
+    
+    // Profile tab (index 3) - No FAB
+    return null;
   }
 
   // Bottom navigation with 4 tabs

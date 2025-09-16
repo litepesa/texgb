@@ -80,6 +80,7 @@ class Constants {
   static const String cameraScreen = '/camera';
   static const String videoEditorScreen = '/videoEditor';
   static const String videoPreviewScreen = '/videoPreview';
+  static const String managePostsScreen = '/managePosts';
   
   // Discovery Routes
   static const String exploreScreen = '/explore';                   // was exploreChannelsScreen

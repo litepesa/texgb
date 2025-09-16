@@ -23,6 +23,7 @@ import 'package:textgb/features/contacts/screens/contact_profile_screen.dart';
 import 'package:textgb/features/contacts/screens/contacts_screen.dart';
 
 import 'package:textgb/features/users/screens/user_profile_screen.dart';
+import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
 import 'package:textgb/features/videos/screens/single_video_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
 import 'package:textgb/features/videos/screens/create_post_screen.dart';
@@ -185,6 +186,7 @@ class AppRoot extends ConsumerWidget {
           },
           Constants.myProfileScreen: (context) => const MyProfileScreen(),
           Constants.createPostScreen: (context) => const CreatePostScreen(),
+          Constants.managePostsScreen: (context) => const ManagePostsScreen(),
           Constants.singleVideoScreen: (context) {
             final args = ModalRoute.of(context)!.settings.arguments;
             if (args is String) {
