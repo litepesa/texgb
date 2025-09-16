@@ -1,12 +1,14 @@
+// lib/features/users/screens/my_profile_screen.dart
+// UPDATED: Simplified version - heavy functions moved to ManagePostsScreen
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:textgb/features/users/widgets/verification_widget.dart';
-import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:textgb/features/users/widgets/verification_widget.dart';
+import 'package:textgb/shared/theme/theme_selector.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
@@ -22,14 +24,11 @@ class MyProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
-    with TickerProviderStateMixin {
+class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   bool _isLoading = true;
   UserModel? _user;
   List<VideoModel> _userVideos = [];
   String? _error;
-  bool _isDeleting = false;
-  late TabController _tabController;
   final Map<String, String> _videoThumbnails = {};
   bool _hasNoProfile = false;
 
@@ -38,26 +37,19 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     Config(
       'userVideoThumbnails',
       stalePeriod: const Duration(days: 7),
-      maxNrOfCacheObjects: 200,
+      maxNrOfCacheObjects: 100, // Reduced cache size for profile screen
     ),
   );
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserData();
     });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  // 🔧 CRITICAL FIX: Load fresh user data from backend instead of cached data
+  // SIMPLIFIED: Load fresh user data from backend
   Future<void> _loadUserData() async {
     setState(() {
       _isLoading = true;
@@ -71,7 +63,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       final isAuthenticated = ref.read(isAuthenticatedProvider);
 
       if (!isAuthenticated || currentUser == null) {
-        // User is not authenticated
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
@@ -81,17 +72,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
         return;
       }
 
-      // 🔧 CRITICAL FIX: Fetch fresh user data from backend instead of using cached data
+      // Get fresh user profile from backend
       final authNotifier = ref.read(authenticationProvider.notifier);
-
-      debugPrint('🔄 Loading fresh user profile data...');
-
-      // Get fresh user profile from backend (includes latest R2 image URLs)
       final freshUserProfile = await authNotifier.getUserProfile();
 
       if (freshUserProfile == null) {
-        debugPrint('❌ User profile not found in backend');
-        // User profile not found in backend
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
@@ -101,33 +86,28 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
         return;
       }
 
-      debugPrint('✅ Fresh user profile loaded: ${freshUserProfile.name}');
-      debugPrint('📸 Profile image URL: ${freshUserProfile.profileImage}');
-
-      // Get user's videos (also refresh these)
-      await authNotifier.loadVideos(); // Refresh videos from backend
-      await authNotifier
-          .loadUserVideos(freshUserProfile.uid); // Load user-specific videos
+      // Get user's videos (limited to recent 1 for profile preview)
+      await authNotifier.loadVideos();
+      await authNotifier.loadUserVideos(freshUserProfile.uid);
 
       final videos = ref.read(videosProvider);
       final userVideos = videos
           .where((video) => video.userId == freshUserProfile.uid)
+          .take(1) // Only show latest 1 post on profile
           .toList();
-
-      debugPrint('📹 User videos loaded: ${userVideos.length}');
 
       if (mounted) {
         setState(() {
-          _user = freshUserProfile; // ✅ Using fresh data with latest R2 URLs
+          _user = freshUserProfile;
           _userVideos = userVideos;
           _isLoading = false;
         });
 
-        // Generate thumbnails for video content
-        _generateVideoThumbnails();
+        // Generate thumbnail only for the single post
+        _generateVideoThumbnail();
       }
     } catch (e) {
-      debugPrint('❌ Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -137,50 +117,47 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     }
   }
 
-  Future<void> _generateVideoThumbnails() async {
-    for (final video in _userVideos) {
-      if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
-        try {
-          // Check if thumbnail is already cached
-          final cacheKey = 'thumb_${video.id}';
-          final fileInfo =
-              await _thumbnailCacheManager.getFileFromCache(cacheKey);
+  // SIMPLIFIED: Generate thumbnail only for single post
+  Future<void> _generateVideoThumbnail() async {
+    if (_userVideos.isEmpty) return;
+    
+    final video = _userVideos.first;
+    if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
+      try {
+        final cacheKey = 'thumb_${video.id}';
+        final fileInfo = await _thumbnailCacheManager.getFileFromCache(cacheKey);
 
-          if (fileInfo != null && fileInfo.file.existsSync()) {
-            // Use cached thumbnail
-            if (mounted) {
-              setState(() {
-                _videoThumbnails[video.id] = fileInfo.file.path;
-              });
-            }
-          } else {
-            // Generate new thumbnail
-            final thumbnailPath = await VideoThumbnail.thumbnailFile(
-              video: video.videoUrl,
-              thumbnailPath: (await getTemporaryDirectory()).path,
-              imageFormat: ImageFormat.JPEG,
-              maxHeight: 400,
-              quality: 85,
-            );
-
-            if (thumbnailPath != null && mounted) {
-              // Cache the thumbnail
-              final thumbnailFile = File(thumbnailPath);
-              if (thumbnailFile.existsSync()) {
-                await _thumbnailCacheManager.putFile(
-                  cacheKey,
-                  thumbnailFile.readAsBytesSync(),
-                );
-              }
-
-              setState(() {
-                _videoThumbnails[video.id] = thumbnailPath;
-              });
-            }
+        if (fileInfo != null && fileInfo.file.existsSync()) {
+          if (mounted) {
+            setState(() {
+              _videoThumbnails[video.id] = fileInfo.file.path;
+            });
           }
-        } catch (e) {
-          debugPrint('❌ Error generating thumbnail for video ${video.id}: $e');
+        } else {
+          final thumbnailPath = await VideoThumbnail.thumbnailFile(
+            video: video.videoUrl,
+            thumbnailPath: (await getTemporaryDirectory()).path,
+            imageFormat: ImageFormat.JPEG,
+            maxHeight: 400, // Higher quality for single large thumbnail
+            quality: 85, // Better quality for single thumbnail
+          );
+
+          if (thumbnailPath != null && mounted) {
+            final thumbnailFile = File(thumbnailPath);
+            if (thumbnailFile.existsSync()) {
+              await _thumbnailCacheManager.putFile(
+                cacheKey,
+                thumbnailFile.readAsBytesSync(),
+              );
+            }
+
+            setState(() {
+              _videoThumbnails[video.id] = thumbnailPath;
+            });
+          }
         }
+      } catch (e) {
+        debugPrint('Error generating thumbnail for video ${video.id}: $e');
       }
     }
   }
@@ -195,95 +172,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     ).then((_) => _loadUserData());
   }
 
-  Future<void> _deleteVideo(String videoId) async {
-    if (_isDeleting) return;
-
-    setState(() {
-      _isDeleting = true;
-    });
-
-    try {
-      await ref.read(authenticationProvider.notifier).deleteVideo(
-        videoId,
-        (error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error),
-              backgroundColor: Colors.red.shade600,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
-      );
-
-      _loadUserData();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error deleting video: ${e.toString()}'),
-          backgroundColor: Colors.red.shade600,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDeleting = false;
-        });
-      }
-    }
-  }
-
-  void _confirmDeleteVideo(VideoModel video) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Icon(
-              Icons.delete_outline,
-              color: Colors.red.shade600,
-            ),
-            const SizedBox(width: 8),
-            const Text('Delete Content'),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to delete "${video.caption}"? This action cannot be undone.',
-          style: const TextStyle(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: context.modernTheme.textSecondaryColor,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _deleteVideo(video.id);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _openVideoDetails(VideoModel video) {
     Navigator.pushNamed(
       context,
@@ -295,26 +183,34 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     ).then((_) => _loadUserData());
   }
 
-  // 🔧 FIXED: Enhanced profile creation callback with cache clearing
-  void _onProfileCreated() async {
-    debugPrint('🔄 Profile created, refreshing data...');
+  // NEW: Navigate to Manage Posts Screen
+  void _navigateToManagePosts() {
+    Navigator.pushNamed(
+      context,
+      Constants.managePostsScreen,
+    ).then((_) => _loadUserData()); // Refresh when coming back
+  }
 
-    // 🔧 FIX: Clear any cached network images
+  // ENHANCED: Profile creation callback with cache clearing
+  void _onProfileCreated() async {
+    debugPrint('Profile created, refreshing data...');
+
+    // Clear any cached network images
     if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
       await CachedNetworkImage.evictFromCache(_user!.profileImage);
     }
 
-    // 🔧 FIX: Clear thumbnail cache
+    // Clear thumbnail cache
     await _thumbnailCacheManager.emptyCache();
 
-    // 🔧 FIX: Force refresh authentication state to get latest user data
+    // Force refresh authentication state to get latest user data
     final authNotifier = ref.read(authenticationProvider.notifier);
     await authNotifier.loadUserDataFromSharedPreferences();
 
     // Reload the screen data after profile creation
     await _loadUserData();
 
-    debugPrint('✅ Profile data refreshed');
+    debugPrint('Profile data refreshed');
   }
 
   @override
@@ -362,8 +258,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       backgroundColor: modernTheme.backgroundColor,
       body: const LoginRequiredWidget(
         title: 'Sign In Required',
-        subtitle:
-            'Please sign in to view your profile and manage your content.',
+        subtitle: 'Please sign in to view your profile and manage your content.',
         actionText: 'Sign In',
         icon: Icons.person,
       ),
@@ -439,81 +334,29 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
       return const Center(child: Text('Profile not found'));
     }
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Profile Header
-              _buildProfileHeader(modernTheme),
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Profile Header
+          _buildProfileHeader(modernTheme),
 
-              // Profile Info Card
-              _buildProfileInfoCard(modernTheme),
+          // Profile Info Card
+          _buildProfileInfoCard(modernTheme),
 
-              // Tab Bar
-              Container(
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Color(0xFFFE2C55).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  labelColor: modernTheme.primaryColor,
-                  unselectedLabelColor: modernTheme.textSecondaryColor,
-                  indicatorColor: modernTheme.primaryColor,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  indicatorPadding: const EdgeInsets.all(8),
-                  indicator: BoxDecoration(
-                    color: modernTheme.primaryColor!.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  tabs: const [
-                    Tab(
-                      icon: Icon(Icons.grid_view),
-                      text: 'Posts',
-                    ),
-                    Tab(
-                      icon: Icon(Icons.analytics),
-                      text: 'Analytics',
-                    ),
-                  ],
-                ),
-              ),
+          // NEW: Quick Actions Section
+          _buildQuickActionsSection(modernTheme),
 
-              // Tab Content
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.6,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildPostsTab(modernTheme),
-                    _buildAnalyticsTab(modernTheme),
-                  ],
-                ),
-              ),
+          // Single Latest Post Thumbnail
+          _buildLatestPostThumbnail(modernTheme),
 
-              // Bottom padding
-              const SizedBox(height: 80),
-            ],
-          ),
-        ),
-        extendBodyBehindAppBar: true,
+          // Bottom padding for navigation
+          const SizedBox(height: 80),
+        ],
       ),
     );
   }
 
-  // 🔧 FIXED: Enhanced profile header with better R2 image handling and curved bottom
+  // ENHANCED: Profile header with better R2 image handling
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -587,7 +430,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             child: Column(
               children: [
-                // 🔧 ENHANCED: Profile Image with better R2 handling
+                // Profile Image with enhanced R2 handling
                 Stack(
                   alignment: Alignment.center,
                   children: [
@@ -637,9 +480,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                   ),
                                 ),
                                 errorWidget: (context, error, stackTrace) {
-                                  // 🔧 DEBUG: Print R2 URL for debugging
-                                  debugPrint(
-                                      '❌ Failed to load profile image: ${_user!.profileImage}');
+                                  debugPrint('Failed to load profile image: ${_user!.profileImage}');
                                   debugPrint('Error: $error');
                                   return Container(
                                     color: Colors.grey[300],
@@ -650,21 +491,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                     ),
                                   );
                                 },
-                                // Enhanced cache options for R2 images
                                 memCacheWidth: 110,
                                 memCacheHeight: 110,
                                 maxWidthDiskCache: 220,
                                 maxHeightDiskCache: 220,
-                                // 🔧 FIX: Add headers for R2 images if needed
                                 httpHeaders: const {
                                   'User-Agent': 'WeiBao-App/1.0',
                                 },
-                                // 🔧 FIX: Force reload if cached version fails
                                 cacheKey: _user!.profileImage,
-                                // Add loading success callback for debugging
                                 imageBuilder: (context, imageProvider) {
-                                  debugPrint(
-                                      '✅ Profile image loaded successfully: ${_user!.profileImage}');
+                                  debugPrint('Profile image loaded successfully: ${_user!.profileImage}');
                                   return Container(
                                     decoration: BoxDecoration(
                                       image: DecorationImage(
@@ -689,7 +525,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 ),
                 const SizedBox(height: 20),
 
-                // User name with enhanced styling
+                // User name
                 Text(
                   _user!.name,
                   style: const TextStyle(
@@ -709,7 +545,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 ),
                 const SizedBox(height: 12),
 
-                // User description
+                // User bio
                 if (_user!.bio.isNotEmpty)
                   Text(
                     _user!.bio,
@@ -724,33 +560,31 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                   ),
                 const SizedBox(height: 20),
 
-                // Side-by-side buttons: Verification and Edit Profile
+                // Action buttons row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Verification status button - more prominent and bright
+                    // Verification status button
                     GestureDetector(
                       onTap: () => VerificationInfoWidget.show(context),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                         decoration: BoxDecoration(
                           gradient: _user!.isVerified
                               ? const LinearGradient(
                                   colors: [
-                                    Color(0xFF1565C0), // Deep blue
-                                    Color(0xFF0D47A1), // Darker blue
-                                    Color(0xFF0A1E3D), // Very dark blue
+                                    Color(0xFF1565C0),
+                                    Color(0xFF0D47A1),
+                                    Color(0xFF0A1E3D),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 )
                               : const LinearGradient(
                                   colors: [
-                                    Color(0xFF1976D2), // Material blue
-                                    Color(0xFF1565C0), // Darker blue
-                                    Color(0xFF0D47A1), // Deep blue
+                                    Color(0xFF1976D2),
+                                    Color(0xFF1565C0),
+                                    Color(0xFF0D47A1),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
@@ -764,11 +598,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                               blurRadius: 12,
                               spreadRadius: 2,
                               offset: const Offset(0, 4),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
@@ -790,13 +619,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.5,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black38,
-                                    blurRadius: 3,
-                                    offset: Offset(0, 1),
-                                  ),
-                                ],
                               ),
                             ),
                           ],
@@ -806,12 +628,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
 
                     const SizedBox(width: 16),
 
-                    // Edit Profile Button - simplified without icon
+                    // Edit Profile Button
                     GestureDetector(
                       onTap: _editProfile,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(25),
@@ -862,7 +683,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Stats Row with 4 items
+          // Stats Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -904,12 +725,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 itemBuilder: (context, index) {
                   final tag = _user!.tags[index];
                   return Container(
-                    margin: EdgeInsets.only(
-                        right: index < _user!.tags.length - 1 ? 8 : 0),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
+                    margin: EdgeInsets.only(right: index < _user!.tags.length - 1 ? 8 : 0),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: modernTheme.primaryColor!.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -969,184 +786,44 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
     );
   }
 
-  Widget _buildPostsTab(ModernThemeExtension modernTheme) {
-    if (_userVideos.isEmpty) {
-      return _buildEmptyState(modernTheme);
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.only(
-        left: 4,
-        right: 4,
-        top: 4,
-        bottom: 20,
-      ),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-        childAspectRatio: 9 / 16,
-      ),
-      itemCount: _userVideos.length,
-      itemBuilder: (context, index) {
-        final video = _userVideos[index];
-        return _buildVideoCard(video, modernTheme);
-      },
-    );
-  }
-
-  Widget _buildVideoCard(VideoModel video, ModernThemeExtension modernTheme) {
-    return GestureDetector(
-      onTap: () => _openVideoDetails(video),
-      onLongPress: () => _confirmDeleteVideo(video),
-      child: Stack(
-        fit: StackFit.expand,
+  // NEW: Quick Actions Section
+  Widget _buildQuickActionsSection(ModernThemeExtension modernTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
         children: [
-          // Thumbnail covering the entire tile
-          if (video.isMultipleImages && video.imageUrls.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: video.imageUrls.first,
-              fit: BoxFit.cover,
-              memCacheHeight: 600,
-              placeholder: (context, url) => Container(
-                color: modernTheme.surfaceColor,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      modernTheme.primaryColor!,
-                    ),
-                  ),
-                ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                child: Icon(
-                  Icons.photo_library,
+          // Manage Posts Button - Primary Action
+          Expanded(
+            flex: 2,
+            child: GestureDetector(
+              onTap: _navigateToManagePosts,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
                   color: modernTheme.primaryColor,
-                  size: 48,
-                ),
-              ),
-            )
-          else if (!video.isMultipleImages &&
-              _videoThumbnails.containsKey(video.id))
-            Image.file(
-              File(_videoThumbnails[video.id]!),
-              fit: BoxFit.cover,
-            )
-          else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: video.thumbnailUrl,
-              fit: BoxFit.cover,
-              memCacheHeight: 600,
-              placeholder: (context, url) => Container(
-                color: modernTheme.surfaceColor,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      modernTheme.primaryColor!,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: modernTheme.primaryColor!.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                child: Icon(
-                  Icons.play_circle_fill,
-                  color: modernTheme.primaryColor,
-                  size: 48,
-                ),
-              ),
-            )
-          else
-            Container(
-              color: modernTheme.primaryColor!.withOpacity(0.1),
-              child: Icon(
-                video.isMultipleImages
-                    ? Icons.photo_library
-                    : Icons.play_circle_fill,
-                color: modernTheme.primaryColor,
-                size: 48,
-              ),
-            ),
-
-          // Gradient overlay at bottom
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 60,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.7),
-                    Colors.transparent,
                   ],
                 ),
-              ),
-            ),
-          ),
-
-          // View count at bottom left
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _formatViewCount(video.views),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        offset: Offset(0, 1),
-                        blurRadius: 3,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Multiple images indicator
-          if (video.isMultipleImages && video.imageUrls.length > 1)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(
-                      Icons.photo_library,
+                      Icons.dashboard,
                       color: Colors.white,
-                      size: 14,
+                      size: 24,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${video.imageUrls.length}',
-                      style: const TextStyle(
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Manage Posts',
+                      style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1154,7 +831,241 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
                 ),
               ),
             ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Create Post Button
+          Expanded(
+            child: GestureDetector(
+              onTap: () => Navigator.pushNamed(context, Constants.createPostScreen),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: modernTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: modernTheme.primaryColor!.withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.add_circle_outline,
+                      color: modernTheme.primaryColor,
+                      size: 24,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Create',
+                      style: TextStyle(
+                        color: modernTheme.primaryColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  // UPDATED: Latest Post Thumbnail with matching styling from recommended posts
+  // Replace ONLY the _buildLatestPostThumbnail method in my_profile_screen.dart
+  Widget _buildLatestPostThumbnail(ModernThemeExtension modernTheme) {
+    if (_userVideos.isEmpty) {
+      return _buildEmptyState(modernTheme);
+    }
+
+    final video = _userVideos.first;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      child: GestureDetector(
+        onTap: () => _openVideoDetails(video),
+        child: Container(
+          decoration: BoxDecoration(
+            color: modernTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: modernTheme.dividerColor!.withOpacity(0.15),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: modernTheme.primaryColor!.withOpacity(0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+                spreadRadius: -2,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Main thumbnail with 9:16 aspect ratio like recommended posts
+              AspectRatio(
+                aspectRatio: 9 / 16, // 9:16 aspect ratio like recommended posts
+                child: Container(
+                  margin: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Stack(
+                      children: [
+                        // Main thumbnail content
+                        SizedBox(
+                          width: double.infinity,
+                          height: double.infinity,
+                          child: _buildThumbnailContent(video),
+                        ),
+                        
+                        // Enhanced gradient overlay (same as recommended posts)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.8),
+                                ],
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  video.caption.isNotEmpty ? video.caption : 'No caption',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.3,
+                                    letterSpacing: -0.1,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${_formatViewCount(video.views)} views',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Bottom padding to match recommended posts
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnailContent(VideoModel video) {
+    if (video.isMultipleImages && video.imageUrls.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: video.imageUrls.first,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        placeholder: (context, url) => _buildLoadingThumbnail(),
+        errorWidget: (context, error, stackTrace) => _buildErrorThumbnail(),
+      );
+    } else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id)) {
+      return Image.file(
+        File(_videoThumbnails[video.id]!),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      );
+    } else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: video.thumbnailUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        placeholder: (context, url) => _buildLoadingThumbnail(),
+        errorWidget: (context, error, stackTrace) => _buildErrorThumbnail(),
+      );
+    } else {
+      return _buildErrorThumbnail();
+    }
+  }
+
+  Widget _buildLoadingThumbnail() {
+    final modernTheme = context.modernTheme;
+    return Container(
+      color: modernTheme.surfaceVariantColor,
+      child: Center(
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: CircularProgressIndicator(
+            color: modernTheme.primaryColor,
+            strokeWidth: 3,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorThumbnail() {
+    final modernTheme = context.modernTheme;
+    return Container(
+      color: modernTheme.surfaceVariantColor,
+      child: Center(
+        child: Icon(
+          Icons.video_library,
+          color: modernTheme.textSecondaryColor,
+          size: 48,
+        ),
       ),
     );
   }
@@ -1169,273 +1080,96 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
   }
 
   Widget _buildEmptyState(ModernThemeExtension modernTheme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: modernTheme.primaryColor!.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.video_library_outlined,
-                color: modernTheme.primaryColor,
-                size: 64,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No content yet',
-              style: TextStyle(
-                color: modernTheme.textColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Your posts will appear here when you start sharing content',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 16,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: modernTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: modernTheme.dividerColor!.withOpacity(0.15),
+          width: 1,
         ),
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsTab(ModernThemeExtension modernTheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Overview Stats
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Color(0xFFFE2C55).withOpacity(0.4),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Profile Overview',
-                  style: TextStyle(
-                    color: modernTheme.textColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildAnalyticsCard(
-                        'Total Views',
-                        _userVideos
-                            .fold<int>(0, (sum, video) => sum + video.views)
-                            .toString(),
-                        Icons.visibility,
-                        modernTheme,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildAnalyticsCard(
-                        'Total Likes',
-                        _userVideos
-                            .fold<int>(0, (sum, video) => sum + video.likes)
-                            .toString(),
-                        Icons.favorite,
-                        modernTheme,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildAnalyticsCard(
-                        'Comments',
-                        _userVideos
-                            .fold<int>(0, (sum, video) => sum + video.comments)
-                            .toString(),
-                        Icons.comment,
-                        modernTheme,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildAnalyticsCard(
-                        'Engagement',
-                        '${_calculateEngagementRate().toStringAsFixed(1)}%',
-                        Icons.trending_up,
-                        modernTheme,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Performance Tips
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: modernTheme.primaryColor!.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: modernTheme.primaryColor!.withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.lightbulb_outline,
-                      color: modernTheme.primaryColor,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Performance Tips',
-                      style: TextStyle(
-                        color: modernTheme.textColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildTipItem(
-                  'Post consistently to keep your audience engaged',
-                  Icons.schedule,
-                  modernTheme,
-                ),
-                const SizedBox(height: 12),
-                _buildTipItem(
-                  'Use trending hashtags to increase visibility',
-                  Icons.tag,
-                  modernTheme,
-                ),
-                const SizedBox(height: 12),
-                _buildTipItem(
-                  'Respond to comments to boost engagement',
-                  Icons.chat_bubble_outline,
-                  modernTheme,
-                ),
-              ],
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: modernTheme.primaryColor!.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: -4,
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAnalyticsCard(
-    String title,
-    String value,
-    IconData icon,
-    ModernThemeExtension modernTheme,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: modernTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: modernTheme.primaryColor!.withOpacity(0.1),
-        ),
-      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: modernTheme.primaryColor,
-            size: 28,
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: modernTheme.primaryColor!.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.video_library_outlined,
+              color: modernTheme.primaryColor,
+              size: 48,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(
-            value,
+            'No posts yet',
             style: TextStyle(
               color: modernTheme.textColor,
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
-            title,
+            'Start creating content to showcase your creativity',
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
-              fontSize: 12,
+              fontSize: 14,
             ),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, Constants.createPostScreen),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text(
+              'Create Post',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTipItem(
-      String text, IconData icon, ModernThemeExtension modernTheme) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: modernTheme.primaryColor,
-          size: 20,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  // Helper method for time ago formatting
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
 
-  double _calculateEngagementRate() {
-    if (_userVideos.isEmpty) return 0.0;
-
-    final totalEngagement = _userVideos.fold<int>(
-      0,
-      (sum, video) => sum + video.likes + video.comments,
-    );
-    final totalViews = _userVideos.fold<int>(
-      0,
-      (sum, video) => sum + video.views,
-    );
-
-    if (totalViews == 0) return 0.0;
-    return (totalEngagement / totalViews) * 100;
+    if (difference.inDays > 30) {
+      final months = (difference.inDays / 30).floor();
+      return '$months month${months == 1 ? '' : 's'} ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
   }
 }

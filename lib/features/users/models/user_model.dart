@@ -1,5 +1,6 @@
 // lib/features/users/models/user_model.dart
 // EXTENDED: Added drama support while preserving video functionality + lastPostAt
+// FIXED: Backend field mapping compatibility
 
 // User preferences for both video and drama features
 class UserPreferences {
@@ -15,9 +16,9 @@ class UserPreferences {
 
   factory UserPreferences.fromMap(Map<String, dynamic> map) {
     return UserPreferences(
-      autoPlay: map['autoPlay'] ?? true,
-      receiveNotifications: map['receiveNotifications'] ?? true,
-      darkMode: map['darkMode'] ?? false,
+      autoPlay: map['autoPlay'] ?? map['auto_play'] ?? true,
+      receiveNotifications: map['receiveNotifications'] ?? map['receive_notifications'] ?? true,
+      darkMode: map['darkMode'] ?? map['dark_mode'] ?? false,
     );
   }
 
@@ -108,43 +109,70 @@ class UserModel {
     this.preferences = const UserPreferences(),
   });
 
-  // Factory constructor for creating user from backend data
+  // FIXED: Factory constructor for creating user from backend data with proper field mapping
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      // Existing video field mappings (preserved)
-      uid: map['uid'] ?? map['id'] ?? '',
-      phoneNumber: map['phoneNumber'] ?? '',
-      name: map['name'] ?? '',
-      bio: map['bio'] ?? '',
-      profileImage: map['profileImage'] ?? '',
-      coverImage: map['coverImage'] ?? '',
-      followers: map['followersCount'] ?? 0,
-      following: map['followingCount'] ?? 0,
-      videosCount: map['videosCount'] ?? 0,
-      likesCount: map['likesCount'] ?? 0,
-      isVerified: map['isVerified'] ?? false,
+      // FIXED: Handle both camelCase and snake_case field names from backend
+      uid: _extractString(map['uid'] ?? map['id']) ?? '',
+      phoneNumber: _extractString(map['phoneNumber'] ?? map['phone_number']) ?? '',
+      name: _extractString(map['name']) ?? '',
+      bio: _extractString(map['bio']) ?? '',
+      profileImage: _extractString(map['profileImage'] ?? map['profile_image']) ?? '',
+      coverImage: _extractString(map['coverImage'] ?? map['cover_image']) ?? '',
+      followers: _extractInt(map['followersCount'] ?? map['followers_count']) ?? 0,
+      following: _extractInt(map['followingCount'] ?? map['following_count']) ?? 0,
+      videosCount: _extractInt(map['videosCount'] ?? map['videos_count']) ?? 0,
+      likesCount: _extractInt(map['likesCount'] ?? map['likes_count']) ?? 0,
+      isVerified: _extractBool(map['isVerified'] ?? map['is_verified']) ?? false,
       tags: _parseStringArray(map['tags']),
-      followerUIDs: _parseStringArray(map['followerUIDs']),
-      followingUIDs: _parseStringArray(map['followingUIDs']),
-      likedVideos: _parseStringArray(map['likedVideos']),
-      createdAt: map['createdAt'] ?? '',
-      updatedAt: map['updatedAt'] ?? '',
-      lastSeen: map['lastSeen'] ?? '',
-      isActive: map['isActive'] ?? true,
-      isFeatured: map['isFeatured'] ?? false,
-      lastPostAt: map['lastPostAt'] ?? map['last_post_at'], // UPDATED: Added mapping
+      followerUIDs: _parseStringArray(map['followerUIDs'] ?? map['follower_uids'] ?? map['follower_UIDs']),
+      followingUIDs: _parseStringArray(map['followingUIDs'] ?? map['following_uids'] ?? map['following_UIDs']),
+      likedVideos: _parseStringArray(map['likedVideos'] ?? map['liked_videos']),
+      createdAt: _extractString(map['createdAt'] ?? map['created_at']) ?? '',
+      updatedAt: _extractString(map['updatedAt'] ?? map['updated_at']) ?? '',
+      lastSeen: _extractString(map['lastSeen'] ?? map['last_seen']) ?? '',
+      isActive: _extractBool(map['isActive'] ?? map['is_active']) ?? true,
+      isFeatured: _extractBool(map['isFeatured'] ?? map['is_featured']) ?? false,
+      lastPostAt: _extractString(map['lastPostAt'] ?? map['last_post_at']), // FIXED: Added proper mapping
       // New drama field mappings (added)
-      favoriteDramas: _parseStringArray(map['favoriteDramas']),
-      watchHistory: _parseStringArray(map['watchHistory']),
-      dramaProgress: _parseIntMap(map['dramaProgress']),
-      unlockedDramas: _parseStringArray(map['unlockedDramas']),
+      favoriteDramas: _parseStringArray(map['favoriteDramas'] ?? map['favorite_dramas']),
+      watchHistory: _parseStringArray(map['watchHistory'] ?? map['watch_history']),
+      dramaProgress: _parseIntMap(map['dramaProgress'] ?? map['drama_progress']),
+      unlockedDramas: _parseStringArray(map['unlockedDramas'] ?? map['unlocked_dramas']),
       preferences: UserPreferences.fromMap(
-        map['preferences'] ?? <String, dynamic>{},
+        (map['preferences'] as Map<String, dynamic>?) ?? <String, dynamic>{},
       ),
     );
   }
 
-  // Helper method to safely parse string arrays (existing)
+  // FIXED: Helper methods for safe type extraction
+  static String? _extractString(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value.isEmpty ? null : value;
+    if (value is Map && value['url'] != null) return value['url'].toString();
+    return value.toString();
+  }
+
+  static int? _extractInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    if (value is double) return value.round();
+    return null;
+  }
+
+  static bool? _extractBool(dynamic value) {
+    if (value == null) return null;
+    if (value is bool) return value;
+    if (value is String) {
+      final lower = value.toLowerCase();
+      return lower == 'true' || lower == '1';
+    }
+    if (value is int) return value == 1;
+    return null;
+  }
+
+  // Helper method to safely parse string arrays (existing with improvements)
   static List<String> _parseStringArray(dynamic value) {
     if (value == null) return [];
     
@@ -165,7 +193,7 @@ class UserModel {
     return [];
   }
 
-  // NEW: Helper method to safely parse int maps (for drama progress)
+  // FIXED: Helper method to safely parse int maps (for drama progress)
   static Map<String, int> _parseIntMap(dynamic value) {
     if (value == null) return {};
     
@@ -173,7 +201,10 @@ class UserModel {
       final Map<String, int> result = {};
       value.forEach((key, val) {
         if (key != null && val != null) {
-          result[key.toString()] = int.tryParse(val.toString()) ?? 0;
+          final intVal = _extractInt(val);
+          if (intVal != null) {
+            result[key.toString()] = intVal;
+          }
         }
       });
       return result;
@@ -363,7 +394,7 @@ class UserModel {
   DateTime get createdAtDateTime => DateTime.parse(createdAt);
   DateTime get updatedAtDateTime => DateTime.parse(updatedAt);
   
-  // UPDATED: lastPostAt helper methods
+  // UPDATED: lastPostAt helper methods with null safety
   DateTime? get lastPostAtDateTime {
     if (lastPostAt == null || lastPostAt!.isEmpty) return null;
     try {
