@@ -1,4 +1,5 @@
 // lib/features/users/screens/users_list_screen.dart
+// UPDATED: Pull-to-refresh implementation - no loading on tab switches
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,6 @@ import 'package:textgb/features/users/models/user_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:textgb/features/videos/screens/manage_posts_screen.dart';
 import 'package:textgb/features/videos/screens/videos_feed_screen.dart';
-//import 'package:textgb/features/wallet/screens/wallet_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 
 class UsersListScreen extends ConsumerStatefulWidget {
@@ -22,6 +22,7 @@ class UsersListScreen extends ConsumerStatefulWidget {
 class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   final ScrollController _scrollController = ScrollController();
   String _selectedCategory = 'All';
+  bool _isInitialized = false;
   
   final List<String> categories = ['All', 'Following', 'Verified'];
 
@@ -29,7 +30,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(authenticationProvider.notifier).loadUsers();
+      _initializeScreen();
     });
   }
 
@@ -37,6 +38,19 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // NEW: Initialize screen with cached data first
+  void _initializeScreen() {
+    // Just mark as initialized - use cached data from providers
+    setState(() {
+      _isInitialized = true;
+    });
+  }
+
+  // NEW: Refresh users data (only called by pull-to-refresh)
+  Future<void> _refreshUsers() async {
+    await ref.read(authenticationProvider.notifier).loadUsers();
   }
 
   List<UserModel> get filteredUsers {
@@ -141,11 +155,11 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     final theme = context.modernTheme;
     
     return Scaffold(
-      backgroundColor: theme.surfaceColor, // Use surfaceColor as primary background
+      backgroundColor: theme.surfaceColor,
       body: SafeArea(
         child: Column(
           children: [
-            // Enhanced Custom App Bar - EXACT SAME DESIGN
+            // Enhanced Custom App Bar
             Container(
               margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -292,9 +306,239 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
               ),
             ),
             
-            // Category Filter Tabs - Enhanced Design
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            // Users List with integrated filter tabs
+            Expanded(
+              child: Container(
+                color: theme.surfaceColor,
+                child: !_isInitialized 
+                  ? _buildLoadingView(theme)
+                  : _buildUsersListWithTabs(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingView(ModernThemeExtension theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: theme.primaryColor,
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading users...',
+            style: TextStyle(
+              color: theme.textSecondaryColor,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Following':
+        return Icons.favorite;
+      case 'Verified':
+        return Icons.verified;
+      default:
+        return Icons.people;
+    }
+  }
+
+  Widget _buildUsersListWithTabs() {
+    final theme = context.modernTheme;
+    final users = filteredUsers;
+
+    if (users.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _refreshUsers,
+        color: theme.primaryColor,
+        backgroundColor: theme.surfaceColor,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              // Category Filter Tabs - now part of scrollable content
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.surfaceColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: theme.dividerColor!.withOpacity(0.15),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.primaryColor!.withOpacity(0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                      spreadRadius: -4,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                      spreadRadius: -2,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: categories.map((category) {
+                    final isSelected = _selectedCategory == category;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: isSelected ? Border(
+                              bottom: BorderSide(
+                                color: theme.primaryColor!,
+                                width: 3,
+                              ),
+                            ) : null,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: isSelected 
+                                    ? theme.primaryColor!.withOpacity(0.15)
+                                    : theme.primaryColor!.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Icon(
+                                  _getCategoryIcon(category),
+                                  color: isSelected 
+                                    ? theme.primaryColor 
+                                    : theme.textSecondaryColor,
+                                  size: 14,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 200),
+                                  style: TextStyle(
+                                    color: isSelected 
+                                      ? theme.primaryColor 
+                                      : theme.textSecondaryColor,
+                                    fontWeight: isSelected 
+                                      ? FontWeight.w700 
+                                      : FontWeight.w500,
+                                    fontSize: 12,
+                                    letterSpacing: 0.1,
+                                  ),
+                                  child: Text(
+                                    category,
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              
+              // Empty state content
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.5,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _getEmptyStateIcon(),
+                          color: theme.textTertiaryColor,
+                          size: 64,
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          _getEmptyStateTitle(),
+                          style: TextStyle(
+                            color: theme.textColor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _getEmptyStateSubtitle(),
+                          style: TextStyle(
+                            color: theme.textSecondaryColor,
+                            fontSize: 15,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (_selectedCategory == 'All') ...[
+                          const SizedBox(height: 24),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pushNamed(context, Constants.createProfileScreen);
+                            },
+                            icon: const Icon(Icons.person_add),
+                            label: const Text('Join WeiBao'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.primaryColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshUsers,
+      color: theme.primaryColor,
+      backgroundColor: theme.surfaceColor,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Category Filter Tabs as a sliver
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               decoration: BoxDecoration(
                 color: theme.surfaceColor,
@@ -390,186 +634,33 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                 }).toList(),
               ),
             ),
-            
-            // Users List
-            Expanded(
-              child: Container(
-                color: theme.surfaceColor, // Consistent background
-                child: _buildUsersList(),
-              ),
+          ),
+          
+          // Users List as a sliver
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final user = users[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: index == users.length - 1 ? 16 : 8,
+                  ),
+                  child: _buildUserItem(user),
+                );
+              },
+              childCount: users.length,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'Following':
-        return Icons.favorite;
-      case 'Verified':
-        return Icons.verified;
-      default:
-        return Icons.people;
-    }
   }
 
   Widget _buildUsersList() {
-    final theme = context.modernTheme;
-    final authState = ref.watch(authenticationProvider);
-    
-    return authState.when(
-      data: (data) {
-        if (data.isLoading) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(
-                  color: theme.primaryColor,
-                  strokeWidth: 3,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Loading users...',
-                  style: TextStyle(
-                    color: theme.textSecondaryColor,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final users = filteredUsers;
-
-        if (users.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _getEmptyStateIcon(),
-                    color: theme.textTertiaryColor,
-                    size: 64,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    _getEmptyStateTitle(),
-                    style: TextStyle(
-                      color: theme.textColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _getEmptyStateSubtitle(),
-                    style: TextStyle(
-                      color: theme.textSecondaryColor,
-                      fontSize: 15,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (_selectedCategory == 'All') ...[
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pushNamed(context, Constants.createProfileScreen);
-                      },
-                      icon: const Icon(Icons.person_add),
-                      label: const Text('Join WeiBao'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primaryColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () async {
-            await ref.read(authenticationProvider.notifier).loadUsers();
-          },
-          color: theme.primaryColor,
-          child: ListView.separated(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(16),
-            itemCount: users.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final user = users[index];
-              return _buildUserItem(user);
-            },
-          ),
-        );
-      },
-      loading: () => Center(
-        child: CircularProgressIndicator(
-          color: theme.primaryColor,
-        ),
-      ),
-      error: (error, _) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                color: theme.textTertiaryColor,
-                size: 64,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Unable to load users',
-                style: TextStyle(
-                  color: theme.textColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                error.toString(),
-                style: TextStyle(
-                  color: theme.textSecondaryColor,
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () {
-                  ref.read(authenticationProvider.notifier).loadUsers();
-                },
-                icon: const Icon(Icons.refresh),
-                label: const Text('Try Again'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    // This method is now replaced by _buildUsersListWithTabs
+    return _buildUsersListWithTabs();
   }
 
   IconData _getEmptyStateIcon() {
@@ -741,7 +832,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       ),
                     ),
                     
-                    // Verified indicator on avatar (changed from featured)
+                    // Verified indicator on avatar
                     if (user.isVerified)
                       Positioned(
                         top: -2,
@@ -778,75 +869,69 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // User name with prominent verified badge
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              user.name,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: theme.textColor,
-                                letterSpacing: -0.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (user.isVerified) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.blue,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.blue.withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.verified_rounded,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'Verified',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                      // User name without verified badge (more space for longer names)
+                      Text(
+                        user.name,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: theme.textColor,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       
                       const SizedBox(height: 4),
                       
-                      // Enhanced stats with proper wrapping
+                      // Enhanced stats with verified badge replacing posts count
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _buildStatChip(
-                              icon: Icons.video_library_outlined,
-                              text: '${user.videosCount} posts',
-                              theme: theme,
-                            ),
+                            // Show verified badge instead of posts count
+                            if (user.isVerified)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.blue.withOpacity(0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: Colors.white,
+                                      size: 10,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Verified',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              _buildStatChip(
+                                icon: Icons.video_library_outlined,
+                                text: '${user.videosCount} posts',
+                                theme: theme,
+                              ),
                             const SizedBox(width: 8),
                             _buildStatChip(
                               icon: Icons.people_outline_rounded,

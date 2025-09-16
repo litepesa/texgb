@@ -1,5 +1,5 @@
 // lib/features/users/screens/my_profile_screen.dart
-// UPDATED: Simplified version - heavy functions moved to ManagePostsScreen
+// UPDATED: Pull-to-refresh implementation - no loading on tab switches
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,19 +25,20 @@ class MyProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
-  bool _isLoading = true;
+  bool _isRefreshing = false;
   UserModel? _user;
   List<VideoModel> _userVideos = [];
   String? _error;
   final Map<String, String> _videoThumbnails = {};
   bool _hasNoProfile = false;
+  bool _isInitialized = false;
 
   // Cache manager for video thumbnails
   static final _thumbnailCacheManager = CacheManager(
     Config(
       'userVideoThumbnails',
       stalePeriod: const Duration(days: 7),
-      maxNrOfCacheObjects: 100, // Reduced cache size for profile screen
+      maxNrOfCacheObjects: 100,
     ),
   );
 
@@ -45,16 +46,49 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserData();
+      _initializeScreen();
     });
   }
 
-  // SIMPLIFIED: Load fresh user data from backend
-  Future<void> _loadUserData() async {
+  // NEW: Initialize screen with cached data first
+  void _initializeScreen() {
+    final currentUser = ref.read(currentUserProvider);
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
+
+    if (!isAuthenticated || currentUser == null) {
+      setState(() {
+        _hasNoProfile = true;
+        _isInitialized = true;
+      });
+      return;
+    }
+
+    // Use cached data immediately
+    final videos = ref.read(videosProvider);
+    final userVideos = videos
+        .where((video) => video.userId == currentUser.uid)
+        .take(1)
+        .toList();
+
     setState(() {
-      _isLoading = true;
+      _user = currentUser;
+      _userVideos = userVideos;
+      _isInitialized = true;
+    });
+
+    // Generate thumbnail for cached video if available
+    if (_userVideos.isNotEmpty) {
+      _generateVideoThumbnail();
+    }
+  }
+
+  // UPDATED: Only called by pull-to-refresh
+  Future<void> _refreshUserData() async {
+    if (_isRefreshing) return;
+
+    setState(() {
+      _isRefreshing = true;
       _error = null;
-      _hasNoProfile = false;
     });
 
     try {
@@ -66,7 +100,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
-            _isLoading = false;
+            _isRefreshing = false;
           });
         }
         return;
@@ -80,7 +114,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
-            _isLoading = false;
+            _isRefreshing = false;
           });
         }
         return;
@@ -93,31 +127,31 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       final videos = ref.read(videosProvider);
       final userVideos = videos
           .where((video) => video.userId == freshUserProfile.uid)
-          .take(1) // Only show latest 1 post on profile
+          .take(1)
           .toList();
 
       if (mounted) {
         setState(() {
           _user = freshUserProfile;
           _userVideos = userVideos;
-          _isLoading = false;
+          _isRefreshing = false;
         });
 
         // Generate thumbnail only for the single post
         _generateVideoThumbnail();
       }
     } catch (e) {
-      debugPrint('Error loading user data: $e');
+      debugPrint('Error refreshing user data: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
-          _isLoading = false;
+          _isRefreshing = false;
         });
       }
     }
   }
 
-  // SIMPLIFIED: Generate thumbnail only for single post
+  // Generate thumbnail only for single post
   Future<void> _generateVideoThumbnail() async {
     if (_userVideos.isEmpty) return;
     
@@ -138,8 +172,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             video: video.videoUrl,
             thumbnailPath: (await getTemporaryDirectory()).path,
             imageFormat: ImageFormat.JPEG,
-            maxHeight: 400, // Higher quality for single large thumbnail
-            quality: 85, // Better quality for single thumbnail
+            maxHeight: 400,
+            quality: 85,
           );
 
           if (thumbnailPath != null && mounted) {
@@ -169,7 +203,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       context,
       Constants.editProfileScreen,
       arguments: _user,
-    ).then((_) => _loadUserData());
+    ).then((_) => _refreshUserData()); // Refresh after edit
   }
 
   void _openVideoDetails(VideoModel video) {
@@ -180,15 +214,14 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         Constants.videoId: video.id,
         Constants.videoModel: video,
       },
-    ).then((_) => _loadUserData());
+    ).then((_) => _refreshUserData()); // Refresh when coming back
   }
 
-  // NEW: Navigate to Manage Posts Screen
   void _navigateToManagePosts() {
     Navigator.pushNamed(
       context,
       Constants.managePostsScreen,
-    ).then((_) => _loadUserData()); // Refresh when coming back
+    ).then((_) => _refreshUserData()); // Refresh when coming back
   }
 
   // ENHANCED: Profile creation callback with cache clearing
@@ -208,7 +241,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     await authNotifier.loadUserDataFromSharedPreferences();
 
     // Reload the screen data after profile creation
-    await _loadUserData();
+    await _refreshUserData();
 
     debugPrint('Profile data refreshed');
   }
@@ -221,7 +254,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       backgroundColor: modernTheme.surfaceColor,
       extendBodyBehindAppBar: true,
       extendBody: true,
-      body: _isLoading
+      body: !_isInitialized
           ? _buildLoadingView(modernTheme)
           : _hasNoProfile
               ? _buildProfileRequiredView(modernTheme)
@@ -304,7 +337,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _loadUserData,
+              onPressed: _refreshUserData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
@@ -334,29 +367,35 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       return const Center(child: Text('Profile not found'));
     }
 
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Profile Header
-          _buildProfileHeader(modernTheme),
+    return RefreshIndicator(
+      onRefresh: _refreshUserData,
+      color: modernTheme.primaryColor,
+      backgroundColor: modernTheme.surfaceColor,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(), // Enable pull-to-refresh even when content fits
+        child: Column(
+          children: [
+            // Profile Header
+            _buildProfileHeader(modernTheme),
 
-          // Profile Info Card
-          _buildProfileInfoCard(modernTheme),
+            // Profile Info Card
+            _buildProfileInfoCard(modernTheme),
 
-          // NEW: Quick Actions Section
-          _buildQuickActionsSection(modernTheme),
+            // Quick Actions Section
+            _buildQuickActionsSection(modernTheme),
 
-          // Single Latest Post Thumbnail
-          _buildLatestPostThumbnail(modernTheme),
+            // Single Latest Post Thumbnail
+            _buildLatestPostThumbnail(modernTheme),
 
-          // Bottom padding for navigation
-          const SizedBox(height: 80),
-        ],
+            // Bottom padding for navigation
+            const SizedBox(height: 80),
+          ],
+        ),
       ),
     );
   }
 
-  // ENHANCED: Profile header with better R2 image handling
+  // Rest of the methods remain the same...
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -786,7 +825,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  // NEW: Quick Actions Section
   Widget _buildQuickActionsSection(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -874,8 +912,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  // UPDATED: Latest Post Thumbnail with matching styling from recommended posts
-  // Replace ONLY the _buildLatestPostThumbnail method in my_profile_screen.dart
   Widget _buildLatestPostThumbnail(ModernThemeExtension modernTheme) {
     if (_userVideos.isEmpty) {
       return _buildEmptyState(modernTheme);
@@ -915,7 +951,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             children: [
               // Main thumbnail with 9:16 aspect ratio like recommended posts
               AspectRatio(
-                aspectRatio: 9 / 16, // 9:16 aspect ratio like recommended posts
+                aspectRatio: 9 / 16,
                 child: Container(
                   margin: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -933,13 +969,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     borderRadius: BorderRadius.circular(16),
                     child: Stack(
                       children: [
-                        // Main thumbnail content
-                        SizedBox(
-                          width: double.infinity,
-                          height: double.infinity,
-                          child: _buildThumbnailContent(video),
-                        ),
-                        
                         // Enhanced gradient overlay (same as recommended posts)
                         Positioned(
                           bottom: 0,
