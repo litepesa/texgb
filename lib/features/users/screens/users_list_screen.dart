@@ -23,6 +23,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
   final ScrollController _scrollController = ScrollController();
   String _selectedCategory = 'All';
   bool _isInitialized = false;
+  bool _isLoadingInitial = false;
+  String? _error;
   
   final List<String> categories = ['All', 'Following', 'Verified'];
 
@@ -40,17 +42,71 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     super.dispose();
   }
 
-  // NEW: Initialize screen with cached data first
-  void _initializeScreen() {
-    // Just mark as initialized - use cached data from providers
-    setState(() {
-      _isInitialized = true;
-    });
+  // NEW: Check if we have cached users data
+  bool get _hasCachedData {
+    final users = ref.read(usersProvider);
+    return users.isNotEmpty;
   }
 
-  // NEW: Refresh users data (only called by pull-to-refresh)
+  // ENHANCED: Cache-aware initialization
+  void _initializeScreen() {
+    if (_hasCachedData) {
+      // Use cached data immediately
+      setState(() {
+        _isInitialized = true;
+      });
+      debugPrint('Users screen: Using cached data');
+    } else {
+      // No cached data (new user OR cleared cache) - load fresh data
+      debugPrint('Users screen: No cached data found, loading initial data');
+      _loadInitialData();
+    }
+  }
+
+  // NEW: Load initial data for new users or cleared cache
+  Future<void> _loadInitialData() async {
+    setState(() {
+      _isLoadingInitial = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(authenticationProvider.notifier).loadUsers();
+      
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          _isLoadingInitial = false;
+        });
+        debugPrint('Users screen: Initial data loaded successfully');
+      }
+    } catch (e) {
+      debugPrint('Users screen: Error loading initial data: $e');
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoadingInitial = false;
+          _isInitialized = true; // Still mark as initialized to show error state
+        });
+      }
+    }
+  }
+
+  // UPDATED: Refresh users data (only called by pull-to-refresh)
   Future<void> _refreshUsers() async {
-    await ref.read(authenticationProvider.notifier).loadUsers();
+    try {
+      await ref.read(authenticationProvider.notifier).loadUsers();
+      // Clear any previous errors on successful refresh
+      if (_error != null) {
+        setState(() {
+          _error = null;
+        });
+      }
+      debugPrint('Users screen: Data refreshed successfully');
+    } catch (e) {
+      debugPrint('Users screen: Error refreshing data: $e');
+      // Don't update error state on refresh failure to avoid disrupting UX
+    }
   }
 
   List<UserModel> get filteredUsers {
@@ -311,8 +367,10 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
               child: Container(
                 color: theme.surfaceColor,
                 child: !_isInitialized 
-                  ? _buildLoadingView(theme)
-                  : _buildUsersListWithTabs(),
+                  ? _buildInitialLoadingView(theme)
+                  : _error != null
+                      ? _buildErrorView(theme)
+                      : _buildUsersListWithTabs(),
               ),
             ),
           ],
@@ -321,7 +379,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     );
   }
 
-  Widget _buildLoadingView(ModernThemeExtension theme) {
+  Widget _buildInitialLoadingView(ModernThemeExtension theme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -332,13 +390,79 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Loading users...',
+            _isLoadingInitial ? 'Loading users...' : 'Initializing...',
             style: TextStyle(
               color: theme.textSecondaryColor,
               fontSize: 16,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorView(ModernThemeExtension theme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline,
+                color: Colors.red.shade600,
+                size: 64,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Unable to load users',
+              style: TextStyle(
+                color: theme.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: TextStyle(
+                color: theme.textSecondaryColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                _loadInitialData();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
+              ),
+              icon: const Icon(Icons.refresh),
+              label: const Text(
+                'Try Again',
+                style: TextStyle(fontSize: 16),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -358,7 +482,8 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
     final theme = context.modernTheme;
     final users = filteredUsers;
 
-    if (users.isEmpty) {
+    // Show empty state only if we have no error and no users
+    if (users.isEmpty && _error == null) {
       return RefreshIndicator(
         onRefresh: _refreshUsers,
         color: theme.primaryColor,
