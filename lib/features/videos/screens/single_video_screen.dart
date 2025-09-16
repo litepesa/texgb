@@ -549,7 +549,6 @@ class _SingleVideoScreenState extends ConsumerState<SingleVideoScreen>
 
     setState(() {
       _currentVideoIndex = index;
-      _currentVideoController = null;
       _isManuallyPaused = false; // Reset manual pause state for new video
     });
 

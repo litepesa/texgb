@@ -1,12 +1,15 @@
 // lib/features/wallet/screens/wallet_screen.dart
-// UPDATED: Cache-aware loading implementation - no loading on tab switches
+// FINAL VERSION: True cache-aware loading with SharedPreferences persistence
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'package:textgb/features/wallet/providers/wallet_providers.dart';
 import 'package:textgb/features/wallet/widgets/coin_packages_widget.dart';
 import 'package:textgb/features/wallet/models/wallet_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
+import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -20,6 +23,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _isInitialized = false;
   bool _isLoadingInitial = false;
   String? _error;
+  
+  // Cached data
+  WalletModel? _cachedWallet;
+  List<WalletTransaction> _cachedTransactions = [];
+
+  // Cache keys
+  static const String _walletCacheKey = 'cached_wallet_data';
+  static const String _transactionsCacheKey = 'cached_transactions_data';
+  static const String _walletCacheTimestampKey = 'wallet_cache_timestamp';
+  static const Duration _cacheValidityDuration = Duration(minutes: 15); // Cache valid for 15 minutes
 
   // Custom Blue Fintech Colors - dark theme with bright text
   static const _fintechPrimary = Color(0xFF64B5F6); // Bright blue for text
@@ -43,31 +56,115 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     });
   }
 
-  // NEW: Check if we have cached wallet data
-  bool get _hasCachedData {
-    final walletState = ref.read(walletProvider);
-    return walletState.maybeWhen(
-      data: (state) => state.wallet != null,
-      orElse: () => false,
-    );
+  // ENHANCED: True cache detection with SharedPreferences
+  Future<bool> get _hasCachedData async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final walletData = prefs.getString(_walletCacheKey);
+      final cacheTimestamp = prefs.getInt(_walletCacheTimestampKey);
+      
+      if (walletData == null || cacheTimestamp == null) {
+        return false;
+      }
+      
+      // Check if cache is still valid (not expired)
+      final cacheTime = DateTime.fromMillisecondsSinceEpoch(cacheTimestamp);
+      final isExpired = DateTime.now().difference(cacheTime) > _cacheValidityDuration;
+      
+      return !isExpired;
+    } catch (e) {
+      debugPrint('Error checking cached data: $e');
+      return false;
+    }
   }
 
-  // ENHANCED: Cache-aware initialization
-  void _initializeScreen() {
-    if (_hasCachedData) {
-      // Use cached data immediately
+  // NEW: Load cached data from SharedPreferences
+  Future<void> _loadCachedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Load wallet data
+      final walletJson = prefs.getString(_walletCacheKey);
+      if (walletJson != null) {
+        final walletMap = jsonDecode(walletJson) as Map<String, dynamic>;
+        _cachedWallet = WalletModel.fromMap(walletMap);
+      }
+      
+      // Load transactions data
+      final transactionsJson = prefs.getString(_transactionsCacheKey);
+      if (transactionsJson != null) {
+        final transactionsList = jsonDecode(transactionsJson) as List<dynamic>;
+        _cachedTransactions = transactionsList
+            .map((json) => WalletTransaction.fromMap(json as Map<String, dynamic>))
+            .toList();
+      }
+      
+      debugPrint('Wallet screen: Loaded cached data - Wallet: ${_cachedWallet != null}, Transactions: ${_cachedTransactions.length}');
+    } catch (e) {
+      debugPrint('Error loading cached data: $e');
+      _cachedWallet = null;
+      _cachedTransactions = [];
+    }
+  }
+
+  // NEW: Save data to cache
+  Future<void> _saveCachedData(WalletModel? wallet, List<WalletTransaction> transactions) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Save wallet data
+      if (wallet != null) {
+        final walletJson = jsonEncode(wallet.toMap());
+        await prefs.setString(_walletCacheKey, walletJson);
+      }
+      
+      // Save transactions data
+      final transactionsJson = jsonEncode(
+        transactions.map((t) => t.toMap()).toList(),
+      );
+      await prefs.setString(_transactionsCacheKey, transactionsJson);
+      
+      // Save cache timestamp
+      await prefs.setInt(_walletCacheTimestampKey, DateTime.now().millisecondsSinceEpoch);
+      
+      debugPrint('Wallet screen: Saved data to cache');
+    } catch (e) {
+      debugPrint('Error saving cached data: $e');
+    }
+  }
+
+  // NEW: Clear cached data
+  Future<void> _clearCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_walletCacheKey);
+      await prefs.remove(_transactionsCacheKey);
+      await prefs.remove(_walletCacheTimestampKey);
+      debugPrint('Wallet screen: Cache cleared');
+    } catch (e) {
+      debugPrint('Error clearing cache: $e');
+    }
+  }
+
+  // ENHANCED: True cache-aware initialization
+  void _initializeScreen() async {
+    final hasCached = await _hasCachedData;
+    
+    if (hasCached) {
+      // Load cached data and display immediately
+      await _loadCachedData();
       setState(() {
         _isInitialized = true;
       });
       debugPrint('Wallet screen: Using cached data');
     } else {
-      // No cached data (new user OR cleared cache) - load fresh data
-      debugPrint('Wallet screen: No cached data found, loading initial data');
+      // No valid cache - load fresh data
+      debugPrint('Wallet screen: No valid cache found, loading initial data');
       _loadInitialData();
     }
   }
 
-  // NEW: Load initial data for new users or cleared cache
+  // UPDATED: Load initial data for new users or expired cache
   Future<void> _loadInitialData() async {
     setState(() {
       _isLoadingInitial = true;
@@ -75,14 +172,37 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     });
 
     try {
-      await ref.read(walletProvider.notifier).refresh();
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) {
+        setState(() {
+          _error = 'User not authenticated';
+          _isLoadingInitial = false;
+          _isInitialized = true;
+        });
+        return;
+      }
+
+      // Load fresh data from repository
+      final repository = ref.read(walletRepositoryProvider);
+      final wallet = await repository.getUserWallet(currentUser.id);
+      final transactions = await repository.getWalletTransactions(
+        currentUser.id,
+        limit: 10,
+      );
+      
+      // Update cached data
+      _cachedWallet = wallet;
+      _cachedTransactions = transactions;
+      
+      // Save to persistent cache
+      await _saveCachedData(wallet, transactions);
       
       if (mounted) {
         setState(() {
           _isInitialized = true;
           _isLoadingInitial = false;
         });
-        debugPrint('Wallet screen: Initial data loaded successfully');
+        debugPrint('Wallet screen: Initial data loaded and cached successfully');
       }
     } catch (e) {
       debugPrint('Wallet screen: Error loading initial data: $e');
@@ -99,14 +219,35 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   // UPDATED: Refresh wallet data (only called by pull-to-refresh)
   Future<void> _refreshWallet() async {
     try {
-      await ref.read(walletProvider.notifier).refresh();
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) return;
+      
+      // Load fresh data from repository
+      final repository = ref.read(walletRepositoryProvider);
+      final wallet = await repository.getUserWallet(currentUser.id);
+      final transactions = await repository.getWalletTransactions(
+        currentUser.id,
+        limit: 10,
+      );
+      
+      // Update cached data
+      _cachedWallet = wallet;
+      _cachedTransactions = transactions;
+      
+      // Save to persistent cache
+      await _saveCachedData(wallet, transactions);
+      
       // Clear any previous errors on successful refresh
       if (_error != null) {
         setState(() {
           _error = null;
         });
       }
-      debugPrint('Wallet screen: Data refreshed successfully');
+      
+      // Trigger rebuild to show new data
+      setState(() {});
+      
+      debugPrint('Wallet screen: Data refreshed and cached successfully');
     } catch (e) {
       debugPrint('Wallet screen: Error refreshing data: $e');
       // Don't update error state on refresh failure to avoid disrupting UX
@@ -127,7 +268,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 : RefreshIndicator(
                     onRefresh: _refreshWallet,
                     color: _fintechPrimary,
-                    child: _buildWalletContentWrapper(modernTheme),
+                    child: _buildWalletContent(_cachedWallet, _cachedTransactions, modernTheme),
                   ),
       ),
     );
@@ -217,16 +358,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildWalletContentWrapper(ModernThemeExtension modernTheme) {
-    final walletState = ref.watch(walletProvider);
-
-    return walletState.when(
-      loading: () => _buildWalletContent(null, [], modernTheme), // Show with cached data during refresh
-      error: (error, stackTrace) => _buildWalletContent(null, [], modernTheme), // Show cached data even on refresh error
-      data: (state) => _buildWalletContent(state.wallet, state.transactions, modernTheme),
     );
   }
 
@@ -487,7 +618,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   title: 'History',
                   subtitle: 'View all',
                   color: _fintechWarning,
-                  onTap: () => _showTransactionHistory(context, [], context.modernTheme),
+                  onTap: () => _showTransactionHistory(context, _cachedTransactions, context.modernTheme),
                 ),
               ),
             ],
@@ -916,8 +1047,27 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      ref.read(walletProvider.notifier).loadMoreTransactions();
+                    onPressed: () async {
+                      // Load more transactions and update cache
+                      try {
+                        final currentUser = ref.read(currentUserProvider);
+                        if (currentUser != null) {
+                          final repository = ref.read(walletRepositoryProvider);
+                          final moreTransactions = await repository.getWalletTransactions(
+                            currentUser.id,
+                            limit: 20,
+                            lastTransactionId: _cachedTransactions.isNotEmpty 
+                                ? _cachedTransactions.last.transactionId 
+                                : null,
+                          );
+                          
+                          _cachedTransactions = [..._cachedTransactions, ...moreTransactions];
+                          await _saveCachedData(_cachedWallet, _cachedTransactions);
+                          setState(() {});
+                        }
+                      } catch (e) {
+                        debugPrint('Error loading more transactions: $e');
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _fintechPrimary,

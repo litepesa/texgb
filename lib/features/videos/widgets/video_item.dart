@@ -58,7 +58,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
   bool _showLikeAnimation = false;
 
   @override
-  bool get wantKeepAlive => true; // CHANGED: Always keep alive to prevent disposal
+  bool get wantKeepAlive =>
+      true; // CHANGED: Always keep alive to prevent disposal
 
   @override
   void initState() {
@@ -101,18 +102,21 @@ class _VideoItemState extends ConsumerState<VideoItem>
       _handleCommentsStateChange();
     }
 
-    // FIXED: Only reinitialize if it's a completely different video
+    // FIXED: Only clean up if it's a completely different video
     if (widget.video.id != oldWidget.video.id) {
-      debugPrint('Video changed from ${oldWidget.video.id} to ${widget.video.id}');
+      debugPrint(
+          'Video changed from ${oldWidget.video.id} to ${widget.video.id}');
       _cleanupCurrentController();
       _initializeMedia();
       _showFullCaption = false;
     }
-    // FIXED: If same video but controller was lost, reinitialize
-    else if (_videoPlayerController == null && 
-             !widget.video.isMultipleImages && 
-             widget.video.videoUrl.isNotEmpty) {
-      debugPrint('Controller lost for video ${widget.video.id}, reinitializing');
+    // MAIN FIX: If this video is active but has no working controller, reinitialize immediately
+    else if (widget.isActive &&
+        !widget.video.isMultipleImages &&
+        widget.video.videoUrl.isNotEmpty &&
+        (_videoPlayerController == null || !_isInitialized)) {
+      debugPrint(
+          'Active video ${widget.video.id} missing controller, reinitializing');
       _initializeMedia();
     }
   }
@@ -120,11 +124,11 @@ class _VideoItemState extends ConsumerState<VideoItem>
   void _cleanupCurrentController() {
     _retryTimer?.cancel();
     _retryTimer = null;
-    
+
     if (_videoPlayerController != null && widget.preloadedController == null) {
       _videoPlayerController!.dispose();
     }
-    
+
     _videoPlayerController = null;
     _isInitialized = false;
     _hasInitializationFailed = false;
@@ -133,16 +137,20 @@ class _VideoItemState extends ConsumerState<VideoItem>
   void _handleActiveStateChange() {
     if (widget.video.isMultipleImages) return;
 
-    debugPrint('Video ${widget.video.id} active state changed to: ${widget.isActive}');
+    debugPrint(
+        'Video ${widget.video.id} active state changed to: ${widget.isActive}');
 
     if (widget.isActive) {
-      // FIXED: If controller doesn't exist, reinitialize
-      if (_videoPlayerController == null && !_isInitializing) {
-        debugPrint('No controller when becoming active, reinitializing');
-        _initializeMedia();
+      // SAFETY CHECK: If controller doesn't exist or isn't initialized, reinitialize
+      if (_videoPlayerController == null || !_isInitialized) {
+        if (!_isInitializing) {
+          debugPrint(
+              'No valid controller when becoming active, reinitializing');
+          _initializeMedia();
+        }
         return;
       }
-      
+
       if (_isInitialized && !_isPlaying) {
         _playVideo();
       }
@@ -242,7 +250,8 @@ class _VideoItemState extends ConsumerState<VideoItem>
         _hasInitializationFailed = false;
       });
 
-      debugPrint('Initializing video ${widget.video.id} from network: ${widget.video.videoUrl}');
+      debugPrint(
+          'Initializing video ${widget.video.id} from network: ${widget.video.videoUrl}');
 
       if (widget.preloadedController != null) {
         await _usePreloadedController();
@@ -296,13 +305,13 @@ class _VideoItemState extends ConsumerState<VideoItem>
     );
 
     await _videoPlayerController!.initialize().timeout(
-      const Duration(seconds: 15),
-    );
+          const Duration(seconds: 15),
+        );
   }
 
   Future<void> _setupVideoController() async {
     if (_videoPlayerController == null) return;
-    
+
     _videoPlayerController!.setLooping(true);
 
     setState(() {
@@ -426,7 +435,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
   @override
   void dispose() {
     debugPrint('Disposing video item for ${widget.video.id}');
-    
+
     _retryTimer?.cancel();
     _likeAnimationController.dispose();
     _heartScaleController.dispose();
@@ -435,7 +444,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (_videoPlayerController != null && widget.preloadedController == null) {
       _videoPlayerController!.dispose();
     }
-    
+
     super.dispose();
   }
 
@@ -457,22 +466,17 @@ class _VideoItemState extends ConsumerState<VideoItem>
               fit: StackFit.expand,
               children: [
                 _buildMediaContent(),
-
                 if (widget.isLoading || _isInitializing)
                   _buildLoadingIndicator(),
-
                 if (_hasInitializationFailed && !_isInitializing)
                   _buildErrorState(),
-
                 if (!widget.video.isMultipleImages &&
                     _isInitialized &&
                     !_isPlaying &&
                     !_isCommentsSheetOpen)
                   _buildTikTokPlayIndicator(),
-
                 if (_showLikeAnimation && !_isCommentsSheetOpen)
                   _buildLikeAnimation(),
-
                 if (widget.video.isMultipleImages &&
                     widget.video.imageUrls.length > 1 &&
                     !_isCommentsSheetOpen)
@@ -480,7 +484,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
               ],
             ),
           ),
-
           if (!_isCommentsSheetOpen) _buildBottomContentOverlay(),
           if (!_isCommentsSheetOpen) _buildTopLeftFollowButton(),
         ],
@@ -631,11 +634,9 @@ class _VideoItemState extends ConsumerState<VideoItem>
         width: double.infinity,
         height: double.infinity,
         color: Colors.black,
-        child: (widget.isLoading || _isInitializing) 
-            ? _buildLoadingIndicator() 
-            : (_hasInitializationFailed 
-                ? _buildErrorState() 
-                : null),
+        child: (widget.isLoading || _isInitializing)
+            ? _buildLoadingIndicator()
+            : (_hasInitializationFailed ? _buildErrorState() : null),
       );
     }
 
@@ -1067,8 +1068,18 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
   String _formatDate(DateTime dateTime) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return '${months[dateTime.month - 1]} ${dateTime.day}';
   }
