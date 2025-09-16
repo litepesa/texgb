@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/users/widgets/verification_widget.dart';
 import 'package:textgb/shared/theme/theme_selector.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/users/models/user_model.dart';
+import 'package:textgb/features/videos/models/video_model.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/widgets/login_required_widget.dart';
@@ -19,42 +22,43 @@ class MyProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
+class _MyProfileScreenState extends ConsumerState<MyProfileScreen>
+    with TickerProviderStateMixin {
   bool _isLoading = true;
   UserModel? _user;
+  List<VideoModel> _userVideos = [];
   String? _error;
+  bool _isDeleting = false;
+  late TabController _tabController;
+  final Map<String, String> _videoThumbnails = {};
   bool _hasNoProfile = false;
-  DateTime? _lastDataFetch;
-  
-  // 🚀 PERFORMANCE: Custom cache manager for user data with longer cache duration
-  static final CacheManager _userDataCacheManager = CacheManager(
+
+  // Cache manager for video thumbnails
+  static final _thumbnailCacheManager = CacheManager(
     Config(
-      'user_data_cache',
-      stalePeriod: const Duration(minutes: 30), // Cache for 30 minutes
-      maxNrOfCacheObjects: 100,
-      repo: JsonCacheInfoRepository(databaseName: 'user_data_cache'),
-      fileService: HttpFileService(),
+      'userVideoThumbnails',
+      stalePeriod: const Duration(days: 7),
+      maxNrOfCacheObjects: 200,
     ),
   );
-
-  // 🚀 PERFORMANCE: Cache duration - only fetch fresh data if older than this
-  static const Duration _cacheValidDuration = Duration(minutes: 15);
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserDataSmart();
+      _loadUserData();
     });
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     super.dispose();
   }
 
-  // 🚀 PERFORMANCE: Smart loading - use cached data when available and valid
-  Future<void> _loadUserDataSmart({bool forceRefresh = false}) async {
+  // 🔧 CRITICAL FIX: Load fresh user data from backend instead of cached data
+  Future<void> _loadUserData() async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -62,11 +66,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     });
 
     try {
-      // Check if user is authenticated first (this is usually cached in Riverpod)
+      // Check if user is authenticated
       final currentUser = ref.read(currentUserProvider);
       final isAuthenticated = ref.read(isAuthenticatedProvider);
 
       if (!isAuthenticated || currentUser == null) {
+        // User is not authenticated
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
@@ -76,32 +81,17 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
 
-      // 🚀 PERFORMANCE: Check if we have valid cached data first
-      final now = DateTime.now();
-      final shouldUseCachedData = !forceRefresh && 
-          _user != null && 
-          _lastDataFetch != null &&
-          now.difference(_lastDataFetch!) < _cacheValidDuration;
-
-      if (shouldUseCachedData) {
-        debugPrint('📦 Using cached user profile data (${_lastDataFetch})');
-        setState(() {
-          _isLoading = false;
-        });
-        
-        // 🚀 PERFORMANCE: Preload profile image in background if needed
-        _preloadProfileImageIfNeeded();
-        return;
-      }
+      // 🔧 CRITICAL FIX: Fetch fresh user data from backend instead of using cached data
+      final authNotifier = ref.read(authenticationProvider.notifier);
 
       debugPrint('🔄 Loading fresh user profile data...');
-      
-      // Fetch fresh user data from backend
-      final authNotifier = ref.read(authenticationProvider.notifier);
+
+      // Get fresh user profile from backend (includes latest R2 image URLs)
       final freshUserProfile = await authNotifier.getUserProfile();
 
       if (freshUserProfile == null) {
         debugPrint('❌ User profile not found in backend');
+        // User profile not found in backend
         if (mounted) {
           setState(() {
             _hasNoProfile = true;
@@ -114,17 +104,28 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       debugPrint('✅ Fresh user profile loaded: ${freshUserProfile.name}');
       debugPrint('📸 Profile image URL: ${freshUserProfile.profileImage}');
 
+      // Get user's videos (also refresh these)
+      await authNotifier.loadVideos(); // Refresh videos from backend
+      await authNotifier
+          .loadUserVideos(freshUserProfile.uid); // Load user-specific videos
+
+      final videos = ref.read(videosProvider);
+      final userVideos = videos
+          .where((video) => video.userId == freshUserProfile.uid)
+          .toList();
+
+      debugPrint('📹 User videos loaded: ${userVideos.length}');
+
       if (mounted) {
         setState(() {
-          _user = freshUserProfile;
-          _lastDataFetch = now;
+          _user = freshUserProfile; // ✅ Using fresh data with latest R2 URLs
+          _userVideos = userVideos;
           _isLoading = false;
         });
+
+        // Generate thumbnails for video content
+        _generateVideoThumbnails();
       }
-
-      // 🚀 PERFORMANCE: Preload profile image after setting user data
-      _preloadProfileImageIfNeeded();
-
     } catch (e) {
       debugPrint('❌ Error loading user data: $e');
       if (mounted) {
@@ -136,38 +137,52 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     }
   }
 
-  // 🚀 PERFORMANCE: Preload profile image for instant display
-  Future<void> _preloadProfileImageIfNeeded() async {
-    if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
-      try {
-        // Preload the image silently in the background
-        await precacheImage(
-          CachedNetworkImageProvider(
-            _user!.profileImage,
-            cacheManager: DefaultCacheManager(),
-            cacheKey: 'profile_${_user!.id}_${_user!.profileImage.hashCode}',
-          ), 
-          context,
-        );
-        debugPrint('✅ Profile image preloaded successfully');
-      } catch (e) {
-        debugPrint('⚠️ Could not preload profile image: $e');
-        // Not a critical error, just means image will load when displayed
+  Future<void> _generateVideoThumbnails() async {
+    for (final video in _userVideos) {
+      if (!video.isMultipleImages && video.videoUrl.isNotEmpty) {
+        try {
+          // Check if thumbnail is already cached
+          final cacheKey = 'thumb_${video.id}';
+          final fileInfo =
+              await _thumbnailCacheManager.getFileFromCache(cacheKey);
+
+          if (fileInfo != null && fileInfo.file.existsSync()) {
+            // Use cached thumbnail
+            if (mounted) {
+              setState(() {
+                _videoThumbnails[video.id] = fileInfo.file.path;
+              });
+            }
+          } else {
+            // Generate new thumbnail
+            final thumbnailPath = await VideoThumbnail.thumbnailFile(
+              video: video.videoUrl,
+              thumbnailPath: (await getTemporaryDirectory()).path,
+              imageFormat: ImageFormat.JPEG,
+              maxHeight: 400,
+              quality: 85,
+            );
+
+            if (thumbnailPath != null && mounted) {
+              // Cache the thumbnail
+              final thumbnailFile = File(thumbnailPath);
+              if (thumbnailFile.existsSync()) {
+                await _thumbnailCacheManager.putFile(
+                  cacheKey,
+                  thumbnailFile.readAsBytesSync(),
+                );
+              }
+
+              setState(() {
+                _videoThumbnails[video.id] = thumbnailPath;
+              });
+            }
+          }
+        } catch (e) {
+          debugPrint('❌ Error generating thumbnail for video ${video.id}: $e');
+        }
       }
     }
-  }
-
-  // 🚀 PERFORMANCE: Force refresh method for pull-to-refresh or manual refresh
-  Future<void> _forceRefresh() async {
-    // Clear image cache for this user to ensure fresh image
-    if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
-      await CachedNetworkImage.evictFromCache(
-        _user!.profileImage,
-        cacheKey: 'profile_${_user!.id}_${_user!.profileImage.hashCode}',
-      );
-    }
-    
-    await _loadUserDataSmart(forceRefresh: true);
   }
 
   void _editProfile() {
@@ -177,29 +192,128 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       context,
       Constants.editProfileScreen,
       arguments: _user,
-    ).then((_) => _forceRefresh()); // Force refresh after editing
+    ).then((_) => _loadUserData());
   }
 
-  // 🚀 PERFORMANCE: Optimized profile creation callback
+  Future<void> _deleteVideo(String videoId) async {
+    if (_isDeleting) return;
+
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      await ref.read(authenticationProvider.notifier).deleteVideo(
+        videoId,
+        (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error),
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      );
+
+      _loadUserData();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting video: ${e.toString()}'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+        });
+      }
+    }
+  }
+
+  void _confirmDeleteVideo(VideoModel video) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.delete_outline,
+              color: Colors.red.shade600,
+            ),
+            const SizedBox(width: 8),
+            const Text('Delete Content'),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "${video.caption}"? This action cannot be undone.',
+          style: const TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: context.modernTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _deleteVideo(video.id);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openVideoDetails(VideoModel video) {
+    Navigator.pushNamed(
+      context,
+      Constants.myPostScreen,
+      arguments: {
+        Constants.videoId: video.id,
+        Constants.videoModel: video,
+      },
+    ).then((_) => _loadUserData());
+  }
+
+  // 🔧 FIXED: Enhanced profile creation callback with cache clearing
   void _onProfileCreated() async {
     debugPrint('🔄 Profile created, refreshing data...');
 
-    // Clear cached data to ensure fresh load
-    _lastDataFetch = null;
-    
-    // Clear image cache
+    // 🔧 FIX: Clear any cached network images
     if (_user?.profileImage != null && _user!.profileImage.isNotEmpty) {
-      await CachedNetworkImage.evictFromCache(
-        _user!.profileImage,
-        cacheKey: 'profile_${_user!.id}_${_user!.profileImage.hashCode}',
-      );
+      await CachedNetworkImage.evictFromCache(_user!.profileImage);
     }
 
-    // Force refresh authentication state and reload
+    // 🔧 FIX: Clear thumbnail cache
+    await _thumbnailCacheManager.emptyCache();
+
+    // 🔧 FIX: Force refresh authentication state to get latest user data
     final authNotifier = ref.read(authenticationProvider.notifier);
     await authNotifier.loadUserDataFromSharedPreferences();
 
-    await _forceRefresh();
+    // Reload the screen data after profile creation
+    await _loadUserData();
+
     debugPrint('✅ Profile data refreshed');
   }
 
@@ -209,18 +323,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
-      body: RefreshIndicator(
-        // 🚀 PERFORMANCE: Add pull-to-refresh functionality
-        onRefresh: _forceRefresh,
-        color: modernTheme.primaryColor,
-        child: _isLoading
-            ? _buildLoadingView(modernTheme)
-            : _hasNoProfile
-                ? _buildProfileRequiredView(modernTheme)
-                : _error != null
-                    ? _buildErrorView(modernTheme)
-                    : _buildProfileView(modernTheme),
-      ),
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      body: _isLoading
+          ? _buildLoadingView(modernTheme)
+          : _hasNoProfile
+              ? _buildProfileRequiredView(modernTheme)
+              : _error != null
+                  ? _buildErrorView(modernTheme)
+                  : _buildProfileView(modernTheme),
     );
   }
 
@@ -298,7 +409,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () => _loadUserDataSmart(forceRefresh: true),
+              onPressed: _loadUserData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor,
                 foregroundColor: Colors.white,
@@ -328,29 +439,81 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       return const Center(child: Text('Profile not found'));
     }
 
-    return Column(
-      children: [
-        // Profile Header
-        _buildProfileHeader(modernTheme),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Profile Header
+              _buildProfileHeader(modernTheme),
 
-        // Scrollable content below header
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 80),
-            physics: const AlwaysScrollableScrollPhysics(), // Enable refresh indicator
-            child: Column(
-              children: [
-                // Become Seller tile
-                _buildBecomeSellerTile(modernTheme),
-              ],
-            ),
+              // Profile Info Card
+              _buildProfileInfoCard(modernTheme),
+
+              // Tab Bar
+              Container(
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Color(0xFFFE2C55).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: modernTheme.primaryColor,
+                  unselectedLabelColor: modernTheme.textSecondaryColor,
+                  indicatorColor: modernTheme.primaryColor,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicatorPadding: const EdgeInsets.all(8),
+                  indicator: BoxDecoration(
+                    color: modernTheme.primaryColor!.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  tabs: const [
+                    Tab(
+                      icon: Icon(Icons.grid_view),
+                      text: 'Posts',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.analytics),
+                      text: 'Analytics',
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tab Content
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildPostsTab(modernTheme),
+                    _buildAnalyticsTab(modernTheme),
+                  ],
+                ),
+              ),
+
+              // Bottom padding
+              const SizedBox(height: 80),
+            ],
           ),
         ),
-      ],
+        extendBodyBehindAppBar: true,
+      ),
     );
   }
 
-  // 🚀 PERFORMANCE: Optimized profile header with smart image caching
+  // 🔧 FIXED: Enhanced profile header with better R2 image handling and curved bottom
   Widget _buildProfileHeader(ModernThemeExtension modernTheme) {
     return Container(
       width: double.infinity,
@@ -359,7 +522,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFE2C55).withOpacity(0.4),
+            Color(0xFFFE2C55),
             Color(0xFFFE2C55).withOpacity(0.8),
             Color(0xFFFE2C55).withOpacity(0.6),
           ],
@@ -424,7 +587,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             child: Column(
               children: [
-                // 🚀 PERFORMANCE: Optimized profile image with smart caching
+                // 🔧 ENHANCED: Profile Image with better R2 handling
                 Stack(
                   alignment: Alignment.center,
                   children: [
@@ -463,33 +626,20 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                         child: _user!.profileImage.isNotEmpty
                             ? CachedNetworkImage(
                                 imageUrl: _user!.profileImage,
-                                // 🚀 PERFORMANCE: Use unique cache key with user ID and URL hash
-                                cacheKey: 'profile_${_user!.id}_${_user!.profileImage.hashCode}',
                                 fit: BoxFit.cover,
-                                // 🚀 PERFORMANCE: Optimize cache sizes
-                                memCacheWidth: 220, // 2x for high DPI
-                                memCacheHeight: 220,
-                                maxWidthDiskCache: 440, // 4x for future use
-                                maxHeightDiskCache: 440,
-                                // 🚀 PERFORMANCE: Use default cache manager with optimized settings
-                                cacheManager: DefaultCacheManager(),
-                                // 🚀 PERFORMANCE: Optimize placeholder
                                 placeholder: (context, url) => Container(
                                   color: Colors.grey[300],
                                   child: const Center(
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
                                     ),
                                   ),
                                 ),
-                                // 🚀 PERFORMANCE: Improved error handling with retry mechanism
                                 errorWidget: (context, error, stackTrace) {
-                                  debugPrint('❌ Failed to load profile image: ${_user!.profileImage}');
+                                  // 🔧 DEBUG: Print R2 URL for debugging
+                                  debugPrint(
+                                      '❌ Failed to load profile image: ${_user!.profileImage}');
                                   debugPrint('Error: $error');
                                   return Container(
                                     color: Colors.grey[300],
@@ -500,14 +650,21 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                                     ),
                                   );
                                 },
-                                // 🚀 PERFORMANCE: Add headers for better caching
+                                // Enhanced cache options for R2 images
+                                memCacheWidth: 110,
+                                memCacheHeight: 110,
+                                maxWidthDiskCache: 220,
+                                maxHeightDiskCache: 220,
+                                // 🔧 FIX: Add headers for R2 images if needed
                                 httpHeaders: const {
                                   'User-Agent': 'WeiBao-App/1.0',
-                                  'Cache-Control': 'max-age=86400', // Cache for 24 hours
                                 },
-                                // 🚀 PERFORMANCE: Success callback for debugging
+                                // 🔧 FIX: Force reload if cached version fails
+                                cacheKey: _user!.profileImage,
+                                // Add loading success callback for debugging
                                 imageBuilder: (context, imageProvider) {
-                                  debugPrint('✅ Profile image loaded from cache/network: ${_user!.profileImage}');
+                                  debugPrint(
+                                      '✅ Profile image loaded successfully: ${_user!.profileImage}');
                                   return Container(
                                     decoration: BoxDecoration(
                                       image: DecorationImage(
@@ -517,9 +674,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                                     ),
                                   );
                                 },
-                                // 🚀 PERFORMANCE: Configure cache duration
-                                fadeInDuration: const Duration(milliseconds: 300),
-                                fadeOutDuration: const Duration(milliseconds: 300),
                               )
                             : Container(
                                 color: Colors.grey[300],
@@ -689,102 +843,509 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     );
   }
 
-  Widget _buildBecomeSellerTile(ModernThemeExtension modernTheme) {
+  Widget _buildProfileInfoCard(ModernThemeExtension modernTheme) {
     return Container(
       margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFE2C55).withOpacity(0.08),
-            Color(0xFFFE2C55).withOpacity(0.03),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Color(0xFFFE2C55).withOpacity(0.15),
-          width: 1,
-        ),
+        color: Color(0xFFFE2C55).withOpacity(0.4),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFFE2C55).withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header section with icon and title
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          // Stats Row with 4 items
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
+                _user!.videosCount.toString(),
+                'Posts',
+                Icons.video_library,
+                modernTheme,
+              ),
+              _buildStatItem(
+                _user!.followers.toString(),
+                'Followers',
+                Icons.people,
+                modernTheme,
+              ),
+              _buildStatItem(
+                _user!.following.toString(),
+                'Following',
+                Icons.person_add,
+                modernTheme,
+              ),
+              _buildStatItem(
+                _user!.likesCount.toString(),
+                'Likes',
+                Icons.favorite,
+                modernTheme,
+              ),
+            ],
+          ),
+
+          // Tags
+          if (_user!.tags.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 32,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _user!.tags.length,
+                itemBuilder: (context, index) {
+                  final tag = _user!.tags[index];
+                  return Container(
+                    margin: EdgeInsets.only(
+                        right: index < _user!.tags.length - 1 ? 8 : 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: modernTheme.primaryColor!.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: modernTheme.primaryColor!.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      '#$tag',
+                      style: TextStyle(
+                        color: modernTheme.primaryColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(
+    String count,
+    String label,
+    IconData icon,
+    ModernThemeExtension modernTheme,
+  ) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          color: modernTheme.primaryColor,
+          size: 24,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          count,
+          style: TextStyle(
+            color: modernTheme.textColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: modernTheme.textSecondaryColor,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPostsTab(ModernThemeExtension modernTheme) {
+    if (_userVideos.isEmpty) {
+      return _buildEmptyState(modernTheme);
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.only(
+        left: 4,
+        right: 4,
+        top: 4,
+        bottom: 20,
+      ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+        childAspectRatio: 9 / 16,
+      ),
+      itemCount: _userVideos.length,
+      itemBuilder: (context, index) {
+        final video = _userVideos[index];
+        return _buildVideoCard(video, modernTheme);
+      },
+    );
+  }
+
+  Widget _buildVideoCard(VideoModel video, ModernThemeExtension modernTheme) {
+    return GestureDetector(
+      onTap: () => _openVideoDetails(video),
+      onLongPress: () => _confirmDeleteVideo(video),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Thumbnail covering the entire tile
+          if (video.isMultipleImages && video.imageUrls.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: video.imageUrls.first,
+              fit: BoxFit.cover,
+              memCacheHeight: 600,
+              placeholder: (context, url) => Container(
+                color: modernTheme.surfaceColor,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      modernTheme.primaryColor!,
+                    ),
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: modernTheme.primaryColor!.withOpacity(0.1),
+                child: Icon(
+                  Icons.photo_library,
+                  color: modernTheme.primaryColor,
+                  size: 48,
+                ),
+              ),
+            )
+          else if (!video.isMultipleImages &&
+              _videoThumbnails.containsKey(video.id))
+            Image.file(
+              File(_videoThumbnails[video.id]!),
+              fit: BoxFit.cover,
+            )
+          else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: video.thumbnailUrl,
+              fit: BoxFit.cover,
+              memCacheHeight: 600,
+              placeholder: (context, url) => Container(
+                color: modernTheme.surfaceColor,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      modernTheme.primaryColor!,
+                    ),
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: modernTheme.primaryColor!.withOpacity(0.1),
+                child: Icon(
+                  Icons.play_circle_fill,
+                  color: modernTheme.primaryColor,
+                  size: 48,
+                ),
+              ),
+            )
+          else
+            Container(
+              color: modernTheme.primaryColor!.withOpacity(0.1),
+              child: Icon(
+                video.isMultipleImages
+                    ? Icons.photo_library
+                    : Icons.play_circle_fill,
+                color: modernTheme.primaryColor,
+                size: 48,
+              ),
+            ),
+
+          // Gradient overlay at bottom
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.7),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // View count at bottom left
+          Positioned(
+            bottom: 8,
+            left: 8,
             child: Row(
               children: [
-                const SizedBox(width: 16),
+                const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _formatViewCount(video.views),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        offset: Offset(0, 1),
+                        blurRadius: 3,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
 
-          // Description and button section
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          // Multiple images indicator
+          if (video.isMultipleImages && video.imageUrls.length > 1)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.photo_library,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${video.imageUrls.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatViewCount(int views) {
+    if (views >= 1000000) {
+      return '${(views / 1000000).toStringAsFixed(1)}M';
+    } else if (views >= 1000) {
+      return '${(views / 1000).toStringAsFixed(1)}K';
+    }
+    return views.toString();
+  }
+
+  Widget _buildEmptyState(ModernThemeExtension modernTheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: modernTheme.primaryColor!.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.video_library_outlined,
+                color: modernTheme.primaryColor,
+                size: 64,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No content yet',
+              style: TextStyle(
+                color: modernTheme.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Your posts will appear here when you start sharing content',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsTab(ModernThemeExtension modernTheme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Overview Stats
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Color(0xFFFE2C55).withOpacity(0.4),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Button - full width
-                SizedBox(
-                  width: double.infinity,
-                  child: GestureDetector(
-                    onTap: () => VerificationInfoWidget.show(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            Color(0xFFFE2C55),
-                            Color(0xFFFE2C55).withOpacity(0.9),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0xFFFE2C55).withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.store_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Become a Seller Today',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.arrow_forward_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ],
+                Text(
+                  'Profile Overview',
+                  style: TextStyle(
+                    color: modernTheme.textColor,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildAnalyticsCard(
+                        'Total Views',
+                        _userVideos
+                            .fold<int>(0, (sum, video) => sum + video.views)
+                            .toString(),
+                        Icons.visibility,
+                        modernTheme,
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildAnalyticsCard(
+                        'Total Likes',
+                        _userVideos
+                            .fold<int>(0, (sum, video) => sum + video.likes)
+                            .toString(),
+                        Icons.favorite,
+                        modernTheme,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildAnalyticsCard(
+                        'Comments',
+                        _userVideos
+                            .fold<int>(0, (sum, video) => sum + video.comments)
+                            .toString(),
+                        Icons.comment,
+                        modernTheme,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildAnalyticsCard(
+                        'Engagement',
+                        '${_calculateEngagementRate().toStringAsFixed(1)}%',
+                        Icons.trending_up,
+                        modernTheme,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Performance Tips
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: modernTheme.primaryColor!.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: modernTheme.primaryColor!.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.lightbulb_outline,
+                      color: modernTheme.primaryColor,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Performance Tips',
+                      style: TextStyle(
+                        color: modernTheme.textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildTipItem(
+                  'Post consistently to keep your audience engaged',
+                  Icons.schedule,
+                  modernTheme,
+                ),
+                const SizedBox(height: 12),
+                _buildTipItem(
+                  'Use trending hashtags to increase visibility',
+                  Icons.tag,
+                  modernTheme,
+                ),
+                const SizedBox(height: 12),
+                _buildTipItem(
+                  'Respond to comments to boost engagement',
+                  Icons.chat_bubble_outline,
+                  modernTheme,
                 ),
               ],
             ),
@@ -792,5 +1353,89 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildAnalyticsCard(
+    String title,
+    String value,
+    IconData icon,
+    ModernThemeExtension modernTheme,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: modernTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: modernTheme.primaryColor!.withOpacity(0.1),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: modernTheme.primaryColor,
+            size: 28,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: modernTheme.textColor,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              color: modernTheme.textSecondaryColor,
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTipItem(
+      String text, IconData icon, ModernThemeExtension modernTheme) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: modernTheme.primaryColor,
+          size: 20,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: modernTheme.textColor,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  double _calculateEngagementRate() {
+    if (_userVideos.isEmpty) return 0.0;
+
+    final totalEngagement = _userVideos.fold<int>(
+      0,
+      (sum, video) => sum + video.likes + video.comments,
+    );
+    final totalViews = _userVideos.fold<int>(
+      0,
+      (sum, video) => sum + video.views,
+    );
+
+    if (totalViews == 0) return 0.0;
+    return (totalEngagement / totalViews) * 100;
   }
 }
