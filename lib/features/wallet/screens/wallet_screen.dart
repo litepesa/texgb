@@ -1,4 +1,5 @@
 // lib/features/wallet/screens/wallet_screen.dart
+// UPDATED: Cache-aware loading implementation - no loading on tab switches
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,9 @@ class WalletScreen extends ConsumerStatefulWidget {
 
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _balanceVisible = true;
+  bool _isInitialized = false;
+  bool _isLoadingInitial = false;
+  String? _error;
 
   // Custom Blue Fintech Colors - dark theme with bright text
   static const _fintechPrimary = Color(0xFF64B5F6); // Bright blue for text
@@ -32,29 +36,121 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   static const _fintechCardBgLight = Color(0xFF37474F); // Slightly lighter card background
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeScreen();
+    });
+  }
+
+  // NEW: Check if we have cached wallet data
+  bool get _hasCachedData {
+    final walletState = ref.read(walletProvider);
+    return walletState.maybeWhen(
+      data: (state) => state.wallet != null,
+      orElse: () => false,
+    );
+  }
+
+  // ENHANCED: Cache-aware initialization
+  void _initializeScreen() {
+    if (_hasCachedData) {
+      // Use cached data immediately
+      setState(() {
+        _isInitialized = true;
+      });
+      debugPrint('Wallet screen: Using cached data');
+    } else {
+      // No cached data (new user OR cleared cache) - load fresh data
+      debugPrint('Wallet screen: No cached data found, loading initial data');
+      _loadInitialData();
+    }
+  }
+
+  // NEW: Load initial data for new users or cleared cache
+  Future<void> _loadInitialData() async {
+    setState(() {
+      _isLoadingInitial = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(walletProvider.notifier).refresh();
+      
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          _isLoadingInitial = false;
+        });
+        debugPrint('Wallet screen: Initial data loaded successfully');
+      }
+    } catch (e) {
+      debugPrint('Wallet screen: Error loading initial data: $e');
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoadingInitial = false;
+          _isInitialized = true; // Still mark as initialized to show error state
+        });
+      }
+    }
+  }
+
+  // UPDATED: Refresh wallet data (only called by pull-to-refresh)
+  Future<void> _refreshWallet() async {
+    try {
+      await ref.read(walletProvider.notifier).refresh();
+      // Clear any previous errors on successful refresh
+      if (_error != null) {
+        setState(() {
+          _error = null;
+        });
+      }
+      debugPrint('Wallet screen: Data refreshed successfully');
+    } catch (e) {
+      debugPrint('Wallet screen: Error refreshing data: $e');
+      // Don't update error state on refresh failure to avoid disrupting UX
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final modernTheme = context.modernTheme;
-    final walletState = ref.watch(walletProvider);
 
     return Scaffold(
       backgroundColor: modernTheme.surfaceColor,
-
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            await ref.read(walletProvider.notifier).refresh();
-          },
-          color: _fintechPrimary,
-          child: walletState.when(
-            loading: () => const Center(
-              child: CircularProgressIndicator(
-                color: _fintechPrimary,
-              ),
-            ),
-            error: (error, stackTrace) => _buildErrorState(error.toString(), modernTheme),
-            data: (state) => _buildWalletContent(state, modernTheme),
+        child: !_isInitialized
+            ? _buildInitialLoadingView(modernTheme)
+            : _error != null
+                ? _buildErrorState(_error!, modernTheme)
+                : RefreshIndicator(
+                    onRefresh: _refreshWallet,
+                    color: _fintechPrimary,
+                    child: _buildWalletContentWrapper(modernTheme),
+                  ),
+      ),
+    );
+  }
+
+  Widget _buildInitialLoadingView(ModernThemeExtension modernTheme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: _fintechPrimary,
+            strokeWidth: 3,
           ),
-        ),
+          const SizedBox(height: 16),
+          Text(
+            _isLoadingInitial ? 'Loading wallet...' : 'Initializing...',
+            style: TextStyle(
+              color: modernTheme.textSecondaryColor,
+              fontSize: 16,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -100,7 +196,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => ref.read(walletProvider.notifier).refresh(),
+                onPressed: () => _loadInitialData(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _fintechPrimary,
                   foregroundColor: Colors.white,
@@ -110,7 +206,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   ),
                 ),
                 child: const Text(
-                  'Retry',
+                  'Try Again',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -124,10 +220,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildWalletContent(WalletState walletState, ModernThemeExtension modernTheme) {
-    final wallet = walletState.wallet;
-    final transactions = walletState.transactions;
+  Widget _buildWalletContentWrapper(ModernThemeExtension modernTheme) {
+    final walletState = ref.watch(walletProvider);
 
+    return walletState.when(
+      loading: () => _buildWalletContent(null, [], modernTheme), // Show with cached data during refresh
+      error: (error, stackTrace) => _buildWalletContent(null, [], modernTheme), // Show cached data even on refresh error
+      data: (state) => _buildWalletContent(state.wallet, state.transactions, modernTheme),
+    );
+  }
+
+  Widget _buildWalletContent(WalletModel? wallet, List<WalletTransaction> transactions, ModernThemeExtension modernTheme) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 100), // Add bottom padding for nav bar
