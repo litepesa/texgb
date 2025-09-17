@@ -48,7 +48,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
   bool _isInitializing = false;
   bool _showFullCaption = false;
   bool _isCommentsSheetOpen = false;
-  bool _hasInitializationFailed = false;
   Timer? _retryTimer;
 
   // Animation controllers for like effect
@@ -131,7 +130,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     _videoPlayerController = null;
     _isInitialized = false;
     _isPlaying = false;
-    _hasInitializationFailed = false;
     _isInitializing = false;
   }
 
@@ -233,7 +231,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
     try {
       setState(() {
         _isInitializing = true;
-        _hasInitializationFailed = false;
       });
 
       if (widget.preloadedController != null) {
@@ -246,9 +243,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
         await _setupVideoController();
       }
     } catch (e) {
-      setState(() {
-        _hasInitializationFailed = true;
-      });
+      // Silent failure - just try again later
       _scheduleRetry();
     } finally {
       if (mounted) {
@@ -306,7 +301,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
     setState(() {
       _isInitialized = true;
-      _hasInitializationFailed = false;
     });
 
     // Only auto-play if this video is currently active
@@ -451,9 +445,6 @@ class _VideoItemState extends ConsumerState<VideoItem>
 
                 if (widget.isLoading || _isInitializing)
                   _buildLoadingIndicator(),
-
-                if (_hasInitializationFailed && !_isInitializing)
-                  _buildErrorState(),
 
                 if (!widget.video.isMultipleImages &&
                     _isInitialized &&
@@ -623,9 +614,7 @@ class _VideoItemState extends ConsumerState<VideoItem>
         color: Colors.black,
         child: (widget.isLoading || _isInitializing) 
             ? _buildLoadingIndicator() 
-            : (_hasInitializationFailed 
-                ? _buildErrorState() 
-                : null),
+            : Container(color: Colors.black),
       );
     }
 
@@ -651,26 +640,13 @@ class _VideoItemState extends ConsumerState<VideoItem>
     return Container(
       color: Colors.black.withOpacity(0.3),
       child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 3,
-              ),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Loading...',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-              ),
-            ),
-          ],
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 3,
+          ),
         ),
       ),
     );
