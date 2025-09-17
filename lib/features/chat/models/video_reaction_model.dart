@@ -26,7 +26,7 @@ class VideoReactionModel {
       'channelName': channelName,
       'channelImage': channelImage,
       'reaction': reaction,
-      'timestamp': timestamp.millisecondsSinceEpoch,
+      'timestamp': timestamp.toUtc().toIso8601String(),
     };
   }
 
@@ -38,7 +38,7 @@ class VideoReactionModel {
       channelName: map['channelName'] ?? '',
       channelImage: map['channelImage'] ?? '',
       reaction: map['reaction'],
-      timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] ?? 0),
+      timestamp: DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
     );
   }
 

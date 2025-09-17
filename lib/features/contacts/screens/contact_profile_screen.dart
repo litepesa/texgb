@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/contacts/providers/contacts_provider.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+
 
 class ContactProfileScreen extends ConsumerStatefulWidget {
   final UserModel contact;
@@ -120,36 +122,43 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen>
 
   // Updated navigation to chat - simplified for now until chat system is integrated
   Future<void> _navigateToChat() async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) {
-      _showErrorSnackBar('User not authenticated');
-      return;
+  final currentUser = ref.read(currentUserProvider);
+  if (currentUser == null) {
+    _showErrorSnackBar('User not authenticated');
+    return;
+  }
+
+  setState(() {
+    _isCreatingChat = true;
+  });
+
+  try {
+    // Generate a chat ID (you might want to use a different strategy)
+    final chatId = '${currentUser.uid}_${_contact.uid}';
+    
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(
+            chatId: chatId,
+            contact: _contact,
+          ),
+        ),
+      );
     }
-
-    setState(() {
-      _isCreatingChat = true;
-    });
-
-    try {
-      // For now, just show a message that chat functionality will be available
-      // This will be updated when the chat system is integrated
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      if (mounted) {
-        _showInfoSnackBar('Chat functionality will be available soon');
-      }
-    } catch (e) {
-      if (mounted) {
-        _showErrorSnackBar('Failed to start chat: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isCreatingChat = false;
-        });
-      }
+  } catch (e) {
+    if (mounted) {
+      _showErrorSnackBar('Failed to start chat: $e');
+    }
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isCreatingChat = false;
+      });
     }
   }
+}
 
   @override
   void dispose() {

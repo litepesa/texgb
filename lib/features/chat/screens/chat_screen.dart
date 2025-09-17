@@ -1,5 +1,5 @@
 // lib/features/chat/screens/chat_screen.dart
-// Updated with new authentication system and removed moments functionality
+// Updated with RFC 3339 standard time format and removed moments functionality
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -47,6 +47,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   static final DefaultCacheManager _imageCacheManager = DefaultCacheManager();
   static final DefaultCacheManager _videoCacheManager = DefaultCacheManager();
   static final DefaultCacheManager _fileCacheManager = DefaultCacheManager();
+
+  // RFC 3339 date formatters
+  static final DateFormat _rfc3339Format = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+  static final DateFormat _displayDateFormat = DateFormat('MMM dd, HH:mm');
+  static final DateFormat _searchDateFormat = DateFormat('MMM dd, yyyy HH:mm');
 
   @override
   void initState() {
@@ -113,6 +118,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         }
       }
     }
+  }
+
+  // Helper method to format timestamp to RFC 3339
+  String _formatTimestampToRFC3339(DateTime timestamp) {
+    // Convert to UTC and format according to RFC 3339
+    final utcTimestamp = timestamp.toUtc();
+    return _rfc3339Format.format(utcTimestamp);
+  }
+
+  // Helper method to parse RFC 3339 timestamp
+  DateTime _parseRFC3339Timestamp(String rfc3339String) {
+    try {
+      return _rfc3339Format.parse(rfc3339String, true).toLocal();
+    } catch (e) {
+      debugPrint('Error parsing RFC 3339 timestamp: $e');
+      return DateTime.now();
+    }
+  }
+
+  // Helper method to format timestamp for display
+  String _formatTimestampForDisplay(DateTime timestamp) {
+    return _displayDateFormat.format(timestamp);
+  }
+
+  // Helper method to format timestamp for search results
+  String _formatTimestampForSearch(DateTime timestamp) {
+    return _searchDateFormat.format(timestamp);
   }
 
   // Helper method to determine verification status
@@ -1033,7 +1065,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 }
 
-// Supporting widgets with cache integration
+// Supporting widgets with RFC 3339 time formatting
 class _MessageActionTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -1170,6 +1202,9 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
   List<MessageModel> _searchResults = [];
   bool _isSearching = false;
 
+  // RFC 3339 date formatter for search results
+  static final DateFormat _searchDateFormat = DateFormat('MMM dd, yyyy HH:mm');
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -1280,7 +1315,7 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               subtitle: Text(
-                                DateFormat('MMM dd, HH:mm').format(message.timestamp),
+                                _searchDateFormat.format(message.timestamp),
                                 style: TextStyle(color: modernTheme.textSecondaryColor),
                               ),
                               onTap: () => widget.onMessageSelected(message),
@@ -1313,6 +1348,9 @@ class _PinnedMessagesSheet extends StatelessWidget {
     required this.scrollController,
     required this.onUnpin,
   });
+
+  // RFC 3339 date formatter for pinned messages
+  static final DateFormat _pinnedDateFormat = DateFormat('MMM dd, HH:mm');
 
   @override
   Widget build(BuildContext context) {
@@ -1370,7 +1408,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
-                          DateFormat('MMM dd, HH:mm').format(message.timestamp),
+                          _pinnedDateFormat.format(message.timestamp),
                           style: TextStyle(color: modernTheme.textSecondaryColor),
                         ),
                         trailing: IconButton(

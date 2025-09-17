@@ -148,7 +148,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -177,19 +179,19 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: modernTheme.primaryColor?.withOpacity(0.1),
+              color: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
               child: Row(
                 children: [
                   Icon(
                     Icons.cached,
                     size: 16,
-                    color: modernTheme.primaryColor,
+                    color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Showing cached data from ${_formatCacheTime(_lastCacheUpdate!)}',
                     style: TextStyle(
-                      color: modernTheme.primaryColor,
+                      color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                       fontSize: 12,
                     ),
                   ),
@@ -201,7 +203,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                     child: Text(
                       'Refresh',
                       style: TextStyle(
-                        color: modernTheme.primaryColor,
+                        color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -250,7 +252,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -363,7 +367,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         color: modernTheme.surfaceColor,
         border: Border(
           bottom: BorderSide(
-            color: modernTheme.dividerColor!.withOpacity(0.3),
+            color: (modernTheme.dividerColor ?? Colors.grey).withOpacity(0.3),
             width: 0.5,
           ),
         ),
@@ -379,7 +383,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             size: 20,
           ),
           filled: true,
-          fillColor: modernTheme.backgroundColor?.withOpacity(0.5),
+          fillColor: (modernTheme.backgroundColor ?? Colors.grey.shade100).withOpacity(0.5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(24),
             borderSide: BorderSide.none,
@@ -433,7 +437,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: modernTheme.dividerColor?.withOpacity(0.3),
+          color: (modernTheme.dividerColor ?? Colors.grey).withOpacity(0.3),
           shape: BoxShape.circle,
         ),
       ),
@@ -441,7 +445,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         height: 16,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: modernTheme.dividerColor?.withOpacity(0.3),
+          color: (modernTheme.dividerColor ?? Colors.grey).withOpacity(0.3),
           borderRadius: BorderRadius.circular(4),
         ),
       ),
@@ -450,7 +454,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         width: 200,
         margin: const EdgeInsets.only(top: 8),
         decoration: BoxDecoration(
-          color: modernTheme.dividerColor?.withOpacity(0.2),
+          color: (modernTheme.dividerColor ?? Colors.grey).withOpacity(0.2),
           borderRadius: BorderRadius.circular(4),
         ),
       ),
@@ -458,7 +462,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         height: 12,
         width: 50,
         decoration: BoxDecoration(
-          color: modernTheme.dividerColor?.withOpacity(0.2),
+          color: (modernTheme.dividerColor ?? Colors.grey).withOpacity(0.2),
           borderRadius: BorderRadius.circular(4),
         ),
       ),
@@ -497,7 +501,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ElevatedButton(
             onPressed: () => ref.refresh(chatListProvider),
             style: ElevatedButton.styleFrom(
-              backgroundColor: modernTheme.primaryColor,
+              backgroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
             ),
             child: const Text('Retry'),
@@ -547,7 +551,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       onRefresh: () async {
         ref.refresh(chatListProvider);
       },
-      color: modernTheme.primaryColor,
+      color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
       child: ListView.builder(
         padding: const EdgeInsets.only(top: 8, bottom: 100),
         itemCount: pinnedChats.length + regularChats.length + (pinnedChats.isNotEmpty ? 1 : 0),
@@ -593,7 +597,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       child: Text(
         title,
         style: TextStyle(
-          color: modernTheme.primaryColor,
+          color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
           fontSize: 14,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
@@ -610,13 +614,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: modernTheme.primaryColor?.withOpacity(0.1),
+              color: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               CupertinoIcons.bubble_left_bubble_right,
               size: 64,
-              color: modernTheme.primaryColor,
+              color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             ),
           ),
           const SizedBox(height: 24),
@@ -652,7 +656,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               ),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: modernTheme.primaryColor,
+              backgroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
@@ -739,7 +743,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                     color: Colors.green,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: modernTheme.surfaceColor!,
+                      color: modernTheme.surfaceColor ?? Colors.white,
                       width: 2,
                     ),
                   ),
@@ -765,7 +769,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               Icon(
                 Icons.push_pin,
                 size: 14,
-                color: modernTheme.primaryColor,
+                color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
               ),
             ],
             if (isMuted) ...[
@@ -812,7 +816,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               chatItem.getDisplayTime(),
               style: TextStyle(
                 color: hasUnread 
-                  ? modernTheme.primaryColor 
+                  ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor)
                   : modernTheme.textSecondaryColor,
                 fontSize: 12,
                 fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
@@ -825,7 +829,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                 decoration: BoxDecoration(
                   color: isMuted 
                     ? modernTheme.textSecondaryColor 
-                    : modernTheme.primaryColor,
+                    : (modernTheme.primaryColor ?? Theme.of(context).primaryColor),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -850,11 +854,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     if (chatItem.contactImage.isEmpty) {
       return CircleAvatar(
         radius: 25,
-        backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
+        backgroundColor: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.2),
         child: Text(
           _getAvatarInitials(chatItem.contactName),
           style: TextStyle(
-            color: modernTheme.primaryColor,
+            color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -870,23 +874,25 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       ),
       placeholder: (context, url) => CircleAvatar(
         radius: 25,
-        backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
+        backgroundColor: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.2),
         child: SizedBox(
           width: 20,
           height: 20,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(modernTheme.primaryColor!),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+            ),
           ),
         ),
       ),
       errorWidget: (context, url, error) => CircleAvatar(
         radius: 25,
-        backgroundColor: modernTheme.primaryColor?.withOpacity(0.2),
+        backgroundColor: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.2),
         child: Text(
           _getAvatarInitials(chatItem.contactName),
           style: TextStyle(
-            color: modernTheme.primaryColor,
+            color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -902,7 +908,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     return Container(
       alignment: isLeftSwipe ? Alignment.centerRight : Alignment.centerLeft,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      color: isLeftSwipe ? Colors.red.withOpacity(0.8) : modernTheme.primaryColor,
+      color: isLeftSwipe 
+          ? Colors.red.withOpacity(0.8) 
+          : (modernTheme.primaryColor ?? Theme.of(context).primaryColor),
       child: Icon(
         isLeftSwipe ? Icons.archive : Icons.push_pin,
         color: Colors.white,
@@ -1228,7 +1236,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             },
             child: Text(
               'Clear',
-              style: TextStyle(color: modernTheme.primaryColor),
+              style: TextStyle(color: modernTheme.primaryColor ?? Theme.of(context).primaryColor),
             ),
           ),
         ],

@@ -42,14 +42,12 @@ class ChatModel {
         orElse: () => MessageEnum.text,
       ),
       lastMessageSender: map['lastMessageSender'] ?? '',
-      lastMessageTime: DateTime.fromMillisecondsSinceEpoch(
-        map['lastMessageTime'] ?? 0,
-      ),
+      lastMessageTime: DateTime.parse(map['lastMessageTime'] ?? DateTime.now().toIso8601String()),
       unreadCounts: Map<String, int>.from(map['unreadCounts'] ?? {}),
       isArchived: Map<String, bool>.from(map['isArchived'] ?? {}),
       isPinned: Map<String, bool>.from(map['isPinned'] ?? {}),
       isMuted: Map<String, bool>.from(map['isMuted'] ?? {}),
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt'] ?? 0),
+      createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
       chatWallpapers: map['chatWallpapers'] != null 
         ? Map<String, String>.from(map['chatWallpapers']) 
         : null,
@@ -66,12 +64,12 @@ class ChatModel {
       'lastMessage': lastMessage,
       'lastMessageType': lastMessageType.name,
       'lastMessageSender': lastMessageSender,
-      'lastMessageTime': lastMessageTime.millisecondsSinceEpoch,
+      'lastMessageTime': lastMessageTime.toUtc().toIso8601String(),
       'unreadCounts': unreadCounts,
       'isArchived': isArchived,
       'isPinned': isPinned,
       'isMuted': isMuted,
-      'createdAt': createdAt.millisecondsSinceEpoch,
+      'createdAt': createdAt.toUtc().toIso8601String(),
       'chatWallpapers': chatWallpapers,
       'fontSizes': fontSizes,
     };

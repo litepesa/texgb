@@ -56,7 +56,7 @@ class MessageModel {
         (e) => e.name == map['status'],
         orElse: () => MessageStatus.sending,
       ),
-      timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] ?? 0),
+      timestamp: DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
       mediaUrl: map['mediaUrl'],
       mediaMetadata: map['mediaMetadata'] != null 
         ? Map<String, dynamic>.from(map['mediaMetadata']) 
@@ -69,18 +69,18 @@ class MessageModel {
         : null,
       isEdited: map['isEdited'] ?? false,
       editedAt: map['editedAt'] != null 
-        ? DateTime.fromMillisecondsSinceEpoch(map['editedAt']) 
+        ? DateTime.parse(map['editedAt']) 
         : null,
       isPinned: map['isPinned'] ?? false,
       readBy: map['readBy'] != null 
         ? Map<String, DateTime>.from(
             (map['readBy'] as Map).map((k, v) => 
-              MapEntry(k.toString(), DateTime.fromMillisecondsSinceEpoch(v)))) 
+              MapEntry(k.toString(), DateTime.parse(v)))) 
         : null,
       deliveredTo: map['deliveredTo'] != null 
         ? Map<String, DateTime>.from(
             (map['deliveredTo'] as Map).map((k, v) => 
-              MapEntry(k.toString(), DateTime.fromMillisecondsSinceEpoch(v)))) 
+              MapEntry(k.toString(), DateTime.parse(v)))) 
         : null,
     );
   }
@@ -93,7 +93,7 @@ class MessageModel {
       'content': content,
       'type': type.name,
       'status': status.name,
-      'timestamp': timestamp.millisecondsSinceEpoch,
+      'timestamp': timestamp.toUtc().toIso8601String(),
       'mediaUrl': mediaUrl,
       'mediaMetadata': mediaMetadata,
       'replyToMessageId': replyToMessageId,
@@ -101,10 +101,10 @@ class MessageModel {
       'replyToSender': replyToSender,
       'reactions': reactions,
       'isEdited': isEdited,
-      'editedAt': editedAt?.millisecondsSinceEpoch,
+      'editedAt': editedAt?.toUtc().toIso8601String(),
       'isPinned': isPinned,
-      'readBy': readBy?.map((k, v) => MapEntry(k, v.millisecondsSinceEpoch)),
-      'deliveredTo': deliveredTo?.map((k, v) => MapEntry(k, v.millisecondsSinceEpoch)),
+      'readBy': readBy?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
+      'deliveredTo': deliveredTo?.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
     };
   }
 
