@@ -1,5 +1,5 @@
 // lib/features/chat/screens/chat_list_screen.dart
-// Updated to work with new authentication system and user model
+// UPDATED: Updated to work with new users-based authentication system
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +10,7 @@ import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/models/chat_list_item_model.dart';
-import 'package:textgb/features/chat/providers/chat_provider.dart' hide messageNotifierProvider;
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -117,109 +117,16 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     super.build(context);
     final modernTheme = context.modernTheme;
     
-    // Watch the authentication state using new auth system
-    final authState = ref.watch(authenticationProvider);
+    // Watch the current user using new auth system
+    final currentUser = ref.watch(currentUserProvider);
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
     
-    return authState.when(
-      loading: () => _buildLoadingAuthState(modernTheme),
-      error: (error, stack) => _buildNotAuthenticatedState(modernTheme),
-      data: (authenticationState) {
-        // Check for currentUser using new auth system
-        if (authenticationState.currentUser == null) {
-          return _buildNotAuthenticatedState(modernTheme);
-        }
-        
-        // User is authenticated, show the chat list
-        return _buildAuthenticatedChatList(authenticationState.currentUser!, modernTheme);
-      },
-    );
-  }
-
-  Widget _buildLoadingAuthState(ModernThemeExtension modernTheme) {
-    // Show cached data while authenticating if available
-    if (_cachedChats != null && _cachedChats!.isNotEmpty) {
-      return _buildCachedChatList(_cachedChats!, modernTheme);
+    if (!isAuthenticated || currentUser == null) {
+      return _buildNotAuthenticatedState(modernTheme);
     }
     
-    return Scaffold(
-      backgroundColor: modernTheme.surfaceColor,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                modernTheme.primaryColor ?? Theme.of(context).primaryColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Loading...',
-              style: TextStyle(
-                color: modernTheme.textSecondaryColor,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCachedChatList(List<ChatListItemModel> cachedChats, ModernThemeExtension modernTheme) {
-    return Scaffold(
-      backgroundColor: modernTheme.surfaceColor,
-      body: Column(
-        children: [
-          // Search bar
-          _buildSearchBar(modernTheme),
-          
-          // Cached data indicator
-          if (_lastCacheUpdate != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.cached,
-                    size: 16,
-                    color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Showing cached data from ${_formatCacheTime(_lastCacheUpdate!)}',
-                    style: TextStyle(
-                      color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () {
-                      ref.refresh(chatListProvider);
-                    },
-                    child: Text(
-                      'Refresh',
-                      style: TextStyle(
-                        color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          
-          // Chat list
-          Expanded(
-            child: _buildChatListFromCache(cachedChats, modernTheme),
-          ),
-        ],
-      ),
-    );
+    // User is authenticated, show the chat list
+    return _buildAuthenticatedChatList(currentUser, modernTheme);
   }
 
   Widget _buildAuthenticatedChatList(UserModel user, ModernThemeExtension modernTheme) {
@@ -270,7 +177,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                       ),
                       // Cached chat list
                       Expanded(
-                        child: _buildChatListFromCache(_cachedChats!, modernTheme),
+                        child: _buildChatListFromCache(_cachedChats!, modernTheme, user.uid),
                       ),
                     ],
                   );
@@ -278,6 +185,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                 return _buildLoadingState(modernTheme);
               },
               error: (error, stack) {
+                debugPrint('Chat list error: $error');
                 // Show cached data with error indicator if available
                 if (_cachedChats != null && _cachedChats!.isNotEmpty) {
                   return Column(
@@ -320,7 +228,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                       ),
                       // Cached chat list
                       Expanded(
-                        child: _buildChatListFromCache(_cachedChats!, modernTheme),
+                        child: _buildChatListFromCache(_cachedChats!, modernTheme, user.uid),
                       ),
                     ],
                   );
@@ -402,18 +310,63 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: modernTheme.textSecondaryColor,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: (modernTheme.primaryColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.lock_outline,
+                size: 64,
+                color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Text(
               'Please log in to view chats',
               style: TextStyle(
                 color: modernTheme.textColor,
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sign in to start messaging with other users',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                context,
+                Constants.landingScreen,
+                (route) => false,
+              ),
+              icon: const Icon(
+                Icons.login,
+                color: Colors.white,
+                size: 20,
+              ),
+              label: const Text(
+                'Sign In',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                elevation: 2,
               ),
             ),
           ],
@@ -474,44 +427,66 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: modernTheme.textSecondaryColor,
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
             'Failed to load chats',
             style: TextStyle(
               color: modernTheme.textColor,
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            error,
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 14,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'Unable to connect to chat service. Please check your internet connection.',
+              style: TextStyle(
+                color: modernTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
-          ElevatedButton(
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
             onPressed: () => ref.refresh(chatListProvider),
+            icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+            label: const Text(
+              'Try Again',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 2,
             ),
-            child: const Text('Retry'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildChatListFromCache(List<ChatListItemModel> chats, ModernThemeExtension modernTheme) {
+  Widget _buildChatListFromCache(List<ChatListItemModel> chats, ModernThemeExtension modernTheme, String currentUserId) {
     if (chats.isEmpty) {
       return _buildEmptyState(modernTheme);
     }
@@ -522,11 +497,10 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       itemCount: chats.length,
       itemBuilder: (context, index) {
         final chatItem = chats[index];
-        final currentUser = ref.read(currentUserProvider);
         
         return _buildChatItem(
           chatItem, 
-          currentUser?.uid ?? '', 
+          currentUserId, 
           modernTheme,
         );
       },
@@ -544,8 +518,10 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       return _buildNoSearchResultsState(modernTheme, state.searchQuery);
     }
 
-    final pinnedChats = state.pinnedChats;
-    final regularChats = state.regularChats;
+    // Get pinned and regular chats using helper methods from the provider
+    final chatListNotifier = ref.read(chatListProvider.notifier);
+    final pinnedChats = chatListNotifier.getPinnedChats();
+    final regularChats = chatListNotifier.getRegularChats();
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -634,22 +610,24 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Start a conversation with your contacts',
+            'Start a conversation by sharing videos\nor reacting to other users\' content',
             style: TextStyle(
               color: modernTheme.textSecondaryColor,
               fontSize: 16,
+              height: 1.4,
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
           ElevatedButton.icon(
-            onPressed: () => _navigateToContacts(),
+            onPressed: () => _navigateToVideos(),
             icon: const Icon(
-              CupertinoIcons.person_add,
+              CupertinoIcons.play_circle,
               color: Colors.white,
               size: 20,
             ),
             label: const Text(
-              'Start Chatting',
+              'Explore Videos',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -719,11 +697,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.endToStart) {
           // Archive chat
-          await _archiveChat(chatItem.chat.chatId, currentUserId);
+          await _archiveChat(chatItem.chat.chatId);
           return false;
         } else {
           // Pin/unpin chat
-          await _togglePinChat(chatItem.chat.chatId, currentUserId);
+          await _togglePinChat(chatItem.chat.chatId);
           return false;
         }
       },
@@ -845,7 +823,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ],
         ),
         onTap: () => _openChat(chatItem),
-        onLongPress: () => _showChatOptions(chatItem, currentUserId),
+        onLongPress: () => _showChatOptions(chatItem),
       ),
     );
   }
@@ -931,39 +909,55 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   void _openChat(ChatListItemModel chatItem) async {
     // Mark chat as read when opening
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser != null) {
-      final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.markChatAsRead(chatItem.chat.chatId, currentUser.uid);
+    if (currentUser == null) return;
+
+    final chatListNotifier = ref.read(chatListProvider.notifier);
+    await chatListNotifier.markChatAsRead(chatItem.chat.chatId);
+
+    // Get the other participant's user ID
+    final otherUserId = chatItem.chat.getOtherParticipant(currentUser.uid);
+
+    // Get full user data from authentication provider
+    final authNotifier = ref.read(authenticationProvider.notifier);
+    UserModel? contactUser;
+    
+    try {
+      contactUser = await authNotifier.getUserById(otherUserId);
+    } catch (e) {
+      debugPrint('Error fetching contact user data: $e');
     }
 
-    // Navigate to chat screen using new UserModel
-    if (mounted && currentUser != null) {
+    // Create UserModel with available data (fallback to chat item data if user not found)
+    final contact = contactUser ?? UserModel(
+      uid: otherUserId,
+      phoneNumber: chatItem.contactPhone,
+      name: chatItem.contactName,
+      bio: '', // Default empty bio
+      profileImage: chatItem.contactImage,
+      coverImage: '', // Default empty cover
+      followers: 0,
+      following: 0,
+      videosCount: 0,
+      likesCount: 0,
+      isVerified: false,
+      tags: [],
+      followerUIDs: [],
+      followingUIDs: [],
+      likedVideos: [],
+      createdAt: DateTime.now().toIso8601String(),
+      updatedAt: DateTime.now().toIso8601String(),
+      lastSeen: DateTime.now().toIso8601String(),
+      isActive: true,
+      isFeatured: false,
+    );
+
+    // Navigate to chat screen
+    if (mounted) {
       final result = await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => ChatScreen(
             chatId: chatItem.chat.chatId,
-            contact: UserModel(
-              uid: chatItem.chat.getOtherParticipant(currentUser.uid),
-              phoneNumber: chatItem.contactPhone,
-              name: chatItem.contactName,
-              bio: '', // Default empty bio
-              profileImage: chatItem.contactImage,
-              coverImage: '', // Default empty cover
-              followers: 0,
-              following: 0,
-              videosCount: 0,
-              likesCount: 0,
-              isVerified: false,
-              tags: [],
-              followerUIDs: [],
-              followingUIDs: [],
-              likedVideos: [],
-              createdAt: DateTime.now().toIso8601String(),
-              updatedAt: DateTime.now().toIso8601String(),
-              lastSeen: DateTime.now().toIso8601String(),
-              isActive: true,
-              isFeatured: false,
-            ),
+            contact: contact,
           ),
         ),
       );
@@ -975,10 +969,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     }
   }
 
-  void _showChatOptions(ChatListItemModel chatItem, String currentUserId) {
+  void _showChatOptions(ChatListItemModel chatItem) {
     final modernTheme = context.modernTheme;
-    final isPinned = chatItem.chat.isPinnedForUser(currentUserId);
-    final isMuted = chatItem.chat.isMutedForUser(currentUserId);
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    final isPinned = chatItem.chat.isPinnedForUser(currentUser.uid);
+    final isMuted = chatItem.chat.isMutedForUser(currentUser.uid);
     
     showModalBottomSheet(
       context: context,
@@ -1001,6 +998,28 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ),
             const SizedBox(height: 16),
             
+            // Contact info header
+            ListTile(
+              leading: _buildCachedAvatar(chatItem, modernTheme),
+              title: Text(
+                chatItem.contactName,
+                style: TextStyle(
+                  color: modernTheme.textColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Text(
+                chatItem.contactPhone,
+                style: TextStyle(
+                  color: modernTheme.textSecondaryColor,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            
+            const Divider(height: 1),
+            
             ListTile(
               leading: Icon(
                 isPinned ? Icons.push_pin_outlined : Icons.push_pin,
@@ -1012,7 +1031,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               ),
               onTap: () {
                 Navigator.pop(context);
-                _togglePinChat(chatItem.chat.chatId, currentUserId);
+                _togglePinChat(chatItem.chat.chatId);
               },
             ),
             
@@ -1027,7 +1046,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               ),
               onTap: () {
                 Navigator.pop(context);
-                _toggleMuteChat(chatItem.chat.chatId, currentUserId);
+                _toggleMuteChat(chatItem.chat.chatId);
               },
             ),
             
@@ -1042,7 +1061,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               ),
               onTap: () {
                 Navigator.pop(context);
-                _archiveChat(chatItem.chat.chatId, currentUserId);
+                _archiveChat(chatItem.chat.chatId);
               },
             ),
 
@@ -1057,7 +1076,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               ),
               onTap: () {
                 Navigator.pop(context);
-                _confirmClearChatHistory(chatItem.chat.chatId, currentUserId, chatItem.contactName);
+                _confirmClearChatHistory(chatItem.chat.chatId, chatItem.contactName);
               },
             ),
             
@@ -1072,7 +1091,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               ),
               onTap: () {
                 Navigator.pop(context);
-                _confirmDeleteChat(chatItem.chat.chatId, currentUserId, chatItem.contactName);
+                _confirmDeleteChat(chatItem.chat.chatId, chatItem.contactName);
               },
             ),
             
@@ -1083,44 +1102,55 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  Future<void> _togglePinChat(String chatId, String userId) async {
+  Future<void> _togglePinChat(String chatId) async {
     try {
       final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.togglePinChat(chatId, userId);
+      await chatListNotifier.togglePinChat(chatId);
+      
+      if (mounted) {
+        showSnackBar(context, 'Chat pin status updated');
+      }
     } catch (e) {
+      debugPrint('Error toggling pin chat: $e');
       if (mounted) {
         showSnackBar(context, 'Failed to pin/unpin chat');
       }
     }
   }
 
-  Future<void> _toggleMuteChat(String chatId, String userId) async {
+  Future<void> _toggleMuteChat(String chatId) async {
     try {
       final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.toggleMuteChat(chatId, userId);
+      await chatListNotifier.toggleMuteChat(chatId);
+      
+      if (mounted) {
+        showSnackBar(context, 'Chat mute status updated');
+      }
     } catch (e) {
+      debugPrint('Error toggling mute chat: $e');
       if (mounted) {
         showSnackBar(context, 'Failed to mute/unmute chat');
       }
     }
   }
 
-  Future<void> _archiveChat(String chatId, String userId) async {
+  Future<void> _archiveChat(String chatId) async {
     try {
       final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.toggleArchiveChat(chatId, userId);
+      await chatListNotifier.toggleArchiveChat(chatId);
       
       if (mounted) {
         showSnackBar(context, 'Chat archived');
       }
     } catch (e) {
+      debugPrint('Error archiving chat: $e');
       if (mounted) {
         showSnackBar(context, 'Failed to archive chat');
       }
     }
   }
 
-  void _confirmDeleteChat(String chatId, String userId, String contactName) {
+  void _confirmDeleteChat(String chatId, String contactName) {
     final modernTheme = context.modernTheme;
     
     showDialog(
@@ -1146,7 +1176,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deleteChat(chatId, userId, false);
+              _deleteChat(chatId, false);
             },
             child: const Text(
               'Delete for me',
@@ -1156,7 +1186,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _confirmDeleteForEveryone(chatId, userId, contactName);
+              _confirmDeleteForEveryone(chatId, contactName);
             },
             child: const Text(
               'Delete for everyone',
@@ -1168,7 +1198,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  void _confirmDeleteForEveryone(String chatId, String userId, String contactName) {
+  void _confirmDeleteForEveryone(String chatId, String contactName) {
     final modernTheme = context.modernTheme;
     
     showDialog(
@@ -1194,7 +1224,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deleteChat(chatId, userId, true);
+              _deleteChat(chatId, true);
             },
             child: const Text(
               'Delete for Everyone',
@@ -1206,7 +1236,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  void _confirmClearChatHistory(String chatId, String userId, String contactName) {
+  void _confirmClearChatHistory(String chatId, String contactName) {
     final modernTheme = context.modernTheme;
     
     showDialog(
@@ -1232,7 +1262,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _clearChatHistory(chatId, userId);
+              _clearChatHistory(chatId);
             },
             child: Text(
               'Clear',
@@ -1244,10 +1274,10 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  Future<void> _deleteChat(String chatId, String userId, bool deleteForEveryone) async {
+  Future<void> _deleteChat(String chatId, bool deleteForEveryone) async {
     try {
       final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.deleteChat(chatId, userId, deleteForEveryone: deleteForEveryone);
+      await chatListNotifier.deleteChat(chatId, deleteForEveryone: deleteForEveryone);
       
       if (mounted) {
         showSnackBar(
@@ -1256,29 +1286,36 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         );
       }
     } catch (e) {
+      debugPrint('Error deleting chat: $e');
       if (mounted) {
         showSnackBar(context, 'Failed to delete chat');
       }
     }
   }
 
-  Future<void> _clearChatHistory(String chatId, String userId) async {
+  Future<void> _clearChatHistory(String chatId) async {
     try {
       final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.clearChatHistory(chatId, userId);
+      await chatListNotifier.clearChatHistory(chatId);
       
       if (mounted) {
         showSnackBar(context, 'Chat history cleared');
       }
     } catch (e) {
+      debugPrint('Error clearing chat history: $e');
       if (mounted) {
         showSnackBar(context, 'Failed to clear chat history');
       }
     }
   }
 
-  void _navigateToContacts() {
-    Navigator.pushNamed(context, Constants.contactsScreen);
+  void _navigateToVideos() {
+    // Navigate to videos tab/screen to explore content
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      Constants.homeScreen,
+      (route) => false,
+    );
   }
 
   @override

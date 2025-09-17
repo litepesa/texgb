@@ -1,4 +1,5 @@
-// lib/features/chat/widgets/video_reaction_bubble.dart - Updated with thumbnail generation
+// lib/features/chat/widgets/video_reaction_bubble.dart
+// UPDATED: Changed channel references to user references for users-based system
 import 'package:flutter/material.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
@@ -104,7 +105,7 @@ class VideoReactionBubble extends StatelessWidget {
                       ),
                     ),
                     
-                    // Channel info overlay
+                    // User info overlay (changed from channel info)
                     Positioned(
                       bottom: 8,
                       left: 8,
@@ -114,14 +115,14 @@ class VideoReactionBubble extends StatelessWidget {
                           CircleAvatar(
                             radius: 12,
                             backgroundColor: Colors.white,
-                            backgroundImage: videoReaction.channelImage.isNotEmpty
-                                ? NetworkImage(videoReaction.channelImage)
+                            backgroundImage: videoReaction.userImage.isNotEmpty
+                                ? NetworkImage(videoReaction.userImage)
                                 : null,
-                            child: videoReaction.channelImage.isEmpty
+                            child: videoReaction.userImage.isEmpty
                                 ? Text(
-                                    videoReaction.channelName.isNotEmpty 
-                                      ? videoReaction.channelName[0].toUpperCase()
-                                      : 'C',
+                                    videoReaction.userName.isNotEmpty 
+                                      ? videoReaction.userName[0].toUpperCase()
+                                      : 'U',
                                     style: const TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
@@ -133,7 +134,7 @@ class VideoReactionBubble extends StatelessWidget {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              videoReaction.channelName,
+                              videoReaction.userName,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -181,17 +182,17 @@ class VideoReactionBubble extends StatelessWidget {
   }
 }
 
-// Updated channels_feed_screen.dart method with thumbnail generation
-Future<void> _sendVideoReactionMessage({
+// Updated helper method with users-based field names
+Future<void> sendVideoReactionMessage({
   required String chatId,
   required VideoModel video,
   required String reaction,
   required String senderId,
+  required ChatRepository chatRepository,
+  VideoThumbnailService? thumbnailService,
 }) async {
   try {
-    var ref;
-    final chatRepository = ref.read(chatRepositoryProvider);
-    final thumbnailService = VideoThumbnailService();
+    final thumbnailSvc = thumbnailService ?? VideoThumbnailService();
     
     // Get or generate the best available thumbnail
     String thumbnailUrl = '';
@@ -208,7 +209,7 @@ Future<void> _sendVideoReactionMessage({
     else if (video.videoUrl.isNotEmpty) {
       debugPrint('Generating thumbnail for video reaction: ${video.videoUrl}');
       try {
-        final generatedThumbnail = await thumbnailService.generateThumbnail(video.videoUrl);
+        final generatedThumbnail = await thumbnailSvc.generateThumbnail(video.videoUrl);
         if (generatedThumbnail != null) {
           thumbnailUrl = generatedThumbnail; // This will be a local file path
           debugPrint('Generated thumbnail: $thumbnailUrl');
@@ -219,13 +220,13 @@ Future<void> _sendVideoReactionMessage({
       }
     }
     
-    // Create video reaction data
+    // Create video reaction data with user-based field names
     final videoReaction = VideoReactionModel(
       videoId: video.id,
       videoUrl: video.videoUrl,
       thumbnailUrl: thumbnailUrl, // Will be generated URL, existing URL, or empty
-      channelName: video.userName,
-      channelImage: video.userImage,
+      userName: video.userName, // Changed from channelName
+      userImage: video.userImage, // Changed from channelImage
       reaction: reaction,
       timestamp: DateTime.now(),
     );
@@ -236,6 +237,8 @@ Future<void> _sendVideoReactionMessage({
       senderId: senderId,
       videoReaction: videoReaction,
     );
+    
+    debugPrint('Video reaction sent successfully to chat: $chatId');
     
   } catch (e) {
     debugPrint('Error sending video reaction message: $e');

@@ -1,13 +1,16 @@
 // lib/features/chat/widgets/video_reaction_widget.dart
+// UPDATED: Removed channel references, fully users-based system
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
+import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/features/chat/models/video_reaction_model.dart';
 import 'package:textgb/features/chat/widgets/video_reaction_input.dart';
 import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/videos/models/video_model.dart';
+import 'package:textgb/features/users/models/user_model.dart';
 
 class VideoReactionWidget extends ConsumerWidget {
   final Widget child;
@@ -79,12 +82,13 @@ class VideoReactionWidget extends ConsumerWidget {
     onPause?.call();
 
     try {
-      // Get video owner's user data from usersProvider
-      final users = ref.read(usersProvider);
-      final videoOwner = users.firstWhere(
-        (user) => user.uid == video!.userId,
-        orElse: () => throw Exception('Video owner not found'),
-      );
+      // Get video owner's user data using authentication provider
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final videoOwner = await authNotifier.getUserById(video!.userId);
+      
+      if (videoOwner == null) {
+        throw Exception('Video owner not found');
+      }
 
       // Show reaction input bottom sheet
       final reaction = await showModalBottomSheet<String>(
@@ -101,7 +105,7 @@ class VideoReactionWidget extends ConsumerWidget {
       // If reaction was provided, create chat and send reaction
       if (reaction != null && reaction.trim().isNotEmpty && context.mounted) {
         final chatListNotifier = ref.read(chatListProvider.notifier);
-        final chatId = await chatListNotifier.createOrGetChat(currentUser.uid, videoOwner.uid);
+        final chatId = await chatListNotifier.createOrGetChat(videoOwner.uid);
         
         if (chatId != null) {
           // Send video reaction message
@@ -109,6 +113,7 @@ class VideoReactionWidget extends ConsumerWidget {
             ref: ref,
             chatId: chatId,
             video: video!,
+            videoOwner: videoOwner,
             reaction: reaction,
             senderId: currentUser.uid,
           );
@@ -124,12 +129,14 @@ class VideoReactionWidget extends ConsumerWidget {
               ),
             );
           }
+        } else {
+          throw Exception('Failed to create or get chat');
         }
       }
     } catch (e) {
       debugPrint('Error creating video reaction: $e');
       if (context.mounted) {
-        _showSnackBar(context, 'Failed to send reaction');
+        _showSnackBar(context, 'Failed to send reaction: ${e.toString()}');
       }
     } finally {
       // Resume video if callback provided
@@ -142,6 +149,7 @@ class VideoReactionWidget extends ConsumerWidget {
     required WidgetRef ref,
     required String chatId,
     required VideoModel video,
+    required UserModel videoOwner,
     required String reaction,
     required String senderId,
   }) async {
@@ -151,12 +159,14 @@ class VideoReactionWidget extends ConsumerWidget {
       // Create video reaction data
       final videoReaction = VideoReactionModel(
         videoId: video.id,
-        videoUrl: video.videoUrl,
+        videoUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
+            ? video.imageUrls.first 
+            : video.videoUrl,
         thumbnailUrl: video.isMultipleImages && video.imageUrls.isNotEmpty 
             ? video.imageUrls.first 
             : video.thumbnailUrl,
-        channelName: video.userName, // Use userName for video creator
-        channelImage: video.userImage, // Use userImage for video creator
+        userName: videoOwner.name, // Use actual user name from UserModel
+        userImage: videoOwner.profileImage, // Use actual profile image from UserModel
         reaction: reaction,
         timestamp: DateTime.now(),
       );
@@ -167,6 +177,8 @@ class VideoReactionWidget extends ConsumerWidget {
         senderId: senderId,
         videoReaction: videoReaction,
       );
+      
+      debugPrint('Video reaction sent successfully to chat: $chatId');
       
     } catch (e) {
       debugPrint('Error sending video reaction message: $e');
@@ -179,47 +191,79 @@ class VideoReactionWidget extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
       builder: (context) => Container(
         margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.info_outline,
-              color: Colors.orange,
-              size: 48,
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.info_outline,
+                color: Colors.orange,
+                size: 32,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             const Text(
               'Cannot React to Your Own Video',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             const Text(
-              'You cannot send reactions to your own videos.',
+              'You cannot send reactions to videos that you created. Try reacting to other users\' videos instead!',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white70,
+                height: 1.4,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                ),
+                child: const Text(
+                  'Got it',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-              child: const Text('Got it'),
             ),
           ],
         ),
@@ -227,12 +271,128 @@ class VideoReactionWidget extends ConsumerWidget {
     );
   }
 
-  // Helper method to show snackbar
+  // Helper method to show snackbar with better styling
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
+        content: Row(
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red[700],
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        action: SnackBarAction(
+          label: 'DISMISS',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+  // Static method to create a video reaction widget with common styling
+  static Widget createReactionButton({
+    required VideoModel video,
+    VoidCallback? onPause,
+    VoidCallback? onResume,
+    IconData icon = Icons.chat_bubble_outline,
+    String? label,
+    Color iconColor = Colors.white,
+    double iconSize = 24,
+  }) {
+    return VideoReactionWidget(
+      video: video,
+      onPause: onPause,
+      onResume: onResume,
+      label: label,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.3),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          color: iconColor,
+          size: iconSize,
+        ),
+      ),
+    );
+  }
+
+  // Static method to create a floating action button for video reactions
+  static Widget createFloatingReactionButton({
+    required VideoModel video,
+    VoidCallback? onPause,
+    VoidCallback? onResume,
+    String label = 'React',
+  }) {
+    return VideoReactionWidget(
+      video: video,
+      onPause: onPause,
+      onResume: onResume,
+      label: label,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.purple.withOpacity(0.8),
+              Colors.pink.withOpacity(0.8),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              color: Colors.white,
+              size: 18,
+            ),
+            SizedBox(width: 6),
+            Text(
+              'React',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

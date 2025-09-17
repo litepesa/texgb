@@ -1,5 +1,6 @@
 // lib/features/chat/providers/chat_provider.dart
 // Updated chat provider using new authentication system and HTTP services
+// UPDATED: Removed all channel references, fully users-based system
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
@@ -79,13 +80,13 @@ class ChatList extends _$ChatList {
   
   @override
   FutureOr<ChatListState> build() async {
-    // Use new auth system instead of channels
+    // Use new user-based auth system
     final currentUser = ref.watch(currentUserProvider);
     if (currentUser == null) {
       return const ChatListState(error: 'User not authenticated');
     }
 
-    // Start listening to chats stream
+    // Start listening to chats stream for this user
     _subscribeToChats(currentUser.uid);
     
     return const ChatListState(isLoading: true);
@@ -103,6 +104,7 @@ class ChatList extends _$ChatList {
             isLoading: false,
           ));
         } catch (e) {
+          debugPrint('Error in chat stream: $e');
           state = AsyncValue.data(ChatListState(
             error: e.toString(),
             isLoading: false,
@@ -110,6 +112,7 @@ class ChatList extends _$ChatList {
         }
       },
       onError: (error) {
+        debugPrint('Chat stream error: $error');
         state = AsyncValue.data(ChatListState(
           error: error.toString(),
           isLoading: false,
@@ -120,35 +123,58 @@ class ChatList extends _$ChatList {
 
   Future<List<ChatListItemModel>> _buildChatListItems(
       List<ChatModel> chats, String currentUserId) async {
-    // Use new auth provider instead of channels
+    // Use new user-based auth provider to get user details
     final authNotifier = ref.read(authenticationProvider.notifier);
     final chatItems = <ChatListItemModel>[];
 
     for (final chat in chats) {
       try {
         final otherUserId = chat.getOtherParticipant(currentUserId);
-        // Use getUserById from new auth system
+        // Get user details from our user-based system
         final contact = await authNotifier.getUserById(otherUserId);
         
         if (contact != null) {
           chatItems.add(ChatListItemModel(
             chat: chat,
             contactName: contact.name,
-            contactImage: contact.profileImage, // Use profileImage instead of image
+            contactImage: contact.profileImage, // Use profileImage from UserModel
             contactPhone: contact.phoneNumber,
-            isOnline: false,
-            lastSeen: null,
+            isOnline: _isUserOnline(contact.lastSeen),
+            lastSeen: _parseLastSeen(contact.lastSeen),
           ));
+        } else {
+          debugPrint('Could not find user details for ID: $otherUserId');
         }
       } catch (e) {
         debugPrint('Error building chat item: $e');
       }
     }
 
-    // Sort by last message time
+    // Sort by last message time (most recent first)
     chatItems.sort((a, b) => b.chat.lastMessageTime.compareTo(a.chat.lastMessageTime));
 
     return chatItems;
+  }
+
+  // Helper method to determine if user is online (within last 5 minutes)
+  bool _isUserOnline(String lastSeenString) {
+    try {
+      final lastSeen = DateTime.parse(lastSeenString);
+      final now = DateTime.now();
+      final difference = now.difference(lastSeen);
+      return difference.inMinutes <= 5;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Helper method to parse last seen string to DateTime
+  DateTime? _parseLastSeen(String lastSeenString) {
+    try {
+      return DateTime.parse(lastSeenString);
+    } catch (e) {
+      return null;
+    }
   }
 
   // Search functionality
@@ -164,7 +190,10 @@ class ChatList extends _$ChatList {
   }
 
   // Chat actions
-  Future<void> togglePinChat(String chatId, String userId) async {
+  Future<void> togglePinChat(String chatId) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+
     try {
       await _repository.toggleChatPin(chatId, userId);
     } catch (e) {
@@ -173,7 +202,10 @@ class ChatList extends _$ChatList {
     }
   }
 
-  Future<void> toggleArchiveChat(String chatId, String userId) async {
+  Future<void> toggleArchiveChat(String chatId) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+
     try {
       await _repository.toggleChatArchive(chatId, userId);
     } catch (e) {
@@ -182,7 +214,10 @@ class ChatList extends _$ChatList {
     }
   }
 
-  Future<void> toggleMuteChat(String chatId, String userId) async {
+  Future<void> toggleMuteChat(String chatId) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+
     try {
       await _repository.toggleChatMute(chatId, userId);
     } catch (e) {
@@ -191,7 +226,10 @@ class ChatList extends _$ChatList {
     }
   }
 
-  Future<void> markChatAsRead(String chatId, String userId) async {
+  Future<void> markChatAsRead(String chatId) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+
     try {
       await _repository.markChatAsRead(chatId, userId);
     } catch (e) {
@@ -201,7 +239,10 @@ class ChatList extends _$ChatList {
   }
 
   // Delete chat functionality
-  Future<void> deleteChat(String chatId, String userId, {bool deleteForEveryone = false}) async {
+  Future<void> deleteChat(String chatId, {bool deleteForEveryone = false}) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+
     try {
       await _repository.deleteChat(chatId, userId, deleteForEveryone: deleteForEveryone);
       
@@ -220,7 +261,10 @@ class ChatList extends _$ChatList {
     }
   }
 
-  Future<void> clearChatHistory(String chatId, String userId) async {
+  Future<void> clearChatHistory(String chatId) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+
     try {
       await _repository.clearChatHistory(chatId, userId);
     } catch (e) {
@@ -229,8 +273,11 @@ class ChatList extends _$ChatList {
     }
   }
 
-  // Create or get existing chat
-  Future<String?> createOrGetChat(String currentUserId, String otherUserId) async {
+  // Create or get existing chat with another user
+  Future<String?> createOrGetChat(String otherUserId) async {
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return null;
+
     try {
       return await _repository.createOrGetChat(currentUserId, otherUserId);
     } catch (e) {
@@ -241,15 +288,15 @@ class ChatList extends _$ChatList {
 
   // Create new chat with optional video reaction
   Future<String?> createChat(String otherUserId, {VideoReactionModel? videoReaction}) async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return null;
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return null;
 
     try {
-      final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
+      final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
       
       // If video reaction is provided, send it as the first message
       if (videoReaction != null) {
-        await _sendVideoReactionMessage(chatId, currentUser.uid, videoReaction);
+        await _sendVideoReactionMessage(chatId, currentUserId, videoReaction);
       }
       
       return chatId;
@@ -273,30 +320,30 @@ class ChatList extends _$ChatList {
     }
   }
 
-  // Create chat with video reaction from video model (simplified)
+  // Create chat with video reaction from video model
   Future<String?> createChatWithVideoReaction({
     required String otherUserId,
     required String videoId,
     required String videoUrl,
     required String thumbnailUrl,
-    required String channelName,
-    required String channelImage,
+    required String userName, // Changed from channelName
+    required String userImage, // Changed from channelImage
     required String reaction,
   }) async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return null;
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return null;
 
     try {
       // Create or get existing chat
-      final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
+      final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
       
       // Create video reaction data
       final videoReaction = VideoReactionModel(
         videoId: videoId,
         videoUrl: videoUrl,
         thumbnailUrl: thumbnailUrl,
-        channelName: channelName,
-        channelImage: channelImage,
+        userName: userName, // Changed from channelName
+        userImage: userImage, // Changed from channelImage
         reaction: reaction,
         timestamp: DateTime.now(),
       );
@@ -304,7 +351,7 @@ class ChatList extends _$ChatList {
       // Send video reaction message
       await _repository.sendVideoReactionMessage(
         chatId: chatId,
-        senderId: currentUser.uid,
+        senderId: currentUserId,
         videoReaction: videoReaction,
       );
           
@@ -320,17 +367,17 @@ class ChatList extends _$ChatList {
     required String otherUserId,
     required MomentReactionModel momentReaction,
   }) async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return null;
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return null;
 
     try {
       // Create or get existing chat
-      final chatId = await _repository.createOrGetChat(currentUser.uid, otherUserId);
+      final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
       
       // Send moment reaction message
       await _repository.sendMomentReactionMessage(
         chatId: chatId,
-        senderId: currentUser.uid,
+        senderId: currentUserId,
         momentReaction: momentReaction,
       );
           
@@ -367,7 +414,10 @@ class ChatList extends _$ChatList {
   }
 
   // Set chat wallpaper
-  Future<void> setChatWallpaper(String chatId, String userId, String? wallpaperUrl) async {
+  Future<void> setChatWallpaper(String chatId, String? wallpaperUrl) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+
     try {
       await _repository.setChatWallpaper(chatId, userId, wallpaperUrl);
     } catch (e) {
@@ -377,7 +427,10 @@ class ChatList extends _$ChatList {
   }
 
   // Set chat font size
-  Future<void> setChatFontSize(String chatId, String userId, double fontSize) async {
+  Future<void> setChatFontSize(String chatId, double fontSize) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+
     try {
       await _repository.setChatFontSize(chatId, userId, fontSize);
     } catch (e) {
@@ -397,12 +450,16 @@ class ChatList extends _$ChatList {
   }
 
   // Get chats stream for real-time updates
-  Stream<List<ChatModel>> getChatsStream(String userId) {
+  Stream<List<ChatModel>> getChatsStream() {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) {
+      return Stream.error('User not authenticated');
+    }
     return _repository.getChatsStream(userId);
   }
 
   // Helper method to get current user ID from new auth system
-  String? get currentUserId => ref.read(currentUserProvider)?.uid;
+  String? get currentUserId => ref.read(currentUserIdProvider);
 
   // Helper method to check if user is authenticated
   bool get isAuthenticated => currentUserId != null;
@@ -536,6 +593,7 @@ class ChatList extends _$ChatList {
         'unreadChats': 0,
         'totalUnreadMessages': 0,
         'mutedChats': 0,
+        'onlineContacts': 0,
       };
     }
 
@@ -547,6 +605,8 @@ class ChatList extends _$ChatList {
         ? currentState.chats.where((chatItem) => 
             chatItem.chat.isMutedForUser(currentUserId!)).length
         : 0;
+    final onlineContacts = currentState.chats.where((chatItem) => 
+        chatItem.isOnline).length;
 
     return {
       'totalChats': totalChats,
@@ -554,6 +614,96 @@ class ChatList extends _$ChatList {
       'unreadChats': unreadChats,
       'totalUnreadMessages': totalUnreadMessages,
       'mutedChats': mutedChats,
+      'onlineContacts': onlineContacts,
     };
+  }
+
+  // Find user by phone number or name for chat creation
+  Future<String?> findUserForChat(String searchQuery) async {
+    try {
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final users = await authNotifier.searchUsers(searchQuery);
+      
+      if (users.isNotEmpty) {
+        return users.first.uid;
+      }
+      
+      return null;
+    } catch (e) {
+      debugPrint('Error finding user for chat: $e');
+      return null;
+    }
+  }
+
+  // Get user details for chat
+  Future<Map<String, dynamic>?> getUserDetailsForChat(String userId) async {
+    try {
+      final authNotifier = ref.read(authenticationProvider.notifier);
+      final user = await authNotifier.getUserById(userId);
+      
+      if (user != null) {
+        return {
+          'uid': user.uid,
+          'name': user.name,
+          'profileImage': user.profileImage,
+          'phoneNumber': user.phoneNumber,
+          'isOnline': _isUserOnline(user.lastSeen),
+          'lastSeen': user.lastSeen,
+        };
+      }
+      
+      return null;
+    } catch (e) {
+      debugPrint('Error getting user details for chat: $e');
+      return null;
+    }
+  }
+
+  // Bulk operations for chat management
+  Future<void> performBulkChatAction({
+    required List<String> chatIds,
+    required String action, // 'archive', 'delete', 'pin', 'mute'
+    bool deleteForEveryone = false,
+  }) async {
+    if (currentUserId == null || chatIds.isEmpty) return;
+
+    try {
+      List<Future<void>> futures = [];
+
+      for (final chatId in chatIds) {
+        switch (action) {
+          case 'archive':
+            futures.add(_repository.toggleChatArchive(chatId, currentUserId!));
+            break;
+          case 'delete':
+            futures.add(_repository.deleteChat(chatId, currentUserId!, deleteForEveryone: deleteForEveryone));
+            break;
+          case 'pin':
+            futures.add(_repository.toggleChatPin(chatId, currentUserId!));
+            break;
+          case 'mute':
+            futures.add(_repository.toggleChatMute(chatId, currentUserId!));
+            break;
+          default:
+            debugPrint('Unknown bulk action: $action');
+            continue;
+        }
+      }
+
+      await Future.wait(futures);
+
+      // Update local state based on action
+      final currentState = state.valueOrNull;
+      if (currentState != null && (action == 'delete' || action == 'archive')) {
+        final updatedChats = currentState.chats
+            .where((chatItem) => !chatIds.contains(chatItem.chat.chatId))
+            .toList();
+        
+        state = AsyncValue.data(currentState.copyWith(chats: updatedChats));
+      }
+    } catch (e) {
+      debugPrint('Error performing bulk chat action: $e');
+      rethrow;
+    }
   }
 }
