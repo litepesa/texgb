@@ -260,9 +260,14 @@ class _VideoItemState extends ConsumerState<VideoItem>
   }
 
   void _scheduleRetry() {
+    // Only schedule retry if we're not already initialized and playing
+    if (_isInitialized || _isPlaying) {
+      return;
+    }
+    
     _retryTimer?.cancel();
     _retryTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted && !_isInitialized) {
+      if (mounted && !_isInitialized && !_isPlaying) {
         _initializeMedia();
       }
     });
@@ -294,6 +299,10 @@ class _VideoItemState extends ConsumerState<VideoItem>
     if (_videoPlayerController == null) return;
     
     _videoPlayerController!.setLooping(true);
+
+    // Cancel any pending retry timers since initialization succeeded
+    _retryTimer?.cancel();
+    _retryTimer = null;
 
     setState(() {
       _isInitialized = true;
