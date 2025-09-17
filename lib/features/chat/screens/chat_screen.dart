@@ -1,5 +1,5 @@
 // lib/features/chat/screens/chat_screen.dart
-// Updated with RFC 3339 standard time format and removed moments functionality
+// UPDATED: Changed channel references to user references for users-based system
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -671,7 +671,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         final isLastInGroup = _isLastInGroup(state.messages, index);
         
         // Use SwipeToWrapper for all messages (including video reactions)
-        // Removed moment reactions handling
         return SwipeToWrapper(
           message: message,
           isCurrentUser: isCurrentUser,
@@ -886,13 +885,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _copyMessage(MessageModel message) {
     String textToCopy = message.content;
     
-    // For video reactions, copy the reaction text
+    // UPDATED: For video reactions, copy the reaction text (using userName instead of channelName)
     if (message.mediaMetadata?['isVideoReaction'] == true) {
       final videoReactionData = message.mediaMetadata?['videoReaction'];
       if (videoReactionData != null) {
         final reaction = videoReactionData['reaction'] ?? '';
-        final channelName = videoReactionData['channelName'] ?? 'video';
-        textToCopy = reaction.isNotEmpty ? reaction : 'Reacted to $channelName\'s video';
+        final userName = videoReactionData['userName'] ?? 'video'; // Changed from channelName to userName
+        textToCopy = reaction.isNotEmpty ? reaction : 'Reacted to $userName\'s video';
       }
     }
     
