@@ -137,6 +137,9 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
       filteredList.removeWhere((user) => user.id == currentUser.id);
     }
     
+    // Filter out users with no posts
+    filteredList.removeWhere((user) => user.videosCount == 0);
+    
     // Sort by latest activity - most recent first
     filteredList.sort((a, b) {
       // Verified users always come first
@@ -1003,60 +1006,23 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                           color: theme.textColor,
                           letterSpacing: -0.2,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       
                       const SizedBox(height: 4),
                       
-                      // Enhanced stats with verified badge replacing posts count
+                      // Enhanced stats - all three stats always visible
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Show verified badge instead of posts count
-                            if (user.isVerified)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue,
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.blue.withOpacity(0.3),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.verified_rounded,
-                                      color: Colors.white,
-                                      size: 10,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      'Verified',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            else
-                              _buildStatChip(
-                                icon: Icons.video_library_outlined,
-                                text: '${user.videosCount} posts',
-                                theme: theme,
-                              ),
+                            _buildStatChip(
+                              icon: Icons.video_library_outlined,
+                              text: '${user.videosCount} posts',
+                              theme: theme,
+                            ),
                             const SizedBox(width: 8),
                             _buildStatChip(
                               icon: Icons.people_outline_rounded,
@@ -1075,38 +1041,95 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                       
                       const SizedBox(height: 4),
                       
-                      // Last activity with enhanced styling
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: theme.primaryColor!.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.schedule_rounded,
-                              size: 10,
-                              color: theme.primaryColor,
-                            ),
-                            const SizedBox(width: 3),
-                            Flexible(
-                              child: Text(
-                                user.lastPostAt != null 
-                                  ? 'Active ${user.lastPostTimeAgo}'
-                                  : 'No posts',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: theme.primaryColor,
-                                  fontWeight: FontWeight.w600,
+                      // Both verification status AND activity status
+                      Row(
+                        children: [
+                          // Verification status badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: user.isVerified ? Colors.blue : theme.surfaceVariantColor!.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(6),
+                              boxShadow: user.isVerified ? [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
+                              ] : null,
+                              border: !user.isVerified ? Border.all(
+                                color: theme.dividerColor!.withOpacity(0.2),
+                                width: 1,
+                              ) : null,
                             ),
-                          ],
-                        ),
+                            child: user.isVerified 
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: Colors.white,
+                                      size: 10,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Verified',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.2,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  'Unverified',
+                                  style: TextStyle(
+                                    color: theme.textSecondaryColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                          ),
+                          
+                          const SizedBox(width: 8),
+                          
+                          // Activity status
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor!.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 10,
+                                  color: theme.primaryColor,
+                                ),
+                                const SizedBox(width: 3),
+                                Flexible(
+                                  child: Text(
+                                    user.lastPostAt != null 
+                                      ? 'Active ${user.lastPostTimeAgo}'
+                                      : 'No posts',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: theme.primaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

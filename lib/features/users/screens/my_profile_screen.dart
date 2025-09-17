@@ -1,5 +1,4 @@
 // lib/features/users/screens/my_profile_screen.dart
-// UPDATED: Pull-to-refresh implementation - no loading on tab switches
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -384,9 +383,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             // Quick Actions Section
             _buildQuickActionsSection(modernTheme),
 
-            // Single Latest Post Thumbnail
-           // _buildLatestPostThumbnail(modernTheme),
-
             // Bottom padding for navigation
             const SizedBox(height: 80),
           ],
@@ -708,7 +704,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Color(0xFFFE2C55).withOpacity(0.4),
+        color: Color(0xFFFE2C55).withOpacity(0.6),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -873,315 +869,40 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
           const SizedBox(width: 12),
 
-          // Create Post Button
+          // Post Button
           Expanded(
             child: GestureDetector(
               onTap: () => Navigator.pushNamed(context, Constants.createPostScreen),
               child: Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                 decoration: BoxDecoration(
-                  color: modernTheme.backgroundColor,
+                  color: modernTheme.primaryColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: modernTheme.primaryColor!.withOpacity(0.3),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.add_circle_outline,
-                      color: modernTheme.primaryColor,
-                      size: 24,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Create',
-                      style: TextStyle(
-                        color: modernTheme.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: modernTheme.primaryColor!.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /*Widget _buildLatestPostThumbnail(ModernThemeExtension modernTheme) {
-    if (_userVideos.isEmpty) {
-      return _buildEmptyState(modernTheme);
-    }
-
-    final video = _userVideos.first;
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      child: GestureDetector(
-        onTap: () => _openVideoDetails(video),
-        child: Container(
-          decoration: BoxDecoration(
-            color: modernTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: modernTheme.dividerColor!.withOpacity(0.15),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: modernTheme.primaryColor!.withOpacity(0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-                spreadRadius: -4,
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-                spreadRadius: -2,
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Main thumbnail with 9:16 aspect ratio like recommended posts
-              AspectRatio(
-                aspectRatio: 9 / 16,
-                child: Container(
-                  margin: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 12,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Stack(
-                      children: [
-                        // Enhanced gradient overlay (same as recommended posts)
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.black.withOpacity(0.8),
-                                ],
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  video.caption.isNotEmpty ? video.caption : 'No caption',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.3,
-                                    letterSpacing: -0.1,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '${_formatViewCount(video.views)} views',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                child: Center(
+                  child: Text(
+                    'Post',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ),
-              
-              // Bottom padding to match recommended posts
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThumbnailContent(VideoModel video) {
-    if (video.isMultipleImages && video.imageUrls.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: video.imageUrls.first,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        placeholder: (context, url) => _buildLoadingThumbnail(),
-        errorWidget: (context, error, stackTrace) => _buildErrorThumbnail(),
-      );
-    } else if (!video.isMultipleImages && _videoThumbnails.containsKey(video.id)) {
-      return Image.file(
-        File(_videoThumbnails[video.id]!),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-      );
-    } else if (!video.isMultipleImages && video.thumbnailUrl.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: video.thumbnailUrl,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        placeholder: (context, url) => _buildLoadingThumbnail(),
-        errorWidget: (context, error, stackTrace) => _buildErrorThumbnail(),
-      );
-    } else {
-      return _buildErrorThumbnail();
-    }
-  }
-
-  Widget _buildLoadingThumbnail() {
-    final modernTheme = context.modernTheme;
-    return Container(
-      color: modernTheme.surfaceVariantColor,
-      child: Center(
-        child: SizedBox(
-          width: 32,
-          height: 32,
-          child: CircularProgressIndicator(
-            color: modernTheme.primaryColor,
-            strokeWidth: 3,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorThumbnail() {
-    final modernTheme = context.modernTheme;
-    return Container(
-      color: modernTheme.surfaceVariantColor,
-      child: Center(
-        child: Icon(
-          Icons.video_library,
-          color: modernTheme.textSecondaryColor,
-          size: 48,
-        ),
-      ),
-    );
-  }
-
-  String _formatViewCount(int views) {
-    if (views >= 1000000) {
-      return '${(views / 1000000).toStringAsFixed(1)}M';
-    } else if (views >= 1000) {
-      return '${(views / 1000).toStringAsFixed(1)}K';
-    }
-    return views.toString();
-  }*/
-
-  /*Widget _buildEmptyState(ModernThemeExtension modernTheme) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: modernTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: modernTheme.dividerColor!.withOpacity(0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: modernTheme.primaryColor!.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: modernTheme.primaryColor!.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              Icons.video_library_outlined,
-              color: modernTheme.primaryColor,
-              size: 48,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No posts yet',
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Start creating content to showcase your creativity',
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pushNamed(context, Constants.createPostScreen),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25),
-              ),
-            ),
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text(
-              'Create Post',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ],
       ),
     );
-  }*/
+  }
 
   // Helper method for time ago formatting
   String _getTimeAgo(DateTime dateTime) {
