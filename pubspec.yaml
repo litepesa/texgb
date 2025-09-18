@@ -79,6 +79,8 @@ dependencies:
   swipe_to: ^1.0.6
   flutter_svg: ^2.2.0
   flutter_video_caching: ^0.2.0
+  sqflite: ^2.4.1
+  connectivity_plus: ^7.0.0
 
 
 
