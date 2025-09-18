@@ -1087,7 +1087,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                                   'Unverified',
                                   style: TextStyle(
                                     color: theme.textSecondaryColor,
-                                    fontSize: 10,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.2,
                                   ),

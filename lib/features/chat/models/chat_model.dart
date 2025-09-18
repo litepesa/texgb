@@ -33,6 +33,51 @@ class ChatModel {
   });
 
   factory ChatModel.fromMap(Map<String, dynamic> map) {
+    // Helper function to safely parse int map
+    Map<String, int> parseIntMap(dynamic value) {
+      if (value == null) return {};
+      if (value is Map<String, int>) return value;
+      if (value is Map<String, dynamic>) {
+        return value.map((k, v) => MapEntry(k, v is int ? v : (v is num ? v.toInt() : 0)));
+      }
+      return {};
+    }
+
+    // Helper function to safely parse bool map
+    Map<String, bool> parseBoolMap(dynamic value) {
+      if (value == null) return {};
+      if (value is Map<String, bool>) return value;
+      if (value is Map<String, dynamic>) {
+        return value.map((k, v) => MapEntry(k, v is bool ? v : (v == true || v == 'true')));
+      }
+      return {};
+    }
+
+    // Helper function to safely parse double map with int handling
+    Map<String, double> parseDoubleMap(dynamic value) {
+      if (value == null) return {};
+      if (value is Map<String, double>) return value;
+      if (value is Map<String, dynamic>) {
+        return value.map((k, v) {
+          if (v is double) return MapEntry(k, v);
+          if (v is int) return MapEntry(k, v.toDouble());
+          if (v is num) return MapEntry(k, v.toDouble());
+          return MapEntry(k, 16.0); // default font size
+        });
+      }
+      return {};
+    }
+
+    // Helper function to safely parse string map
+    Map<String, String> parseStringMap(dynamic value) {
+      if (value == null) return {};
+      if (value is Map<String, String>) return value;
+      if (value is Map<String, dynamic>) {
+        return value.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+      }
+      return {};
+    }
+
     return ChatModel(
       chatId: map['chatId'] ?? '',
       participants: List<String>.from(map['participants'] ?? []),
@@ -43,16 +88,16 @@ class ChatModel {
       ),
       lastMessageSender: map['lastMessageSender'] ?? '',
       lastMessageTime: DateTime.parse(map['lastMessageTime'] ?? DateTime.now().toIso8601String()),
-      unreadCounts: Map<String, int>.from(map['unreadCounts'] ?? {}),
-      isArchived: Map<String, bool>.from(map['isArchived'] ?? {}),
-      isPinned: Map<String, bool>.from(map['isPinned'] ?? {}),
-      isMuted: Map<String, bool>.from(map['isMuted'] ?? {}),
+      unreadCounts: parseIntMap(map['unreadCounts']),
+      isArchived: parseBoolMap(map['isArchived']),
+      isPinned: parseBoolMap(map['isPinned']),
+      isMuted: parseBoolMap(map['isMuted']),
       createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
       chatWallpapers: map['chatWallpapers'] != null 
-        ? Map<String, String>.from(map['chatWallpapers']) 
+        ? parseStringMap(map['chatWallpapers'])
         : null,
       fontSizes: map['fontSizes'] != null 
-        ? Map<String, double>.from(map['fontSizes']) 
+        ? parseDoubleMap(map['fontSizes'])
         : null,
     );
   }
@@ -109,7 +154,10 @@ class ChatModel {
 
   // Helper methods
   String getOtherParticipant(String currentUserId) {
-    return participants.firstWhere((id) => id != currentUserId);
+    return participants.firstWhere(
+      (id) => id != currentUserId,
+      orElse: () => participants.isNotEmpty ? participants.first : '',
+    );
   }
 
   int getUnreadCount(String userId) {
@@ -134,5 +182,24 @@ class ChatModel {
 
   double getFontSizeForUser(String userId) {
     return fontSizes?[userId] ?? 16.0;
+  }
+
+  @override
+  String toString() {
+    return 'ChatModel(chatId: $chatId, participants: $participants, lastMessage: $lastMessage, lastMessageTime: $lastMessageTime)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+  
+    return other is ChatModel &&
+      other.chatId == chatId &&
+      other.lastMessageTime == lastMessageTime;
+  }
+
+  @override
+  int get hashCode {
+    return chatId.hashCode ^ lastMessageTime.hashCode;
   }
 }
