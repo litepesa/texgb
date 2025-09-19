@@ -1,11 +1,9 @@
 // lib/features/chat/screens/chat_list_screen.dart
-// UPDATED: Updated to work with new users-based authentication system
+// UPDATED: Cleaned up to work with offline-first architecture
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 import 'package:textgb/constants.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
@@ -29,95 +27,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   @override
   bool get wantKeepAlive => true;
 
-  // Cache manager for profile images
-  static final DefaultCacheManager _imageCacheManager = DefaultCacheManager();
-  
-  // In-memory cache for current session
-  List<ChatListItemModel>? _cachedChats;
-  DateTime? _lastCacheUpdate;
-  bool _isInitialLoad = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCachedData();
-  }
-
-  // Load cached chat data from persistent storage
-  Future<void> _loadCachedData() async {
-    try {
-      final cachedData = await _getCachedChatList();
-      if (cachedData != null && mounted) {
-        setState(() {
-          _cachedChats = cachedData;
-          _isInitialLoad = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading cached chat data: $e');
-    }
-  }
-
-  // Get cached chat list from cache manager (simplified)
-  Future<List<ChatListItemModel>?> _getCachedChatList() async {
-    // For now, just return the in-memory cache
-    // You can implement persistent caching later when the models support it
-    return _cachedChats;
-  }
-
-  // Cache chat list data (simplified)
-  Future<void> _cacheChatList(List<ChatListItemModel> chats) async {
-    // Just update in-memory cache for now
-    setState(() {
-      _cachedChats = chats;
-      _lastCacheUpdate = DateTime.now();
-    });
-  }
-
-  // Clear chat list cache (simplified)
-  Future<void> _clearChatListCache() async {
-    try {
-      await _imageCacheManager.emptyCache();
-      
-      setState(() {
-        _cachedChats = null;
-        _lastCacheUpdate = null;
-      });
-      
-      if (mounted) {
-        showSnackBar(context, 'Chat list cache cleared');
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Failed to clear cache');
-      }
-    }
-  }
-
-  // Preload contact images for better performance
-  Future<void> _preloadContactImages(List<ChatListItemModel> chats) async {
-    final imagesToPreload = chats
-        .where((chat) => chat.contactImage.isNotEmpty)
-        .map((chat) => chat.contactImage)
-        .take(10) // Preload only first 10 to avoid excessive memory usage
-        .toList();
-
-    for (final imageUrl in imagesToPreload) {
-      try {
-        _imageCacheManager.getSingleFile(imageUrl);
-      } catch (e) {
-        // Continue preloading other images even if one fails
-        debugPrint('Error preloading image: $e');
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final modernTheme = context.modernTheme;
     
-    // Watch the current user using new auth system
     final currentUser = ref.watch(currentUserProvider);
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     
@@ -125,7 +39,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       return _buildNotAuthenticatedState(modernTheme);
     }
     
-    // User is authenticated, show the chat list
     return _buildAuthenticatedChatList(currentUser, modernTheme);
   }
 
@@ -136,134 +49,21 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       backgroundColor: modernTheme.surfaceColor,
       body: Column(
         children: [
-          // Search bar
           _buildSearchBar(modernTheme),
           
-          // Chat list
           Expanded(
             child: chatListState.when(
-              loading: () {
-                // Show cached data while loading if available
-                if (_cachedChats != null && _cachedChats!.isNotEmpty) {
-                  return Column(
-                    children: [
-                      // Loading indicator at top
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  modernTheme.primaryColor ?? Theme.of(context).primaryColor,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Updating...',
-                              style: TextStyle(
-                                color: modernTheme.textSecondaryColor,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Cached chat list
-                      Expanded(
-                        child: _buildChatListFromCache(_cachedChats!, modernTheme, user.uid),
-                      ),
-                    ],
-                  );
-                }
-                return _buildLoadingState(modernTheme);
-              },
+              loading: () => _buildLoadingState(modernTheme),
               error: (error, stack) {
                 debugPrint('Chat list error: $error');
-                // Show cached data with error indicator if available
-                if (_cachedChats != null && _cachedChats!.isNotEmpty) {
-                  return Column(
-                    children: [
-                      // Error indicator at top
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        color: Colors.red.withOpacity(0.1),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 16,
-                              color: Colors.red,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Failed to update. Showing cached data.',
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () => ref.refresh(chatListProvider),
-                              child: Text(
-                                'Retry',
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Cached chat list
-                      Expanded(
-                        child: _buildChatListFromCache(_cachedChats!, modernTheme, user.uid),
-                      ),
-                    ],
-                  );
-                }
                 return _buildErrorState(modernTheme, error.toString());
               },
-              data: (state) {
-                // Cache the new data
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _cacheChatList(state.chats);
-                  _preloadContactImages(state.chats);
-                });
-                
-                return _buildChatList(state, user.uid, modernTheme);
-              },
+              data: (state) => _buildChatList(state, user.uid, modernTheme),
             ),
           ),
         ],
       ),
     );
-  }
-
-  String _formatCacheTime(DateTime cacheTime) {
-    final now = DateTime.now();
-    final difference = now.difference(cacheTime);
-    
-    if (difference.inMinutes < 1) {
-      return 'just now';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inDays < 1) {
-      return '${difference.inHours}h ago';
-    } else {
-      return DateFormat('MMM dd').format(cacheTime);
-    }
   }
 
   Widget _buildSearchBar(ModernThemeExtension modernTheme) {
@@ -347,25 +147,16 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                 Constants.landingScreen,
                 (route) => false,
               ),
-              icon: const Icon(
-                Icons.login,
-                color: Colors.white,
-                size: 20,
-              ),
+              icon: const Icon(Icons.login, color: Colors.white, size: 20),
               label: const Text(
                 'Sign In',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 elevation: 2,
               ),
             ),
@@ -433,11 +224,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               color: Colors.red.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red,
-            ),
+            child: const Icon(Icons.error_outline, size: 64, color: Colors.red),
           ),
           const SizedBox(height: 24),
           Text(
@@ -466,44 +253,18 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
             label: const Text(
               'Try Again',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               elevation: 2,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildChatListFromCache(List<ChatListItemModel> chats, ModernThemeExtension modernTheme, String currentUserId) {
-    if (chats.isEmpty) {
-      return _buildEmptyState(modernTheme);
-    }
-
-    // Simple list without filtering for cached data
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 8, bottom: 100),
-      itemCount: chats.length,
-      itemBuilder: (context, index) {
-        final chatItem = chats[index];
-        
-        return _buildChatItem(
-          chatItem, 
-          currentUserId, 
-          modernTheme,
-        );
-      },
     );
   }
 
@@ -518,26 +279,23 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       return _buildNoSearchResultsState(modernTheme, state.searchQuery);
     }
 
-    // Get pinned and regular chats using helper methods from the provider
     final chatListNotifier = ref.read(chatListProvider.notifier);
     final pinnedChats = chatListNotifier.getPinnedChats();
     final regularChats = chatListNotifier.getRegularChats();
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.refresh(chatListProvider);
+        await chatListNotifier.syncChats();
       },
       color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
       child: ListView.builder(
         padding: const EdgeInsets.only(top: 8, bottom: 100),
         itemCount: pinnedChats.length + regularChats.length + (pinnedChats.isNotEmpty ? 1 : 0),
         itemBuilder: (context, index) {
-          // Pinned section header
           if (pinnedChats.isNotEmpty && index == 0) {
             return _buildSectionHeader('Pinned', modernTheme);
           }
           
-          // Pinned chats
           if (pinnedChats.isNotEmpty && index <= pinnedChats.length) {
             final chatIndex = index - 1;
             return _buildChatItem(
@@ -548,7 +306,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             );
           }
           
-          // Regular chats
           final chatIndex = pinnedChats.isNotEmpty 
               ? index - pinnedChats.length - 1 
               : index;
@@ -621,25 +378,16 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () => _navigateToVideos(),
-            icon: const Icon(
-              CupertinoIcons.play_circle,
-              color: Colors.white,
-              size: 20,
-            ),
+            icon: const Icon(CupertinoIcons.play_circle, color: Colors.white, size: 20),
             label: const Text(
               'Explore Videos',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               elevation: 2,
             ),
           ),
@@ -696,11 +444,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       secondaryBackground: _buildDismissBackground(modernTheme, isLeftSwipe: true),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.endToStart) {
-          // Archive chat
           await _archiveChat(chatItem.chat.chatId);
           return false;
         } else {
-          // Pin/unpin chat
           await _togglePinChat(chatItem.chat.chatId);
           return false;
         }
@@ -709,7 +455,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Stack(
           children: [
-            _buildCachedAvatar(chatItem, modernTheme),
+            _buildAvatar(chatItem, modernTheme),
             if (chatItem.isOnline)
               Positioned(
                 bottom: 2,
@@ -763,20 +509,14 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         subtitle: Row(
           children: [
             if (chatItem.chat.lastMessageSender == currentUserId) ...[
-              Icon(
-                Icons.done_all,
-                size: 14,
-                color: modernTheme.textSecondaryColor,
-              ),
+              Icon(Icons.done_all, size: 14, color: modernTheme.textSecondaryColor),
               const SizedBox(width: 4),
             ],
             Expanded(
               child: Text(
                 chatItem.getLastMessagePreview(currentUserId: currentUserId),
                 style: TextStyle(
-                  color: hasUnread 
-                    ? modernTheme.textColor 
-                    : modernTheme.textSecondaryColor,
+                  color: hasUnread ? modernTheme.textColor : modernTheme.textSecondaryColor,
                   fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
                   fontSize: 14,
                 ),
@@ -828,7 +568,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  Widget _buildCachedAvatar(ChatListItemModel chatItem, ModernThemeExtension modernTheme) {
+  Widget _buildAvatar(ChatListItemModel chatItem, ModernThemeExtension modernTheme) {
     if (chatItem.contactImage.isEmpty) {
       return CircleAvatar(
         radius: 25,
@@ -876,7 +616,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
         ),
       ),
-      cacheManager: _imageCacheManager,
       fadeInDuration: const Duration(milliseconds: 200),
       fadeOutDuration: const Duration(milliseconds: 200),
     );
@@ -907,17 +646,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   void _openChat(ChatListItemModel chatItem) async {
-    // Mark chat as read when opening
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
     final chatListNotifier = ref.read(chatListProvider.notifier);
     await chatListNotifier.markChatAsRead(chatItem.chat.chatId);
 
-    // Get the other participant's user ID
     final otherUserId = chatItem.chat.getOtherParticipant(currentUser.uid);
-
-    // Get full user data from authentication provider
     final authNotifier = ref.read(authenticationProvider.notifier);
     UserModel? contactUser;
     
@@ -927,14 +662,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       debugPrint('Error fetching contact user data: $e');
     }
 
-    // Create UserModel with available data (fallback to chat item data if user not found)
     final contact = contactUser ?? UserModel(
       uid: otherUserId,
       phoneNumber: chatItem.contactPhone,
       name: chatItem.contactName,
-      bio: '', // Default empty bio
+      bio: '',
       profileImage: chatItem.contactImage,
-      coverImage: '', // Default empty cover
+      coverImage: '',
       followers: 0,
       following: 0,
       videosCount: 0,
@@ -951,7 +685,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       isFeatured: false,
     );
 
-    // Navigate to chat screen
     if (mounted) {
       final result = await Navigator.of(context).push(
         MaterialPageRoute(
@@ -962,7 +695,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         ),
       );
 
-      // Refresh chat list if message was sent
       if (result == true) {
         ref.refresh(chatListProvider);
       }
@@ -998,9 +730,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ),
             const SizedBox(height: 16),
             
-            // Contact info header
             ListTile(
-              leading: _buildCachedAvatar(chatItem, modernTheme),
+              leading: _buildAvatar(chatItem, modernTheme),
               title: Text(
                 chatItem.contactName,
                 style: TextStyle(
@@ -1051,14 +782,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ),
             
             ListTile(
-              leading: const Icon(
-                Icons.archive,
-                color: Colors.orange,
-              ),
-              title: const Text(
-                'Archive chat',
-                style: TextStyle(color: Colors.orange),
-              ),
+              leading: const Icon(Icons.archive, color: Colors.orange),
+              title: const Text('Archive chat', style: TextStyle(color: Colors.orange)),
               onTap: () {
                 Navigator.pop(context);
                 _archiveChat(chatItem.chat.chatId);
@@ -1066,14 +791,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ),
 
             ListTile(
-              leading: const Icon(
-                Icons.clear_all,
-                color: Colors.blue,
-              ),
-              title: const Text(
-                'Clear chat history',
-                style: TextStyle(color: Colors.blue),
-              ),
+              leading: const Icon(Icons.clear_all, color: Colors.blue),
+              title: const Text('Clear chat history', style: TextStyle(color: Colors.blue)),
               onTap: () {
                 Navigator.pop(context);
                 _confirmClearChatHistory(chatItem.chat.chatId, chatItem.contactName);
@@ -1081,14 +800,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ),
             
             ListTile(
-              leading: const Icon(
-                Icons.delete,
-                color: Colors.red,
-              ),
-              title: const Text(
-                'Delete chat',
-                style: TextStyle(color: Colors.red),
-              ),
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Delete chat', style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(context);
                 _confirmDeleteChat(chatItem.chat.chatId, chatItem.contactName);
@@ -1104,49 +817,28 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
   Future<void> _togglePinChat(String chatId) async {
     try {
-      final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.togglePinChat(chatId);
-      
-      if (mounted) {
-        showSnackBar(context, 'Chat pin status updated');
-      }
+      await ref.read(chatListProvider.notifier).togglePinChat(chatId);
+      if (mounted) showSnackBar(context, 'Chat pin status updated');
     } catch (e) {
-      debugPrint('Error toggling pin chat: $e');
-      if (mounted) {
-        showSnackBar(context, 'Failed to pin/unpin chat');
-      }
+      if (mounted) showSnackBar(context, 'Failed to pin/unpin chat');
     }
   }
 
   Future<void> _toggleMuteChat(String chatId) async {
     try {
-      final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.toggleMuteChat(chatId);
-      
-      if (mounted) {
-        showSnackBar(context, 'Chat mute status updated');
-      }
+      await ref.read(chatListProvider.notifier).toggleMuteChat(chatId);
+      if (mounted) showSnackBar(context, 'Chat mute status updated');
     } catch (e) {
-      debugPrint('Error toggling mute chat: $e');
-      if (mounted) {
-        showSnackBar(context, 'Failed to mute/unmute chat');
-      }
+      if (mounted) showSnackBar(context, 'Failed to mute/unmute chat');
     }
   }
 
   Future<void> _archiveChat(String chatId) async {
     try {
-      final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.toggleArchiveChat(chatId);
-      
-      if (mounted) {
-        showSnackBar(context, 'Chat archived');
-      }
+      await ref.read(chatListProvider.notifier).toggleArchiveChat(chatId);
+      if (mounted) showSnackBar(context, 'Chat archived');
     } catch (e) {
-      debugPrint('Error archiving chat: $e');
-      if (mounted) {
-        showSnackBar(context, 'Failed to archive chat');
-      }
+      if (mounted) showSnackBar(context, 'Failed to archive chat');
     }
   }
 
@@ -1157,10 +849,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: modernTheme.surfaceColor,
-        title: Text(
-          'Delete Chat?',
-          style: TextStyle(color: modernTheme.textColor),
-        ),
+        title: Text('Delete Chat?', style: TextStyle(color: modernTheme.textColor)),
         content: Text(
           'Are you sure you want to delete this chat with $contactName? This action cannot be undone.',
           style: TextStyle(color: modernTheme.textSecondaryColor),
@@ -1276,9 +965,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
   Future<void> _deleteChat(String chatId, bool deleteForEveryone) async {
     try {
-      final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.deleteChat(chatId, deleteForEveryone: deleteForEveryone);
-      
+      await ref.read(chatListProvider.notifier).deleteChat(chatId, deleteForEveryone: deleteForEveryone);
       if (mounted) {
         showSnackBar(
           context, 
@@ -1286,41 +973,24 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         );
       }
     } catch (e) {
-      debugPrint('Error deleting chat: $e');
-      if (mounted) {
-        showSnackBar(context, 'Failed to delete chat');
-      }
+      if (mounted) showSnackBar(context, 'Failed to delete chat');
     }
   }
 
   Future<void> _clearChatHistory(String chatId) async {
     try {
-      final chatListNotifier = ref.read(chatListProvider.notifier);
-      await chatListNotifier.clearChatHistory(chatId);
-      
-      if (mounted) {
-        showSnackBar(context, 'Chat history cleared');
-      }
+      await ref.read(chatListProvider.notifier).clearChatHistory(chatId);
+      if (mounted) showSnackBar(context, 'Chat history cleared');
     } catch (e) {
-      debugPrint('Error clearing chat history: $e');
-      if (mounted) {
-        showSnackBar(context, 'Failed to clear chat history');
-      }
+      if (mounted) showSnackBar(context, 'Failed to clear chat history');
     }
   }
 
   void _navigateToVideos() {
-    // Navigate to videos tab/screen to explore content
     Navigator.pushNamedAndRemoveUntil(
       context,
       Constants.homeScreen,
       (route) => false,
     );
-  }
-
-  @override
-  void dispose() {
-    // Clean up any temporary cache if needed
-    super.dispose();
   }
 }

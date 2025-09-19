@@ -1,10 +1,9 @@
 // lib/features/chat/screens/chat_screen.dart
-// UPDATED: Changed channel references to user references for users-based system
+// UPDATED: Cleaned up for offline-first architecture
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
@@ -35,7 +34,6 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToBottom = false;
-  String? _backgroundImage;
   double _fontSize = 16.0;
   bool _hasMessageBeenSent = false;
   
@@ -43,15 +41,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   bool _isVideoPlayerVisible = false;
   String? _currentVideoUrl;
 
-  // Cache manager instances
-  static final DefaultCacheManager _imageCacheManager = DefaultCacheManager();
-  static final DefaultCacheManager _videoCacheManager = DefaultCacheManager();
-  static final DefaultCacheManager _fileCacheManager = DefaultCacheManager();
-
-  // RFC 3339 date formatters
+  // RFC 3339 date formatters for Go backend compatibility
   static final DateFormat _rfc3339Format = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
   static final DateFormat _displayDateFormat = DateFormat('MMM dd, HH:mm');
   static final DateFormat _searchDateFormat = DateFormat('MMM dd, yyyy HH:mm');
+  
+  // Helper method to format timestamp to RFC 3339 for Go backend
+  String _formatTimestampToRFC3339(DateTime timestamp) {
+    final utcTimestamp = timestamp.toUtc();
+    return _rfc3339Format.format(utcTimestamp);
+  }
+  
+  // Helper method to parse RFC 3339 timestamp from Go backend
+  DateTime _parseRFC3339Timestamp(String rfc3339String) {
+    try {
+      return _rfc3339Format.parse(rfc3339String, true).toLocal();
+    } catch (e) {
+      debugPrint('Error parsing RFC 3339 timestamp: $e');
+      return DateTime.now();
+    }
+  }
 
   @override
   void initState() {
@@ -59,7 +68,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_scrollListener);
     
-    // Mark messages as read when entering chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _markMessagesAsRead();
     });
@@ -120,104 +128,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     }
   }
 
-  // Helper method to format timestamp to RFC 3339
-  String _formatTimestampToRFC3339(DateTime timestamp) {
-    // Convert to UTC and format according to RFC 3339
-    final utcTimestamp = timestamp.toUtc();
-    return _rfc3339Format.format(utcTimestamp);
-  }
-
-  // Helper method to parse RFC 3339 timestamp
-  DateTime _parseRFC3339Timestamp(String rfc3339String) {
-    try {
-      return _rfc3339Format.parse(rfc3339String, true).toLocal();
-    } catch (e) {
-      debugPrint('Error parsing RFC 3339 timestamp: $e');
-      return DateTime.now();
-    }
-  }
-
-  // Helper method to format timestamp for display
-  String _formatTimestampForDisplay(DateTime timestamp) {
-    return _displayDateFormat.format(timestamp);
-  }
-
-  // Helper method to format timestamp for search results
-  String _formatTimestampForSearch(DateTime timestamp) {
-    return _searchDateFormat.format(timestamp);
-  }
-
-  // Helper method to determine verification status
-  bool _isContactVerified() {
-    return widget.contact.isVerified;
-  }
-
-  // Cache management methods
-  Future<File?> _getCachedFile(String url, {String? cacheKey}) async {
-    try {
-      final key = cacheKey ?? url;
-      final fileInfo = await _fileCacheManager.getFileFromCache(key);
-      if (fileInfo != null && fileInfo.file.existsSync()) {
-        return fileInfo.file;
-      }
-      
-      // Download and cache the file
-      final file = await _fileCacheManager.getSingleFile(url, key: key);
-      return file;
-    } catch (e) {
-      debugPrint('Error caching file: $e');
-      return null;
-    }
-  }
-
-  Future<void> _preloadMessageMedia(List<MessageModel> messages) async {
-    // Preload recent images and videos for smooth scrolling
-    final recentMessages = messages.take(20).where((msg) => 
-      msg.type == MessageEnum.image || 
-      msg.type == MessageEnum.video ||
-      (msg.mediaMetadata?['isVideoReaction'] == true)
-    );
-
-    for (final message in recentMessages) {
-      try {
-        if (message.type == MessageEnum.image && message.mediaUrl?.isNotEmpty == true) {
-          // Preload image
-          _imageCacheManager.getSingleFile(message.mediaUrl!);
-        } else if (message.type == MessageEnum.video && message.mediaUrl?.isNotEmpty == true) {
-          // Preload video thumbnail or video file
-          _videoCacheManager.getSingleFile(message.mediaUrl!);
-        } else if (message.mediaMetadata?['isVideoReaction'] == true) {
-          // Preload video reaction thumbnail
-          final videoUrl = message.mediaMetadata?['videoReaction']?['videoUrl'];
-          if (videoUrl?.isNotEmpty == true) {
-            _videoCacheManager.getSingleFile(videoUrl!);
-          }
-        }
-      } catch (e) {
-        // Continue preloading other media even if one fails
-        debugPrint('Error preloading media: $e');
-      }
-    }
-  }
-
-  Future<void> _clearChatCache() async {
-    try {
-      await _imageCacheManager.emptyCache();
-      await _videoCacheManager.emptyCache();
-      await _fileCacheManager.emptyCache();
-      
-      if (mounted) {
-        showSnackBar(context, 'Chat cache cleared');
-      }
-    } catch (e) {
-      if (mounted) {
-        showSnackBar(context, 'Failed to clear cache');
-      }
-    }
-  }
-
-  // Video player methods with caching
-  void _handleVideoThumbnailTap(MessageModel message) async {
+  void _handleVideoThumbnailTap(MessageModel message) {
     String? videoUrl;
     
     if (message.type == MessageEnum.video) {
@@ -234,34 +145,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       return;
     }
     
-    // Show loading indicator while getting cached video
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
-    
-    try {
-      // Get cached video file
-      final cachedFile = await _getCachedFile(videoUrl, cacheKey: '${message.messageId}_video');
-      
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        
-        if (cachedFile != null) {
-          _showVideoPlayer(cachedFile.path);
-        } else {
-          _showVideoPlayer(videoUrl); // Fallback to URL
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        showSnackBar(context, 'Failed to load video');
-      }
-    }
+    _showVideoPlayer(videoUrl);
   }
 
   void _showVideoPlayer(String videoPath) {
@@ -278,7 +162,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     });
   }
 
-  // Method to get cached contact image
   Widget _buildContactAvatar({double radius = 18}) {
     if (widget.contact.profileImage.isEmpty) {
       return CircleAvatar(
@@ -329,7 +212,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           ),
         ),
       ),
-      cacheManager: _imageCacheManager,
     );
   }
 
@@ -348,71 +230,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
     return WillPopScope(
       onWillPop: () async {
-        // Close video player if open
         if (_isVideoPlayerVisible) {
           _closeVideoPlayer();
           return false;
         }
         
-        // Return whether any message was sent when popping
         Navigator.of(context).pop(_hasMessageBeenSent);
         return false;
       },
       child: Scaffold(
         backgroundColor: chatTheme.chatBackgroundColor,
-        extendBodyBehindAppBar: false,
         appBar: _buildAppBar(modernTheme),
         body: Stack(
           children: [
-            // Main chat content
-            Container(
-              decoration: _backgroundImage != null
-                  ? BoxDecoration(
-                      image: DecorationImage(
-                        image: FileImage(File(_backgroundImage!)),
-                        fit: BoxFit.cover,
-                        colorFilter: ColorFilter.mode(
-                          Colors.black.withOpacity(0.1),
-                          BlendMode.darken,
-                        ),
-                      ),
-                    )
-                  : null,
-              child: Column(
-                children: [
-                  // Messages list
-                  Expanded(
-                    child: messageState.when(
-                      loading: () => _buildLoadingState(modernTheme),
-                      error: (error, stack) => _buildErrorState(modernTheme, error.toString()),
-                      data: (state) {
-                        // Preload media for smooth scrolling
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _preloadMessageMedia(state.messages);
-                        });
-                        return _buildMessagesList(state, currentUser);
-                      },
-                    ),
+            Column(
+              children: [
+                Expanded(
+                  child: messageState.when(
+                    loading: () => _buildLoadingState(modernTheme),
+                    error: (error, stack) => _buildErrorState(modernTheme, error.toString()),
+                    data: (state) => _buildMessagesList(state, currentUser),
                   ),
-                  
-                  // Message input (hide when video player is visible)
-                  if (!_isVideoPlayerVisible)
-                    messageState.maybeWhen(
-                      data: (state) => MessageInput(
-                        onSendText: (text) => _handleSendText(text),
-                        onSendImage: (image) => _handleSendImage(image),
-                        onSendFile: (file, fileName) => _handleSendFile(file, fileName),
-                        contactName: widget.contact.name,
-                        replyToMessage: state.replyToMessage,
-                        onCancelReply: () => _cancelReply(),
-                      ),
-                      orElse: () => const SizedBox.shrink(),
+                ),
+                
+                if (!_isVideoPlayerVisible)
+                  messageState.maybeWhen(
+                    data: (state) => MessageInput(
+                      onSendText: (text) => _handleSendText(text),
+                      onSendImage: (image) => _handleSendImage(image),
+                      onSendFile: (file, fileName) => _handleSendFile(file, fileName),
+                      contactName: widget.contact.name,
+                      replyToMessage: state.replyToMessage,
+                      onCancelReply: () => _cancelReply(),
                     ),
-                ],
-              ),
+                    orElse: () => const SizedBox.shrink(),
+                  ),
+              ],
             ),
             
-            // Video Player Overlay
             if (_isVideoPlayerVisible && _currentVideoUrl != null)
               VideoPlayerOverlay(
                 videoUrl: _currentVideoUrl!,
@@ -420,7 +275,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 title: 'Shared Video',
               ),
               
-            // Scroll to bottom button
             if (_showScrollToBottom && !_isVideoPlayerVisible)
               Positioned(
                 right: 8,
@@ -439,183 +293,109 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   PreferredSizeWidget _buildAppBar(ModernThemeExtension modernTheme) {
-    final isVerified = _isContactVerified();
+    final isVerified = widget.contact.isVerified;
     
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(kToolbarHeight),
-      child: Container(
-        decoration: BoxDecoration(
-          color: modernTheme.appBarColor?.withOpacity(0.95),
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(16),
-            bottomRight: Radius.circular(16),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              offset: const Offset(0, 2),
-              blurRadius: 8,
-              spreadRadius: 0,
-            ),
-          ],
-        ),
-        child: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          systemOverlayStyle: SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: modernTheme.textColor == Colors.white 
-              ? Brightness.light 
-              : Brightness.dark,
-          ),
-          leading: IconButton(
-            onPressed: () {
-              Navigator.of(context).pop(_hasMessageBeenSent);
-            },
-            icon: Icon(
-              Icons.arrow_back,
-              color: modernTheme.textColor,
-            ),
-          ),
-          title: GestureDetector(
-            onTap: () => _showContactProfile(),
-            child: Row(
-              children: [
-                _buildContactAvatar(),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return AppBar(
+      backgroundColor: modernTheme.appBarColor?.withOpacity(0.95),
+      elevation: 0,
+      leading: IconButton(
+        onPressed: () => Navigator.of(context).pop(_hasMessageBeenSent),
+        icon: Icon(Icons.arrow_back, color: modernTheme.textColor),
+      ),
+      title: GestureDetector(
+        onTap: () => _showContactProfile(),
+        child: Row(
+          children: [
+            _buildContactAvatar(),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.contact.name,
+                    style: TextStyle(
+                      color: modernTheme.textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      Icon(
+                        isVerified ? Icons.verified : Icons.help_outline,
+                        size: 12,
+                        color: isVerified ? Colors.blue : Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
                       Text(
-                        widget.contact.name,
+                        isVerified ? 'Verified' : 'Not Verified',
                         style: TextStyle(
-                          color: modernTheme.textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          color: isVerified ? Colors.blue : Colors.grey[600],
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isVerified ? Icons.verified : Icons.help_outline,
-                            size: 12,
-                            color: isVerified ? Colors.blue : Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isVerified ? 'Verified' : 'Not Verified',
-                            style: TextStyle(
-                              color: isVerified ? Colors.blue : Colors.grey[600],
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            IconButton(
-              onPressed: () => _showSearchDialog(),
-              icon: Icon(
-                Icons.search,
-                color: modernTheme.textColor,
+                ],
               ),
-            ),
-            PopupMenuButton<String>(
-              icon: Icon(
-                Icons.more_vert,
-                color: modernTheme.textColor,
-              ),
-              color: modernTheme.surfaceColor,
-              onSelected: _handleMenuAction,
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'pinned_messages',
-                  child: Row(
-                    children: [
-                      Icon(Icons.push_pin, color: modernTheme.textColor, size: 20),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Pinned Messages',
-                        style: TextStyle(color: modernTheme.textColor),
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'wallpaper',
-                  child: Row(
-                    children: [
-                      Icon(Icons.wallpaper, color: modernTheme.textColor, size: 20),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Wallpaper',
-                        style: TextStyle(color: modernTheme.textColor),
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'font_size',
-                  child: Row(
-                    children: [
-                      Icon(Icons.text_fields, color: modernTheme.textColor, size: 20),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Font Size',
-                        style: TextStyle(color: modernTheme.textColor),
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'clear_cache',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_sweep, color: modernTheme.textColor, size: 20),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Clear Cache',
-                        style: TextStyle(color: modernTheme.textColor),
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'block',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.block, color: Colors.red, size: 20),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Block Contact',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ],
         ),
       ),
+      actions: [
+        IconButton(
+          onPressed: () => _showSearchDialog(),
+          icon: Icon(Icons.search, color: modernTheme.textColor),
+        ),
+        PopupMenuButton<String>(
+          icon: Icon(Icons.more_vert, color: modernTheme.textColor),
+          color: modernTheme.surfaceColor,
+          onSelected: _handleMenuAction,
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'pinned_messages',
+              child: Row(
+                children: [
+                  Icon(Icons.push_pin, color: modernTheme.textColor, size: 20),
+                  const SizedBox(width: 12),
+                  Text('Pinned Messages', style: TextStyle(color: modernTheme.textColor)),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'font_size',
+              child: Row(
+                children: [
+                  Icon(Icons.text_fields, color: modernTheme.textColor, size: 20),
+                  const SizedBox(width: 12),
+                  Text('Font Size', style: TextStyle(color: modernTheme.textColor)),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'block',
+              child: const Row(
+                children: [
+                  Icon(Icons.block, color: Colors.red, size: 20),
+                  SizedBox(width: 12),
+                  Text('Block Contact', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildLoadingState(ModernThemeExtension modernTheme) {
     return Center(
-      child: CircularProgressIndicator(
-        color: modernTheme.primaryColor,
-      ),
+      child: CircularProgressIndicator(color: modernTheme.primaryColor),
     );
   }
 
@@ -624,11 +404,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 48,
-            color: modernTheme.textSecondaryColor,
-          ),
+          Icon(Icons.error_outline, size: 48, color: modernTheme.textSecondaryColor),
           const SizedBox(height: 16),
           Text(
             'Failed to load messages',
@@ -641,10 +417,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           const SizedBox(height: 8),
           Text(
             error,
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: modernTheme.textSecondaryColor, fontSize: 14),
             textAlign: TextAlign.center,
           ),
         ],
@@ -660,17 +433,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     return ListView.builder(
       controller: _scrollController,
       reverse: true,
-      padding: const EdgeInsets.only(
-        top: 16,
-        bottom: 16,
-      ),
+      padding: const EdgeInsets.only(top: 16, bottom: 16),
       itemCount: state.messages.length,
       itemBuilder: (context, index) {
         final message = state.messages[index];
         final isCurrentUser = message.senderId == currentUser.uid;
         final isLastInGroup = _isLastInGroup(state.messages, index);
         
-        // Use SwipeToWrapper for all messages (including video reactions)
         return SwipeToWrapper(
           message: message,
           isCurrentUser: isCurrentUser,
@@ -705,10 +474,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           const SizedBox(height: 8),
           Text(
             'Send a message to get started',
-            style: TextStyle(
-              color: modernTheme.textSecondaryColor,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: modernTheme.textSecondaryColor, fontSize: 14),
           ),
         ],
       ),
@@ -744,17 +510,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _cancelReply() {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    messageNotifier.cancelReply();
+    ref.read(messageNotifierProvider(widget.chatId).notifier).cancelReply();
   }
 
   void _replyToMessage(MessageModel message) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    messageNotifier.setReplyToMessage(message);
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
+    ref.read(messageNotifierProvider(widget.chatId).notifier).setReplyToMessage(message);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   void _showMessageOptions(MessageModel message, bool isCurrentUser) {
@@ -791,7 +552,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                 },
               ),
               
-              if (isCurrentUser && message.type == MessageEnum.text) ...[
+              if (isCurrentUser && message.type == MessageEnum.text)
                 _MessageActionTile(
                   icon: Icons.edit,
                   title: 'Edit',
@@ -800,7 +561,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                     _editMessage(message);
                   },
                 ),
-              ],
               
               _MessageActionTile(
                 icon: message.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
@@ -812,7 +572,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               ),
               
               if (message.type == MessageEnum.text || 
-                  message.mediaMetadata?['isVideoReaction'] == true) ...[
+                  message.mediaMetadata?['isVideoReaction'] == true)
                 _MessageActionTile(
                   icon: Icons.copy,
                   title: 'Copy',
@@ -821,7 +581,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                     _copyMessage(message);
                   },
                 ),
-              ],
               
               if (isCurrentUser) ...[
                 _MessageActionTile(
@@ -842,7 +601,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                     _confirmDeleteForEveryone(message);
                   },
                 ),
-              ] else ...[
+              ] else
                 _MessageActionTile(
                   icon: Icons.delete_outline,
                   title: 'Delete for me',
@@ -852,7 +611,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                     _deleteMessage(message, false);
                   },
                 ),
-              ],
               
               const SizedBox(height: 16),
             ],
@@ -867,30 +625,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       context: context,
       builder: (context) => _EditMessageDialog(
         message: message,
-        onEdit: (newContent) => _handleEditMessage(message, newContent),
+        onEdit: (newContent) {
+          ref.read(messageNotifierProvider(widget.chatId).notifier)
+              .editMessage(widget.chatId, message.messageId, newContent);
+        },
       ),
     );
   }
 
-  void _handleEditMessage(MessageModel message, String newContent) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    messageNotifier.editMessage(widget.chatId, message.messageId, newContent);
-  }
-
   void _togglePinMessage(MessageModel message) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    messageNotifier.togglePinMessage(widget.chatId, message.messageId, message.isPinned);
+    ref.read(messageNotifierProvider(widget.chatId).notifier)
+        .togglePinMessage(widget.chatId, message.messageId, message.isPinned);
   }
 
   void _copyMessage(MessageModel message) {
     String textToCopy = message.content;
     
-    // UPDATED: For video reactions, copy the reaction text (using userName instead of channelName)
     if (message.mediaMetadata?['isVideoReaction'] == true) {
       final videoReactionData = message.mediaMetadata?['videoReaction'];
       if (videoReactionData != null) {
         final reaction = videoReactionData['reaction'] ?? '';
-        final userName = videoReactionData['userName'] ?? 'video'; // Changed from channelName to userName
+        final userName = videoReactionData['userName'] ?? 'video';
         textToCopy = reaction.isNotEmpty ? reaction : 'Reacted to $userName\'s video';
       }
     }
@@ -900,8 +655,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   }
 
   void _deleteMessage(MessageModel message, bool deleteForEveryone) {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    messageNotifier.deleteMessage(widget.chatId, message.messageId, deleteForEveryone);
+    ref.read(messageNotifierProvider(widget.chatId).notifier)
+        .deleteMessage(widget.chatId, message.messageId, deleteForEveryone);
   }
 
   void _confirmDeleteForEveryone(MessageModel message) {
@@ -911,10 +666,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: modernTheme.surfaceColor,
-        title: Text(
-          'Delete for everyone?',
-          style: TextStyle(color: modernTheme.textColor),
-        ),
+        title: Text('Delete for everyone?', style: TextStyle(color: modernTheme.textColor)),
         content: Text(
           'This message will be deleted for everyone in this chat.',
           style: TextStyle(color: modernTheme.textSecondaryColor),
@@ -922,20 +674,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: modernTheme.textSecondaryColor),
-            ),
+            child: Text('Cancel', style: TextStyle(color: modernTheme.textSecondaryColor)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deleteMessage(message, true);
             },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -963,14 +709,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       case 'pinned_messages':
         _showPinnedMessages();
         break;
-      case 'wallpaper':
-        _showWallpaperOptions();
-        break;
       case 'font_size':
         _showFontSizeDialog();
-        break;
-      case 'clear_cache':
-        _clearChatCache();
         break;
       case 'block':
         _confirmBlockContact();
@@ -1002,20 +742,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     );
   }
 
-  void _showWallpaperOptions() {
-    showSnackBar(context, 'Wallpaper selection - Coming soon');
-  }
-
   void _showFontSizeDialog() {
     showDialog(
       context: context,
       builder: (context) => _FontSizeDialog(
         currentSize: _fontSize,
-        onSizeChanged: (size) {
-          setState(() {
-            _fontSize = size;
-          });
-        },
+        onSizeChanged: (size) => setState(() => _fontSize = size),
       ),
     );
   }
@@ -1038,33 +770,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: modernTheme.textSecondaryColor),
-            ),
+            child: Text('Cancel', style: TextStyle(color: modernTheme.textSecondaryColor)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _blockContact();
+              showSnackBar(context, 'Contact blocked');
+              Navigator.pop(context);
             },
-            child: const Text(
-              'Block',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Block', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
-
-  void _blockContact() {
-    showSnackBar(context, 'Contact blocked');
-    Navigator.pop(context);
-  }
 }
 
-// Supporting widgets with RFC 3339 time formatting
+// Supporting widgets
 class _MessageActionTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -1087,15 +809,10 @@ class _MessageActionTile extends StatelessWidget {
       leading: Icon(icon, color: effectiveColor, size: 22),
       title: Text(
         title,
-        style: TextStyle(
-          color: effectiveColor,
-          fontWeight: FontWeight.w500,
-        ),
+        style: TextStyle(color: effectiveColor, fontWeight: FontWeight.w500),
       ),
       onTap: onTap,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 }
@@ -1134,10 +851,7 @@ class _EditMessageDialogState extends State<_EditMessageDialog> {
     
     return AlertDialog(
       backgroundColor: modernTheme.surfaceColor,
-      title: Text(
-        'Edit Message',
-        style: TextStyle(color: modernTheme.textColor),
-      ),
+      title: Text('Edit Message', style: TextStyle(color: modernTheme.textColor)),
       content: TextField(
         controller: _controller,
         maxLines: 5,
@@ -1160,10 +874,7 @@ class _EditMessageDialogState extends State<_EditMessageDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Cancel',
-            style: TextStyle(color: modernTheme.textSecondaryColor),
-          ),
+          child: Text('Cancel', style: TextStyle(color: modernTheme.textSecondaryColor)),
         ),
         TextButton(
           onPressed: () {
@@ -1173,10 +884,7 @@ class _EditMessageDialogState extends State<_EditMessageDialog> {
             }
             Navigator.pop(context);
           },
-          child: Text(
-            'Save',
-            style: TextStyle(color: modernTheme.primaryColor),
-          ),
+          child: Text('Save', style: TextStyle(color: modernTheme.primaryColor)),
         ),
       ],
     );
@@ -1200,8 +908,6 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
   final TextEditingController _searchController = TextEditingController();
   List<MessageModel> _searchResults = [];
   bool _isSearching = false;
-
-  // RFC 3339 date formatter for search results
   static final DateFormat _searchDateFormat = DateFormat('MMM dd, yyyy HH:mm');
 
   @override
@@ -1212,28 +918,21 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
 
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
-      setState(() {
-        _searchResults = [];
-      });
+      setState(() => _searchResults = []);
       return;
     }
 
-    setState(() {
-      _isSearching = true;
-    });
+    setState(() => _isSearching = true);
 
     try {
-      final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-      final results = await messageNotifier.searchMessages(widget.chatId, query);
-      
+      final results = await ref.read(messageNotifierProvider(widget.chatId).notifier)
+          .searchMessages(widget.chatId, query);
       setState(() {
         _searchResults = results;
         _isSearching = false;
       });
     } catch (e) {
-      setState(() {
-        _isSearching = false;
-      });
+      setState(() => _isSearching = false);
     }
   }
 
@@ -1243,9 +942,7 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
     
     return Dialog(
       backgroundColor: modernTheme.surfaceColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: double.maxFinite,
         height: MediaQuery.of(context).size.height * 0.7,
@@ -1287,9 +984,7 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
             Expanded(
               child: _isSearching
                   ? Center(
-                      child: CircularProgressIndicator(
-                        color: modernTheme.primaryColor,
-                      ),
+                      child: CircularProgressIndicator(color: modernTheme.primaryColor),
                     )
                   : _searchResults.isEmpty
                       ? Center(
@@ -1297,9 +992,7 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
                             _searchController.text.isEmpty
                                 ? 'Enter text to search'
                                 : 'No messages found',
-                            style: TextStyle(
-                              color: modernTheme.textSecondaryColor,
-                            ),
+                            style: TextStyle(color: modernTheme.textSecondaryColor),
                           ),
                         )
                       : ListView.builder(
@@ -1325,10 +1018,7 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
             
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Close',
-                style: TextStyle(color: modernTheme.primaryColor),
-              ),
+              child: Text('Close', style: TextStyle(color: modernTheme.primaryColor)),
             ),
           ],
         ),
@@ -1348,7 +1038,6 @@ class _PinnedMessagesSheet extends StatelessWidget {
     required this.onUnpin,
   });
 
-  // RFC 3339 date formatter for pinned messages
   static final DateFormat _pinnedDateFormat = DateFormat('MMM dd, HH:mm');
 
   @override
@@ -1389,9 +1078,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
                 ? Center(
                     child: Text(
                       'No pinned messages',
-                      style: TextStyle(
-                        color: modernTheme.textSecondaryColor,
-                      ),
+                      style: TextStyle(color: modernTheme.textSecondaryColor),
                     ),
                   )
                 : ListView.builder(
@@ -1455,27 +1142,18 @@ class _FontSizeDialogState extends State<_FontSizeDialog> {
     
     return AlertDialog(
       backgroundColor: modernTheme.surfaceColor,
-      title: Text(
-        'Font Size',
-        style: TextStyle(color: modernTheme.textColor),
-      ),
+      title: Text('Font Size', style: TextStyle(color: modernTheme.textColor)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'Sample message text',
-            style: TextStyle(
-              color: modernTheme.textColor,
-              fontSize: _fontSize,
-            ),
+            style: TextStyle(color: modernTheme.textColor, fontSize: _fontSize),
           ),
           const SizedBox(height: 20),
           Row(
             children: [
-              Text(
-                'Small',
-                style: TextStyle(color: modernTheme.textSecondaryColor),
-              ),
+              Text('Small', style: TextStyle(color: modernTheme.textSecondaryColor)),
               Expanded(
                 child: Slider(
                   value: _fontSize,
@@ -1483,17 +1161,10 @@ class _FontSizeDialogState extends State<_FontSizeDialog> {
                   max: 24.0,
                   divisions: 12,
                   activeColor: modernTheme.primaryColor,
-                  onChanged: (value) {
-                    setState(() {
-                      _fontSize = value;
-                    });
-                  },
+                  onChanged: (value) => setState(() => _fontSize = value),
                 ),
               ),
-              Text(
-                'Large',
-                style: TextStyle(color: modernTheme.textSecondaryColor),
-              ),
+              Text('Large', style: TextStyle(color: modernTheme.textSecondaryColor)),
             ],
           ),
         ],
@@ -1501,20 +1172,14 @@ class _FontSizeDialogState extends State<_FontSizeDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Cancel',
-            style: TextStyle(color: modernTheme.textSecondaryColor),
-          ),
+          child: Text('Cancel', style: TextStyle(color: modernTheme.textSecondaryColor)),
         ),
         TextButton(
           onPressed: () {
             widget.onSizeChanged(_fontSize);
             Navigator.pop(context);
           },
-          child: Text(
-            'Apply',
-            style: TextStyle(color: modernTheme.primaryColor),
-          ),
+          child: Text('Apply', style: TextStyle(color: modernTheme.primaryColor)),
         ),
       ],
     );
