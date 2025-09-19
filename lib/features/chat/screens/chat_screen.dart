@@ -1,5 +1,5 @@
 // lib/features/chat/screens/chat_screen.dart
-// FIXED: Non-blocking mark as read, proper message loading, and error handling
+// FIXED: Simplified mark as read, removed complex tracking, improved reliability
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +13,6 @@ import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/message_input.dart';
 import 'package:textgb/features/chat/widgets/swipe_to_wrapper.dart';
 import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
-import 'package:textgb/features/chat/database/chat_database_helper.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
@@ -33,11 +32,15 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
+class _ChatScreenState extends ConsumerState<ChatScreen> 
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  
+  @override
+  bool get wantKeepAlive => true;
+
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToBottom = false;
   double _fontSize = 16.0;
-  bool _hasMessageBeenSent = false;
   
   // Video player state
   bool _isVideoPlayerVisible = false;
@@ -49,10 +52,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_scrollListener);
     
-    // Debug and mark messages as read when opening chat
+    // Mark chat as read when opening (simple approach)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _debugMessageLoading();
-      _markMessagesAsReadNonBlocking();
+      _markChatAsRead();
     });
   }
 
@@ -62,79 +64,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     
-    // Mark as read one final time when leaving (non-blocking)
-    _markMessagesAsReadNonBlocking();
+    // Mark as read one final time when leaving
+    _markChatAsRead();
     
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Mark as read when app comes to foreground
     if (state == AppLifecycleState.resumed) {
-      _markMessagesAsReadNonBlocking();
-    } else if (state == AppLifecycleState.paused) {
-      _markMessagesAsReadNonBlocking();
+      _markChatAsRead();
     }
   }
 
-  // DEBUG: Check if messages are in database
-  Future<void> _debugMessageLoading() async {
-    try {
-      debugPrint('🔍 DEBUG: Checking messages for chat ${widget.chatId}');
-      
-      final dbHelper = ChatDatabaseHelper();
-      final messages = await dbHelper.getChatMessages(widget.chatId);
-      
-      debugPrint('📊 DEBUG: Found ${messages.length} messages in local database');
-      
-      if (messages.isEmpty) {
-        debugPrint('⚠️ DEBUG: No messages in local DB - might be new chat or not synced');
-        
-        // Check if chat exists
-        final chat = await dbHelper.getChatById(widget.chatId);
-        if (chat == null) {
-          debugPrint('❌ DEBUG: Chat ${widget.chatId} does not exist in database');
-        } else {
-          debugPrint('✅ DEBUG: Chat exists but has no messages yet');
-          debugPrint('   Last message: ${chat.lastMessage}');
-        }
-      } else {
-        debugPrint('✅ DEBUG: Messages loaded successfully:');
-        for (var msg in messages.take(3)) {
-          debugPrint('   - ${msg.messageId}: ${msg.content.substring(0, msg.content.length > 30 ? 30 : msg.content.length)}... (${msg.type.name})');
-        }
-      }
-    } catch (e, stack) {
-      debugPrint('❌ DEBUG: Error checking messages: $e');
-      debugPrint('Stack: $stack');
-    }
-  }
-
-  // FIXED: Non-blocking mark as read
-  void _markMessagesAsReadNonBlocking() {
-    // Run in background without blocking UI
+  // SIMPLIFIED: Just mark chat as read in chat provider
+  void _markChatAsRead() {
     Future.microtask(() async {
       try {
-        debugPrint('📖 Attempting to mark messages as read for chat ${widget.chatId}');
-        
-        // Mark all messages as read (don't await - run in background)
-        final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-        messageNotifier.markAllMessagesAsRead(widget.chatId).catchError((e) {
-          debugPrint('⚠️ Failed to mark messages as read (non-critical): $e');
-          // Don't throw - this is non-blocking
-        });
-        
-        // Also mark in chat list (don't await - run in background)
         final chatListNotifier = ref.read(chatListProvider.notifier);
-        chatListNotifier.markChatAsRead(widget.chatId).catchError((e) {
-          debugPrint('⚠️ Failed to mark chat as read (non-critical): $e');
-          // Don't throw - this is non-blocking
-        });
-        
-        debugPrint('✅ Mark as read initiated (background)');
+        await chatListNotifier.markChatAsRead(widget.chatId);
+        debugPrint('✅ Chat marked as read: ${widget.chatId}');
       } catch (e) {
-        debugPrint('⚠️ Error in mark as read (ignoring): $e');
-        // Don't rethrow - this shouldn't block the UI
+        debugPrint('⚠️ Failed to mark chat as read: $e');
+        // Non-critical error - don't block UI
       }
     });
   }
@@ -249,6 +202,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final modernTheme = context.modernTheme;
     final chatTheme = context.chatTheme;
     final currentUser = ref.watch(currentUserProvider);
@@ -267,10 +221,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           return false;
         }
         
-        // Mark as read one final time (non-blocking)
-        _markMessagesAsReadNonBlocking();
+        // Mark as read when leaving
+        _markChatAsRead();
         
-        // Return true to indicate messages were sent/read
+        // Return true to indicate changes were made
         Navigator.of(context).pop(true);
         return false;
       },
@@ -343,7 +297,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       scrolledUnderElevation: 0,
       leading: IconButton(
         onPressed: () {
-          _markMessagesAsReadNonBlocking();
+          _markChatAsRead();
           Navigator.of(context).pop(true);
         },
         icon: Icon(Icons.arrow_back, color: modernTheme.textColor),
@@ -424,6 +378,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
               ),
             ),
             PopupMenuItem(
+              value: 'sync',
+              child: Row(
+                children: [
+                  Icon(Icons.sync, color: modernTheme.primaryColor, size: 20),
+                  const SizedBox(width: 12),
+                  Text('Sync Messages', style: TextStyle(color: modernTheme.primaryColor)),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'retry_failed',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh, color: Colors.orange, size: 20),
+                  const SizedBox(width: 12),
+                  Text('Retry Failed', style: TextStyle(color: Colors.orange)),
+                ],
+              ),
+            ),
+            PopupMenuItem(
               value: 'block',
               child: const Row(
                 children: [
@@ -475,33 +449,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              'Check your internet connection',
+              'Check your internet connection and try again',
               style: TextStyle(color: modernTheme.textSecondaryColor, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              error,
-              style: TextStyle(color: Colors.red[300], fontSize: 12),
-              textAlign: TextAlign.center,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => ref.refresh(messageNotifierProvider(widget.chatId)),
-            icon: const Icon(Icons.refresh, size: 20),
-            label: const Text('Retry'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: modernTheme.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => ref.refresh(messageNotifierProvider(widget.chatId)),
+                icon: const Icon(Icons.refresh, size: 20),
+                label: const Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modernTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () => _syncMessages(),
+                icon: const Icon(Icons.sync, size: 20),
+                label: const Text('Sync'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: modernTheme.primaryColor,
+                  side: BorderSide(color: modernTheme.primaryColor!),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -516,27 +496,67 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       return _buildEmptyState();
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      reverse: true,
-      padding: const EdgeInsets.only(top: 16, bottom: 16),
-      itemCount: state.messages.length,
-      itemBuilder: (context, index) {
-        final message = state.messages[index];
-        final isCurrentUser = message.senderId == currentUser.uid;
-        final isLastInGroup = _isLastInGroup(state.messages, index);
-        
-        return SwipeToWrapper(
-          message: message,
-          isCurrentUser: isCurrentUser,
-          isLastInGroup: isLastInGroup,
-          fontSize: _fontSize,
-          contactName: widget.contact.name,
-          onLongPress: () => _showMessageOptions(message, isCurrentUser),
-          onVideoTap: () => _handleVideoThumbnailTap(message),
-          onRightSwipe: () => _replyToMessage(message),
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _syncMessages();
       },
+      color: context.modernTheme.primaryColor,
+      child: ListView.builder(
+        controller: _scrollController,
+        reverse: true,
+        padding: const EdgeInsets.only(top: 16, bottom: 16),
+        itemCount: state.messages.length + (state.failedMessagesCount > 0 ? 1 : 0),
+        itemBuilder: (context, index) {
+          // Show retry banner for failed messages
+          if (index == 0 && state.failedMessagesCount > 0) {
+            return _buildFailedMessagesBanner(state.failedMessagesCount);
+          }
+          
+          final messageIndex = state.failedMessagesCount > 0 ? index - 1 : index;
+          final message = state.messages[messageIndex];
+          final isCurrentUser = message.senderId == currentUser.uid;
+          final isLastInGroup = _isLastInGroup(state.messages, messageIndex);
+          
+          return SwipeToWrapper(
+            message: message,
+            isCurrentUser: isCurrentUser,
+            isLastInGroup: isLastInGroup,
+            fontSize: _fontSize,
+            contactName: widget.contact.name,
+            onLongPress: () => _showMessageOptions(message, isCurrentUser),
+            onVideoTap: () => _handleVideoThumbnailTap(message),
+            onRightSwipe: () => _replyToMessage(message),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFailedMessagesBanner(int failedCount) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$failedCount message${failedCount > 1 ? 's' : ''} failed to send',
+              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _retryAllFailedMessages(),
+            child: const Text('Retry All', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -562,6 +582,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             'Send a message to get started',
             style: TextStyle(color: modernTheme.textSecondaryColor, fontSize: 14),
           ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => _syncMessages(),
+            icon: const Icon(Icons.sync, size: 18),
+            label: const Text('Sync Messages'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: modernTheme.primaryColor,
+              side: BorderSide(color: modernTheme.primaryColor!),
+            ),
+          ),
         ],
       ),
     );
@@ -580,19 +610,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _handleSendText(String text) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendTextMessage(widget.chatId, text);
-    _hasMessageBeenSent = true;
   }
 
   void _handleSendImage(File image) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendImageMessage(widget.chatId, image);
-    _hasMessageBeenSent = true;
   }
 
   void _handleSendFile(File file, String fileName) {
     final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
     messageNotifier.sendFileMessage(widget.chatId, file, fileName);
-    _hasMessageBeenSent = true;
   }
 
   void _cancelReply() {
@@ -602,6 +629,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   void _replyToMessage(MessageModel message) {
     ref.read(messageNotifierProvider(widget.chatId).notifier).setReplyToMessage(message);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  Future<void> _syncMessages() async {
+    try {
+      final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+      await messageNotifier.syncMessages(widget.chatId);
+      showSnackBar(context, 'Messages synced successfully');
+    } catch (e) {
+      showSnackBar(context, 'Failed to sync messages');
+    }
+  }
+
+  Future<void> _retryAllFailedMessages() async {
+    try {
+      final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+      await messageNotifier.retryAllFailedMessages(widget.chatId);
+      showSnackBar(context, 'Retrying failed messages...');
+    } catch (e) {
+      showSnackBar(context, 'Failed to retry messages');
+    }
   }
 
   void _showMessageOptions(MessageModel message, bool isCurrentUser) {
@@ -665,6 +712,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                   onTap: () {
                     Navigator.pop(context);
                     _copyMessage(message);
+                  },
+                ),
+              
+              if (message.status == MessageStatus.failed)
+                _MessageActionTile(
+                  icon: Icons.refresh,
+                  title: 'Retry',
+                  color: Colors.orange,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _retryFailedMessage(message);
                   },
                 ),
               
@@ -745,6 +803,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         .deleteMessage(widget.chatId, message.messageId, deleteForEveryone);
   }
 
+  void _retryFailedMessage(MessageModel message) {
+    ref.read(messageNotifierProvider(widget.chatId).notifier)
+        .retryFailedMessage(widget.chatId, message.messageId);
+  }
+
   void _confirmDeleteForEveryone(MessageModel message) {
     final modernTheme = context.modernTheme;
     
@@ -797,6 +860,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         break;
       case 'font_size':
         _showFontSizeDialog();
+        break;
+      case 'sync':
+        _syncMessages();
+        break;
+      case 'retry_failed':
+        _retryAllFailedMessages();
         break;
       case 'block':
         _confirmBlockContact();

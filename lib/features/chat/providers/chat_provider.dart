@@ -1,5 +1,5 @@
 // lib/features/chat/providers/chat_provider.dart
-// FIXED: Proper lifecycle, unread counter, and state persistence with correct type handling
+// FIXED: Simplified unread counter, removed complex readBy tracking, improved reliability
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
@@ -16,7 +16,7 @@ import 'dart:async';
 part 'chat_provider.g.dart';
 
 // ========================================
-// CHAT LIST STATE
+// CHAT LIST STATE - SIMPLIFIED
 // ========================================
 
 class ChatListState {
@@ -88,7 +88,7 @@ class ChatListState {
 }
 
 // ========================================
-// CHAT LIST PROVIDER (WITH AUTO-DISPOSE)
+// CHAT LIST PROVIDER (SIMPLIFIED)
 // ========================================
 
 @riverpod
@@ -99,6 +99,7 @@ class ChatList extends _$ChatList {
   StreamSubscription<List<ChatModel>>? _chatSubscription;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _unreadCountTimer;
+  Timer? _syncTimer;
   
   @override
   FutureOr<ChatListState> build() async {
@@ -108,6 +109,7 @@ class ChatList extends _$ChatList {
       _chatSubscription?.cancel();
       _connectivitySubscription?.cancel();
       _unreadCountTimer?.cancel();
+      _syncTimer?.cancel();
     });
 
     final currentUser = ref.watch(currentUserProvider);
@@ -128,7 +130,10 @@ class ChatList extends _$ChatList {
     // Start unread count monitoring
     _startUnreadCountMonitoring(currentUser.uid);
     
-    // Trigger sync if online
+    // Start periodic sync
+    _startPeriodicSync(currentUser.uid);
+    
+    // Initial sync if online
     if (isOnline) {
       _syncChats(currentUser.uid);
     }
@@ -148,7 +153,7 @@ class ChatList extends _$ChatList {
       (chats) async {
         try {
           final chatItems = await _buildChatListItems(chats, userId);
-          final totalUnread = await _calculateTotalUnread(chatItems, userId);
+          final totalUnread = _calculateTotalUnread(chatItems, userId);
           
           final currentState = state.valueOrNull ?? const ChatListState();
           state = AsyncValue.data(currentState.copyWith(
@@ -200,11 +205,11 @@ class ChatList extends _$ChatList {
   void _startUnreadCountMonitoring(String userId) {
     _unreadCountTimer?.cancel();
     
-    // Update unread count every 2 seconds
-    _unreadCountTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+    // Update unread count every 3 seconds (simplified from complex logic)
+    _unreadCountTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       final currentState = state.valueOrNull;
       if (currentState != null && currentState.chats.isNotEmpty) {
-        final totalUnread = await _calculateTotalUnread(currentState.chats, userId);
+        final totalUnread = _calculateTotalUnread(currentState.chats, userId);
         
         if (totalUnread != currentState.totalUnreadCount) {
           state = AsyncValue.data(currentState.copyWith(
@@ -215,7 +220,20 @@ class ChatList extends _$ChatList {
     });
   }
 
-  Future<int> _calculateTotalUnread(List<ChatListItemModel> chatItems, String userId) async {
+  void _startPeriodicSync(String userId) {
+    _syncTimer?.cancel();
+    
+    // Sync every 30 seconds in background
+    _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      final currentState = state.valueOrNull;
+      if (currentState?.isOnline == true && currentState?.isSyncing != true) {
+        _syncChats(userId);
+      }
+    });
+  }
+
+  // SIMPLIFIED: Just count messages where sender != currentUser
+  int _calculateTotalUnread(List<ChatListItemModel> chatItems, String userId) {
     int total = 0;
     for (final chatItem in chatItems) {
       total += chatItem.chat.getUnreadCount(userId);
@@ -230,7 +248,8 @@ class ChatList extends _$ChatList {
     try {
       state = AsyncValue.data(currentState.copyWith(isSyncing: true));
       
-      //await _repository.syncChats(userId);
+      // Sync all data from server
+      await _repository.syncAllData(userId);
       
       final updatedState = state.valueOrNull ?? currentState;
       state = AsyncValue.data(updatedState.copyWith(
@@ -264,11 +283,10 @@ class ChatList extends _$ChatList {
         bool isOnline = false;
         DateTime? lastSeen;
         
-        // Try to get cached data first (returns Map<String, dynamic>)
+        // Try cached data first
         var cachedData = await _getCachedUserDetails(otherUserId, chat.chatId);
         
         if (cachedData != null) {
-          // Extract from Map
           contactName = cachedData['name']?.toString() ?? 'Unknown User';
           contactImage = cachedData['profileImage']?.toString() ?? '';
           contactPhone = cachedData['phoneNumber']?.toString() ?? '';
@@ -279,53 +297,11 @@ class ChatList extends _$ChatList {
             lastSeen = _parseLastSeen(lastSeenStr);
           }
         } else {
-          // Fetch from server (returns UserModel)
-          try {
-            final userModel = await authNotifier.getUserById(otherUserId);
-            
-            if (userModel != null) {
-              // Extract from UserModel
-              contactName = userModel.name;
-              contactImage = userModel.profileImage;
-              contactPhone = userModel.phoneNumber;
-              isOnline = _isUserOnline(userModel.lastSeen);
-              lastSeen = _parseLastSeen(userModel.lastSeen);
-              
-              // Cache for future use
-              await _cacheUserDetails(chat.chatId, userModel);
-            }
-          } catch (e) {
-            debugPrint('Error fetching user $otherUserId: $e');
-          }
-          
-          // If still no data, try participant cache
-          if (contactName == 'Unknown User') {
-            final participants = await _dbHelper.getChatParticipants(chat.chatId);
-            final participant = participants.firstWhere(
-              (p) => p['userId'] == otherUserId,
-              orElse: () => <String, dynamic>{},
-            );
-            
-            if (participant.isNotEmpty) {
-              contactName = participant['userName']?.toString() ?? 'Unknown User';
-              contactImage = participant['userImage']?.toString() ?? '';
-              contactPhone = participant['phoneNumber']?.toString() ?? '';
-              isOnline = (participant['isOnline'] == 1);
-              
-              if (participant['lastSeen'] != null) {
-                try {
-                  lastSeen = DateTime.fromMillisecondsSinceEpoch(
-                    participant['lastSeen'] as int
-                  );
-                } catch (e) {
-                  debugPrint('Error parsing lastSeen: $e');
-                }
-              }
-            }
-          }
+          // Fetch from server in background (don't block UI)
+          _fetchAndCacheUserDetails(otherUserId, chat.chatId, authNotifier);
         }
         
-        // Always add a chat item, even with default values
+        // Always add chat item (with cached/default data)
         chatItems.add(ChatListItemModel(
           chat: chat,
           contactName: contactName,
@@ -337,7 +313,7 @@ class ChatList extends _$ChatList {
       } catch (e) {
         debugPrint('❌ Error building chat item for chat ${chat.chatId}: $e');
         
-        // Add a fallback chat item to prevent UI from breaking
+        // Add fallback item
         chatItems.add(ChatListItemModel(
           chat: chat,
           contactName: 'Unknown User',
@@ -364,7 +340,6 @@ class ChatList extends _$ChatList {
       );
       
       if (participant.isNotEmpty) {
-        // Return a simple map that looks like user data
         return {
           'uid': userId,
           'name': participant['userName'],
@@ -381,21 +356,29 @@ class ChatList extends _$ChatList {
     return null;
   }
 
-  Future<void> _cacheUserDetails(String chatId, dynamic user) async {
-    try {
-      // user is a UserModel object
-      await _dbHelper.insertOrUpdateParticipant(
-        chatId: chatId,
-        userId: user.uid,
-        userName: user.name,
-        userImage: user.profileImage,
-        phoneNumber: user.phoneNumber,
-        isOnline: _isUserOnline(user.lastSeen),
-        lastSeen: user.lastSeen,
-      );
-    } catch (e) {
-      debugPrint('Error caching user details: $e');
-    }
+  // Background user fetching (non-blocking)
+  void _fetchAndCacheUserDetails(String userId, String chatId, dynamic authNotifier) {
+    Future.microtask(() async {
+      try {
+        final userModel = await authNotifier.getUserById(userId);
+        if (userModel != null) {
+          await _dbHelper.insertOrUpdateParticipant(
+            chatId: chatId,
+            userId: userId,
+            userName: userModel.name,
+            userImage: userModel.profileImage,
+            phoneNumber: userModel.phoneNumber,
+            isOnline: _isUserOnline(userModel.lastSeen),
+            lastSeen: userModel.lastSeen,
+          );
+          
+          // Trigger a refresh after caching
+          ref.invalidateSelf();
+        }
+      } catch (e) {
+        debugPrint('Background user fetch failed for $userId: $e');
+      }
+    });
   }
 
   bool _isUserOnline(String lastSeenString) {
@@ -418,7 +401,7 @@ class ChatList extends _$ChatList {
   }
 
   // ========================================
-  // PUBLIC METHODS
+  // PUBLIC METHODS - SIMPLIFIED
   // ========================================
 
   void setSearchQuery(String query) {
@@ -471,12 +454,12 @@ class ChatList extends _$ChatList {
     }
   }
 
+  // SIMPLIFIED: Just update the unread count to 0
   Future<void> markChatAsRead(String chatId) async {
     final userId = ref.read(currentUserIdProvider);
     if (userId == null) return;
 
     try {
-      // Mark in repository (local + server)
       await _repository.markChatAsRead(chatId, userId);
       
       // Update local state immediately
@@ -499,7 +482,7 @@ class ChatList extends _$ChatList {
           return chatItem;
         }).toList();
         
-        final totalUnread = await _calculateTotalUnread(updatedChats, userId);
+        final totalUnread = _calculateTotalUnread(updatedChats, userId);
         
         state = AsyncValue.data(currentState.copyWith(
           chats: updatedChats,
@@ -528,7 +511,7 @@ class ChatList extends _$ChatList {
             .where((chatItem) => chatItem.chat.chatId != chatId)
             .toList();
         
-        final totalUnread = await _calculateTotalUnread(updatedChats, userId);
+        final totalUnread = _calculateTotalUnread(updatedChats, userId);
         
         state = AsyncValue.data(currentState.copyWith(
           chats: updatedChats,
@@ -566,29 +549,6 @@ class ChatList extends _$ChatList {
       return chatId;
     } catch (e) {
       debugPrint('❌ Error creating/getting chat: $e');
-      return null;
-    }
-  }
-
-  Future<String?> createChat(String otherUserId, {VideoReactionModel? videoReaction}) async {
-    final currentUserId = ref.read(currentUserIdProvider);
-    if (currentUserId == null) return null;
-
-    try {
-      final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
-      
-      if (videoReaction != null) {
-        await _repository.sendVideoReactionMessage(
-          chatId: chatId,
-          senderId: currentUserId,
-          videoReaction: videoReaction,
-        );
-      }
-      
-      debugPrint('✅ Chat created with video reaction');
-      return chatId;
-    } catch (e) {
-      debugPrint('❌ Error creating chat: $e');
       return null;
     }
   }
@@ -693,7 +653,7 @@ class ChatList extends _$ChatList {
   }
 
   // ========================================
-  // GETTERS
+  // GETTERS - SIMPLIFIED
   // ========================================
 
   List<ChatListItemModel> getFilteredChats([String? query]) {

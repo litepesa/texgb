@@ -1,5 +1,5 @@
 // lib/features/chat/providers/message_provider.dart
-// FIXED: Mark as read, optimistic updates, and proper state management
+// FIXED: Simplified state management, removed complex readBy tracking, improved reliability
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -15,7 +15,7 @@ import 'dart:async';
 part 'message_provider.g.dart';
 
 // ========================================
-// MESSAGE STATE
+// MESSAGE STATE - SIMPLIFIED
 // ========================================
 
 class MessageState {
@@ -26,7 +26,6 @@ class MessageState {
   final String? replyToMessageId;
   final MessageModel? replyToMessage;
   final List<MessageModel> pinnedMessages;
-  final bool isTyping;
   final Map<String, String> participantNames;
   final Map<String, String> participantImages;
   final bool isOnline;
@@ -43,7 +42,6 @@ class MessageState {
     this.replyToMessageId,
     this.replyToMessage,
     this.pinnedMessages = const [],
-    this.isTyping = false,
     this.participantNames = const {},
     this.participantImages = const {},
     this.isOnline = true,
@@ -61,7 +59,6 @@ class MessageState {
     String? replyToMessageId,
     MessageModel? replyToMessage,
     List<MessageModel>? pinnedMessages,
-    bool? isTyping,
     Map<String, String>? participantNames,
     Map<String, String>? participantImages,
     bool? isOnline,
@@ -80,7 +77,6 @@ class MessageState {
       replyToMessageId: clearReply ? null : (replyToMessageId ?? this.replyToMessageId),
       replyToMessage: clearReply ? null : (replyToMessage ?? this.replyToMessage),
       pinnedMessages: pinnedMessages ?? this.pinnedMessages,
-      isTyping: isTyping ?? this.isTyping,
       participantNames: participantNames ?? this.participantNames,
       participantImages: participantImages ?? this.participantImages,
       isOnline: isOnline ?? this.isOnline,
@@ -101,7 +97,7 @@ class MessageState {
 }
 
 // ========================================
-// MESSAGE PROVIDER (WITH AUTO-DISPOSE)
+// MESSAGE PROVIDER - SIMPLIFIED
 // ========================================
 
 @riverpod
@@ -111,7 +107,7 @@ class MessageNotifier extends _$MessageNotifier {
   static const Uuid _uuid = Uuid();
 
   StreamSubscription<List<MessageModel>>? _messageSubscription;
-  Timer? _markAsReadTimer;
+  Timer? _syncTimer;
 
   @override
   FutureOr<MessageState> build(String chatId) async {
@@ -119,7 +115,7 @@ class MessageNotifier extends _$MessageNotifier {
     ref.onDispose(() {
       debugPrint('🧹 MessageNotifier disposed for chat $chatId');
       _messageSubscription?.cancel();
-      _markAsReadTimer?.cancel();
+      _syncTimer?.cancel();
     });
 
     final currentUser = ref.watch(currentUserProvider);
@@ -136,42 +132,13 @@ class MessageNotifier extends _$MessageNotifier {
     // Load pinned messages
     await _loadPinnedMessages(chatId);
     
-    // Mark messages as read after a short delay
-    _scheduleMarkAsRead(chatId, currentUser.uid);
+    // Start periodic sync
+    _startPeriodicSync(chatId);
     
     return MessageState(
       isLoading: true,
       isOnline: true,
     );
-  }
-
-  void _scheduleMarkAsRead(String chatId, String userId) {
-    // Mark as read after 1 second delay (user has opened the chat)
-    _markAsReadTimer?.cancel();
-    _markAsReadTimer = Timer(const Duration(seconds: 1), () {
-      _markAllMessagesAsRead(chatId, userId);
-    });
-  }
-
-  Future<void> _markAllMessagesAsRead(String chatId, String userId) async {
-    try {
-      // Get unread messages count first
-      final unreadCount = await _dbHelper.getUnreadMessagesCount(chatId, userId);
-      
-      if (unreadCount > 0) {
-        debugPrint('📖 Marking $unreadCount messages as read in chat $chatId');
-        
-        // Mark all messages as read in database
-        await _dbHelper.markAllMessagesAsRead(chatId, userId);
-        
-        // Update chat unread count to 0
-        await _dbHelper.updateChatUnreadCount(chatId, userId, 0);
-        
-        debugPrint('✅ All messages marked as read');
-      }
-    } catch (e) {
-      debugPrint('❌ Error marking messages as read: $e');
-    }
   }
 
   Future<void> _loadParticipantDetails(String chatId) async {
@@ -193,42 +160,54 @@ class MessageNotifier extends _$MessageNotifier {
         ));
       }
 
-      // Try to fetch fresh data from server
-      final chat = await _repository.getChatById(chatId);
-      if (chat != null) {
-        final authNotifier = ref.read(authenticationProvider.notifier);
-        
-        for (final userId in chat.participants) {
-          try {
-            final user = await authNotifier.getUserById(userId);
-            if (user != null) {
-              participantNames[userId] = user.name;
-              participantImages[userId] = user.profileImage;
-              
-              await _dbHelper.insertOrUpdateParticipant(
-                chatId: chatId,
-                userId: userId,
-                userName: user.name,
-                userImage: user.profileImage,
-                phoneNumber: user.phoneNumber,
-                isOnline: _isUserOnline(user.lastSeen),
-                lastSeen: user.lastSeen,
-              );
-            }
-          } catch (e) {
-            debugPrint('❌ Error loading participant $userId: $e');
-          }
-        }
-
-        final updatedState = state.valueOrNull ?? const MessageState();
-        state = AsyncValue.data(updatedState.copyWith(
-          participantNames: participantNames,
-          participantImages: participantImages,
-        ));
-      }
+      // Try to fetch fresh data from server in background
+      _fetchParticipantDetails(chatId);
     } catch (e) {
       debugPrint('❌ Error loading participant details: $e');
     }
+  }
+
+  void _fetchParticipantDetails(String chatId) {
+    Future.microtask(() async {
+      try {
+        final chat = await _repository.getChatById(chatId);
+        if (chat != null) {
+          final authNotifier = ref.read(authenticationProvider.notifier);
+          final Map<String, String> participantNames = {};
+          final Map<String, String> participantImages = {};
+          
+          for (final userId in chat.participants) {
+            try {
+              final user = await authNotifier.getUserById(userId);
+              if (user != null) {
+                participantNames[userId] = user.name;
+                participantImages[userId] = user.profileImage;
+                
+                await _dbHelper.insertOrUpdateParticipant(
+                  chatId: chatId,
+                  userId: userId,
+                  userName: user.name,
+                  userImage: user.profileImage,
+                  phoneNumber: user.phoneNumber,
+                  isOnline: _isUserOnline(user.lastSeen),
+                  lastSeen: user.lastSeen,
+                );
+              }
+            } catch (e) {
+              debugPrint('❌ Error loading participant $userId: $e');
+            }
+          }
+
+          final updatedState = state.valueOrNull ?? const MessageState();
+          state = AsyncValue.data(updatedState.copyWith(
+            participantNames: {...updatedState.participantNames, ...participantNames},
+            participantImages: {...updatedState.participantImages, ...participantImages},
+          ));
+        }
+      } catch (e) {
+        debugPrint('❌ Error fetching participant details: $e');
+      }
+    });
   }
 
   bool _isUserOnline(String lastSeenString) {
@@ -271,6 +250,43 @@ class MessageNotifier extends _$MessageNotifier {
     );
   }
 
+  void _startPeriodicSync(String chatId) {
+    _syncTimer?.cancel();
+    
+    // Sync messages every 15 seconds
+    _syncTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
+      final currentState = state.valueOrNull;
+      if (currentState?.isSyncing != true) {
+        await _syncMessages(chatId);
+      }
+    });
+  }
+
+  Future<void> _syncMessages(String chatId) async {
+    final currentState = state.valueOrNull;
+    if (currentState?.isSyncing == true) return;
+
+    try {
+      if (currentState != null) {
+        state = AsyncValue.data(currentState.copyWith(isSyncing: true));
+      }
+
+      await _repository.syncMessages(chatId);
+
+      final updatedState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(updatedState.copyWith(
+        isSyncing: false,
+        lastSyncTime: DateTime.now(),
+      ));
+    } catch (e) {
+      debugPrint('❌ Error syncing messages: $e');
+      final updatedState = state.valueOrNull ?? const MessageState();
+      state = AsyncValue.data(updatedState.copyWith(
+        isSyncing: false,
+      ));
+    }
+  }
+
   Future<void> _loadPinnedMessages(String chatId) async {
     try {
       final pinnedMessages = await _repository.getPinnedMessages(chatId);
@@ -285,7 +301,7 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // ========================================
-  // MESSAGE SENDING
+  // MESSAGE SENDING - SIMPLIFIED
   // ========================================
 
   Future<void> sendTextMessage(String chatId, String content) async {
@@ -308,7 +324,7 @@ class MessageNotifier extends _$MessageNotifier {
         replyToSender: currentState.replyToMessage?.senderId,
       );
 
-      // Send via repository (handles local save + server sync)
+      // Send via repository
       await _repository.sendMessage(message);
       
       // Clear reply state
@@ -585,7 +601,7 @@ class MessageNotifier extends _$MessageNotifier {
   }
 
   // ========================================
-  // MESSAGE OPERATIONS
+  // MESSAGE OPERATIONS - SIMPLIFIED
   // ========================================
 
   void setReplyToMessage(MessageModel message) {
@@ -666,26 +682,6 @@ class MessageNotifier extends _$MessageNotifier {
     }
   }
 
-  /*Future<void> markMessagesAsDelivered(String chatId, List<String> messageIds) async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || messageIds.isEmpty) return;
-
-    try {
-      await _dbHelper.markMessagesAsDelivered(chatId, messageIds, currentUser.uid);
-      debugPrint('✅ ${messageIds.length} messages marked as delivered');
-    } catch (e) {
-      debugPrint('❌ Error marking messages as delivered: $e');
-    }
-  }*/
-
-  // PUBLIC: Mark all messages as read (called from UI)
-  Future<void> markAllMessagesAsRead(String chatId) async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-
-    await _markAllMessagesAsRead(chatId, currentUser.uid);
-  }
-
   Future<List<MessageModel>> searchMessages(String chatId, String query) async {
     if (query.trim().isEmpty) return [];
 
@@ -727,8 +723,12 @@ class MessageNotifier extends _$MessageNotifier {
     }
   }
 
+  Future<void> syncMessages(String chatId) async {
+    await _syncMessages(chatId);
+  }
+
   // ========================================
-  // GETTERS
+  // GETTERS - SIMPLIFIED
   // ========================================
 
   String getParticipantName(String userId) {
