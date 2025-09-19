@@ -1,21 +1,22 @@
 // lib/features/chat/screens/chat_screen.dart
-// UPDATED: Cleaned up for offline-first architecture
+// FIXED: Proper mark as read, timestamp display, and lifecycle management
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
 import 'package:textgb/features/chat/providers/message_provider.dart';
+import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/widgets/message_input.dart';
 import 'package:textgb/features/chat/widgets/swipe_to_wrapper.dart';
 import 'package:textgb/features/chat/widgets/video_player_overlay.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/shared/utilities/datetime_helper.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
@@ -41,35 +42,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
   bool _isVideoPlayerVisible = false;
   String? _currentVideoUrl;
 
-  // RFC 3339 date formatters for Go backend compatibility
-  static final DateFormat _rfc3339Format = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-  static final DateFormat _displayDateFormat = DateFormat('MMM dd, HH:mm');
-  static final DateFormat _searchDateFormat = DateFormat('MMM dd, yyyy HH:mm');
-  
-  // Helper method to format timestamp to RFC 3339 for Go backend
-  String _formatTimestampToRFC3339(DateTime timestamp) {
-    final utcTimestamp = timestamp.toUtc();
-    return _rfc3339Format.format(utcTimestamp);
-  }
-  
-  // Helper method to parse RFC 3339 timestamp from Go backend
-  DateTime _parseRFC3339Timestamp(String rfc3339String) {
-    try {
-      return _rfc3339Format.parse(rfc3339String, true).toLocal();
-    } catch (e) {
-      debugPrint('Error parsing RFC 3339 timestamp: $e');
-      return DateTime.now();
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_scrollListener);
     
+    // Mark messages as read when opening chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _markMessagesAsRead();
+      _markMessagesAsReadAndUpdateChat();
     });
   }
 
@@ -78,13 +59,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
+    
+    // Mark as read one final time when leaving
+    _markMessagesAsReadAndUpdateChat();
+    
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _markMessagesAsRead();
+      _markMessagesAsReadAndUpdateChat();
+    } else if (state == AppLifecycleState.paused) {
+      _markMessagesAsReadAndUpdateChat();
+    }
+  }
+
+  void _markMessagesAsReadAndUpdateChat() {
+    try {
+      // Mark all messages as read
+      final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
+      messageNotifier.markAllMessagesAsRead(widget.chatId);
+      
+      // Also mark in chat list
+      final chatListNotifier = ref.read(chatListProvider.notifier);
+      chatListNotifier.markChatAsRead(widget.chatId);
+      
+      debugPrint('✅ Messages marked as read for chat ${widget.chatId}');
+    } catch (e) {
+      debugPrint('❌ Error marking messages as read: $e');
     }
   }
 
@@ -106,25 +109,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
-    }
-  }
-
-  void _markMessagesAsRead() {
-    final messageNotifier = ref.read(messageNotifierProvider(widget.chatId).notifier);
-    final currentUser = ref.read(currentUserProvider);
-    
-    if (currentUser != null) {
-      final messageState = ref.read(messageNotifierProvider(widget.chatId)).valueOrNull;
-      if (messageState != null) {
-        final unreadMessageIds = messageState.messages
-            .where((msg) => msg.senderId != currentUser.uid && !msg.isReadBy(currentUser.uid))
-            .map((msg) => msg.messageId)
-            .toList();
-        
-        if (unreadMessageIds.isNotEmpty) {
-          messageNotifier.markMessagesAsDelivered(widget.chatId, unreadMessageIds);
-        }
-      }
     }
   }
 
@@ -235,7 +219,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
           return false;
         }
         
-        Navigator.of(context).pop(_hasMessageBeenSent);
+        // Mark as read one final time
+        _markMessagesAsReadAndUpdateChat();
+        
+        // Return true to indicate messages were sent/read
+        Navigator.of(context).pop(true);
         return false;
       },
       child: Scaffold(
@@ -298,8 +286,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     return AppBar(
       backgroundColor: modernTheme.appBarColor?.withOpacity(0.95),
       elevation: 0,
+      scrolledUnderElevation: 0,
       leading: IconButton(
-        onPressed: () => Navigator.of(context).pop(_hasMessageBeenSent),
+        onPressed: () {
+          _markMessagesAsReadAndUpdateChat();
+          Navigator.of(context).pop(true);
+        },
         icon: Icon(Icons.arrow_back, color: modernTheme.textColor),
       ),
       title: GestureDetector(
@@ -415,10 +407,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            error,
-            style: TextStyle(color: modernTheme.textSecondaryColor, fontSize: 14),
-            textAlign: TextAlign.center,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'Check your internet connection',
+              style: TextStyle(color: modernTheme.textSecondaryColor, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => ref.refresh(messageNotifierProvider(widget.chatId)),
+            icon: const Icon(Icons.refresh, size: 20),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: modernTheme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
           ),
         ],
       ),
@@ -776,7 +783,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             onPressed: () {
               Navigator.pop(context);
               showSnackBar(context, 'Contact blocked');
-              Navigator.pop(context);
+              Navigator.pop(context, true);
             },
             child: const Text('Block', style: TextStyle(color: Colors.red)),
           ),
@@ -908,7 +915,6 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
   final TextEditingController _searchController = TextEditingController();
   List<MessageModel> _searchResults = [];
   bool _isSearching = false;
-  static final DateFormat _searchDateFormat = DateFormat('MMM dd, yyyy HH:mm');
 
   @override
   void dispose() {
@@ -1007,7 +1013,7 @@ class _SearchMessagesDialogState extends ConsumerState<_SearchMessagesDialog> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               subtitle: Text(
-                                _searchDateFormat.format(message.timestamp),
+                                DateTimeHelper.formatFullDateTime(message.timestamp),
                                 style: TextStyle(color: modernTheme.textSecondaryColor),
                               ),
                               onTap: () => widget.onMessageSelected(message),
@@ -1037,8 +1043,6 @@ class _PinnedMessagesSheet extends StatelessWidget {
     required this.scrollController,
     required this.onUnpin,
   });
-
-  static final DateFormat _pinnedDateFormat = DateFormat('MMM dd, HH:mm');
 
   @override
   Widget build(BuildContext context) {
@@ -1094,7 +1098,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
-                          _pinnedDateFormat.format(message.timestamp),
+                          DateTimeHelper.formatMessageTime(message.timestamp),
                           style: TextStyle(color: modernTheme.textSecondaryColor),
                         ),
                         trailing: IconButton(

@@ -1,5 +1,5 @@
 // lib/features/chat/screens/chat_list_screen.dart
-// UPDATED: Cleaned up to work with offline-first architecture
+// FIXED: Proper unread counter display, timestamp formatting, and navigation
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +12,7 @@ import 'package:textgb/features/chat/providers/chat_provider.dart';
 import 'package:textgb/features/chat/screens/chat_screen.dart';
 import 'package:textgb/shared/theme/theme_extensions.dart';
 import 'package:textgb/shared/utilities/global_methods.dart';
+import 'package:textgb/shared/utilities/datetime_helper.dart';
 import 'package:textgb/features/users/models/user_model.dart';
 
 class ChatListScreen extends ConsumerStatefulWidget {
@@ -22,10 +23,30 @@ class ChatListScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatListScreenState extends ConsumerState<ChatListScreen> 
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Refresh chat list when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(chatListProvider);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,11 +72,19 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         children: [
           _buildSearchBar(modernTheme),
           
+          // Show sync status if syncing
+          chatListState.maybeWhen(
+            data: (state) => state.isSyncing 
+                ? _buildSyncingIndicator(modernTheme)
+                : const SizedBox.shrink(),
+            orElse: () => const SizedBox.shrink(),
+          ),
+          
           Expanded(
             child: chatListState.when(
               loading: () => _buildLoadingState(modernTheme),
               error: (error, stack) {
-                debugPrint('Chat list error: $error');
+                debugPrint('❌ Chat list error: $error');
                 return _buildErrorState(modernTheme, error.toString());
               },
               data: (state) => _buildChatList(state, user.uid, modernTheme),
@@ -99,6 +128,36 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
         onChanged: (query) => chatListNotifier.setSearchQuery(query),
+      ),
+    );
+  }
+
+  Widget _buildSyncingIndicator(ModernThemeExtension modernTheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      color: (modernTheme.primaryColor ?? Colors.blue).withOpacity(0.1),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                modernTheme.primaryColor ?? Colors.blue,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Syncing...',
+            style: TextStyle(
+              color: modernTheme.primaryColor ?? Colors.blue,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -239,7 +298,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              'Unable to connect to chat service. Please check your internet connection.',
+              'Unable to load chat list. Please try again.',
               style: TextStyle(
                 color: modernTheme.textSecondaryColor,
                 fontSize: 14,
@@ -249,7 +308,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
           const SizedBox(height: 32),
           ElevatedButton.icon(
-            onPressed: () => ref.refresh(chatListProvider),
+            onPressed: () => ref.invalidate(chatListProvider),
             icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
             label: const Text(
               'Try Again',
@@ -279,12 +338,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       return _buildNoSearchResultsState(modernTheme, state.searchQuery);
     }
 
-    final chatListNotifier = ref.read(chatListProvider.notifier);
-    final pinnedChats = chatListNotifier.getPinnedChats();
-    final regularChats = chatListNotifier.getRegularChats();
+    final pinnedChats = state.getPinnedChats(currentUserId);
+    final regularChats = state.getRegularChats(currentUserId);
 
     return RefreshIndicator(
       onRefresh: () async {
+        final chatListNotifier = ref.read(chatListProvider.notifier);
         await chatListNotifier.syncChats();
       },
       color: modernTheme.primaryColor ?? Theme.of(context).primaryColor,
@@ -531,7 +590,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              chatItem.getDisplayTime(),
+              DateTimeHelper.formatChatListTime(chatItem.chat.lastMessageTime),
               style: TextStyle(
                 color: hasUnread 
                   ? (modernTheme.primaryColor ?? Theme.of(context).primaryColor)
@@ -649,6 +708,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
+    // Mark as read IMMEDIATELY when opening
     final chatListNotifier = ref.read(chatListProvider.notifier);
     await chatListNotifier.markChatAsRead(chatItem.chat.chatId);
 
@@ -659,7 +719,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     try {
       contactUser = await authNotifier.getUserById(otherUserId);
     } catch (e) {
-      debugPrint('Error fetching contact user data: $e');
+      debugPrint('❌ Error fetching contact user: $e');
     }
 
     final contact = contactUser ?? UserModel(
@@ -695,8 +755,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         ),
       );
 
-      if (result == true) {
-        ref.refresh(chatListProvider);
+      // Refresh provider when coming back
+      if (result == true && mounted) {
+        ref.invalidate(chatListProvider);
       }
     }
   }
@@ -820,6 +881,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       await ref.read(chatListProvider.notifier).togglePinChat(chatId);
       if (mounted) showSnackBar(context, 'Chat pin status updated');
     } catch (e) {
+      debugPrint('❌ Error toggling pin: $e');
       if (mounted) showSnackBar(context, 'Failed to pin/unpin chat');
     }
   }
@@ -829,6 +891,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       await ref.read(chatListProvider.notifier).toggleMuteChat(chatId);
       if (mounted) showSnackBar(context, 'Chat mute status updated');
     } catch (e) {
+      debugPrint('❌ Error toggling mute: $e');
       if (mounted) showSnackBar(context, 'Failed to mute/unmute chat');
     }
   }
@@ -838,6 +901,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       await ref.read(chatListProvider.notifier).toggleArchiveChat(chatId);
       if (mounted) showSnackBar(context, 'Chat archived');
     } catch (e) {
+      debugPrint('❌ Error archiving chat: $e');
       if (mounted) showSnackBar(context, 'Failed to archive chat');
     }
   }
@@ -973,6 +1037,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         );
       }
     } catch (e) {
+      debugPrint('❌ Error deleting chat: $e');
       if (mounted) showSnackBar(context, 'Failed to delete chat');
     }
   }
@@ -982,6 +1047,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       await ref.read(chatListProvider.notifier).clearChatHistory(chatId);
       if (mounted) showSnackBar(context, 'Chat history cleared');
     } catch (e) {
+      debugPrint('❌ Error clearing history: $e');
       if (mounted) showSnackBar(context, 'Failed to clear chat history');
     }
   }
