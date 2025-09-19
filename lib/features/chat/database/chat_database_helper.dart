@@ -7,6 +7,7 @@ import 'package:path/path.dart';
 import 'package:textgb/enums/enums.dart';
 import 'package:textgb/features/chat/models/chat_model.dart';
 import 'package:textgb/features/chat/models/message_model.dart';
+import 'package:textgb/shared/utilities/datetime_helper.dart';
 
 class ChatDatabaseHelper {
   static final ChatDatabaseHelper _instance = ChatDatabaseHelper._internal();
@@ -16,8 +17,8 @@ class ChatDatabaseHelper {
 
   ChatDatabaseHelper._internal();
 
-  // Database version for migrations
-  static const int _databaseVersion = 1;
+  // Database version for migrations - UPGRADED TO v2
+  static const int _databaseVersion = 2;
   static const String _databaseName = 'textgb_chat.db';
 
   // Table names
@@ -61,7 +62,7 @@ class ChatDatabaseHelper {
   Future<void> _onCreate(Database db, int version) async {
     debugPrint('Creating chat database tables...');
 
-    // Create chats table
+    // Create chats table with INTEGER timestamps
     await db.execute('''
       CREATE TABLE $_chatsTable (
         chatId TEXT PRIMARY KEY,
@@ -69,21 +70,21 @@ class ChatDatabaseHelper {
         lastMessage TEXT,
         lastMessageType TEXT,
         lastMessageSender TEXT,
-        lastMessageTime TEXT NOT NULL,
+        lastMessageTime INTEGER NOT NULL,
         unreadCounts TEXT,
         isArchived TEXT,
         isPinned TEXT,
         isMuted TEXT,
-        createdAt TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
         chatWallpapers TEXT,
         fontSizes TEXT,
-        syncedAt TEXT,
+        syncedAt INTEGER,
         isDeleted INTEGER DEFAULT 0,
-        deletedAt TEXT
+        deletedAt INTEGER
       )
     ''');
 
-    // Create messages table
+    // Create messages table with INTEGER timestamps
     await db.execute('''
       CREATE TABLE $_messagesTable (
         messageId TEXT PRIMARY KEY,
@@ -92,7 +93,7 @@ class ChatDatabaseHelper {
         content TEXT,
         type TEXT NOT NULL,
         status TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
         mediaUrl TEXT,
         mediaMetadata TEXT,
         replyToMessageId TEXT,
@@ -100,18 +101,18 @@ class ChatDatabaseHelper {
         replyToSender TEXT,
         reactions TEXT,
         isEdited INTEGER DEFAULT 0,
-        editedAt TEXT,
+        editedAt INTEGER,
         isPinned INTEGER DEFAULT 0,
         readBy TEXT,
         deliveredTo TEXT,
-        syncedAt TEXT,
+        syncedAt INTEGER,
         isDeleted INTEGER DEFAULT 0,
-        deletedAt TEXT,
+        deletedAt INTEGER,
         FOREIGN KEY (chatId) REFERENCES $_chatsTable (chatId) ON DELETE CASCADE
       )
     ''');
 
-    // Create participants table for quick lookups
+    // Create participants table
     await db.execute('''
       CREATE TABLE $_participantsTable (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,14 +122,14 @@ class ChatDatabaseHelper {
         userImage TEXT,
         phoneNumber TEXT,
         isOnline INTEGER DEFAULT 0,
-        lastSeen TEXT,
-        addedAt TEXT NOT NULL,
+        lastSeen INTEGER,
+        addedAt INTEGER NOT NULL,
         FOREIGN KEY (chatId) REFERENCES $_chatsTable (chatId) ON DELETE CASCADE,
         UNIQUE(chatId, userId)
       )
     ''');
 
-    // Create media table for media management
+    // Create media table
     await db.execute('''
       CREATE TABLE $_mediaTable (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,21 +142,21 @@ class ChatDatabaseHelper {
         fileSize INTEGER,
         mimeType TEXT,
         localPath TEXT,
-        downloadedAt TEXT,
+        downloadedAt INTEGER,
         isDownloaded INTEGER DEFAULT 0,
         FOREIGN KEY (messageId) REFERENCES $_messagesTable (messageId) ON DELETE CASCADE,
         FOREIGN KEY (chatId) REFERENCES $_chatsTable (chatId) ON DELETE CASCADE
       )
     ''');
 
-    // Create reactions table for efficient queries
+    // Create reactions table
     await db.execute('''
       CREATE TABLE $_reactionsTable (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         messageId TEXT NOT NULL,
         userId TEXT NOT NULL,
         emoji TEXT NOT NULL,
-        reactedAt TEXT NOT NULL,
+        reactedAt INTEGER NOT NULL,
         FOREIGN KEY (messageId) REFERENCES $_messagesTable (messageId) ON DELETE CASCADE,
         UNIQUE(messageId, userId)
       )
@@ -168,7 +169,7 @@ class ChatDatabaseHelper {
         chatId TEXT NOT NULL,
         userId TEXT NOT NULL,
         isTyping INTEGER DEFAULT 0,
-        updatedAt TEXT NOT NULL,
+        updatedAt INTEGER NOT NULL,
         FOREIGN KEY (chatId) REFERENCES $_chatsTable (chatId) ON DELETE CASCADE,
         UNIQUE(chatId, userId)
       )
@@ -183,43 +184,179 @@ class ChatDatabaseHelper {
   // Create indexes for performance optimization
   Future<void> _createIndexes(Database db) async {
     // Chats table indexes
-    await db.execute('CREATE INDEX idx_chats_lastMessageTime ON $_chatsTable(lastMessageTime DESC)');
-    await db.execute('CREATE INDEX idx_chats_isDeleted ON $_chatsTable(isDeleted)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_chats_lastMessageTime ON $_chatsTable(lastMessageTime DESC)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_chats_isDeleted ON $_chatsTable(isDeleted)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_chats_participants ON $_chatsTable(participants)');
 
-    // Messages table indexes
-    await db.execute('CREATE INDEX idx_messages_chatId ON $_messagesTable(chatId)');
-    await db.execute('CREATE INDEX idx_messages_timestamp ON $_messagesTable(timestamp DESC)');
-    await db.execute('CREATE INDEX idx_messages_senderId ON $_messagesTable(senderId)');
-    await db.execute('CREATE INDEX idx_messages_type ON $_messagesTable(type)');
-    await db.execute('CREATE INDEX idx_messages_status ON $_messagesTable(status)');
-    await db.execute('CREATE INDEX idx_messages_isPinned ON $_messagesTable(isPinned)');
-    await db.execute('CREATE INDEX idx_messages_isDeleted ON $_messagesTable(isDeleted)');
+    // Messages table indexes - CRITICAL for performance
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_chatId_timestamp ON $_messagesTable(chatId, timestamp DESC)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_senderId ON $_messagesTable(senderId)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_type ON $_messagesTable(type)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_status ON $_messagesTable(status)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_isPinned ON $_messagesTable(isPinned)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_isDeleted ON $_messagesTable(isDeleted)');
+    
+    // Composite index for unread messages query
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_unread ON $_messagesTable(chatId, senderId, isDeleted)');
 
     // Participants table indexes
-    await db.execute('CREATE INDEX idx_participants_chatId ON $_participantsTable(chatId)');
-    await db.execute('CREATE INDEX idx_participants_userId ON $_participantsTable(userId)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_participants_chatId ON $_participantsTable(chatId)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_participants_userId ON $_participantsTable(userId)');
 
     // Media table indexes
-    await db.execute('CREATE INDEX idx_media_chatId ON $_mediaTable(chatId)');
-    await db.execute('CREATE INDEX idx_media_messageId ON $_mediaTable(messageId)');
-    await db.execute('CREATE INDEX idx_media_mediaType ON $_mediaTable(mediaType)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_media_chatId ON $_mediaTable(chatId)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_media_messageId ON $_mediaTable(messageId)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_media_mediaType ON $_mediaTable(mediaType)');
 
     // Reactions table indexes
-    await db.execute('CREATE INDEX idx_reactions_messageId ON $_reactionsTable(messageId)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_reactions_messageId ON $_reactionsTable(messageId)');
 
     // Typing status table indexes
-    await db.execute('CREATE INDEX idx_typing_chatId ON $_typingStatusTable(chatId)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_typing_chatId ON $_typingStatusTable(chatId)');
   }
 
   // Handle database upgrades
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     debugPrint('Upgrading database from version $oldVersion to $newVersion');
 
-    // Handle migrations here when database version changes
-    // Example:
-    // if (oldVersion < 2) {
-    //   await db.execute('ALTER TABLE $_chatsTable ADD COLUMN newColumn TEXT');
-    // }
+    if (oldVersion < 2) {
+      // Migration from v1 to v2: Change TEXT timestamps to INTEGER
+      debugPrint('Migrating timestamps from TEXT to INTEGER...');
+      
+      // Create temporary tables with new schema
+      await db.execute('''
+        CREATE TABLE ${_chatsTable}_new (
+          chatId TEXT PRIMARY KEY,
+          participants TEXT NOT NULL,
+          lastMessage TEXT,
+          lastMessageType TEXT,
+          lastMessageSender TEXT,
+          lastMessageTime INTEGER NOT NULL,
+          unreadCounts TEXT,
+          isArchived TEXT,
+          isPinned TEXT,
+          isMuted TEXT,
+          createdAt INTEGER NOT NULL,
+          chatWallpapers TEXT,
+          fontSizes TEXT,
+          syncedAt INTEGER,
+          isDeleted INTEGER DEFAULT 0,
+          deletedAt INTEGER
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE ${_messagesTable}_new (
+          messageId TEXT PRIMARY KEY,
+          chatId TEXT NOT NULL,
+          senderId TEXT NOT NULL,
+          content TEXT,
+          type TEXT NOT NULL,
+          status TEXT NOT NULL,
+          timestamp INTEGER NOT NULL,
+          mediaUrl TEXT,
+          mediaMetadata TEXT,
+          replyToMessageId TEXT,
+          replyToContent TEXT,
+          replyToSender TEXT,
+          reactions TEXT,
+          isEdited INTEGER DEFAULT 0,
+          editedAt INTEGER,
+          isPinned INTEGER DEFAULT 0,
+          readBy TEXT,
+          deliveredTo TEXT,
+          syncedAt INTEGER,
+          isDeleted INTEGER DEFAULT 0,
+          deletedAt INTEGER,
+          FOREIGN KEY (chatId) REFERENCES $_chatsTable (chatId) ON DELETE CASCADE
+        )
+      ''');
+
+      // Copy data with timestamp conversion
+      try {
+        // Migrate chats
+        await db.execute('''
+          INSERT INTO ${_chatsTable}_new 
+          SELECT 
+            chatId,
+            participants,
+            lastMessage,
+            lastMessageType,
+            lastMessageSender,
+            CAST((julianday(lastMessageTime) - 2440587.5) * 86400000 AS INTEGER) as lastMessageTime,
+            unreadCounts,
+            isArchived,
+            isPinned,
+            isMuted,
+            CAST((julianday(createdAt) - 2440587.5) * 86400000 AS INTEGER) as createdAt,
+            chatWallpapers,
+            fontSizes,
+            CASE WHEN syncedAt IS NOT NULL 
+              THEN CAST((julianday(syncedAt) - 2440587.5) * 86400000 AS INTEGER)
+              ELSE NULL 
+            END as syncedAt,
+            isDeleted,
+            CASE WHEN deletedAt IS NOT NULL 
+              THEN CAST((julianday(deletedAt) - 2440587.5) * 86400000 AS INTEGER)
+              ELSE NULL 
+            END as deletedAt
+          FROM $_chatsTable
+        ''');
+
+        // Migrate messages
+        await db.execute('''
+          INSERT INTO ${_messagesTable}_new 
+          SELECT 
+            messageId,
+            chatId,
+            senderId,
+            content,
+            type,
+            status,
+            CAST((julianday(timestamp) - 2440587.5) * 86400000 AS INTEGER) as timestamp,
+            mediaUrl,
+            mediaMetadata,
+            replyToMessageId,
+            replyToContent,
+            replyToSender,
+            reactions,
+            isEdited,
+            CASE WHEN editedAt IS NOT NULL 
+              THEN CAST((julianday(editedAt) - 2440587.5) * 86400000 AS INTEGER)
+              ELSE NULL 
+            END as editedAt,
+            isPinned,
+            readBy,
+            deliveredTo,
+            CASE WHEN syncedAt IS NOT NULL 
+              THEN CAST((julianday(syncedAt) - 2440587.5) * 86400000 AS INTEGER)
+              ELSE NULL 
+            END as syncedAt,
+            isDeleted,
+            CASE WHEN deletedAt IS NOT NULL 
+              THEN CAST((julianday(deletedAt) - 2440587.5) * 86400000 AS INTEGER)
+              ELSE NULL 
+            END as deletedAt
+          FROM $_messagesTable
+        ''');
+      } catch (e) {
+        debugPrint('Error migrating data: $e');
+        // If migration fails, start fresh
+      }
+
+      // Drop old tables
+      await db.execute('DROP TABLE IF EXISTS $_chatsTable');
+      await db.execute('DROP TABLE IF EXISTS $_messagesTable');
+
+      // Rename new tables
+      await db.execute('ALTER TABLE ${_chatsTable}_new RENAME TO $_chatsTable');
+      await db.execute('ALTER TABLE ${_messagesTable}_new RENAME TO $_messagesTable');
+
+      // Recreate indexes
+      await _createIndexes(db);
+
+      debugPrint('Migration completed successfully');
+    }
   }
 
   // ========================================
@@ -236,15 +373,15 @@ class ChatDatabaseHelper {
       'lastMessage': chat.lastMessage,
       'lastMessageType': chat.lastMessageType.name,
       'lastMessageSender': chat.lastMessageSender,
-      'lastMessageTime': chat.lastMessageTime.toIso8601String(),
+      'lastMessageTime': DateTimeHelper.toDbTimestamp(chat.lastMessageTime),
       'unreadCounts': jsonEncode(chat.unreadCounts),
       'isArchived': jsonEncode(chat.isArchived),
       'isPinned': jsonEncode(chat.isPinned),
       'isMuted': jsonEncode(chat.isMuted),
-      'createdAt': chat.createdAt.toIso8601String(),
+      'createdAt': DateTimeHelper.toDbTimestamp(chat.createdAt),
       'chatWallpapers': chat.chatWallpapers != null ? jsonEncode(chat.chatWallpapers) : null,
       'fontSizes': chat.fontSizes != null ? jsonEncode(chat.fontSizes) : null,
-      'syncedAt': DateTime.now().toIso8601String(),
+      'syncedAt': DateTimeHelper.nowDbTimestamp(),
       'isDeleted': 0,
     };
 
@@ -344,15 +481,15 @@ class ChatDatabaseHelper {
         'lastMessage': lastMessage,
         'lastMessageType': lastMessageType.name,
         'lastMessageSender': lastMessageSender,
-        'lastMessageTime': lastMessageTime.toIso8601String(),
-        'syncedAt': DateTime.now().toIso8601String(),
+        'lastMessageTime': DateTimeHelper.toDbTimestamp(lastMessageTime),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'chatId = ?',
       whereArgs: [chatId],
     );
   }
 
-  // Update chat unread count
+  // Update chat unread count - FIXED VERSION
   Future<void> updateChatUnreadCount(String chatId, String userId, int count) async {
     final db = await database;
     
@@ -366,14 +503,14 @@ class ChatDatabaseHelper {
       _chatsTable,
       {
         'unreadCounts': jsonEncode(unreadCounts),
-        'syncedAt': DateTime.now().toIso8601String(),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'chatId = ?',
       whereArgs: [chatId],
     );
   }
 
-  // Mark chat as read
+  // Mark chat as read - FIXED VERSION
   Future<void> markChatAsRead(String chatId, String userId) async {
     await updateChatUnreadCount(chatId, userId, 0);
   }
@@ -392,7 +529,7 @@ class ChatDatabaseHelper {
       _chatsTable,
       {
         'isPinned': jsonEncode(isPinned),
-        'syncedAt': DateTime.now().toIso8601String(),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'chatId = ?',
       whereArgs: [chatId],
@@ -413,7 +550,7 @@ class ChatDatabaseHelper {
       _chatsTable,
       {
         'isArchived': jsonEncode(isArchived),
-        'syncedAt': DateTime.now().toIso8601String(),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'chatId = ?',
       whereArgs: [chatId],
@@ -434,7 +571,7 @@ class ChatDatabaseHelper {
       _chatsTable,
       {
         'isMuted': jsonEncode(isMuted),
-        'syncedAt': DateTime.now().toIso8601String(),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'chatId = ?',
       whereArgs: [chatId],
@@ -449,7 +586,7 @@ class ChatDatabaseHelper {
       _chatsTable,
       {
         'isDeleted': 1,
-        'deletedAt': DateTime.now().toIso8601String(),
+        'deletedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'chatId = ?',
       whereArgs: [chatId],
@@ -464,7 +601,7 @@ class ChatDatabaseHelper {
       _messagesTable,
       {
         'isDeleted': 1,
-        'deletedAt': DateTime.now().toIso8601String(),
+        'deletedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'chatId = ?',
       whereArgs: [chatId],
@@ -486,7 +623,7 @@ class ChatDatabaseHelper {
       'content': message.content,
       'type': message.type.name,
       'status': message.status.name,
-      'timestamp': message.timestamp.toIso8601String(),
+      'timestamp': DateTimeHelper.toDbTimestamp(message.timestamp),
       'mediaUrl': message.mediaUrl,
       'mediaMetadata': message.mediaMetadata != null ? jsonEncode(message.mediaMetadata) : null,
       'replyToMessageId': message.replyToMessageId,
@@ -494,15 +631,15 @@ class ChatDatabaseHelper {
       'replyToSender': message.replyToSender,
       'reactions': message.reactions != null ? jsonEncode(message.reactions) : null,
       'isEdited': message.isEdited ? 1 : 0,
-      'editedAt': message.editedAt?.toIso8601String(),
+      'editedAt': message.editedAt != null ? DateTimeHelper.toDbTimestamp(message.editedAt!) : null,
       'isPinned': message.isPinned ? 1 : 0,
       'readBy': message.readBy != null 
-          ? jsonEncode(message.readBy!.map((k, v) => MapEntry(k, v.toIso8601String()))) 
+          ? jsonEncode(message.readBy!.map((k, v) => MapEntry(k, DateTimeHelper.toDbTimestamp(v)))) 
           : null,
       'deliveredTo': message.deliveredTo != null 
-          ? jsonEncode(message.deliveredTo!.map((k, v) => MapEntry(k, v.toIso8601String()))) 
+          ? jsonEncode(message.deliveredTo!.map((k, v) => MapEntry(k, DateTimeHelper.toDbTimestamp(v)))) 
           : null,
-      'syncedAt': DateTime.now().toIso8601String(),
+      'syncedAt': DateTimeHelper.nowDbTimestamp(),
       'isDeleted': 0,
     };
 
@@ -581,7 +718,7 @@ class ChatDatabaseHelper {
       _messagesTable,
       {
         'status': status.name,
-        'syncedAt': DateTime.now().toIso8601String(),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'messageId = ?',
       whereArgs: [messageId],
@@ -597,8 +734,8 @@ class ChatDatabaseHelper {
       {
         'content': newContent,
         'isEdited': 1,
-        'editedAt': DateTime.now().toIso8601String(),
-        'syncedAt': DateTime.now().toIso8601String(),
+        'editedAt': DateTimeHelper.nowDbTimestamp(),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'messageId = ?',
       whereArgs: [messageId],
@@ -613,7 +750,7 @@ class ChatDatabaseHelper {
       _messagesTable,
       {
         'isDeleted': 1,
-        'deletedAt': DateTime.now().toIso8601String(),
+        'deletedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'messageId = ?',
       whereArgs: [messageId],
@@ -631,7 +768,7 @@ class ChatDatabaseHelper {
       _messagesTable,
       {
         'isPinned': message.isPinned ? 0 : 1,
-        'syncedAt': DateTime.now().toIso8601String(),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'messageId = ?',
       whereArgs: [messageId],
@@ -666,7 +803,11 @@ class ChatDatabaseHelper {
     return maps.map((map) => _messageFromMap(map)).toList();
   }
 
-  // Get unread messages count
+  // ========================================
+  // UNREAD MESSAGES - CRITICAL FIX
+  // ========================================
+
+  // Get ACCURATE unread messages count for a user in a chat
   Future<int> getUnreadMessagesCount(String chatId, String userId) async {
     final db = await database;
     
@@ -679,6 +820,111 @@ class ChatDatabaseHelper {
     ''', [chatId, userId, '%"$userId"%']);
 
     return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  // Get total unread messages count across all chats for a user
+  Future<int> getTotalUnreadMessagesCount(String userId) async {
+    final db = await database;
+    
+    final result = await db.rawQuery('''
+      SELECT COUNT(*) as count FROM $_messagesTable 
+      WHERE senderId != ? 
+      AND isDeleted = 0
+      AND (readBy IS NULL OR readBy NOT LIKE ?)
+    ''', [userId, '%"$userId"%']);
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  // Mark ALL messages in a chat as read - CRITICAL FIX
+  Future<void> markAllMessagesAsRead(String chatId, String userId) async {
+    final db = await database;
+    final now = DateTimeHelper.nowDbTimestamp();
+    
+    // First, get all unread messages
+    final unreadMessages = await db.query(
+      _messagesTable,
+      columns: ['messageId', 'readBy'],
+      where: 'chatId = ? AND senderId != ? AND isDeleted = 0',
+      whereArgs: [chatId, userId],
+    );
+
+    // Update each message's readBy field
+    final batch = db.batch();
+    
+    for (final msg in unreadMessages) {
+      final messageId = msg['messageId'] as String;
+      final readByJson = msg['readBy'] as String?;
+      
+      Map<String, dynamic> readBy = {};
+      if (readByJson != null && readByJson.isNotEmpty) {
+        try {
+          readBy = Map<String, dynamic>.from(jsonDecode(readByJson));
+        } catch (e) {
+          debugPrint('Error parsing readBy JSON: $e');
+        }
+      }
+      
+      // Add current user with timestamp
+      readBy[userId] = now;
+      
+      batch.update(
+        _messagesTable,
+        {'readBy': jsonEncode(readBy)},
+        where: 'messageId = ?',
+        whereArgs: [messageId],
+      );
+    }
+    
+    await batch.commit(noResult: true);
+    
+    // Update chat unread count to 0
+    await updateChatUnreadCount(chatId, userId, 0);
+    
+    debugPrint('Marked ${unreadMessages.length} messages as read in chat $chatId for user $userId');
+  }
+
+  // Mark specific messages as delivered
+  Future<void> markMessagesAsDelivered(String chatId, List<String> messageIds, String userId) async {
+    if (messageIds.isEmpty) return;
+    
+    final db = await database;
+    final now = DateTimeHelper.nowDbTimestamp();
+    final batch = db.batch();
+    
+    for (final messageId in messageIds) {
+      final message = await db.query(
+        _messagesTable,
+        columns: ['deliveredTo'],
+        where: 'messageId = ?',
+        whereArgs: [messageId],
+        limit: 1,
+      );
+      
+      if (message.isNotEmpty) {
+        Map<String, dynamic> deliveredTo = {};
+        final deliveredToJson = message.first['deliveredTo'] as String?;
+        
+        if (deliveredToJson != null && deliveredToJson.isNotEmpty) {
+          try {
+            deliveredTo = Map<String, dynamic>.from(jsonDecode(deliveredToJson));
+          } catch (e) {
+            debugPrint('Error parsing deliveredTo JSON: $e');
+          }
+        }
+        
+        deliveredTo[userId] = now;
+        
+        batch.update(
+          _messagesTable,
+          {'deliveredTo': jsonEncode(deliveredTo)},
+          where: 'messageId = ?',
+          whereArgs: [messageId],
+        );
+      }
+    }
+    
+    await batch.commit(noResult: true);
   }
 
   // ========================================
@@ -697,6 +943,17 @@ class ChatDatabaseHelper {
   }) async {
     final db = await database;
     
+    // Parse lastSeen if provided
+    int? lastSeenTimestamp;
+    if (lastSeen != null) {
+      try {
+        final lastSeenDate = DateTime.parse(lastSeen);
+        lastSeenTimestamp = DateTimeHelper.toDbTimestamp(lastSeenDate);
+      } catch (e) {
+        debugPrint('Error parsing lastSeen: $e');
+      }
+    }
+    
     final participantMap = {
       'chatId': chatId,
       'userId': userId,
@@ -704,8 +961,8 @@ class ChatDatabaseHelper {
       'userImage': userImage,
       'phoneNumber': phoneNumber,
       'isOnline': isOnline ? 1 : 0,
-      'lastSeen': lastSeen,
-      'addedAt': DateTime.now().toIso8601String(),
+      'lastSeen': lastSeenTimestamp,
+      'addedAt': DateTimeHelper.nowDbTimestamp(),
     };
 
     await db.insert(
@@ -734,7 +991,7 @@ class ChatDatabaseHelper {
       _participantsTable,
       {
         'isOnline': isOnline ? 1 : 0,
-        'lastSeen': DateTime.now().toIso8601String(),
+        'lastSeen': DateTimeHelper.nowDbTimestamp(),
       },
       where: 'userId = ?',
       whereArgs: [userId],
@@ -756,12 +1013,12 @@ class ChatDatabaseHelper {
         orElse: () => MessageEnum.text,
       ),
       lastMessageSender: map['lastMessageSender'] ?? '',
-      lastMessageTime: DateTime.parse(map['lastMessageTime']),
+      lastMessageTime: DateTimeHelper.fromDbTimestamp(map['lastMessageTime']),
       unreadCounts: Map<String, int>.from(jsonDecode(map['unreadCounts'] ?? '{}')),
       isArchived: Map<String, bool>.from(jsonDecode(map['isArchived'] ?? '{}')),
       isPinned: Map<String, bool>.from(jsonDecode(map['isPinned'] ?? '{}')),
       isMuted: Map<String, bool>.from(jsonDecode(map['isMuted'] ?? '{}')),
-      createdAt: DateTime.parse(map['createdAt']),
+      createdAt: DateTimeHelper.fromDbTimestamp(map['createdAt']),
       chatWallpapers: map['chatWallpapers'] != null 
           ? Map<String, String>.from(jsonDecode(map['chatWallpapers'])) 
           : null,
@@ -786,7 +1043,7 @@ class ChatDatabaseHelper {
         (e) => e.name == map['status'],
         orElse: () => MessageStatus.sending,
       ),
-      timestamp: DateTime.parse(map['timestamp']),
+      timestamp: DateTimeHelper.fromDbTimestamp(map['timestamp']),
       mediaUrl: map['mediaUrl'],
       mediaMetadata: map['mediaMetadata'] != null 
           ? Map<String, dynamic>.from(jsonDecode(map['mediaMetadata'])) 
@@ -798,17 +1055,17 @@ class ChatDatabaseHelper {
           ? Map<String, String>.from(jsonDecode(map['reactions'])) 
           : null,
       isEdited: map['isEdited'] == 1,
-      editedAt: map['editedAt'] != null ? DateTime.parse(map['editedAt']) : null,
+      editedAt: map['editedAt'] != null ? DateTimeHelper.fromDbTimestamp(map['editedAt']) : null,
       isPinned: map['isPinned'] == 1,
       readBy: map['readBy'] != null 
           ? Map<String, DateTime>.from(
               (jsonDecode(map['readBy']) as Map).map((k, v) => 
-                MapEntry(k.toString(), DateTime.parse(v)))) 
+                MapEntry(k.toString(), DateTimeHelper.fromDbTimestamp(v)))) 
           : null,
       deliveredTo: map['deliveredTo'] != null 
           ? Map<String, DateTime>.from(
               (jsonDecode(map['deliveredTo']) as Map).map((k, v) => 
-                MapEntry(k.toString(), DateTime.parse(v)))) 
+                MapEntry(k.toString(), DateTimeHelper.fromDbTimestamp(v)))) 
           : null,
     );
   }
@@ -854,12 +1111,14 @@ class ChatDatabaseHelper {
   Future<int> deleteOldMessages({int daysOld = 365}) async {
     final db = await database;
     
-    final cutoffDate = DateTime.now().subtract(Duration(days: daysOld));
+    final cutoffTimestamp = DateTimeHelper.toDbTimestamp(
+      DateTime.now().subtract(Duration(days: daysOld))
+    );
     
     final deletedCount = await db.delete(
       _messagesTable,
       where: 'timestamp < ? AND isDeleted = 0',
-      whereArgs: [cutoffDate.toIso8601String()],
+      whereArgs: [cutoffTimestamp],
     );
     
     debugPrint('Deleted $deletedCount old messages from local database');
@@ -916,7 +1175,7 @@ class ChatDatabaseHelper {
       'fileSize': fileSize,
       'mimeType': mimeType,
       'localPath': localPath,
-      'downloadedAt': isDownloaded ? DateTime.now().toIso8601String() : null,
+      'downloadedAt': isDownloaded ? DateTimeHelper.nowDbTimestamp() : null,
       'isDownloaded': isDownloaded ? 1 : 0,
     };
 
@@ -955,7 +1214,7 @@ class ChatDatabaseHelper {
       _mediaTable,
       {
         'localPath': localPath,
-        'downloadedAt': DateTime.now().toIso8601String(),
+        'downloadedAt': DateTimeHelper.nowDbTimestamp(),
         'isDownloaded': 1,
       },
       where: 'messageId = ?',
@@ -979,7 +1238,7 @@ class ChatDatabaseHelper {
       'chatId': chatId,
       'userId': userId,
       'isTyping': isTyping ? 1 : 0,
-      'updatedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTimeHelper.nowDbTimestamp(),
     };
 
     await db.insert(
@@ -994,12 +1253,14 @@ class ChatDatabaseHelper {
     final db = await database;
     
     // Get users who were typing in the last 5 seconds
-    final cutoffTime = DateTime.now().subtract(const Duration(seconds: 5));
+    final cutoffTimestamp = DateTimeHelper.toDbTimestamp(
+      DateTime.now().subtract(const Duration(seconds: 5))
+    );
     
     final List<Map<String, dynamic>> maps = await db.query(
       _typingStatusTable,
       where: 'chatId = ? AND isTyping = 1 AND updatedAt > ?',
-      whereArgs: [chatId, cutoffTime.toIso8601String()],
+      whereArgs: [chatId, cutoffTimestamp],
     );
 
     return maps.map((m) => m['userId'] as String).toList();
@@ -1022,15 +1283,15 @@ class ChatDatabaseHelper {
         'lastMessage': chat.lastMessage,
         'lastMessageType': chat.lastMessageType.name,
         'lastMessageSender': chat.lastMessageSender,
-        'lastMessageTime': chat.lastMessageTime.toIso8601String(),
+        'lastMessageTime': DateTimeHelper.toDbTimestamp(chat.lastMessageTime),
         'unreadCounts': jsonEncode(chat.unreadCounts),
         'isArchived': jsonEncode(chat.isArchived),
         'isPinned': jsonEncode(chat.isPinned),
         'isMuted': jsonEncode(chat.isMuted),
-        'createdAt': chat.createdAt.toIso8601String(),
+        'createdAt': DateTimeHelper.toDbTimestamp(chat.createdAt),
         'chatWallpapers': chat.chatWallpapers != null ? jsonEncode(chat.chatWallpapers) : null,
         'fontSizes': chat.fontSizes != null ? jsonEncode(chat.fontSizes) : null,
-        'syncedAt': DateTime.now().toIso8601String(),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
         'isDeleted': 0,
       };
       
@@ -1055,7 +1316,7 @@ class ChatDatabaseHelper {
         'content': message.content,
         'type': message.type.name,
         'status': message.status.name,
-        'timestamp': message.timestamp.toIso8601String(),
+        'timestamp': DateTimeHelper.toDbTimestamp(message.timestamp),
         'mediaUrl': message.mediaUrl,
         'mediaMetadata': message.mediaMetadata != null ? jsonEncode(message.mediaMetadata) : null,
         'replyToMessageId': message.replyToMessageId,
@@ -1063,15 +1324,15 @@ class ChatDatabaseHelper {
         'replyToSender': message.replyToSender,
         'reactions': message.reactions != null ? jsonEncode(message.reactions) : null,
         'isEdited': message.isEdited ? 1 : 0,
-        'editedAt': message.editedAt?.toIso8601String(),
+        'editedAt': message.editedAt != null ? DateTimeHelper.toDbTimestamp(message.editedAt!) : null,
         'isPinned': message.isPinned ? 1 : 0,
         'readBy': message.readBy != null 
-            ? jsonEncode(message.readBy!.map((k, v) => MapEntry(k, v.toIso8601String()))) 
+            ? jsonEncode(message.readBy!.map((k, v) => MapEntry(k, DateTimeHelper.toDbTimestamp(v)))) 
             : null,
         'deliveredTo': message.deliveredTo != null 
-            ? jsonEncode(message.deliveredTo!.map((k, v) => MapEntry(k, v.toIso8601String()))) 
+            ? jsonEncode(message.deliveredTo!.map((k, v) => MapEntry(k, DateTimeHelper.toDbTimestamp(v)))) 
             : null,
-        'syncedAt': DateTime.now().toIso8601String(),
+        'syncedAt': DateTimeHelper.nowDbTimestamp(),
         'isDeleted': 0,
       };
       
@@ -1090,10 +1351,14 @@ class ChatDatabaseHelper {
   Future<List<ChatModel>> getUnsyncedChats() async {
     final db = await database;
     
+    final fiveMinutesAgo = DateTimeHelper.toDbTimestamp(
+      DateTime.now().subtract(const Duration(minutes: 5))
+    );
+    
     final List<Map<String, dynamic>> maps = await db.query(
       _chatsTable,
       where: 'syncedAt IS NULL OR syncedAt < ?',
-      whereArgs: [DateTime.now().subtract(const Duration(minutes: 5)).toIso8601String()],
+      whereArgs: [fiveMinutesAgo],
     );
 
     return maps.map((map) => _chatFromMap(map)).toList();
@@ -1103,12 +1368,16 @@ class ChatDatabaseHelper {
   Future<List<MessageModel>> getUnsyncedMessages() async {
     final db = await database;
     
+    final fiveMinutesAgo = DateTimeHelper.toDbTimestamp(
+      DateTime.now().subtract(const Duration(minutes: 5))
+    );
+    
     final List<Map<String, dynamic>> maps = await db.query(
       _messagesTable,
       where: 'syncedAt IS NULL OR (status = ? AND syncedAt < ?)',
       whereArgs: [
         MessageStatus.sending.name,
-        DateTime.now().subtract(const Duration(minutes: 5)).toIso8601String()
+        fiveMinutesAgo
       ],
     );
 
@@ -1121,7 +1390,7 @@ class ChatDatabaseHelper {
     
     await db.update(
       _chatsTable,
-      {'syncedAt': DateTime.now().toIso8601String()},
+      {'syncedAt': DateTimeHelper.nowDbTimestamp()},
       where: 'chatId = ?',
       whereArgs: [chatId],
     );
@@ -1133,7 +1402,7 @@ class ChatDatabaseHelper {
     
     await db.update(
       _messagesTable,
-      {'syncedAt': DateTime.now().toIso8601String()},
+      {'syncedAt': DateTimeHelper.nowDbTimestamp()},
       where: 'messageId = ?',
       whereArgs: [messageId],
     );
@@ -1154,7 +1423,7 @@ class ChatDatabaseHelper {
     
     return {
       'version': _databaseVersion,
-      'exportedAt': DateTime.now().toIso8601String(),
+      'exportedAt': DateTimeHelper.nowDbTimestamp(),
       'chats': chats,
       'messages': messages,
       'participants': participants,
@@ -1263,7 +1532,11 @@ class ChatDatabaseHelper {
     final List<Map<String, dynamic>> maps = await db.query(
       _messagesTable,
       where: 'chatId = ? AND timestamp >= ? AND timestamp <= ? AND isDeleted = 0',
-      whereArgs: [chatId, startDate.toIso8601String(), endDate.toIso8601String()],
+      whereArgs: [
+        chatId, 
+        DateTimeHelper.toDbTimestamp(startDate), 
+        DateTimeHelper.toDbTimestamp(endDate)
+      ],
       orderBy: 'timestamp DESC',
     );
 

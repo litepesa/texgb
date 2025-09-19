@@ -1,5 +1,5 @@
 // lib/features/chat/providers/chat_provider.dart
-// Updated chat provider with offline-first support using SQLite
+// FIXED: Proper lifecycle, unread counter, and state persistence
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:textgb/features/authentication/providers/auth_convenience_providers.dart';
@@ -11,10 +11,14 @@ import 'package:textgb/features/chat/repositories/chat_repository.dart';
 import 'package:textgb/features/chat/database/chat_database_helper.dart';
 import 'package:textgb/features/authentication/providers/authentication_provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 
 part 'chat_provider.g.dart';
 
-// Chat List State
+// ========================================
+// CHAT LIST STATE
+// ========================================
+
 class ChatListState {
   final bool isLoading;
   final List<ChatListItemModel> chats;
@@ -24,6 +28,7 @@ class ChatListState {
   final bool isOnline;
   final bool isSyncing;
   final DateTime? lastSyncTime;
+  final int totalUnreadCount; // NEW: Total unread messages
 
   const ChatListState({
     this.isLoading = false,
@@ -34,6 +39,7 @@ class ChatListState {
     this.isOnline = true,
     this.isSyncing = false,
     this.lastSyncTime,
+    this.totalUnreadCount = 0,
   });
 
   ChatListState copyWith({
@@ -45,6 +51,7 @@ class ChatListState {
     bool? isOnline,
     bool? isSyncing,
     DateTime? lastSyncTime,
+    int? totalUnreadCount,
   }) {
     return ChatListState(
       isLoading: isLoading ?? this.isLoading,
@@ -55,6 +62,7 @@ class ChatListState {
       isOnline: isOnline ?? this.isOnline,
       isSyncing: isSyncing ?? this.isSyncing,
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
+      totalUnreadCount: totalUnreadCount ?? this.totalUnreadCount,
     );
   }
 
@@ -68,49 +76,59 @@ class ChatListState {
     }).toList();
   }
 
-  List<ChatListItemModel> get pinnedChats {
-    final currentUser = chats.isNotEmpty ? chats.first.chat.participants.firstWhere(
-      (id) => id != chats.first.chat.participants.first, 
-      orElse: () => chats.first.chat.participants.first
-    ) : '';
+  List<ChatListItemModel> getPinnedChats(String currentUserId) {
     return filteredChats.where((chat) => 
-        chat.chat.isPinnedForUser(currentUser)).toList();
+        chat.chat.isPinnedForUser(currentUserId)).toList();
   }
 
-  List<ChatListItemModel> get regularChats {
-    final currentUser = chats.isNotEmpty ? chats.first.chat.participants.firstWhere(
-      (id) => id != chats.first.chat.participants.first, 
-      orElse: () => chats.first.chat.participants.first
-    ) : '';
+  List<ChatListItemModel> getRegularChats(String currentUserId) {
     return filteredChats.where((chat) => 
-        !chat.chat.isPinnedForUser(currentUser)).toList();
+        !chat.chat.isPinnedForUser(currentUserId)).toList();
   }
 }
+
+// ========================================
+// CHAT LIST PROVIDER (WITH AUTO-DISPOSE)
+// ========================================
 
 @riverpod
 class ChatList extends _$ChatList {
   ChatRepository get _repository => ref.read(chatRepositoryProvider);
   ChatDatabaseHelper get _dbHelper => ChatDatabaseHelper();
   
+  StreamSubscription<List<ChatModel>>? _chatSubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  Timer? _unreadCountTimer;
+  
   @override
   FutureOr<ChatListState> build() async {
-    // Use new user-based auth system
+    // Cleanup on dispose
+    ref.onDispose(() {
+      debugPrint('🧹 ChatList provider disposed - cleaning up');
+      _chatSubscription?.cancel();
+      _connectivitySubscription?.cancel();
+      _unreadCountTimer?.cancel();
+    });
+
     final currentUser = ref.watch(currentUserProvider);
     if (currentUser == null) {
       return const ChatListState(error: 'User not authenticated');
     }
 
-    // Check connectivity status
+    // Check connectivity
     final connectivityResult = await Connectivity().checkConnectivity();
-    final isOnline = connectivityResult != ConnectivityResult.none;
+    final isOnline = !connectivityResult.contains(ConnectivityResult.none);
 
-    // Start listening to chats stream for this user
+    // Subscribe to chats stream
     _subscribeToChats(currentUser.uid);
     
-    // Start connectivity monitoring
-    _monitorConnectivity();
+    // Monitor connectivity
+    _monitorConnectivity(currentUser.uid);
     
-    // Trigger initial sync if online
+    // Start unread count monitoring
+    _startUnreadCountMonitoring(currentUser.uid);
+    
+    // Trigger sync if online
     if (isOnline) {
       _syncChats(currentUser.uid);
     }
@@ -122,19 +140,26 @@ class ChatList extends _$ChatList {
   }
 
   void _subscribeToChats(String userId) {
-    // Listen to chats stream from repository (which uses local DB + server sync)
-    _repository.getChatsStream(userId).listen(
+    _chatSubscription?.cancel();
+    
+    debugPrint('📡 Subscribing to chats stream for user: $userId');
+    
+    _chatSubscription = _repository.getChatsStream(userId).listen(
       (chats) async {
         try {
           final chatItems = await _buildChatListItems(chats, userId);
+          final totalUnread = await _calculateTotalUnread(chatItems, userId);
           
           final currentState = state.valueOrNull ?? const ChatListState();
           state = AsyncValue.data(currentState.copyWith(
             chats: chatItems,
             isLoading: false,
+            totalUnreadCount: totalUnread,
           ));
-        } catch (e) {
-          debugPrint('Error in chat stream: $e');
+          
+          debugPrint('✅ Chat list updated: ${chats.length} chats, $totalUnread unread');
+        } catch (e, stack) {
+          debugPrint('❌ Error in chat stream: $e');
           final currentState = state.valueOrNull ?? const ChatListState();
           state = AsyncValue.data(currentState.copyWith(
             error: e.toString(),
@@ -142,8 +167,8 @@ class ChatList extends _$ChatList {
           ));
         }
       },
-      onError: (error) {
-        debugPrint('Chat stream error: $error');
+      onError: (error, stack) {
+        debugPrint('❌ Chat stream error: $error');
         final currentState = state.valueOrNull ?? const ChatListState();
         state = AsyncValue.data(currentState.copyWith(
           error: error.toString(),
@@ -153,25 +178,49 @@ class ChatList extends _$ChatList {
     );
   }
 
-  void _monitorConnectivity() {
-    // Monitor connectivity changes
-    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) async {
-      final connectivityResults = await Connectivity().checkConnectivity();
-      final isOnline = !connectivityResults.contains(ConnectivityResult.none);
+  void _monitorConnectivity(String userId) {
+    _connectivitySubscription?.cancel();
+    
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) async {
+      final isOnline = !results.contains(ConnectivityResult.none);
       final currentState = state.valueOrNull;
       
       if (currentState != null) {
         state = AsyncValue.data(currentState.copyWith(isOnline: isOnline));
         
-        // If we just came online, trigger sync
+        // Sync when coming online
         if (isOnline && !currentState.isOnline) {
-          final userId = ref.read(currentUserIdProvider);
-          if (userId != null) {
-            _syncChats(userId);
-          }
+          debugPrint('🌐 Device came online - triggering sync');
+          _syncChats(userId);
         }
       }
     });
+  }
+
+  void _startUnreadCountMonitoring(String userId) {
+    _unreadCountTimer?.cancel();
+    
+    // Update unread count every 2 seconds
+    _unreadCountTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      final currentState = state.valueOrNull;
+      if (currentState != null && currentState.chats.isNotEmpty) {
+        final totalUnread = await _calculateTotalUnread(currentState.chats, userId);
+        
+        if (totalUnread != currentState.totalUnreadCount) {
+          state = AsyncValue.data(currentState.copyWith(
+            totalUnreadCount: totalUnread,
+          ));
+        }
+      }
+    });
+  }
+
+  Future<int> _calculateTotalUnread(List<ChatListItemModel> chatItems, String userId) async {
+    int total = 0;
+    for (final chatItem in chatItems) {
+      total += chatItem.chat.getUnreadCount(userId);
+    }
+    return total;
   }
 
   Future<void> _syncChats(String userId) async {
@@ -181,7 +230,6 @@ class ChatList extends _$ChatList {
     try {
       state = AsyncValue.data(currentState.copyWith(isSyncing: true));
       
-      // Trigger repository sync
       await _repository.syncChats(userId);
       
       final updatedState = state.valueOrNull ?? currentState;
@@ -189,8 +237,10 @@ class ChatList extends _$ChatList {
         isSyncing: false,
         lastSyncTime: DateTime.now(),
       ));
+      
+      debugPrint('✅ Chats synced successfully');
     } catch (e) {
-      debugPrint('Sync error: $e');
+      debugPrint('❌ Sync error: $e');
       final updatedState = state.valueOrNull ?? currentState;
       state = AsyncValue.data(updatedState.copyWith(
         isSyncing: false,
@@ -208,14 +258,13 @@ class ChatList extends _$ChatList {
       try {
         final otherUserId = chat.getOtherParticipant(currentUserId);
         
-        // Try to get from local cache first
-        var contact = await _getCachedUserDetails(otherUserId);
+        // Try to get contact info from cache
+        var contact = await _getCachedUserDetails(otherUserId, chat.chatId);
         
-        // If not cached or online, fetch from server
+        // If not cached, fetch from server
         if (contact == null) {
           contact = await authNotifier.getUserById(otherUserId);
           
-          // Cache user details locally
           if (contact != null) {
             await _cacheUserDetails(chat.chatId, contact);
           }
@@ -231,7 +280,7 @@ class ChatList extends _$ChatList {
             lastSeen: _parseLastSeen(contact.lastSeen),
           ));
         } else {
-          // Use cached participant info from database
+          // Fallback to cached participant info
           final participants = await _dbHelper.getChatParticipants(chat.chatId);
           final participant = participants.firstWhere(
             (p) => p['userId'] == otherUserId,
@@ -246,13 +295,13 @@ class ChatList extends _$ChatList {
               contactPhone: participant['phoneNumber'] ?? '',
               isOnline: participant['isOnline'] == 1,
               lastSeen: participant['lastSeen'] != null 
-                  ? DateTime.parse(participant['lastSeen'])
+                  ? DateTime.fromMillisecondsSinceEpoch(participant['lastSeen'])
                   : null,
             ));
           }
         }
       } catch (e) {
-        debugPrint('Error building chat item: $e');
+        debugPrint('❌ Error building chat item: $e');
       }
     }
 
@@ -262,9 +311,29 @@ class ChatList extends _$ChatList {
     return chatItems;
   }
 
-  Future<dynamic> _getCachedUserDetails(String userId) async {
-    // This would ideally use a user cache, but for now return null
-    // You could implement a separate user cache table in SQLite
+  Future<dynamic> _getCachedUserDetails(String userId, String chatId) async {
+    try {
+      final participants = await _dbHelper.getChatParticipants(chatId);
+      final participant = participants.firstWhere(
+        (p) => p['userId'] == userId,
+        orElse: () => <String, dynamic>{},
+      );
+      
+      if (participant.isNotEmpty) {
+        // Return a simple map that looks like user data
+        return {
+          'uid': userId,
+          'name': participant['userName'],
+          'profileImage': participant['userImage'] ?? '',
+          'phoneNumber': participant['phoneNumber'] ?? '',
+          'lastSeen': participant['lastSeen'] != null 
+              ? DateTime.fromMillisecondsSinceEpoch(participant['lastSeen']).toIso8601String()
+              : DateTime.now().toIso8601String(),
+        };
+      }
+    } catch (e) {
+      debugPrint('Error getting cached user details: $e');
+    }
     return null;
   }
 
@@ -303,7 +372,10 @@ class ChatList extends _$ChatList {
     }
   }
 
-  // Search functionality
+  // ========================================
+  // PUBLIC METHODS
+  // ========================================
+
   void setSearchQuery(String query) {
     final currentState = state.valueOrNull;
     if (currentState != null) {
@@ -315,15 +387,15 @@ class ChatList extends _$ChatList {
     setSearchQuery('');
   }
 
-  // Chat actions - all now work offline-first
   Future<void> togglePinChat(String chatId) async {
     final userId = ref.read(currentUserIdProvider);
     if (userId == null) return;
 
     try {
       await _repository.toggleChatPin(chatId, userId);
+      debugPrint('✅ Chat pin toggled');
     } catch (e) {
-      debugPrint('Error toggling pin: $e');
+      debugPrint('❌ Error toggling pin: $e');
       rethrow;
     }
   }
@@ -334,8 +406,9 @@ class ChatList extends _$ChatList {
 
     try {
       await _repository.toggleChatArchive(chatId, userId);
+      debugPrint('✅ Chat archive toggled');
     } catch (e) {
-      debugPrint('Error toggling archive: $e');
+      debugPrint('❌ Error toggling archive: $e');
       rethrow;
     }
   }
@@ -346,8 +419,9 @@ class ChatList extends _$ChatList {
 
     try {
       await _repository.toggleChatMute(chatId, userId);
+      debugPrint('✅ Chat mute toggled');
     } catch (e) {
-      debugPrint('Error toggling mute: $e');
+      debugPrint('❌ Error toggling mute: $e');
       rethrow;
     }
   }
@@ -357,9 +431,40 @@ class ChatList extends _$ChatList {
     if (userId == null) return;
 
     try {
+      // Mark in repository (local + server)
       await _repository.markChatAsRead(chatId, userId);
+      
+      // Update local state immediately
+      final currentState = state.valueOrNull;
+      if (currentState != null) {
+        final updatedChats = currentState.chats.map((chatItem) {
+          if (chatItem.chat.chatId == chatId) {
+            final updatedChat = chatItem.chat.copyWith(
+              unreadCounts: {...chatItem.chat.unreadCounts, userId: 0},
+            );
+            return ChatListItemModel(
+              chat: updatedChat,
+              contactName: chatItem.contactName,
+              contactImage: chatItem.contactImage,
+              contactPhone: chatItem.contactPhone,
+              isOnline: chatItem.isOnline,
+              lastSeen: chatItem.lastSeen,
+            );
+          }
+          return chatItem;
+        }).toList();
+        
+        final totalUnread = await _calculateTotalUnread(updatedChats, userId);
+        
+        state = AsyncValue.data(currentState.copyWith(
+          chats: updatedChats,
+          totalUnreadCount: totalUnread,
+        ));
+      }
+      
+      debugPrint('✅ Chat marked as read');
     } catch (e) {
-      debugPrint('Error marking chat as read: $e');
+      debugPrint('❌ Error marking chat as read: $e');
       rethrow;
     }
   }
@@ -371,17 +476,24 @@ class ChatList extends _$ChatList {
     try {
       await _repository.deleteChat(chatId, userId, deleteForEveryone: deleteForEveryone);
       
-      // Remove from local state immediately for better UX
+      // Remove from local state
       final currentState = state.valueOrNull;
       if (currentState != null) {
         final updatedChats = currentState.chats
             .where((chatItem) => chatItem.chat.chatId != chatId)
             .toList();
         
-        state = AsyncValue.data(currentState.copyWith(chats: updatedChats));
+        final totalUnread = await _calculateTotalUnread(updatedChats, userId);
+        
+        state = AsyncValue.data(currentState.copyWith(
+          chats: updatedChats,
+          totalUnreadCount: totalUnread,
+        ));
       }
+      
+      debugPrint('✅ Chat deleted');
     } catch (e) {
-      debugPrint('Error deleting chat: $e');
+      debugPrint('❌ Error deleting chat: $e');
       rethrow;
     }
   }
@@ -392,26 +504,27 @@ class ChatList extends _$ChatList {
 
     try {
       await _repository.clearChatHistory(chatId, userId);
+      debugPrint('✅ Chat history cleared');
     } catch (e) {
-      debugPrint('Error clearing chat history: $e');
+      debugPrint('❌ Error clearing chat history: $e');
       rethrow;
     }
   }
 
-  // Create or get existing chat with another user
   Future<String?> createOrGetChat(String otherUserId) async {
     final currentUserId = ref.read(currentUserIdProvider);
     if (currentUserId == null) return null;
 
     try {
-      return await _repository.createOrGetChat(currentUserId, otherUserId);
+      final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
+      debugPrint('✅ Chat created/retrieved: $chatId');
+      return chatId;
     } catch (e) {
-      debugPrint('Error creating/getting chat: $e');
+      debugPrint('❌ Error creating/getting chat: $e');
       return null;
     }
   }
 
-  // Create new chat with optional video reaction
   Future<String?> createChat(String otherUserId, {VideoReactionModel? videoReaction}) async {
     final currentUserId = ref.read(currentUserIdProvider);
     if (currentUserId == null) return null;
@@ -419,7 +532,6 @@ class ChatList extends _$ChatList {
     try {
       final chatId = await _repository.createOrGetChat(currentUserId, otherUserId);
       
-      // If video reaction is provided, send it as the first message
       if (videoReaction != null) {
         await _repository.sendVideoReactionMessage(
           chatId: chatId,
@@ -428,14 +540,14 @@ class ChatList extends _$ChatList {
         );
       }
       
+      debugPrint('✅ Chat created with video reaction');
       return chatId;
     } catch (e) {
-      debugPrint('Error creating chat: $e');
+      debugPrint('❌ Error creating chat: $e');
       return null;
     }
   }
 
-  // Create chat with video reaction from video model
   Future<String?> createChatWithVideoReaction({
     required String otherUserId,
     required String videoId,
@@ -466,15 +578,15 @@ class ChatList extends _$ChatList {
         senderId: currentUserId,
         videoReaction: videoReaction,
       );
-          
+      
+      debugPrint('✅ Chat created with video reaction');
       return chatId;
     } catch (e) {
-      debugPrint('Error creating chat with video reaction: $e');
+      debugPrint('❌ Error creating chat with video reaction: $e');
       return null;
     }
   }
 
-  // Create chat with moment reaction
   Future<String?> createChatWithMomentReaction({
     required String otherUserId,
     required MomentReactionModel momentReaction,
@@ -490,15 +602,15 @@ class ChatList extends _$ChatList {
         senderId: currentUserId,
         momentReaction: momentReaction,
       );
-          
+      
+      debugPrint('✅ Chat created with moment reaction');
       return chatId;
     } catch (e) {
-      debugPrint('Error creating chat with moment reaction: $e');
+      debugPrint('❌ Error creating chat with moment reaction: $e');
       return null;
     }
   }
 
-  // Manual sync trigger
   Future<void> syncChats() async {
     final userId = ref.read(currentUserIdProvider);
     if (userId == null) return;
@@ -506,7 +618,6 @@ class ChatList extends _$ChatList {
     await _syncChats(userId);
   }
 
-  // Sync all data (chats + messages)
   Future<void> syncAllData() async {
     final userId = ref.read(currentUserIdProvider);
     if (userId == null) return;
@@ -524,8 +635,10 @@ class ChatList extends _$ChatList {
         isSyncing: false,
         lastSyncTime: DateTime.now(),
       ));
+      
+      debugPrint('✅ All data synced');
     } catch (e) {
-      debugPrint('Sync all data error: $e');
+      debugPrint('❌ Sync all data error: $e');
       final updatedState = state.valueOrNull ?? currentState;
       state = AsyncValue.data(updatedState.copyWith(
         isSyncing: false,
@@ -534,97 +647,10 @@ class ChatList extends _$ChatList {
     }
   }
 
-  // Get chat statistics including offline/online status
-  Map<String, dynamic> getChatStatistics() {
-    final currentState = state.valueOrNull;
-    if (currentState == null) {
-      return {
-        'totalChats': 0,
-        'pinnedChats': 0,
-        'unreadChats': 0,
-        'totalUnreadMessages': 0,
-        'mutedChats': 0,
-        'onlineContacts': 0,
-        'isOnline': false,
-        'isSyncing': false,
-        'lastSyncTime': null,
-      };
-    }
+  // ========================================
+  // GETTERS
+  // ========================================
 
-    final totalChats = currentState.chats.length;
-    final pinnedChats = getPinnedChats().length;
-    final unreadChats = getUnreadChatsCount();
-    final totalUnreadMessages = getTotalUnreadMessagesCount();
-    final mutedChats = currentUserId != null 
-        ? currentState.chats.where((chatItem) => 
-            chatItem.chat.isMutedForUser(currentUserId!)).length
-        : 0;
-    final onlineContacts = currentState.chats.where((chatItem) => 
-        chatItem.isOnline).length;
-
-    return {
-      'totalChats': totalChats,
-      'pinnedChats': pinnedChats,
-      'unreadChats': unreadChats,
-      'totalUnreadMessages': totalUnreadMessages,
-      'mutedChats': mutedChats,
-      'onlineContacts': onlineContacts,
-      'isOnline': currentState.isOnline,
-      'isSyncing': currentState.isSyncing,
-      'lastSyncTime': currentState.lastSyncTime,
-    };
-  }
-
-  // Get local database statistics
-  Future<Map<String, int>> getLocalStatistics() async {
-    if (_repository is OfflineFirstChatRepository) {
-      return await (_repository as OfflineFirstChatRepository).getLocalStatistics();
-    }
-    return {};
-  }
-
-  // Cleanup old messages
-  Future<int> cleanupOldMessages({int daysOld = 365}) async {
-    if (_repository is OfflineFirstChatRepository) {
-      return await (_repository as OfflineFirstChatRepository).cleanupOldMessages(daysOld: daysOld);
-    }
-    return 0;
-  }
-
-  // Optimize local database
-  Future<void> optimizeDatabase() async {
-    if (_repository is OfflineFirstChatRepository) {
-      await (_repository as OfflineFirstChatRepository).optimizeDatabase();
-    }
-  }
-
-  // Export chat data for backup
-  Future<Map<String, dynamic>> exportChatData() async {
-    if (_repository is OfflineFirstChatRepository) {
-      return await (_repository as OfflineFirstChatRepository).exportChatData();
-    }
-    return {};
-  }
-
-  // Import chat data from backup
-  Future<void> importChatData(Map<String, dynamic> data) async {
-    if (_repository is OfflineFirstChatRepository) {
-      await (_repository as OfflineFirstChatRepository).importChatData(data);
-      // Refresh the UI after import
-      ref.invalidateSelf();
-    }
-  }
-
-  // Clear local cache (useful for logout)
-  Future<void> clearLocalCache() async {
-    if (_repository is OfflineFirstChatRepository) {
-      await (_repository as OfflineFirstChatRepository).clearLocalCache();
-      // Refresh the UI after clearing
-      ref.invalidateSelf();
-    }
-  }
-
-  // Rest of the methods remain the same...
   List<ChatListItemModel> getFilteredChats([String? query]) {
     final currentState = state.valueOrNull;
     if (currentState == null) return [];
@@ -642,34 +668,70 @@ class ChatList extends _$ChatList {
 
   List<ChatListItemModel> getPinnedChats() {
     final currentState = state.valueOrNull;
+    final currentUserId = ref.read(currentUserIdProvider);
     if (currentState == null || currentUserId == null) return [];
 
-    return currentState.chats.where((chatItem) => 
-        chatItem.chat.isPinnedForUser(currentUserId!)).toList();
+    return currentState.getPinnedChats(currentUserId);
   }
 
   List<ChatListItemModel> getRegularChats() {
     final currentState = state.valueOrNull;
+    final currentUserId = ref.read(currentUserIdProvider);
     if (currentState == null || currentUserId == null) return [];
 
-    return currentState.chats.where((chatItem) => 
-        !chatItem.chat.isPinnedForUser(currentUserId!)).toList();
+    return currentState.getRegularChats(currentUserId);
   }
 
   int getUnreadChatsCount() {
     final currentState = state.valueOrNull;
+    final currentUserId = ref.read(currentUserIdProvider);
     if (currentState == null || currentUserId == null) return 0;
 
     return currentState.chats.where((chatItem) => 
-        chatItem.chat.getUnreadCount(currentUserId!) > 0).length;
+        chatItem.chat.getUnreadCount(currentUserId) > 0).length;
   }
 
   int getTotalUnreadMessagesCount() {
     final currentState = state.valueOrNull;
-    if (currentState == null || currentUserId == null) return 0;
+    return currentState?.totalUnreadCount ?? 0;
+  }
 
-    return currentState.chats.fold<int>(0, (total, chatItem) => 
-        total + chatItem.chat.getUnreadCount(currentUserId!));
+  Map<String, dynamic> getChatStatistics() {
+    final currentState = state.valueOrNull;
+    final currentUserId = ref.read(currentUserIdProvider);
+    
+    if (currentState == null || currentUserId == null) {
+      return {
+        'totalChats': 0,
+        'pinnedChats': 0,
+        'unreadChats': 0,
+        'totalUnreadMessages': 0,
+        'mutedChats': 0,
+        'onlineContacts': 0,
+        'isOnline': false,
+        'isSyncing': false,
+        'lastSyncTime': null,
+      };
+    }
+
+    final pinnedChats = currentState.getPinnedChats(currentUserId).length;
+    final unreadChats = getUnreadChatsCount();
+    final mutedChats = currentState.chats.where((chatItem) => 
+        chatItem.chat.isMutedForUser(currentUserId)).length;
+    final onlineContacts = currentState.chats.where((chatItem) => 
+        chatItem.isOnline).length;
+
+    return {
+      'totalChats': currentState.chats.length,
+      'pinnedChats': pinnedChats,
+      'unreadChats': unreadChats,
+      'totalUnreadMessages': currentState.totalUnreadCount,
+      'mutedChats': mutedChats,
+      'onlineContacts': onlineContacts,
+      'isOnline': currentState.isOnline,
+      'isSyncing': currentState.isSyncing,
+      'lastSyncTime': currentState.lastSyncTime,
+    };
   }
 
   String? get currentUserId => ref.read(currentUserIdProvider);
@@ -683,5 +745,10 @@ class ChatList extends _$ChatList {
   bool get isSyncing {
     final currentState = state.valueOrNull;
     return currentState?.isSyncing ?? false;
+  }
+  
+  int get totalUnreadCount {
+    final currentState = state.valueOrNull;
+    return currentState?.totalUnreadCount ?? 0;
   }
 }
